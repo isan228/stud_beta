@@ -860,6 +860,33 @@ function setupAdminEventListeners() {
         });
     }
 
+    // Загрузка PDF
+    const uploadPdfBtn = document.getElementById('uploadPdfBtn');
+    if (uploadPdfBtn) {
+        uploadPdfBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch(`${ADMIN_API_URL}/tests`, {
+                    headers: {
+                        'Authorization': `Bearer ${currentAdminToken}`
+                    }
+                });
+                const tests = await response.json();
+                const select = document.getElementById('pdfTestId');
+                select.innerHTML = '<option value="">Выберите тест</option>' +
+                    tests.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+                document.getElementById('pdfUploadModal').style.display = 'block';
+            } catch (error) {
+                console.error('Ошибка загрузки тестов:', error);
+                showNotification('Ошибка загрузки тестов', 'error');
+            }
+        });
+    }
+
+    const pdfUploadForm = document.getElementById('pdfUploadForm');
+    if (pdfUploadForm) {
+        pdfUploadForm.addEventListener('submit', handlePdfUpload);
+    }
+
     const addQuestionBtn = document.getElementById('addQuestionBtn');
     if (addQuestionBtn) {
         addQuestionBtn.addEventListener('click', async () => {
@@ -904,6 +931,11 @@ function setupAdminEventListeners() {
         questionForm.addEventListener('submit', saveQuestion);
     }
 
+    const pdfUploadForm = document.getElementById('pdfUploadForm');
+    if (pdfUploadForm) {
+        pdfUploadForm.addEventListener('submit', handlePdfUpload);
+    }
+
     const addAnswerBtn = document.getElementById('addAnswerBtn');
     if (addAnswerBtn) {
         addAnswerBtn.addEventListener('click', addAnswer);
@@ -941,6 +973,92 @@ function setupAdminEventListeners() {
         questionsTestFilter.addEventListener('change', () => {
             loadQuestions();
         });
+    }
+}
+
+// Загрузка PDF
+async function handlePdfUpload(e) {
+    e.preventDefault();
+    
+    const testId = document.getElementById('pdfTestId').value;
+    const fileInput = document.getElementById('pdfFile');
+    
+    if (!testId) {
+        if (typeof showNotification === 'function') {
+            showNotification('Выберите тест', 'error');
+        } else {
+            alert('Выберите тест');
+        }
+        return;
+    }
+    
+    if (!fileInput.files || !fileInput.files[0]) {
+        if (typeof showNotification === 'function') {
+            showNotification('Выберите PDF файл', 'error');
+        } else {
+            alert('Выберите PDF файл');
+        }
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('pdf', fileInput.files[0]);
+    formData.append('testId', testId);
+    
+    const progressDiv = document.getElementById('pdfUploadProgress');
+    const progressBar = document.getElementById('pdfUploadProgressBar');
+    const statusText = document.getElementById('pdfUploadStatus');
+    
+    if (progressDiv) progressDiv.style.display = 'block';
+    if (progressBar) progressBar.style.width = '30%';
+    if (statusText) statusText.textContent = 'Загрузка файла...';
+    
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/upload-pdf`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${currentAdminToken}`
+            },
+            body: formData
+        });
+        
+        if (progressBar) progressBar.style.width = '70%';
+        if (statusText) statusText.textContent = 'Обработка PDF...';
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            if (progressBar) progressBar.style.width = '100%';
+            if (statusText) statusText.textContent = 'Готово!';
+            
+            setTimeout(() => {
+                if (typeof showNotification === 'function') {
+                    showNotification(`Успешно загружено ${result.questions.length} вопросов`, 'success');
+                } else {
+                    alert(`Успешно загружено ${result.questions.length} вопросов`);
+                }
+                const modal = document.getElementById('pdfUploadModal');
+                if (modal) modal.style.display = 'none';
+                const form = document.getElementById('pdfUploadForm');
+                if (form) form.reset();
+                if (progressDiv) progressDiv.style.display = 'none';
+                if (progressBar) progressBar.style.width = '0%';
+                
+                // Обновляем список вопросов
+                loadQuestions();
+            }, 500);
+        } else {
+            throw new Error(result.error || 'Ошибка загрузки PDF');
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки PDF:', error);
+        if (typeof showNotification === 'function') {
+            showNotification(error.message || 'Ошибка загрузки PDF', 'error');
+        } else {
+            alert(error.message || 'Ошибка загрузки PDF');
+        }
+        if (progressDiv) progressDiv.style.display = 'none';
+        if (progressBar) progressBar.style.width = '0%';
     }
 }
 

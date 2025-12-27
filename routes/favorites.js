@@ -64,7 +64,10 @@ router.get('/favorites', auth, async (req, res) => {
       order: [['createdAt', 'DESC']]
     });
 
-    const questions = favorites.map(f => f.Question);
+    const questions = favorites
+      .map(f => f.Question)
+      .filter(q => q !== null && q !== undefined); // Фильтруем null/undefined
+    
     res.json(questions);
   } catch (error) {
     console.error('Ошибка получения избранного:', error);

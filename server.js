@@ -18,6 +18,7 @@ app.use('/api/tests', require('./routes/tests'));
 app.use('/api', require('./routes/favorites'));
 app.use('/api', require('./routes/stats'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/admin', require('./routes/pdfUpload'));
 
 // Маршруты для страниц (ДО статических файлов!)
 const pages = {

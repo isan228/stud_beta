@@ -12,7 +12,7 @@
     <nav class="navbar">
         <div class="container">
             <div class="nav-brand">
-                <a href="/"><h1>stud.kg</h1></a>
+                <a href="/"><h1>STUD.kg</h1></a>
             </div>
             <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Меню">
                 <span></span>
@@ -56,7 +56,7 @@
             <div class="container">
                 <div class="page-header">
                     <h1>Админ-панель</h1>
-                    <p class="page-description">Управление платформой stud.kg</p>
+                    <p class="page-description">Управление платформой STUD.kg</p>
                 </div>
 
                 <div class="admin-tabs">
@@ -157,11 +157,12 @@
                 <div id="questionsTab" class="admin-tab-content">
                     <div class="admin-section-header">
                         <h2>Управление вопросами</h2>
-                        <div style="display: flex; gap: 1rem; align-items: center;">
+                        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
                             <select id="questionsTestFilter" class="form-group input">
                                 <option value="">Все тесты</option>
                             </select>
                             <button class="btn btn-primary" id="addQuestionBtn">+ Добавить вопрос</button>
+                            <button class="btn btn-secondary" id="uploadPdfBtn">📄 Загрузить из PDF</button>
                         </div>
                     </div>
                     <div id="questionsList" class="admin-list"></div>
@@ -210,6 +211,40 @@
                     <textarea id="testDescription" rows="3"></textarea>
                 </div>
                 <button type="submit" class="btn btn-primary">Сохранить</button>
+                <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="pdfUploadModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <span class="modal-close">&times;</span>
+            <h2>📄 Загрузить вопросы из PDF</h2>
+            <form id="pdfUploadForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="pdfTestId">Тест</label>
+                    <select id="pdfTestId" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="pdfFile">PDF файл</label>
+                    <input type="file" id="pdfFile" accept=".pdf" required>
+                    <small style="color: var(--text-muted); display: block; margin-top: 0.5rem; line-height: 1.5;">
+                        <strong>Формат PDF:</strong><br>
+                        1. Вопрос?<br>
+                        A) Ответ 1<br>
+                        B) Ответ 2<br>
+                        C) Ответ 3<br>
+                        D) Ответ 4<br>
+                        Правильный ответ: A
+                    </small>
+                </div>
+                <div id="pdfUploadProgress" style="display: none; margin: 1rem 0;">
+                    <div style="background: var(--bg-secondary); border-radius: var(--radius); padding: 0.25rem; height: 24px;">
+                        <div id="pdfUploadProgressBar" style="background: linear-gradient(90deg, var(--primary-color), var(--primary-light)); height: 100%; border-radius: var(--radius); width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75rem; font-weight: 600;"></div>
+                    </div>
+                    <p id="pdfUploadStatus" style="margin-top: 0.5rem; color: var(--text-secondary); font-size: 0.9rem; text-align: center;">Обработка...</p>
+                </div>
+                <button type="submit" class="btn btn-primary">Загрузить</button>
                 <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
             </form>
         </div>

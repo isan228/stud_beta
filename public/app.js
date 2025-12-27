@@ -945,7 +945,10 @@ async function loadFavorites() {
         const container = document.getElementById('favoritesList');
         const actionsDiv = document.getElementById('favoritesActions');
         
-        if (favorites.length === 0) {
+        // Фильтруем null/undefined вопросы
+        const validFavorites = (favorites || []).filter(f => f && f.id);
+        
+        if (validFavorites.length === 0) {
             container.innerHTML = `
                 <div style="text-align: center; padding: 4rem 2rem; background-color: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--border-light);">
                     <div style="font-size: 3rem; margin-bottom: 1rem;">⭐</div>
@@ -955,7 +958,7 @@ async function loadFavorites() {
             `;
             if (actionsDiv) actionsDiv.style.display = 'none';
         } else {
-            container.innerHTML = favorites.map((fav, index) => `
+            container.innerHTML = validFavorites.map((fav, index) => `
                 <div class="favorite-item">
                     <div class="favorite-item-header">
                         <div style="flex: 1;">
@@ -977,7 +980,7 @@ async function loadFavorites() {
             `).join('');
             if (actionsDiv) {
                 actionsDiv.style.display = 'block';
-                document.getElementById('startFavoriteTest').textContent = `Пройти тест из избранного (${favorites.length} вопросов)`;
+                document.getElementById('startFavoriteTest').textContent = `Пройти тест из избранного (${validFavorites.length} вопросов)`;
             }
         }
 
