@@ -52,18 +52,23 @@ router.get('/favorites', auth, async (req, res) => {
       where: { userId: req.user.id },
       include: [{
         model: Question,
+        as: 'Question',
+        required: false, // LEFT JOIN - включаем даже если вопрос удален
         include: [{
           model: Answer,
-          as: 'Answers'
+          as: 'Answers',
+          required: false
         }, {
           model: Test,
           as: 'Test',
+          required: false,
           attributes: ['id', 'name', 'subjectId']
         }]
       }],
       order: [['createdAt', 'DESC']]
     });
 
+    // Фильтруем и преобразуем результаты
     const questions = favorites
       .map(f => f.Question)
       .filter(q => q !== null && q !== undefined); // Фильтруем null/undefined
@@ -71,7 +76,11 @@ router.get('/favorites', auth, async (req, res) => {
     res.json(questions);
   } catch (error) {
     console.error('Ошибка получения избранного:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
+    console.error('Детали ошибки:', error.message, error.stack);
+    res.status(500).json({ 
+      error: 'Ошибка сервера',
+      message: error.message 
+    });
   }
 });
 

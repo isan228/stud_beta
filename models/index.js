@@ -31,6 +31,10 @@ Answer.belongsTo(Question, { foreignKey: 'questionId', as: 'Question' });
 User.belongsToMany(Question, { through: Favorite, foreignKey: 'userId' });
 Question.belongsToMany(User, { through: Favorite, foreignKey: 'questionId' });
 
+// Прямые связи для Favorite (для include в запросах)
+Favorite.belongsTo(Question, { foreignKey: 'questionId', as: 'Question' });
+Favorite.belongsTo(User, { foreignKey: 'userId', as: 'User' });
+
 module.exports = {
   sequelize,
   User,
