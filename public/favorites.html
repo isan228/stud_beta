@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="theme-color" content="#2563eb">
+    <title>Избранное - stud.kg</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="/"><h1>stud.kg</h1></a>
+            </div>
+            <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Меню">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <a href="/" class="nav-link">Главная</a>
+                <a href="/tests" class="nav-link">Тесты</a>
+                <a href="/news" class="nav-link">Новости</a>
+                <a href="/favorites" class="nav-link" id="favoritesLink">Избранное</a>
+                <a href="/profile" class="nav-link" id="profileLink" style="display: none;">Профиль</a>
+                <a href="/contact" class="nav-link">Обратная связь</a>
+                <div class="nav-actions">
+                    <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему">
+                        <span class="theme-icon">🌙</span>
+                    </button>
+                    <a href="/login" class="btn btn-primary" id="loginBtn" style="display: none;">Войти</a>
+                    <a href="/register" class="btn btn-secondary" id="registerBtn" style="display: none;">Регистрация</a>
+                    <button class="btn btn-logout" id="logoutBtn">Выход</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="container">
+            <div class="page-header">
+                <h1>Избранные вопросы</h1>
+                <p class="page-description">
+                    Здесь собраны все вопросы, которые вы добавили в избранное. 
+                    Используйте их для повторения сложных тем или создайте персональный тест.
+                </p>
+            </div>
+            <div id="favoritesList" class="favorites-list"></div>
+            <div class="favorites-actions" style="display: none;" id="favoritesActions">
+                <button class="btn btn-primary btn-large" id="startFavoriteTest">Пройти тест из избранного</button>
+                <p class="action-hint">Создайте тест из всех сохраненных вопросов для комплексного повторения</p>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>stud.kg</h3>
+                    <p>Платформа для подготовки к экзаменам</p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 stud.kg. Все права защищены.</p>
+            </div>
+        </div>
+    </footer>
+
+    <div id="notification" class="notification"></div>
+    <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            loadUser();
+            setupEventListeners();
+            if (!currentUser) {
+                window.location.href = '/login';
+            } else {
+                loadFavorites();
+            }
+        });
+    </script>
+</body>
+</html>
+

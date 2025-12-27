@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="theme-color" content="#2563eb">
+    <title>Прохождение теста - stud.kg</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="/"><h1>stud.kg</h1></a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="container">
+            <div class="test-header">
+                <div class="test-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <span id="progressText">Вопрос 1 из 10</span>
+                </div>
+                <div class="test-timer" id="testTimer" style="display: none;">
+                    <span id="timerDisplay">30:00</span>
+                </div>
+            </div>
+            <div id="testContent" class="test-content"></div>
+            <div class="test-actions">
+                <button class="btn btn-secondary" id="prevQuestion" style="display: none;">Назад</button>
+                <button class="btn btn-primary" id="nextQuestion">Далее</button>
+                <button class="btn btn-success" id="finishTest" style="display: none;">Завершить тест</button>
+            </div>
+        </div>
+    </main>
+
+    <div id="notification" class="notification"></div>
+    <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            loadUser();
+            setupEventListeners();
+            // Тест загружается через sessionStorage или параметры URL
+            const testData = sessionStorage.getItem('testData');
+            if (testData) {
+                const data = JSON.parse(testData);
+                currentTestId = data.testId;
+                currentQuestions = data.questions;
+                currentAnswers = data.answers || {};
+                currentQuestionIndex = data.questionIndex || 0;
+                testStartTime = data.startTime || Date.now();
+                if (data.timer) {
+                    startTimer(data.timer);
+                }
+                showQuestion();
+            } else {
+                window.location.href = '/tests';
+            }
+        });
+    </script>
+</body>
+</html>
+

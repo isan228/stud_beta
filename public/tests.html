@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="theme-color" content="#2563eb">
+    <title>Тесты - stud.kg</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="/"><h1>stud.kg</h1></a>
+            </div>
+            <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Меню">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <a href="/" class="nav-link">Главная</a>
+                <a href="/tests" class="nav-link">Тесты</a>
+                <a href="/news" class="nav-link">Новости</a>
+                <a href="/favorites" class="nav-link" id="favoritesLink" style="display: none;">Избранное</a>
+                <a href="/profile" class="nav-link" id="profileLink" style="display: none;">Профиль</a>
+                <a href="/contact" class="nav-link">Обратная связь</a>
+                <div class="nav-actions">
+                    <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему">
+                        <span class="theme-icon">🌙</span>
+                    </button>
+                    <a href="/login" class="btn btn-primary" id="loginBtn">Войти</a>
+                    <a href="/register" class="btn btn-secondary" id="registerBtn">Регистрация</a>
+                    <button class="btn btn-logout" id="logoutBtn" style="display: none;">Выход</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="container">
+            <div class="page-header">
+                <h1>Выберите предмет</h1>
+                <p class="page-description">
+                    Выберите интересующий вас предмет для начала подготовки. 
+                    Каждый предмет содержит множество тестов различной сложности.
+                </p>
+            </div>
+            <div id="subjectsList" class="subjects-grid">
+                <div style="text-align: center; padding: 3rem; width: 100%; grid-column: 1 / -1;">
+                    <div class="loading" style="margin: 0 auto;"></div>
+                    <p style="margin-top: 1rem; color: var(--text-secondary);">Загрузка предметов...</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>stud.kg</h3>
+                    <p>Платформа для подготовки к экзаменам</p>
+                    <div class="footer-social">
+                        <a href="https://wa.me/996XXXXXXXXX" target="_blank" rel="noopener noreferrer" class="footer-social-link" aria-label="WhatsApp">💬</a>
+                        <a href="https://t.me/stud_kg" target="_blank" rel="noopener noreferrer" class="footer-social-link" aria-label="Telegram">✈️</a>
+                        <a href="https://instagram.com/stud.kg" target="_blank" rel="noopener noreferrer" class="footer-social-link" aria-label="Instagram">📷</a>
+                    </div>
+                </div>
+                <div class="footer-section">
+                    <h4>Навигация</h4>
+                    <ul class="footer-links">
+                        <li><a href="/">Главная</a></li>
+                        <li><a href="/tests">Тесты</a></li>
+                        <li><a href="/news">Новости</a></li>
+                        <li><a href="/contact">Обратная связь</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 stud.kg. Все права защищены.</p>
+            </div>
+        </div>
+    </footer>
+
+    <div id="notification" class="notification"></div>
+    <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            loadUser();
+            setupEventListeners();
+            loadSubjects();
+        });
+    </script>
+</body>
+</html>
+

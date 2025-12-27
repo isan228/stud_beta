@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="theme-color" content="#2563eb">
+    <title>Результаты теста - stud.kg</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="/"><h1>stud.kg</h1></a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="container">
+            <div class="result-card">
+                <h2>Результаты теста</h2>
+                <div class="result-score">
+                    <span class="score-number" id="resultScore">0</span>
+                    <span class="score-total">из <span id="resultTotal">0</span></span>
+                </div>
+                <div class="result-percentage" id="resultPercentage">0%</div>
+                <div id="resultDetails"></div>
+                <a href="/tests" class="btn btn-primary">Вернуться к тестам</a>
+            </div>
+        </div>
+    </main>
+
+    <div id="notification" class="notification"></div>
+    <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            const resultData = sessionStorage.getItem('testResult');
+            if (resultData) {
+                const result = JSON.parse(resultData);
+                showTestResults(result);
+                sessionStorage.removeItem('testResult');
+            } else {
+                window.location.href = '/tests';
+            }
+        });
+    </script>
+</body>
+</html>
+

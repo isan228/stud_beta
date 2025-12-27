@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>stud.kg - Подготовка к экзаменам</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="/"><h1>stud.kg</h1></a>
+            </div>
+            <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Меню">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <a href="/" class="nav-link">Главная</a>
+                <a href="/tests" class="nav-link">Тесты</a>
+                <a href="/news" class="nav-link">Новости</a>
+                <a href="/favorites" class="nav-link" id="favoritesLink" style="display: none;">Избранное</a>
+                <a href="/profile" class="nav-link" id="profileLink" style="display: none;">Профиль</a>
+                <a href="/contact" class="nav-link">Обратная связь</a>
+                <div class="nav-actions">
+                    <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему">
+                        <span class="theme-icon">🌙</span>
+                    </button>
+                    <a href="/login" class="btn btn-primary" id="loginBtn">Войти</a>
+                    <a href="/register" class="btn btn-secondary" id="registerBtn">Регистрация</a>
+                    <button class="btn btn-logout" id="logoutBtn" style="display: none;">Выход</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="hero">
+            <div class="hero-content">
+                <h1 class="hero-title fade-in">stud.kg</h1>
+                <p class="hero-subtitle fade-in-delay">Профессиональная платформа для подготовки к экзаменам</p>
+                <p class="hero-description fade-in-delay-2">
+                    Систематизируйте свою подготовку с помощью интерактивных тестов, 
+                    отслеживайте прогресс и достигайте лучших результатов
+                </p>
+                <div class="hero-actions fade-in-delay-2">
+                    <a href="/tests" class="btn btn-large btn-primary">Начать тестирование</a>
+                    <a href="/tests" class="btn btn-large btn-secondary">Просмотреть предметы</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="features-section">
+            <div class="container">
+                <h2 class="section-title">Возможности платформы</h2>
+                <div class="features-grid">
+                    <div class="feature-card card-animate">
+                        <div class="feature-icon">📚</div>
+                        <h3>Обширная база тестов</h3>
+                        <p>Доступ к тестам по различным предметам: математика, физика, химия, история, биология и другим дисциплинам</p>
+                    </div>
+                    <div class="feature-card card-animate">
+                        <div class="feature-icon">⚙️</div>
+                        <h3>Гибкие настройки</h3>
+                        <p>Настраивайте тесты под себя: выбирайте количество вопросов, включайте таймер, перемешивайте ответы</p>
+                    </div>
+                    <div class="feature-card card-animate">
+                        <div class="feature-icon">⭐</div>
+                        <h3>Система избранного</h3>
+                        <p>Сохраняйте сложные вопросы для повторения и создавайте персональные тесты из избранного</p>
+                    </div>
+                    <div class="feature-card card-animate">
+                        <div class="feature-icon">📊</div>
+                        <h3>Детальная статистика</h3>
+                        <p>Отслеживайте свой прогресс, точность ответов и поддерживайте ежедневные стрики занятий</p>
+                    </div>
+                    <div class="feature-card card-animate">
+                        <div class="feature-icon">🎯</div>
+                        <h3>Адаптивное обучение</h3>
+                        <p>Фокусируйтесь на слабых местах, анализируйте ошибки и улучшайте результаты с каждым тестом</p>
+                    </div>
+                    <div class="feature-card card-animate">
+                        <div class="feature-icon">🌓</div>
+                        <h3>Удобный интерфейс</h3>
+                        <p>Современный дизайн с поддержкой темной и светлой темы для комфортной работы в любое время</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-section">
+            <div class="container">
+                <div class="stats-row">
+                    <div class="stat-box animate-on-scroll">
+                        <div class="stat-number">500+</div>
+                        <div class="stat-text">Вопросов в базе</div>
+                    </div>
+                    <div class="stat-box animate-on-scroll">
+                        <div class="stat-number">15+</div>
+                        <div class="stat-text">Предметов</div>
+                    </div>
+                    <div class="stat-box animate-on-scroll">
+                        <div class="stat-number">100+</div>
+                        <div class="stat-text">Тестов</div>
+                    </div>
+                    <div class="stat-box animate-on-scroll">
+                        <div class="stat-number">24/7</div>
+                        <div class="stat-text">Доступность</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>stud.kg</h3>
+                    <p>Платформа для подготовки к экзаменам</p>
+                    <div class="footer-social">
+                        <a href="https://wa.me/996XXXXXXXXX" target="_blank" rel="noopener noreferrer" class="footer-social-link" aria-label="WhatsApp">
+                            💬
+                        </a>
+                        <a href="https://t.me/stud_kg" target="_blank" rel="noopener noreferrer" class="footer-social-link" aria-label="Telegram">
+                            ✈️
+                        </a>
+                        <a href="https://instagram.com/stud.kg" target="_blank" rel="noopener noreferrer" class="footer-social-link" aria-label="Instagram">
+                            📷
+                        </a>
+                    </div>
+                </div>
+                <div class="footer-section">
+                    <h4>Навигация</h4>
+                    <ul class="footer-links">
+                        <li><a href="/">Главная</a></li>
+                        <li><a href="/tests">Тесты</a></li>
+                        <li><a href="/news">Новости</a></li>
+                        <li><a href="/contact">Обратная связь</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Информация</h4>
+                    <ul class="footer-links">
+                        <li><a href="/contact">О нас</a></li>
+                        <li><a href="/contact">Помощь</a></li>
+                        <li><a href="/contact">Политика конфиденциальности</a></li>
+                        <li><a href="/contact">Публичная оферта</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 stud.kg. Все права защищены.</p>
+            </div>
+        </div>
+    </footer>
+
+    <div id="notification" class="notification"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>

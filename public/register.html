@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="theme-color" content="#2563eb">
+    <title>Регистрация - stud.kg</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="/"><h1>stud.kg</h1></a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="auth-container">
+            <h2>Регистрация</h2>
+            <form id="registerForm" class="auth-form">
+                <div class="form-group">
+                    <label for="regUsername">Никнейм</label>
+                    <input type="text" id="regUsername" name="username" required minlength="3" maxlength="50">
+                </div>
+                <div class="form-group">
+                    <label for="regEmail">Email</label>
+                    <input type="email" id="regEmail" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="regPassword">Пароль</label>
+                    <input type="password" id="regPassword" name="password" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label for="regConfirmPassword">Подтвердите пароль</label>
+                    <input type="password" id="regConfirmPassword" name="confirmPassword" required>
+                </div>
+                <div class="form-group checkbox-group">
+                    <label for="dataConsent">
+                        <input type="checkbox" id="dataConsent" name="dataConsent" value="true" required style="pointer-events: auto; z-index: 10; position: relative;">
+                        <span>Согласие на обработку персональных данных</span>
+                    </label>
+                    <small>Обязательно для регистрации</small>
+                </div>
+                <div class="form-group checkbox-group">
+                    <label for="publicOffer">
+                        <input type="checkbox" id="publicOffer" name="publicOffer" value="true" required style="pointer-events: auto; z-index: 10; position: relative;">
+                        <span>Согласие с публичной офертой</span>
+                    </label>
+                    <small>Обязательно для регистрации</small>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Зарегистрироваться</button>
+                <p class="auth-link">Уже есть аккаунт? <a href="/login">Войти</a></p>
+            </form>
+        </div>
+    </main>
+
+    <div id="notification" class="notification"></div>
+    <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            setupEventListeners();
+        });
+    </script>
+</body>
+</html>
+
