@@ -13,7 +13,8 @@
     "check-server": "bash scripts/checkServer.sh",
     "restart-server": "bash scripts/restartServer.sh",
     "setup-ssl": "bash scripts/setupSSL.sh",
-    "test-admin": "node scripts/testAdminLogin.js"
+    "test-admin": "node scripts/testAdminLogin.js",
+    "fix-admin": "node scripts/fixAdminAndJWT.js"
   },
   "keywords": [
     "education",
