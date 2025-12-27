@@ -3,7 +3,7 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const adminAuth = require('../middleware/adminAuth');
-const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin } = require('../models');
+const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
 // Вход администратора
