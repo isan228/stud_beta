@@ -76,11 +76,17 @@ async function fetchUser() {
             const data = await response.json();
             currentUser = data.user;
             updateUI();
+            return true; // Успешная загрузка
         } else {
-            logout();
+            // Токен невалидный
+            if (response.status === 401) {
+                logout();
+            }
+            return false;
         }
     } catch (error) {
         console.error('Ошибка загрузки пользователя:', error);
+        return false;
     }
 }
 

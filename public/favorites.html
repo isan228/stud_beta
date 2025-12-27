@@ -71,14 +71,37 @@
     <div id="notification" class="notification"></div>
     <script src="app.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             initTheme();
-            loadUser();
             setupEventListeners();
-            if (!currentUser) {
-                window.location.href = '/login';
+            
+            // Загружаем пользователя и ждем завершения
+            const token = localStorage.getItem('token');
+            if (token) {
+                currentToken = token;
+                try {
+                    const response = await fetch(`${API_URL}/auth/me`, {
+                        headers: {
+                            'Authorization': `Bearer ${currentToken}`
+                        }
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        currentUser = data.user;
+                        updateUI();
+                        loadFavorites();
+                    } else {
+                        // Токен невалидный - редирект на логин
+                        localStorage.removeItem('token');
+                        window.location.href = '/login';
+                    }
+                } catch (error) {
+                    console.error('Ошибка загрузки пользователя:', error);
+                    window.location.href = '/login';
+                }
             } else {
-                loadFavorites();
+                // Нет токена - редирект на логин
+                window.location.href = '/login';
             }
         });
     </script>
