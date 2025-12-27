@@ -931,10 +931,7 @@ function setupAdminEventListeners() {
         questionForm.addEventListener('submit', saveQuestion);
     }
 
-    const pdfUploadForm = document.getElementById('pdfUploadForm');
-    if (pdfUploadForm) {
-        pdfUploadForm.addEventListener('submit', handlePdfUpload);
-    }
+    // pdfUploadForm уже обработан выше, не дублируем
 
     const addAnswerBtn = document.getElementById('addAnswerBtn');
     if (addAnswerBtn) {
