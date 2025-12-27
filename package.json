@@ -12,7 +12,8 @@
     "fix-postgres": "bash scripts/fixPostgresUser.sh",
     "check-server": "bash scripts/checkServer.sh",
     "restart-server": "bash scripts/restartServer.sh",
-    "setup-ssl": "bash scripts/setupSSL.sh"
+    "setup-ssl": "bash scripts/setupSSL.sh",
+    "test-admin": "node scripts/testAdminLogin.js"
   },
   "keywords": [
     "education",

@@ -18,13 +18,32 @@ router.post('/login', [
     }
 
     const { username, password } = req.body;
-    const admin = await Admin.findOne({ where: { username } });
+    
+    console.log('Попытка входа администратора:', { username, passwordLength: password?.length });
+    
+    // Ищем администратора (без учета регистра для username)
+    const admin = await Admin.findOne({ 
+      where: { 
+        username: sequelize.where(
+          sequelize.fn('LOWER', sequelize.col('username')), 
+          username.toLowerCase()
+        )
+      } 
+    });
 
     if (!admin) {
+      console.log('Администратор не найден:', username);
+      // Проверяем, есть ли вообще администраторы
+      const adminCount = await Admin.count();
+      console.log('Всего администраторов в БД:', adminCount);
       return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
     }
 
+    console.log('Администратор найден:', { id: admin.id, username: admin.username });
+    
     const isMatch = await admin.comparePassword(password);
+    console.log('Проверка пароля:', isMatch);
+    
     if (!isMatch) {
       return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
     }
