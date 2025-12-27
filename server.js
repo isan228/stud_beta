@@ -18,7 +18,14 @@ app.use('/api/tests', require('./routes/tests'));
 app.use('/api', require('./routes/favorites'));
 app.use('/api', require('./routes/stats'));
 app.use('/api/admin', require('./routes/admin'));
-app.use('/api/admin', require('./routes/pdfUpload'));
+
+// Загрузка PDF - опционально (может не работать на некоторых версиях Node.js)
+try {
+  app.use('/api/admin', require('./routes/pdfUpload'));
+} catch (error) {
+  console.warn('⚠️  Роут загрузки PDF не загружен:', error.message);
+  console.warn('   Загрузка PDF будет недоступна. Используйте ручной ввод вопросов.');
+}
 
 // Маршруты для страниц (ДО статических файлов!)
 const pages = {
