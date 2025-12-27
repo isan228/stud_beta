@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const adminAuth = require('../middleware/adminAuth');
 const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, sequelize } = require('../models');
 const { Op } = require('sequelize');
+const { Sequelize } = require('sequelize');
 
 // Вход администратора
 router.post('/login', [
@@ -23,12 +24,10 @@ router.post('/login', [
     
     // Ищем администратора (без учета регистра для username)
     const admin = await Admin.findOne({ 
-      where: { 
-        username: sequelize.where(
-          sequelize.fn('LOWER', sequelize.col('username')), 
-          username.toLowerCase()
-        )
-      } 
+      where: Sequelize.where(
+        Sequelize.fn('LOWER', Sequelize.col('username')), 
+        username.toLowerCase()
+      )
     });
 
     if (!admin) {
