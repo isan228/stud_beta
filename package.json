@@ -9,7 +9,10 @@
     "init-db": "node scripts/initDatabase.js",
     "create-admin": "node scripts/createAdmin.js",
     "setup-postgres": "bash scripts/setupPostgres.sh",
-    "fix-postgres": "bash scripts/fixPostgresUser.sh"
+    "fix-postgres": "bash scripts/fixPostgresUser.sh",
+    "check-server": "bash scripts/checkServer.sh",
+    "restart-server": "bash scripts/restartServer.sh",
+    "setup-ssl": "bash scripts/setupSSL.sh"
   },
   "keywords": ["education", "tests", "students"],
   "author": "",
