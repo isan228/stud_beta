@@ -1362,6 +1362,15 @@ html[data-theme="dark"] .navbar {
     overflow: hidden;
     flex: 1;
     min-width: 0;
+    min-height: 44px;
+    height: 44px;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
 }
 
 .test-actions .btn::after {
@@ -2876,9 +2885,14 @@ html[data-theme="dark"] .navbar {
     .test-actions .btn {
         flex: 1;
         min-height: 44px;
+        height: 44px;
         font-size: 0.95rem;
         font-weight: 600;
         padding: 0.75rem 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
     }
     
     .test-actions #finishTest {
