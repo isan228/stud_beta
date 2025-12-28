@@ -16,7 +16,8 @@
     "test-admin": "node scripts/testAdminLogin.js",
     "fix-admin": "node scripts/fixAdminAndJWT.js",
     "add-subjects": "node scripts/addSubjects.js",
-    "add-tests": "node scripts/addTests.js"
+    "add-tests": "node scripts/addTests.js",
+    "check-pdf": "node scripts/checkPdfParse.js"
   },
   "keywords": [
     "education",
