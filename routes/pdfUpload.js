@@ -161,7 +161,7 @@ function parseQuestionsFromPDF(text) {
       
       // Завершаем предыдущий вопрос, если он был в процессе
       if (currentQuestionLines.length > 0 && !currentQuestion) {
-        currentQuestion = currentQuestionLines.join(' ').trim();
+        currentQuestion = currentQuestionLines.join('\n').trim();
       }
       
       // Сохраняем предыдущий вопрос
@@ -190,10 +190,15 @@ function parseQuestionsFromPDF(text) {
     }
     // Формат 1: A1, A2, A3, A4, A5: ответы (начало ответа)
     else if (line.match(/^A\d+:\s*/i)) {
+      // Завершаем вопрос, если он был в процессе
+      if (inQuestion && currentQuestionLines.length > 0 && !currentQuestion) {
+        currentQuestion = currentQuestionLines.join('\n').trim();
+      }
+      
       // Сохраняем предыдущий ответ, если был
       if (currentAnswerIndex !== null && currentAnswerText.length > 0) {
         currentAnswers[currentAnswerIndex] = {
-          text: currentAnswerText.join(' ').trim(),
+          text: currentAnswerText.join('\n').trim(),
           index: currentAnswerIndex
         };
       }
@@ -218,9 +223,9 @@ function parseQuestionsFromPDF(text) {
         };
       }
       
-      // Завершаем вопрос
-      if (currentQuestionLines.length > 0) {
-        currentQuestion = currentQuestionLines.join(' ').trim();
+      // Завершаем вопрос, если он был в процессе
+      if (inQuestion && currentQuestionLines.length > 0 && !currentQuestion) {
+        currentQuestion = currentQuestionLines.join('\n').trim();
       }
       
       const match = line.match(/^Correct:\s*(\d+)/i);
