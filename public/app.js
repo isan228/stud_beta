@@ -764,15 +764,18 @@ function showQuestion() {
     progressFillEl.style.width = `${progress}%`;
     progressTextEl.textContent = 
         `Вопрос ${currentQuestionIndex + 1} из ${currentQuestions.length}`;
-    const favoriteButton = currentUser ? `
-        <button class="btn btn-secondary" onclick="toggleFavorite(${question.id})" id="favoriteBtn${question.id}" style="margin-top: 1rem;">
-            <span id="favoriteIcon${question.id}">⭐</span> Добавить в избранное
+    const favoriteIcon = currentUser ? `
+        <button class="favorite-icon-btn" onclick="toggleFavorite(${question.id})" id="favoriteBtn${question.id}" title="Добавить в избранное">
+            <span id="favoriteIcon${question.id}">☆</span>
         </button>
     ` : '';
     
     content.innerHTML = `
         <div class="question-item">
-            <h3>${question.text}</h3>
+            <div class="question-header" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem;">
+                <h3 style="flex: 1; margin: 0;">${question.text}</h3>
+                ${favoriteIcon}
+            </div>
             <div class="answers-list">
                 ${question.Answers.map(answer => `
                     <div class="answer-item" data-answer-id="${answer.id}" onclick="selectAnswer(${answer.id})">
@@ -780,7 +783,6 @@ function showQuestion() {
                     </div>
                 `).join('')}
             </div>
-            ${favoriteButton}
         </div>
     `;
 
@@ -1445,7 +1447,12 @@ function updateFavoriteButton(questionId, isFavorite) {
     const icon = document.getElementById(`favoriteIcon${questionId}`);
     if (btn && icon) {
         icon.textContent = isFavorite ? '⭐' : '☆';
-        btn.innerHTML = `<span id="favoriteIcon${questionId}">${icon.textContent}</span> ${isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'}`;
+        btn.title = isFavorite ? 'Удалить из избранного' : 'Добавить в избранное';
+        if (isFavorite) {
+            btn.classList.add('favorite-active');
+        } else {
+            btn.classList.remove('favorite-active');
+        }
     }
 }
 
