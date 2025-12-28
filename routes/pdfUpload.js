@@ -106,31 +106,59 @@ function parseQuestionsFromPDF(text) {
   const questions = [];
   
   // Разные форматы вопросов
-  // Формат 1: Вопрос?\nA) Ответ\nB) Ответ\n...\nПравильный ответ: A
-  // Формат 2: 1. Вопрос?\nA) Ответ\nB) Ответ\n...\nОтвет: A
-  // Формат 3: Вопрос?\n1. Ответ\n2. Ответ\n...\nПравильный: 1
+  // Формат 1: Q: Вопрос\nA1: Ответ\nA2: Ответ\n...\nCorrect: 4
+  // Формат 2: Вопрос?\nA) Ответ\nB) Ответ\n...\nПравильный ответ: A
+  // Формат 3: 1. Вопрос?\nA) Ответ\nB) Ответ\n...\nОтвет: A
 
-  // Разделяем текст на блоки по вопросам
-  // Ищем паттерны: номер вопроса или просто вопрос с вариантами ответов
-  const questionPatterns = [
-    // Паттерн 1: Номер. Вопрос? ... Правильный ответ: X
-    /(\d+[\.\)]\s*)(.+?)(?=\d+[\.\)]\s*|Правильный ответ:|Ответ:|$)/gis,
-    // Паттерн 2: Вопрос? ... Правильный: X
-    /([А-ЯЁ][^?]*\?)(.+?)(?=Правильный|Ответ:|$)/gis
-  ];
-
-  // Упрощенный парсинг - ищем вопросы с вариантами ответов
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   
   let currentQuestion = null;
   let currentAnswers = [];
-  let correctAnswer = null;
+  let correctAnswerIndex = null;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     
-    // Определяем начало вопроса
-    if (line.match(/^\d+[\.\)]\s*.+\?/) || (line.includes('?') && !line.match(/^[A-D][\.\)]/))) {
+    // Формат 1: Q: вопрос
+    if (line.match(/^Q:\s*/i)) {
+      // Сохраняем предыдущий вопрос
+      if (currentQuestion && currentAnswers.length > 0) {
+        questions.push({
+          text: currentQuestion,
+          answers: currentAnswers.map((a, idx) => ({
+            text: a.text,
+            isCorrect: idx === correctAnswerIndex
+          }))
+        });
+      }
+      
+      // Начинаем новый вопрос
+      currentQuestion = line.replace(/^Q:\s*/i, '').trim();
+      currentAnswers = [];
+      correctAnswerIndex = null;
+    }
+    // Формат 1: A1, A2, A3, A4, A5: ответы
+    else if (line.match(/^A\d+:\s*/i)) {
+      const match = line.match(/^A(\d+):\s*(.+)/i);
+      if (match) {
+        const answerIndex = parseInt(match[1]) - 1; // A1 -> 0, A2 -> 1, etc.
+        const answerText = match[2].trim();
+        
+        currentAnswers[answerIndex] = {
+          text: answerText,
+          index: answerIndex
+        };
+      }
+    }
+    // Формат 1: Correct: номер
+    else if (line.match(/^Correct:\s*/i)) {
+      const match = line.match(/^Correct:\s*(\d+)/i);
+      if (match) {
+        correctAnswerIndex = parseInt(match[1]) - 1; // Correct: 4 -> index 3
+      }
+    }
+    // Формат 2: Определяем начало вопроса (старый формат)
+    else if (line.match(/^\d+[\.\)]\s*.+\?/) || (line.includes('?') && !line.match(/^[A-D][\.\)]/) && !line.match(/^A\d+:/i))) {
       // Сохраняем предыдущий вопрос
       if (currentQuestion && currentAnswers.length > 0) {
         questions.push({
@@ -145,10 +173,10 @@ function parseQuestionsFromPDF(text) {
       // Начинаем новый вопрос
       currentQuestion = line.replace(/^\d+[\.\)]\s*/, '');
       currentAnswers = [];
-      correctAnswer = null;
+      correctAnswerIndex = null;
     }
-    // Определяем вариант ответа
-    else if (line.match(/^[A-D][\.\)]\s*/) || line.match(/^\d+[\.\)]\s*/)) {
+    // Формат 2: Определяем вариант ответа (старый формат)
+    else if (line.match(/^[A-D][\.\)]\s*/) || (line.match(/^\d+[\.\)]\s*/) && !line.match(/^Correct:/i))) {
       const answerText = line.replace(/^[A-D][\.\)]\s*/, '').replace(/^\d+[\.\)]\s*/, '');
       const letter = line.match(/^([A-D])/)?.[1] || null;
       
@@ -158,11 +186,11 @@ function parseQuestionsFromPDF(text) {
         isCorrect: false
       });
     }
-    // Определяем правильный ответ
+    // Формат 2: Определяем правильный ответ (старый формат)
     else if (line.match(/Правильный ответ:|Ответ:|Правильный:/i)) {
       const match = line.match(/([A-D]|\d+)/i);
       if (match) {
-        correctAnswer = match[1].toUpperCase();
+        const correctAnswer = match[1].toUpperCase();
         
         // Отмечаем правильный ответ
         if (currentAnswers.length > 0) {
@@ -178,17 +206,20 @@ function parseQuestionsFromPDF(text) {
 
   // Сохраняем последний вопрос
   if (currentQuestion && currentAnswers.length > 0) {
-    questions.push({
-      text: currentQuestion,
-      answers: currentAnswers.map(a => ({
-        text: a.text,
-        isCorrect: a.isCorrect || false
-      }))
-    });
+    // Фильтруем пустые ответы для формата A1-A5
+    const validAnswers = currentAnswers.filter(a => a && a.text);
+    
+    if (validAnswers.length > 0) {
+      questions.push({
+        text: currentQuestion,
+        answers: validAnswers.map((a, idx) => ({
+          text: a.text,
+          isCorrect: correctAnswerIndex !== null ? idx === correctAnswerIndex : (a.isCorrect || false)
+        }))
+      });
+    }
   }
 
-  // Если не удалось распарсить автоматически, возвращаем пустой массив
-  // Админ может загрузить вопросы вручную
   return questions;
 }
 
