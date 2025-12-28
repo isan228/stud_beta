@@ -154,7 +154,7 @@ function parseQuestionsFromPDF(text) {
       // Сохраняем последний ответ предыдущего вопроса, если был
       if (currentAnswerIndex !== null && currentAnswerText.length > 0) {
         currentAnswers[currentAnswerIndex] = {
-          text: currentAnswerText.join(' ').trim(),
+          text: currentAnswerText.join('\n').trim(),
           index: currentAnswerIndex
         };
       }
@@ -218,7 +218,7 @@ function parseQuestionsFromPDF(text) {
       // Сохраняем последний ответ
       if (currentAnswerIndex !== null && currentAnswerText.length > 0) {
         currentAnswers[currentAnswerIndex] = {
-          text: currentAnswerText.join(' ').trim(),
+          text: currentAnswerText.join('\n').trim(),
           index: currentAnswerIndex
         };
       }
@@ -294,14 +294,14 @@ function parseQuestionsFromPDF(text) {
   // Сохраняем последний ответ, если он был в процессе
   if (currentAnswerIndex !== null && currentAnswerText.length > 0) {
     currentAnswers[currentAnswerIndex] = {
-      text: currentAnswerText.join(' ').trim(),
+      text: currentAnswerText.join('\n').trim(),
       index: currentAnswerIndex
     };
   }
   
   // Завершаем вопрос, если он был в процессе (формат Q:/A1-A5)
   if (currentQuestionLines.length > 0 && !currentQuestion) {
-    currentQuestion = currentQuestionLines.join(' ').trim();
+    currentQuestion = currentQuestionLines.join('\n').trim();
   }
 
   // Сохраняем последний вопрос
