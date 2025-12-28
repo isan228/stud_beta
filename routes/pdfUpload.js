@@ -151,15 +151,31 @@ function parseQuestionsFromPDF(text) {
     
     // Формат 1: Q: вопрос (начало вопроса)
     if (line.match(/^Q:\s*/i)) {
+      // Сохраняем последний ответ предыдущего вопроса, если был
+      if (currentAnswerIndex !== null && currentAnswerText.length > 0) {
+        currentAnswers[currentAnswerIndex] = {
+          text: currentAnswerText.join(' ').trim(),
+          index: currentAnswerIndex
+        };
+      }
+      
+      // Завершаем предыдущий вопрос, если он был в процессе
+      if (currentQuestionLines.length > 0 && !currentQuestion) {
+        currentQuestion = currentQuestionLines.join(' ').trim();
+      }
+      
       // Сохраняем предыдущий вопрос
       if (currentQuestion && currentAnswers.length > 0) {
-        questions.push({
-          text: currentQuestion,
-          answers: currentAnswers.filter(a => a && a.text).map((a, idx) => ({
-            text: a.text,
-            isCorrect: idx === correctAnswerIndex
-          }))
-        });
+        const validAnswers = currentAnswers.filter(a => a && a.text && a.text.length > 0);
+        if (validAnswers.length > 0) {
+          questions.push({
+            text: currentQuestion,
+            answers: validAnswers.map((a, idx) => ({
+              text: a.text,
+              isCorrect: idx === correctAnswerIndex
+            }))
+          });
+        }
       }
       
       // Начинаем новый вопрос
@@ -270,10 +286,23 @@ function parseQuestionsFromPDF(text) {
     }
   }
 
+  // Сохраняем последний ответ, если он был в процессе
+  if (currentAnswerIndex !== null && currentAnswerText.length > 0) {
+    currentAnswers[currentAnswerIndex] = {
+      text: currentAnswerText.join(' ').trim(),
+      index: currentAnswerIndex
+    };
+  }
+  
+  // Завершаем вопрос, если он был в процессе (формат Q:/A1-A5)
+  if (currentQuestionLines.length > 0 && !currentQuestion) {
+    currentQuestion = currentQuestionLines.join(' ').trim();
+  }
+
   // Сохраняем последний вопрос
-  if (currentQuestion && currentAnswers.length > 0) {
+  if (currentQuestion) {
     // Фильтруем пустые ответы для формата A1-A5
-    const validAnswers = currentAnswers.filter(a => a && a.text);
+    const validAnswers = currentAnswers.filter(a => a && a.text && a.text.length > 0);
     
     if (validAnswers.length > 0) {
       questions.push({
