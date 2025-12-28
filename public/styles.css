@@ -1233,6 +1233,12 @@ html[data-theme="dark"] .navbar {
     color: var(--text-color);
     position: relative;
     padding-left: 1rem;
+    line-height: 1.6;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+    font-size: 1.25rem;
+    font-weight: 600;
 }
 
 .question-item h3::before {

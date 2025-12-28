@@ -779,7 +779,7 @@ function showQuestion() {
     
     content.innerHTML = `
         <div class="question-item">
-            <h3>${question.text}</h3>
+            <h3>${question.text.replace(/\n/g, '<br>')}</h3>
             <div class="answers-list">
                 ${question.Answers.map(answer => `
                     <div class="answer-item" data-answer-id="${answer.id}" onclick="selectAnswer(${answer.id})">
