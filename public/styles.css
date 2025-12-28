@@ -562,6 +562,11 @@ html[data-theme="dark"] .navbar {
     gap: 1rem;
     justify-content: center;
     flex-wrap: wrap;
+    margin-top: 2rem;
+}
+
+.hero-actions .btn {
+    min-width: 200px;
 }
 
 /* Features Section */
