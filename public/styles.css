@@ -312,7 +312,6 @@ html[data-theme="dark"] .navbar {
 .main-content {
     min-height: calc(100vh - 80px);
     padding: 2rem 0 4rem;
-    padding-bottom: 4rem;
 }
 
 .page {
@@ -961,6 +960,8 @@ html[data-theme="dark"] .navbar {
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     gap: 1.5rem;
     margin-top: 2rem;
+    margin-bottom: 2rem;
+    padding-bottom: 2rem;
 }
 
 .subject-card, .test-card {
