@@ -145,6 +145,8 @@ function parseQuestionsFromPDF(text) {
   let correctAnswerIndex = null;
   let inQuestion = false;
   let inAnswer = false;
+  
+  console.log('Начало парсинга PDF. Всего строк:', text.split('\n').length);
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
