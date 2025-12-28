@@ -64,8 +64,25 @@ router.post('/upload-pdf', adminAuth, upload.single('pdf'), async (req, res) => 
     }
 
     // Парсим PDF
-    const pdfData = await pdfParse(req.file.buffer);
+    let pdfData;
+    try {
+      pdfData = await pdfParse(req.file.buffer);
+    } catch (parseError) {
+      console.error('Ошибка парсинга PDF:', parseError);
+      return res.status(500).json({ 
+        error: 'Ошибка парсинга PDF файла',
+        message: parseError.message || 'Не удалось извлечь текст из PDF. Убедитесь, что файл не поврежден.'
+      });
+    }
+    
     const text = pdfData.text;
+    
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({ 
+        error: 'PDF файл пуст или не содержит текста',
+        message: 'Убедитесь, что PDF содержит текст, а не только изображения.'
+      });
+    }
 
     // Парсим вопросы из текста
     // Формат: Вопрос?\nA) Ответ1\nB) Ответ2\nC) Ответ3\nD) Ответ4\nПравильный ответ: A
