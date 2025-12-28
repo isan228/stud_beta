@@ -2553,7 +2553,7 @@ html[data-theme="dark"] .navbar {
 
     /* Главный контент */
     .main-content {
-        padding: 1.5rem 0;
+        padding: 1.5rem 0 3rem;
     }
 
     /* Hero секция */
@@ -2689,7 +2689,8 @@ html[data-theme="dark"] .navbar {
         grid-template-columns: 1fr;
         gap: 1.5rem;
         margin-top: 2rem;
-        padding: 0 20px;
+        margin-bottom: 2rem;
+        padding: 0 20px 2rem;
     }
 
     .subject-card, .test-card {
