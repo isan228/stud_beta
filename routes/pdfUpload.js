@@ -6,11 +6,15 @@ const { Question, Answer, Test } = require('../models');
 
 // Пытаемся загрузить pdf-parse, но делаем это опциональным
 let pdfParse = null;
+let pdfParseError = null;
 try {
   pdfParse = require('pdf-parse');
+  console.log('✓ pdf-parse успешно загружен');
 } catch (error) {
+  pdfParseError = error;
   console.warn('⚠️  pdf-parse не может быть загружен. Загрузка PDF будет недоступна.');
-  console.warn('   Это нормально для некоторых версий Node.js.');
+  console.warn('   Ошибка:', error.message);
+  console.warn('   Попробуйте переустановить: npm install pdf-parse');
 }
 
 // Настройка multer для загрузки файлов
@@ -33,9 +37,13 @@ router.post('/upload-pdf', adminAuth, upload.single('pdf'), async (req, res) => 
   try {
     // Проверяем, доступен ли pdf-parse
     if (!pdfParse) {
+      const errorMessage = pdfParseError 
+        ? `Модуль pdf-parse не может быть загружен: ${pdfParseError.message}. Попробуйте переустановить: npm install pdf-parse`
+        : 'Модуль pdf-parse не может быть загружен. Используйте ручной ввод вопросов.';
+      
       return res.status(503).json({ 
         error: 'Загрузка PDF временно недоступна',
-        message: 'Модуль pdf-parse не может быть загружен. Используйте ручной ввод вопросов.'
+        message: errorMessage
       });
     }
 
