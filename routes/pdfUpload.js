@@ -131,26 +131,31 @@ function parseQuestionsFromPDF(text) {
   const questions = [];
   
   // Разные форматы вопросов
-  // Формат 1: Q: Вопрос\nA1: Ответ\nA2: Ответ\n...\nCorrect: 4
+  // Формат 1: Q: Вопрос (может быть многострочным)\nA1: Ответ\nA2: Ответ\n...\nCorrect: 4
   // Формат 2: Вопрос?\nA) Ответ\nB) Ответ\n...\nПравильный ответ: A
   // Формат 3: 1. Вопрос?\nA) Ответ\nB) Ответ\n...\nОтвет: A
 
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   
   let currentQuestion = null;
+  let currentQuestionLines = [];
   let currentAnswers = [];
+  let currentAnswerIndex = null;
+  let currentAnswerText = [];
   let correctAnswerIndex = null;
+  let inQuestion = false;
+  let inAnswer = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     
-    // Формат 1: Q: вопрос
+    // Формат 1: Q: вопрос (начало вопроса)
     if (line.match(/^Q:\s*/i)) {
       // Сохраняем предыдущий вопрос
       if (currentQuestion && currentAnswers.length > 0) {
         questions.push({
           text: currentQuestion,
-          answers: currentAnswers.map((a, idx) => ({
+          answers: currentAnswers.filter(a => a && a.text).map((a, idx) => ({
             text: a.text,
             isCorrect: idx === correctAnswerIndex
           }))
@@ -158,29 +163,65 @@ function parseQuestionsFromPDF(text) {
       }
       
       // Начинаем новый вопрос
-      currentQuestion = line.replace(/^Q:\s*/i, '').trim();
+      const questionStart = line.replace(/^Q:\s*/i, '').trim();
+      currentQuestionLines = questionStart ? [questionStart] : [];
       currentAnswers = [];
+      currentAnswerIndex = null;
+      currentAnswerText = [];
       correctAnswerIndex = null;
+      inQuestion = true;
+      inAnswer = false;
     }
-    // Формат 1: A1, A2, A3, A4, A5: ответы
+    // Формат 1: A1, A2, A3, A4, A5: ответы (начало ответа)
     else if (line.match(/^A\d+:\s*/i)) {
+      // Сохраняем предыдущий ответ, если был
+      if (currentAnswerIndex !== null && currentAnswerText.length > 0) {
+        currentAnswers[currentAnswerIndex] = {
+          text: currentAnswerText.join(' ').trim(),
+          index: currentAnswerIndex
+        };
+      }
+      
+      // Начинаем новый ответ
       const match = line.match(/^A(\d+):\s*(.+)/i);
       if (match) {
-        const answerIndex = parseInt(match[1]) - 1; // A1 -> 0, A2 -> 1, etc.
-        const answerText = match[2].trim();
-        
-        currentAnswers[answerIndex] = {
-          text: answerText,
-          index: answerIndex
-        };
+        currentAnswerIndex = parseInt(match[1]) - 1; // A1 -> 0, A2 -> 1, etc.
+        const answerStart = match[2].trim();
+        currentAnswerText = answerStart ? [answerStart] : [];
+        inQuestion = false;
+        inAnswer = true;
       }
     }
     // Формат 1: Correct: номер
     else if (line.match(/^Correct:\s*/i)) {
+      // Сохраняем последний ответ
+      if (currentAnswerIndex !== null && currentAnswerText.length > 0) {
+        currentAnswers[currentAnswerIndex] = {
+          text: currentAnswerText.join(' ').trim(),
+          index: currentAnswerIndex
+        };
+      }
+      
+      // Завершаем вопрос
+      if (currentQuestionLines.length > 0) {
+        currentQuestion = currentQuestionLines.join(' ').trim();
+      }
+      
       const match = line.match(/^Correct:\s*(\d+)/i);
       if (match) {
         correctAnswerIndex = parseInt(match[1]) - 1; // Correct: 4 -> index 3
       }
+      
+      inQuestion = false;
+      inAnswer = false;
+    }
+    // Продолжение вопроса (если мы в режиме вопроса и не встретили A1)
+    else if (inQuestion && !line.match(/^A\d+:/i) && !line.match(/^Correct:/i)) {
+      currentQuestionLines.push(line);
+    }
+    // Продолжение ответа (если мы в режиме ответа)
+    else if (inAnswer && currentAnswerIndex !== null && !line.match(/^A\d+:/i) && !line.match(/^Correct:/i) && !line.match(/^Q:/i)) {
+      currentAnswerText.push(line);
     }
     // Формат 2: Определяем начало вопроса (старый формат)
     else if (line.match(/^\d+[\.\)]\s*.+\?/) || (line.includes('?') && !line.match(/^[A-D][\.\)]/) && !line.match(/^A\d+:/i))) {
