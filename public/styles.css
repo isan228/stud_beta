@@ -1372,6 +1372,8 @@ html[data-theme="dark"] .navbar {
 .test-actions .btn {
     position: relative;
     overflow: hidden;
+    flex: 1;
+    min-width: 0;
 }
 
 .test-actions .btn::after {
@@ -2877,16 +2879,22 @@ html[data-theme="dark"] .navbar {
     }
 
     .test-actions {
-        flex-direction: column;
-        gap: 1rem;
+        flex-direction: row;
+        gap: 0.75rem;
         padding: 0 20px;
+        justify-content: space-between;
     }
 
     .test-actions .btn {
-        width: 100%;
-        min-height: 52px;
-        font-size: 1.05rem;
+        flex: 1;
+        min-height: 44px;
+        font-size: 0.95rem;
         font-weight: 600;
+        padding: 0.75rem 1rem;
+    }
+    
+    .test-actions #finishTest {
+        flex: 1;
     }
 
     /* Результаты */
