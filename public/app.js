@@ -330,7 +330,12 @@ function setupEventListeners() {
             if (btn.hasAttribute('data-page')) {
                 const page = btn.getAttribute('data-page');
                 if (page === 'tests') {
-                    loadSubjects();
+                    if (!currentUser) {
+                        e.preventDefault();
+                        showRegisterModal();
+                    } else {
+                        loadSubjects();
+                    }
                 }
             }
         });
@@ -339,15 +344,31 @@ function setupEventListeners() {
     // Обратная связь
     document.getElementById('contactForm')?.addEventListener('submit', handleContact);
 
-    // Мобильное меню
+    // Мобильное меню - инициализируем только один раз
     const mobileMenuToggle = document.getElementById('mobileMenuToggle');
     const navMenu = document.getElementById('navMenu');
     
     if (mobileMenuToggle && navMenu) {
-        mobileMenuToggle.addEventListener('click', () => {
+        // Проверяем, не инициализировано ли уже меню
+        if (mobileMenuToggle.dataset.initialized === 'true') {
+            return;
+        }
+        
+        // Помечаем как инициализированное
+        mobileMenuToggle.dataset.initialized = 'true';
+        
+        // Функция для переключения меню
+        const toggleMenu = (e) => {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
             mobileMenuToggle.classList.toggle('active');
             navMenu.classList.toggle('active');
-        });
+        };
+        
+        // Добавляем обработчик клика на кнопку меню
+        mobileMenuToggle.addEventListener('click', toggleMenu);
 
         // Закрытие меню при клике на ссылку
         document.querySelectorAll('.nav-link').forEach(link => {
@@ -357,13 +378,22 @@ function setupEventListeners() {
             });
         });
 
-        // Закрытие меню при клике вне его
-        document.addEventListener('click', (e) => {
-            if (!navMenu.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
+        // Закрытие меню при клике вне его (только один раз на document)
+        const closeMenuOnOutsideClick = (e) => {
+            if (navMenu && mobileMenuToggle && 
+                !navMenu.contains(e.target) && 
+                !mobileMenuToggle.contains(e.target) &&
+                navMenu.classList.contains('active')) {
                 mobileMenuToggle.classList.remove('active');
                 navMenu.classList.remove('active');
             }
-        });
+        };
+        
+        // Добавляем обработчик только если его еще нет
+        if (!document.mobileMenuOutsideClickHandler) {
+            document.mobileMenuOutsideClickHandler = closeMenuOnOutsideClick;
+            document.addEventListener('click', document.mobileMenuOutsideClickHandler);
+        }
     }
 }
 
@@ -513,6 +543,16 @@ function logout() {
 
 // Предметы и тесты
 async function loadSubjects() {
+    // Проверяем авторизацию
+    if (!currentUser) {
+        const container = document.getElementById('subjectsList');
+        if (container) {
+            container.innerHTML = '';
+        }
+        showRegisterModal();
+        return;
+    }
+
     try {
         const container = document.getElementById('subjectsList');
         if (!container) return;
@@ -1317,6 +1357,34 @@ function showNotification(message, type = 'success') {
     setTimeout(() => {
         notification.classList.remove('show');
     }, 3000);
+}
+
+// Модальное окно регистрации
+function showRegisterModal() {
+    const modal = document.getElementById('registerModal');
+    if (modal) {
+        modal.style.display = 'block';
+        
+        // Закрытие по клику на фон
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeRegisterModal();
+            }
+        });
+        
+        // Закрытие по клику на крестик
+        const closeBtn = document.getElementById('registerModalClose');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', closeRegisterModal);
+        }
+    }
+}
+
+function closeRegisterModal() {
+    const modal = document.getElementById('registerModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
 }
 
 async function toggleFavorite(questionId) {

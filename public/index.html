@@ -48,7 +48,7 @@
                     отслеживайте прогресс и достигайте лучших результатов
                 </p>
                 <div class="hero-actions fade-in-delay-2">
-                    <a href="/tests" class="btn btn-large btn-primary">Перейти к тестам</a>
+                    <a href="/tests" class="btn btn-large btn-primary" id="goToTestsBtn">Перейти к тестам</a>
                 </div>
             </div>
         </div>
@@ -160,6 +160,43 @@
 
     <div id="notification" class="notification"></div>
 
+    <!-- Модальное окно регистрации -->
+    <div id="registerModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="modal-close" id="registerModalClose">&times;</span>
+            <h2>Регистрация требуется</h2>
+            <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">
+                Для доступа к тестам необходимо зарегистрироваться. 
+                Создайте аккаунт, чтобы начать подготовку к экзаменам.
+            </p>
+            <div style="display: flex; gap: 1rem; justify-content: center;">
+                <a href="/register" class="btn btn-primary">Зарегистрироваться</a>
+                <a href="/login" class="btn btn-secondary">Войти</a>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            initTheme();
+            await loadUser();
+            setupEventListeners();
+            
+            // Обработчик для кнопки "Перейти к тестам"
+            const goToTestsBtn = document.getElementById('goToTestsBtn');
+            if (goToTestsBtn) {
+                goToTestsBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    // Проверяем авторизацию
+                    if (!currentUser) {
+                        showRegisterModal();
+                    } else {
+                        window.location.href = '/tests';
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>

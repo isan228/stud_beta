@@ -84,13 +84,36 @@
     </footer>
 
     <div id="notification" class="notification"></div>
+
+    <!-- Модальное окно регистрации -->
+    <div id="registerModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="modal-close" id="registerModalClose">&times;</span>
+            <h2>Регистрация требуется</h2>
+            <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">
+                Для доступа к тестам необходимо зарегистрироваться. 
+                Создайте аккаунт, чтобы начать подготовку к экзаменам.
+            </p>
+            <div style="display: flex; gap: 1rem; justify-content: center;">
+                <a href="/register" class="btn btn-primary">Зарегистрироваться</a>
+                <a href="/login" class="btn btn-secondary">Войти</a>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             initTheme();
-            loadUser();
+            await loadUser();
             setupEventListeners();
-            loadSubjects();
+            
+            // Проверяем авторизацию перед загрузкой предметов
+            if (!currentUser) {
+                showRegisterModal();
+            } else {
+                loadSubjects();
+            }
         });
     </script>
 </body>
