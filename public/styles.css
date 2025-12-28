@@ -1179,7 +1179,7 @@ html[data-theme="dark"] .navbar {
     padding: 0;
     border-radius: 0;
     font-weight: 500;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     white-space: nowrap;
     min-width: fit-content;
     position: relative;
@@ -1187,6 +1187,7 @@ html[data-theme="dark"] .navbar {
     align-items: center;
     box-shadow: none;
     animation: none;
+    border: none;
 }
 
 .test-timer::before {
@@ -1196,6 +1197,7 @@ html[data-theme="dark"] .navbar {
 .test-timer span {
     color: var(--text-color);
     font-weight: 500;
+    font-size: 0.9rem;
 }
 
 .test-content {
