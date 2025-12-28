@@ -188,6 +188,10 @@
             if (goToTestsBtn) {
                 goToTestsBtn.addEventListener('click', async (e) => {
                     e.preventDefault();
+                    // Убеждаемся, что пользователь загружен
+                    if (!currentUser) {
+                        await loadUser();
+                    }
                     // Проверяем авторизацию
                     if (!currentUser) {
                         showRegisterModal();

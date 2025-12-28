@@ -105,10 +105,11 @@
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             initTheme();
-            await loadUser();
+            const userLoaded = await loadUser();
             setupEventListeners();
             
             // Проверяем авторизацию перед загрузкой предметов
+            console.log('Проверка авторизации. currentUser:', currentUser, 'userLoaded:', userLoaded);
             if (!currentUser) {
                 showRegisterModal();
             } else {

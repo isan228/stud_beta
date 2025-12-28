@@ -57,12 +57,13 @@ function updateThemeIcon(theme) {
 }
 
 // Загрузка пользователя
-function loadUser() {
+async function loadUser() {
     const token = localStorage.getItem('token');
     if (token) {
         currentToken = token;
-        fetchUser();
+        await fetchUser();
     }
+    return currentUser !== null;
 }
 
 async function fetchUser() {
@@ -76,16 +77,20 @@ async function fetchUser() {
             const data = await response.json();
             currentUser = data.user;
             updateUI();
+            console.log('Пользователь загружен:', currentUser);
             return true; // Успешная загрузка
         } else {
             // Токен невалидный
             if (response.status === 401) {
-                logout();
+                currentUser = null;
+                currentToken = null;
+                localStorage.removeItem('token');
             }
             return false;
         }
     } catch (error) {
         console.error('Ошибка загрузки пользователя:', error);
+        currentUser = null;
         return false;
     }
 }
@@ -398,9 +403,9 @@ function setupEventListeners() {
 }
 
 // Инициализация на всех страницах
-function init() {
+async function init() {
     initTheme();
-    loadUser();
+    await loadUser();
     setupEventListeners();
     initScrollAnimations();
     
