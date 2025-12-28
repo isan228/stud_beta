@@ -2868,8 +2868,11 @@ html[data-theme="dark"] .navbar {
         font-size: 1.25rem;
         font-weight: 600;
         margin-bottom: 1.5rem;
-        line-height: 1.5;
+        line-height: 1.6;
         color: var(--text-color);
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        white-space: pre-wrap;
     }
 
     .answers-list {
