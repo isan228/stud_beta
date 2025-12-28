@@ -2312,12 +2312,24 @@ html[data-theme="dark"] .navbar {
         z-index: 100;
         max-height: calc(100vh - 70px);
         overflow-y: auto;
+        display: flex !important; /* Принудительно показываем на мобильных */
     }
 
     .nav-menu.active {
         transform: translateY(0);
         opacity: 1;
         visibility: visible;
+    }
+    
+    /* На десктопе меню всегда видно */
+    @media (min-width: 769px) {
+        .nav-menu {
+            position: static;
+            transform: none !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+            display: flex !important;
+        }
     }
 
     .nav-link {
