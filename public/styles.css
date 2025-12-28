@@ -2315,11 +2315,30 @@ html[data-theme="dark"] .navbar {
     }
 }
 
+.modal-content .btn {
+    white-space: nowrap;
+}
+
+.modal-content > div[style*="display: flex"] .btn {
+    flex: 1;
+    min-width: 150px;
+    text-align: center;
+}
+
 @media (max-width: 768px) {
     .modal-content {
         margin: 20% auto;
         padding: 1.5rem;
         max-width: 95%;
+    }
+    
+    .modal-content > div[style*="display: flex"] {
+        flex-direction: column;
+    }
+    
+    .modal-content > div[style*="display: flex"] .btn {
+        width: 100%;
+        min-width: auto;
     }
 }
 
