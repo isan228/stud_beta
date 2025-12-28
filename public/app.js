@@ -1358,12 +1358,35 @@ async function handleChangePassword(e) {
 // Уведомления
 function showNotification(message, type = 'success') {
     const notification = document.getElementById('notification');
-    notification.textContent = message;
-    notification.className = `notification ${type} show`;
+    if (!notification) return;
     
+    // Убираем предыдущее уведомление, если оно есть
+    notification.classList.remove('show');
+    notification.style.opacity = '0';
+    notification.style.transform = 'translateX(400px) scale(0.9)';
+    
+    // Небольшая задержка для плавного перехода
     setTimeout(() => {
-        notification.classList.remove('show');
-    }, 3000);
+        notification.textContent = message;
+        notification.className = `notification ${type}`;
+        notification.style.opacity = '';
+        notification.style.transform = '';
+        
+        // Добавляем класс show для анимации появления
+        setTimeout(() => {
+            notification.classList.add('show');
+        }, 10);
+        
+        // Убираем уведомление через 3 секунды
+        setTimeout(() => {
+            notification.classList.remove('show');
+            // Дополнительная задержка для завершения анимации скрытия
+            setTimeout(() => {
+                notification.textContent = '';
+                notification.className = 'notification';
+            }, 400);
+        }, 3000);
+    }, 50);
 }
 
 // Модальное окно регистрации
