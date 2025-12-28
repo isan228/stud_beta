@@ -1103,7 +1103,6 @@ html[data-theme="dark"] .navbar {
     margin-bottom: 2rem;
     gap: 1rem;
     flex-wrap: wrap;
-    animation: slideInDown 0.6s ease-out;
 }
 
 @keyframes slideInDown {
@@ -1206,7 +1205,6 @@ html[data-theme="dark"] .navbar {
     border-radius: 1rem;
     box-shadow: var(--shadow-lg);
     margin-bottom: 2rem;
-    animation: fadeIn 0.5s ease-out;
     position: relative;
     overflow: hidden;
 }
@@ -1230,7 +1228,6 @@ html[data-theme="dark"] .navbar {
 .question-item h3 {
     margin-bottom: 1rem;
     color: var(--text-color);
-    animation: slideInLeft 0.5s ease-out;
     position: relative;
     padding-left: 1rem;
 }
@@ -1244,7 +1241,6 @@ html[data-theme="dark"] .navbar {
     width: 4px;
     background: linear-gradient(180deg, var(--primary-color), var(--success-color));
     border-radius: 2px;
-    animation: scaleIn 0.5s ease-out 0.2s both;
 }
 
 .favorite-icon-btn {
@@ -1308,8 +1304,6 @@ html[data-theme="dark"] .navbar {
     touch-action: manipulation;
     position: relative;
     overflow: hidden;
-    animation: slideInRight 0.4s ease-out;
-    animation-fill-mode: both;
 }
 
 .answer-item::before {
@@ -1323,11 +1317,6 @@ html[data-theme="dark"] .navbar {
     transform: scaleY(0);
     transition: transform 0.3s ease;
 }
-
-.answer-item:nth-child(1) { animation-delay: 0.1s; }
-.answer-item:nth-child(2) { animation-delay: 0.2s; }
-.answer-item:nth-child(3) { animation-delay: 0.3s; }
-.answer-item:nth-child(4) { animation-delay: 0.4s; }
 
 .answer-item:hover {
     border-color: var(--primary-color);
@@ -1366,7 +1355,6 @@ html[data-theme="dark"] .navbar {
     display: flex;
     justify-content: space-between;
     gap: 1rem;
-    animation: slideInUp 0.6s ease-out;
 }
 
 .test-actions .btn {
