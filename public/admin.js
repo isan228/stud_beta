@@ -784,7 +784,16 @@ function addAnswer() {
 }
 
 // Настройка обработчиков событий
+let eventListenersSetup = false; // Флаг для предотвращения двойной инициализации
+
 function setupAdminEventListeners() {
+    // Предотвращаем двойную инициализацию
+    if (eventListenersSetup) {
+        console.log('Обработчики событий уже настроены, пропускаем...');
+        return;
+    }
+    eventListenersSetup = true;
+    
     // Вход
     const adminLoginForm = document.getElementById('adminLoginForm');
     if (adminLoginForm) {
@@ -794,10 +803,6 @@ function setupAdminEventListeners() {
         // Привязываем обработчик к новой форме с приоритетом
         newForm.addEventListener('submit', handleAdminLogin, true); // useCapture = true для приоритета
         console.log('Обработчик формы админки привязан к:', newForm.id);
-        
-        // Дополнительная проверка: убеждаемся, что форма не имеет других обработчиков
-        const testEvent = new Event('submit', { bubbles: true, cancelable: true });
-        console.log('Форма готова к использованию');
     } else {
         console.warn('Форма adminLoginForm не найдена');
     }

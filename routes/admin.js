@@ -47,7 +47,14 @@ router.post('/login', [
       return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
     }
 
+    // Проверяем наличие JWT_SECRET
+    if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'your_jwt_secret_key_here') {
+      console.error('ОШИБКА: JWT_SECRET не установлен или установлен на значение по умолчанию!');
+      return res.status(500).json({ error: 'Ошибка конфигурации сервера. Установите JWT_SECRET в .env файле.' });
+    }
+    
     const token = jwt.sign({ adminId: admin.id, role: admin.role }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    console.log('Токен создан успешно для администратора:', admin.username);
 
     res.json({
       message: 'Вход выполнен успешно',
