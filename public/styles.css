@@ -1250,7 +1250,7 @@ html[data-theme="dark"] .navbar {
 .favorite-icon-btn {
     background: none;
     border: none;
-    font-size: 1.5rem;
+    font-size: 1.75rem;
     cursor: pointer;
     padding: 0.5rem;
     line-height: 1;
@@ -1260,13 +1260,14 @@ html[data-theme="dark"] .navbar {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 40px;
-    min-height: 40px;
+    min-width: 44px;
+    min-height: 44px;
     border-radius: var(--radius);
+    position: relative;
 }
 
 .favorite-icon-btn:hover {
-    transform: scale(1.2);
+    transform: scale(1.15);
     background-color: var(--bg-secondary);
     color: var(--primary-color);
 }
@@ -1281,7 +1282,12 @@ html[data-theme="dark"] .navbar {
 }
 
 .favorite-icon-btn:hover span {
-    transform: rotate(15deg);
+    transform: rotate(15deg) scale(1.1);
+}
+
+#favoriteContainer {
+    display: flex;
+    align-items: center;
 }
 
 .answers-list {

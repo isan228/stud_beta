@@ -764,18 +764,22 @@ function showQuestion() {
     progressFillEl.style.width = `${progress}%`;
     progressTextEl.textContent = 
         `Вопрос ${currentQuestionIndex + 1} из ${currentQuestions.length}`;
-    const favoriteIcon = currentUser ? `
-        <button class="favorite-icon-btn" onclick="toggleFavorite(${question.id})" id="favoriteBtn${question.id}" title="Добавить в избранное">
-            <span id="favoriteIcon${question.id}">☆</span>
-        </button>
-    ` : '';
+    
+    // Добавляем звездочку в правый верхний угол
+    const favoriteContainer = document.getElementById('favoriteContainer');
+    if (favoriteContainer && currentUser) {
+        favoriteContainer.innerHTML = `
+            <button class="favorite-icon-btn" onclick="toggleFavorite(${question.id})" id="favoriteBtn${question.id}" title="Добавить в избранное">
+                <span id="favoriteIcon${question.id}">☆</span>
+            </button>
+        `;
+    } else if (favoriteContainer) {
+        favoriteContainer.innerHTML = '';
+    }
     
     content.innerHTML = `
         <div class="question-item">
-            <div class="question-header" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem;">
-                <h3 style="flex: 1; margin: 0;">${question.text}</h3>
-                ${favoriteIcon}
-            </div>
+            <h3>${question.text}</h3>
             <div class="answers-list">
                 ${question.Answers.map(answer => `
                     <div class="answer-item" data-answer-id="${answer.id}" onclick="selectAnswer(${answer.id})">
