@@ -162,8 +162,9 @@ function parseQuestionsFromPDF(text) {
       }
       
       // Завершаем предыдущий вопрос, если он был в процессе
-      if (currentQuestionLines.length > 0 && !currentQuestion) {
+      if (currentQuestionLines.length > 0) {
         currentQuestion = currentQuestionLines.join('\n').trim();
+        currentQuestionLines = []; // Очищаем для нового вопроса
       }
       
       // Сохраняем предыдущий вопрос
@@ -226,9 +227,10 @@ function parseQuestionsFromPDF(text) {
         };
       }
       
-      // Завершаем вопрос, если он был в процессе
-      if (inQuestion && currentQuestionLines.length > 0 && !currentQuestion) {
+      // Завершаем вопрос, если он был в процессе (всегда завершаем при встрече Correct)
+      if (inQuestion && currentQuestionLines.length > 0) {
         currentQuestion = currentQuestionLines.join('\n').trim();
+        currentQuestionLines = []; // Очищаем, так как вопрос завершен
       }
       
       const match = line.match(/^Correct:\s*(\d+)/i);
@@ -303,7 +305,7 @@ function parseQuestionsFromPDF(text) {
   }
   
   // Завершаем вопрос, если он был в процессе (формат Q:/A1-A5)
-  if (currentQuestionLines.length > 0 && !currentQuestion) {
+  if (currentQuestionLines.length > 0) {
     currentQuestion = currentQuestionLines.join('\n').trim();
   }
 
