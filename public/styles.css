@@ -2820,13 +2820,13 @@ html[data-theme="dark"] .navbar {
     }
 
     .test-timer {
-        width: 100%;
-        text-align: center;
-        padding: 1rem;
-        font-size: 1.5rem;
-        font-weight: 700;
-        order: 2;
-        border-radius: var(--radius);
+        width: auto;
+        text-align: left;
+        padding: 0;
+        font-size: 0.85rem;
+        font-weight: 500;
+        order: 0;
+        border-radius: 0;
     }
 
     #progressText {
