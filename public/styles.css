@@ -311,7 +311,8 @@ html[data-theme="dark"] .navbar {
 /* Главный контент */
 .main-content {
     min-height: calc(100vh - 80px);
-    padding: 2rem 0;
+    padding: 2rem 0 4rem;
+    padding-bottom: 4rem;
 }
 
 .page {
