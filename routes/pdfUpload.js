@@ -192,9 +192,10 @@ function parseQuestionsFromPDF(text) {
     }
     // Формат 1: A1, A2, A3, A4, A5: ответы (начало ответа)
     else if (line.match(/^A\d+:\s*/i)) {
-      // Завершаем вопрос, если он был в процессе
-      if (inQuestion && currentQuestionLines.length > 0 && !currentQuestion) {
+      // Завершаем вопрос, если он был в процессе (всегда завершаем при встрече первого ответа)
+      if (inQuestion && currentQuestionLines.length > 0) {
         currentQuestion = currentQuestionLines.join('\n').trim();
+        currentQuestionLines = []; // Очищаем, так как вопрос завершен
       }
       
       // Сохраняем предыдущий ответ, если был
