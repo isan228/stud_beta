@@ -1179,16 +1179,23 @@ html[data-theme="dark"] .navbar {
     padding: 0;
     border-radius: 0;
     font-weight: 500;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     white-space: nowrap;
     min-width: fit-content;
     position: relative;
     display: flex;
     align-items: center;
+    box-shadow: none;
+    animation: none;
 }
 
 .test-timer::before {
     display: none;
+}
+
+.test-timer span {
+    color: var(--text-color);
+    font-weight: 500;
 }
 
 .test-content {
