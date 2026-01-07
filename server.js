@@ -17,6 +17,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/tests', require('./routes/tests'));
 app.use('/api', require('./routes/favorites'));
 app.use('/api', require('./routes/stats'));
+app.use('/api', require('./routes/contact'));
 app.use('/api/admin', require('./routes/admin'));
 
 // Загрузка PDF - опционально (может не работать на некоторых версиях Node.js)

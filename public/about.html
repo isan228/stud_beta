@@ -341,25 +341,30 @@
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData);
 
-            // В реальном приложении здесь будет отправка на сервер
-            // Пока просто показываем уведомление
-            showNotification('Спасибо за ваше сообщение! Мы свяжемся с вами в ближайшее время.', 'success');
-            e.target.reset();
-            
-            // В реальном приложении:
-            // try {
-            //     const response = await fetch(`${API_URL}/contact`, {
-            //         method: 'POST',
-            //         headers: { 'Content-Type': 'application/json' },
-            //         body: JSON.stringify(data)
-            //     });
-            //     if (response.ok) {
-            //         showNotification('Сообщение отправлено!', 'success');
-            //         e.target.reset();
-            //     }
-            // } catch (error) {
-            //     showNotification('Ошибка отправки сообщения', 'error');
-            // }
+            try {
+                const response = await fetch(`${API_URL}/contact`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showNotification('Спасибо за ваше сообщение! Мы свяжемся с вами в ближайшее время.', 'success');
+                    e.target.reset();
+                } else {
+                    if (result.errors && Array.isArray(result.errors)) {
+                        const errorMessages = result.errors.map(err => err.msg || err.message).join(', ');
+                        showNotification(errorMessages, 'error');
+                    } else {
+                        showNotification(result.error || 'Ошибка отправки сообщения', 'error');
+                    }
+                }
+            } catch (error) {
+                console.error('Ошибка отправки сообщения:', error);
+                showNotification('Ошибка соединения. Попробуйте позже.', 'error');
+            }
         }
     </script>
 </body>

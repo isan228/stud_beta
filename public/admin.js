@@ -164,6 +164,83 @@ async function loadDashboard() {
         document.getElementById('statTotalQuestions').textContent = stats.totalQuestions || 0;
         document.getElementById('statTotalResults').textContent = stats.totalResults || 0;
 
+        // Загружаем статистику сообщений
+        try {
+            const contactStatsResponse = await fetch(`${ADMIN_API_URL}/dashboard/contact-stats`, {
+                headers: {
+                    'Authorization': `Bearer ${currentAdminToken}`
+                }
+            });
+            if (contactStatsResponse.ok) {
+                const contactStats = await contactStatsResponse.json();
+                document.getElementById('statNewMessages').textContent = contactStats.newMessages || 0;
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки статистики сообщений:', error);
+        }
+
+        // Загружаем последние сообщения
+        try {
+            const messagesResponse = await fetch(`${ADMIN_API_URL}/contact-messages?page=1&limit=5`, {
+                headers: {
+                    'Authorization': `Bearer ${currentAdminToken}`
+                }
+            });
+            if (messagesResponse.ok) {
+                const messagesData = await messagesResponse.json();
+                const recentMessagesList = document.getElementById('recentMessagesList');
+                if (messagesData.messages && messagesData.messages.length > 0) {
+                    recentMessagesList.innerHTML = messagesData.messages.map(msg => {
+                        const date = new Date(msg.createdAt);
+                        const subjectLabels = {
+                            'question': 'Вопрос',
+                            'suggestion': 'Предложение',
+                            'feedback': 'Отзыв',
+                            'bug': 'Ошибка',
+                            'other': 'Другое'
+                        };
+                        const statusLabels = {
+                            'new': 'Новое',
+                            'read': 'Прочитано',
+                            'replied': 'Отвечено',
+                            'archived': 'Архив'
+                        };
+                        const statusColors = {
+                            'new': 'var(--primary-color)',
+                            'read': 'var(--text-muted)',
+                            'replied': 'var(--success-color)',
+                            'archived': 'var(--text-secondary)'
+                        };
+                        return `
+                            <div class="admin-list-item" onclick="viewMessage(${msg.id})" style="cursor: pointer;">
+                                <div>
+                                    <strong>${msg.name}</strong>
+                                    <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0.25rem 0 0;">
+                                        ${subjectLabels[msg.subject] || msg.subject} - ${msg.email}
+                                    </p>
+                                    <p style="color: var(--text-secondary); font-size: 0.8rem; margin: 0.25rem 0 0; max-width: 500px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                        ${msg.message}
+                                    </p>
+                                </div>
+                                <div style="text-align: right;">
+                                    <span style="color: var(--text-muted); font-size: 0.875rem; display: block;">
+                                        ${date.toLocaleDateString('ru-RU')}
+                                    </span>
+                                    <span style="color: ${statusColors[msg.status] || 'var(--text-muted)'}; font-size: 0.75rem; font-weight: 600; margin-top: 0.25rem; display: block;">
+                                        ${statusLabels[msg.status] || msg.status}
+                                    </span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    recentMessagesList.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 2rem;">Нет сообщений</p>';
+                }
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки последних сообщений:', error);
+        }
+
         // Последние пользователи
         const recentUsersList = document.getElementById('recentUsersList');
         if (data.recentUsers && data.recentUsers.length > 0) {
@@ -976,6 +1053,66 @@ function setupAdminEventListeners() {
             loadQuestions();
         });
     }
+
+    // Фильтры и поиск для сообщений
+    const messagesStatusFilter = document.getElementById('messagesStatusFilter');
+    if (messagesStatusFilter) {
+        messagesStatusFilter.addEventListener('change', () => {
+            loadMessages(1);
+        });
+    }
+
+    const messagesSearch = document.getElementById('messagesSearch');
+    if (messagesSearch) {
+        let searchTimeout;
+        messagesSearch.addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                loadMessages(1);
+            }, 500);
+        });
+    }
+
+    // Кнопки в модальном окне сообщения
+    const saveMessageStatusBtn = document.getElementById('saveMessageStatusBtn');
+    if (saveMessageStatusBtn) {
+        saveMessageStatusBtn.addEventListener('click', async () => {
+            if (currentMessageId) {
+                const status = document.getElementById('messageModalStatus').value;
+                try {
+                    const response = await fetch(`${ADMIN_API_URL}/contact-messages/${currentMessageId}/status`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${currentAdminToken}`
+                        },
+                        body: JSON.stringify({ status })
+                    });
+
+                    if (response.ok) {
+                        showNotification('Статус обновлен', 'success');
+                        loadMessages(currentMessagesPage);
+                        loadDashboard();
+                    } else {
+                        const result = await response.json();
+                        showNotification(result.error || 'Ошибка обновления', 'error');
+                    }
+                } catch (error) {
+                    console.error('Ошибка обновления статуса:', error);
+                    showNotification('Ошибка обновления статуса', 'error');
+                }
+            }
+        });
+    }
+
+    const deleteMessageBtn = document.getElementById('deleteMessageBtn');
+    if (deleteMessageBtn) {
+        deleteMessageBtn.addEventListener('click', () => {
+            if (currentMessageId) {
+                deleteMessage(currentMessageId);
+            }
+        });
+    }
 }
 
 // Загрузка PDF
@@ -1096,6 +1233,9 @@ function switchTab(tabName) {
             loadQuestions();
             loadTestsForFilters();
             break;
+        case 'messages':
+            loadMessages();
+            break;
     }
 }
 
@@ -1139,6 +1279,202 @@ async function loadTestsForFilters() {
     }
 }
 
+// Загрузка сообщений обратной связи
+let currentMessagesPage = 1;
+let currentMessageId = null;
+
+async function loadMessages(page = 1) {
+    try {
+        const status = document.getElementById('messagesStatusFilter')?.value || '';
+        const search = document.getElementById('messagesSearch')?.value || '';
+        const url = `${ADMIN_API_URL}/contact-messages?page=${page}&limit=20&status=${encodeURIComponent(status)}&search=${encodeURIComponent(search)}`;
+        
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${currentAdminToken}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Ошибка загрузки сообщений');
+        }
+
+        const data = await response.json();
+        currentMessagesPage = page;
+
+        const messagesList = document.getElementById('messagesList');
+        if (data.messages && data.messages.length > 0) {
+            const subjectLabels = {
+                'question': 'Вопрос',
+                'suggestion': 'Предложение',
+                'feedback': 'Отзыв',
+                'bug': 'Ошибка',
+                'other': 'Другое'
+            };
+            const statusLabels = {
+                'new': 'Новое',
+                'read': 'Прочитано',
+                'replied': 'Отвечено',
+                'archived': 'Архив'
+            };
+            const statusColors = {
+                'new': 'var(--primary-color)',
+                'read': 'var(--text-muted)',
+                'replied': 'var(--success-color)',
+                'archived': 'var(--text-secondary)'
+            };
+
+            messagesList.innerHTML = data.messages.map(msg => {
+                const date = new Date(msg.createdAt);
+                const isNew = msg.status === 'new';
+                return `
+                    <div class="admin-list-item ${isNew ? 'new-message' : ''}" onclick="viewMessage(${msg.id})" style="cursor: pointer; ${isNew ? 'border-left: 4px solid var(--primary-color);' : ''}">
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                <strong>${msg.name}</strong>
+                                ${isNew ? '<span style="background: var(--primary-color); color: white; padding: 0.125rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 600;">НОВОЕ</span>' : ''}
+                            </div>
+                            <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0.25rem 0;">
+                                ${msg.email} • ${subjectLabels[msg.subject] || msg.subject}
+                            </p>
+                            <p style="color: var(--text-secondary); font-size: 0.875rem; margin: 0.5rem 0 0; max-width: 600px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
+                                ${msg.message}
+                            </p>
+                        </div>
+                        <div style="text-align: right; min-width: 120px;">
+                            <span style="color: var(--text-muted); font-size: 0.875rem; display: block;">
+                                ${date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                            </span>
+                            <span style="color: ${statusColors[msg.status] || 'var(--text-muted)'}; font-size: 0.75rem; font-weight: 600; margin-top: 0.25rem; display: block;">
+                                ${statusLabels[msg.status] || msg.status}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            messagesList.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 2rem;">Сообщения не найдены</p>';
+        }
+
+        // Пагинация
+        const pagination = document.getElementById('messagesPagination');
+        if (pagination && data.pagination) {
+            const { totalPages, page: currentPage } = data.pagination;
+            let paginationHTML = '';
+            for (let i = 1; i <= totalPages; i++) {
+                paginationHTML += `<button class="admin-pagination-btn ${i === currentPage ? 'active' : ''}" onclick="loadMessages(${i})">${i}</button>`;
+            }
+            pagination.innerHTML = paginationHTML;
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки сообщений:', error);
+        showNotification('Ошибка загрузки сообщений', 'error');
+    }
+}
+
+// Просмотр сообщения
+async function viewMessage(messageId) {
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/contact-messages/${messageId}`, {
+            headers: {
+                'Authorization': `Bearer ${currentAdminToken}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Ошибка загрузки сообщения');
+        }
+
+        const message = await response.json();
+        currentMessageId = message.id;
+
+        const subjectLabels = {
+            'question': 'Вопрос',
+            'suggestion': 'Предложение',
+            'feedback': 'Отзыв',
+            'bug': 'Ошибка',
+            'other': 'Другое'
+        };
+
+        document.getElementById('messageModalName').textContent = message.name;
+        document.getElementById('messageModalEmail').textContent = message.email;
+        document.getElementById('messageModalSubject').textContent = subjectLabels[message.subject] || message.subject;
+        document.getElementById('messageModalMessage').textContent = message.message;
+        document.getElementById('messageModalDate').textContent = new Date(message.createdAt).toLocaleString('ru-RU', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        document.getElementById('messageModalStatus').value = message.status;
+
+        // Если сообщение новое, автоматически помечаем как прочитанное
+        if (message.status === 'new') {
+            await updateMessageStatus(messageId, 'read');
+        }
+
+        document.getElementById('messageModal').style.display = 'block';
+    } catch (error) {
+        console.error('Ошибка загрузки сообщения:', error);
+        showNotification('Ошибка загрузки сообщения', 'error');
+    }
+}
+
+// Обновление статуса сообщения
+async function updateMessageStatus(messageId, status) {
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/contact-messages/${messageId}/status`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentAdminToken}`
+            },
+            body: JSON.stringify({ status })
+        });
+
+        if (response.ok) {
+            loadMessages(currentMessagesPage);
+            if (document.getElementById('messagesTab').classList.contains('active')) {
+                // Обновляем только если мы на вкладке сообщений
+            } else {
+                loadDashboard(); // Обновляем дашборд для обновления статистики
+            }
+        }
+    } catch (error) {
+        console.error('Ошибка обновления статуса:', error);
+    }
+}
+
+// Удаление сообщения
+async function deleteMessage(messageId) {
+    if (!confirm('Вы уверены, что хотите удалить это сообщение?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/contact-messages/${messageId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${currentAdminToken}`
+            }
+        });
+
+        if (response.ok) {
+            showNotification('Сообщение удалено', 'success');
+            document.getElementById('messageModal').style.display = 'none';
+            loadMessages(currentMessagesPage);
+            loadDashboard();
+        } else {
+            const result = await response.json();
+            showNotification(result.error || 'Ошибка удаления', 'error');
+        }
+    } catch (error) {
+        console.error('Ошибка удаления сообщения:', error);
+        showNotification('Ошибка удаления сообщения', 'error');
+    }
+}
+
 // Экспорт функций для использования в HTML
 window.deleteUser = deleteUser;
 window.deleteSubject = deleteSubject;
@@ -1149,4 +1485,7 @@ window.editTest = editTest;
 window.editQuestion = editQuestion;
 window.loadUsers = loadUsers;
 window.addAnswer = addAnswer;
+window.loadMessages = loadMessages;
+window.viewMessage = viewMessage;
+window.deleteMessage = deleteMessage;
 

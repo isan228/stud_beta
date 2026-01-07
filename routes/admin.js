@@ -3,7 +3,7 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const adminAuth = require('../middleware/adminAuth');
-const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, sequelize } = require('../models');
+const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, ContactMessage, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { Sequelize } = require('sequelize');
 
@@ -532,6 +532,124 @@ router.delete('/answers/:id', adminAuth, async (req, res) => {
     res.json({ message: 'Ответ удален' });
   } catch (error) {
     console.error('Ошибка удаления ответа:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Управление сообщениями обратной связи
+router.get('/contact-messages', adminAuth, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+    const status = req.query.status || '';
+    const search = req.query.search || '';
+
+    const where = {};
+    if (status) {
+      where.status = status;
+    }
+    if (search) {
+      where[Op.or] = [
+        { name: { [Op.iLike]: `%${search}%` } },
+        { email: { [Op.iLike]: `%${search}%` } },
+        { message: { [Op.iLike]: `%${search}%` } }
+      ];
+    }
+
+    const { count, rows: messages } = await ContactMessage.findAndCountAll({
+      where,
+      limit,
+      offset,
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.json({
+      messages,
+      pagination: {
+        total: count,
+        page,
+        limit,
+        totalPages: Math.ceil(count / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Ошибка получения сообщений:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Получить одно сообщение
+router.get('/contact-messages/:id', adminAuth, async (req, res) => {
+  try {
+    const message = await ContactMessage.findByPk(req.params.id);
+    if (!message) {
+      return res.status(404).json({ error: 'Сообщение не найдено' });
+    }
+    res.json(message);
+  } catch (error) {
+    console.error('Ошибка получения сообщения:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Обновить статус сообщения
+router.put('/contact-messages/:id/status', adminAuth, [
+  body('status').isIn(['new', 'read', 'replied', 'archived']).withMessage('Некорректный статус')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const message = await ContactMessage.findByPk(req.params.id);
+    if (!message) {
+      return res.status(404).json({ error: 'Сообщение не найдено' });
+    }
+
+    message.status = req.body.status;
+    await message.save();
+
+    res.json(message);
+  } catch (error) {
+    console.error('Ошибка обновления статуса:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Удалить сообщение
+router.delete('/contact-messages/:id', adminAuth, async (req, res) => {
+  try {
+    const message = await ContactMessage.findByPk(req.params.id);
+    if (!message) {
+      return res.status(404).json({ error: 'Сообщение не найдено' });
+    }
+
+    await message.destroy();
+    res.json({ message: 'Сообщение удалено' });
+  } catch (error) {
+    console.error('Ошибка удаления сообщения:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Статистика сообщений для дашборда
+router.get('/dashboard/contact-stats', adminAuth, async (req, res) => {
+  try {
+    const totalMessages = await ContactMessage.count();
+    const newMessages = await ContactMessage.count({ where: { status: 'new' } });
+    const readMessages = await ContactMessage.count({ where: { status: 'read' } });
+    const repliedMessages = await ContactMessage.count({ where: { status: 'replied' } });
+
+    res.json({
+      totalMessages,
+      newMessages,
+      readMessages,
+      repliedMessages
+    });
+  } catch (error) {
+    console.error('Ошибка получения статистики сообщений:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

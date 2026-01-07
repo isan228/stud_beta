@@ -8,6 +8,7 @@ const Favorite = require('./Favorite');
 const TestResult = require('./TestResult');
 const UserStats = require('./UserStats');
 const Admin = require('./Admin');
+const ContactMessage = require('./ContactMessage');
 
 // Определение связей
 User.hasMany(TestResult, { foreignKey: 'userId', as: 'TestResults' });
@@ -45,6 +46,7 @@ module.exports = {
   Favorite,
   TestResult,
   UserStats,
-  Admin
+  Admin,
+  ContactMessage
 };
 
