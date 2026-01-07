@@ -36,6 +36,7 @@ const pages = {
   '/test': 'test.html',
   '/test-result': 'test-result.html',
   '/news': 'news.html',
+  '/about': 'about.html',
   '/favorites': 'favorites.html',
   '/profile': 'profile.html',
   '/contact': 'contact.html',
