@@ -481,11 +481,14 @@ async function handleRegister(e) {
         const result = await response.json();
 
         if (response.ok) {
-            currentToken = result.token;
-            currentUser = result.user;
-            localStorage.setItem('token', currentToken);
-            showNotification('Регистрация успешна!', 'success');
-            window.location.href = '/';
+            // Показываем сообщение об ожидании одобрения
+            showNotification(result.message || 'Заявка на регистрацию отправлена. Ожидайте одобрения администратора.', 'success');
+            e.target.reset();
+            
+            // Перенаправляем на страницу входа через 2 секунды
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 2000);
         } else {
             // Обработка ошибок валидации
             if (result.errors && Array.isArray(result.errors)) {

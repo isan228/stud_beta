@@ -38,22 +38,24 @@ router.post('/register', [
       return res.status(400).json({ error: 'Пользователь с таким email или никнеймом уже существует' });
     }
 
-    // Создание пользователя
-    const user = await User.create({ username, email, password });
+    // Создание пользователя со статусом pending (ожидает одобрения)
+    const user = await User.create({ 
+      username, 
+      email, 
+      password,
+      status: 'pending'
+    });
 
     // Создание статистики
     await UserStats.create({ userId: user.id });
 
-    // Генерация токена
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
-
     res.status(201).json({
-      message: 'Регистрация успешна',
-      token,
+      message: 'Заявка на регистрацию отправлена. Ожидайте одобрения администратора.',
       user: {
         id: user.id,
         username: user.username,
-        email: user.email
+        email: user.email,
+        status: user.status
       }
     });
   } catch (error) {
@@ -92,6 +94,19 @@ router.post('/login', [
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(401).json({ error: 'Неверный email/никнейм или пароль' });
+    }
+
+    // Проверка статуса пользователя
+    if (user.status === 'pending') {
+      return res.status(403).json({ 
+        error: 'Ваша регистрация еще не одобрена администратором. Ожидайте одобрения.' 
+      });
+    }
+
+    if (user.status === 'rejected') {
+      return res.status(403).json({ 
+        error: 'Ваша регистрация была отклонена. Обратитесь к администратору.' 
+      });
     }
 
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '30d' });

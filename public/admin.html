@@ -61,6 +61,7 @@
 
                 <div class="admin-tabs">
                     <button class="admin-tab active" data-tab="dashboard">Дашборд</button>
+                    <button class="admin-tab" data-tab="registrations">Заявки на регистрацию</button>
                     <button class="admin-tab" data-tab="users">Пользователи</button>
                     <button class="admin-tab" data-tab="subjects">Предметы</button>
                     <button class="admin-tab" data-tab="tests">Тесты</button>
@@ -113,6 +114,18 @@
                                 <div class="admin-stat-label">Новых сообщений</div>
                             </div>
                         </div>
+                        <div class="admin-stat-card">
+                            <div class="admin-stat-icon">📝</div>
+                            <div class="admin-stat-info">
+                                <div class="admin-stat-value" id="statPendingRegistrations">0</div>
+                                <div class="admin-stat-label">Заявок на регистрацию</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="admin-recent-section">
+                        <h3>Заявки на регистрацию</h3>
+                        <div id="pendingUsersList" class="admin-list"></div>
                     </div>
 
                     <div class="admin-recent-section">
@@ -179,6 +192,23 @@
                         </div>
                     </div>
                     <div id="questionsList" class="admin-list"></div>
+                </div>
+
+                <!-- Заявки на регистрацию -->
+                <div id="registrationsTab" class="admin-tab-content">
+                    <div class="admin-section-header">
+                        <h2>Заявки на регистрацию</h2>
+                        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                            <select id="registrationsStatusFilter" class="form-group input">
+                                <option value="pending">Ожидают одобрения</option>
+                                <option value="rejected">Отклоненные</option>
+                                <option value="all">Все</option>
+                            </select>
+                            <input type="text" id="registrationsSearch" class="form-group input" placeholder="Поиск по имени или email...">
+                        </div>
+                    </div>
+                    <div id="registrationsList" class="admin-list"></div>
+                    <div id="registrationsPagination" class="admin-pagination"></div>
                 </div>
 
                 <!-- Обратная связь -->

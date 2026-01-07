@@ -31,6 +31,11 @@ const User = sequelize.define('User', {
       len: [6, 100]
     }
   },
+  status: {
+    type: DataTypes.ENUM('pending', 'approved', 'rejected'),
+    defaultValue: 'pending',
+    allowNull: false
+  },
   createdAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
