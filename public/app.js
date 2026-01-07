@@ -547,6 +547,8 @@ function logout() {
 }
 
 // Предметы и тесты
+let allSubjects = []; // Храним все предметы для фильтрации
+
 async function loadSubjects() {
     // Проверяем авторизацию
     if (!currentUser) {
@@ -563,22 +565,10 @@ async function loadSubjects() {
         if (!container) return;
         
         const response = await fetch(`${API_URL}/tests/subjects`);
-        const subjects = await response.json();
+        allSubjects = await response.json();
         
-        if (subjects.length === 0) {
-            container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 3rem; grid-column: 1 / -1;">Предметы пока не добавлены</p>';
-        } else {
-            container.innerHTML = subjects.map((subject, index) => {
-                const name = encodeURIComponent(subject.name);
-                const desc = encodeURIComponent(subject.description || '');
-                return `
-                    <div class="subject-card card-animate" style="animation-delay: ${index * 0.1}s;" onclick="window.location.href='/subject-tests?id=${subject.id}&name=${name}&desc=${desc}'">
-                        <h3>${subject.name}</h3>
-                        <p>${subject.description || 'Тесты по данному предмету для подготовки к экзаменам'}</p>
-                    </div>
-                `;
-            }).join('');
-        }
+        // Отображаем все предметы
+        displaySubjects(allSubjects);
     } catch (error) {
         console.error('Ошибка загрузки предметов:', error);
         showNotification('Ошибка загрузки предметов', 'error');
@@ -586,6 +576,69 @@ async function loadSubjects() {
         if (container) {
             container.innerHTML = '<p style="text-align: center; color: var(--danger-color); padding: 3rem; grid-column: 1 / -1;">Ошибка загрузки. Попробуйте обновить страницу.</p>';
         }
+    }
+}
+
+// Функция отображения предметов
+function displaySubjects(subjects) {
+    const container = document.getElementById('subjectsList');
+    if (!container) return;
+    
+    if (subjects.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 3rem; grid-column: 1 / -1;">Предметы не найдены</p>';
+    } else {
+        container.innerHTML = subjects.map((subject, index) => {
+            const name = encodeURIComponent(subject.name);
+            const desc = encodeURIComponent(subject.description || '');
+            return `
+                <div class="subject-card card-animate" style="animation-delay: ${index * 0.1}s;" onclick="window.location.href='/subject-tests?id=${subject.id}&name=${name}&desc=${desc}'">
+                    <h3>${subject.name}</h3>
+                    <p>${subject.description || 'Тесты по данному предмету для подготовки к экзаменам'}</p>
+                </div>
+            `;
+        }).join('');
+    }
+}
+
+// Функция поиска по предметам
+function filterSubjects(searchQuery) {
+    if (!searchQuery || searchQuery.trim() === '') {
+        displaySubjects(allSubjects);
+        updateSearchResultsCount(null);
+        return;
+    }
+    
+    const query = searchQuery.toLowerCase().trim();
+    const filtered = allSubjects.filter(subject => {
+        const name = subject.name.toLowerCase();
+        const description = (subject.description || '').toLowerCase();
+        return name.includes(query) || description.includes(query);
+    });
+    
+    displaySubjects(filtered);
+    updateSearchResultsCount(filtered.length);
+}
+
+// Обновление счетчика результатов поиска
+function updateSearchResultsCount(count) {
+    const countEl = document.getElementById('searchResultsCount');
+    const clearBtn = document.getElementById('clearSearch');
+    
+    if (count === null) {
+        if (countEl) countEl.style.display = 'none';
+        if (clearBtn) clearBtn.style.display = 'none';
+    } else {
+        if (countEl) {
+            countEl.style.display = 'block';
+            if (count === 0) {
+                countEl.textContent = 'Ничего не найдено';
+                countEl.className = 'search-results-count no-results';
+            } else {
+                countEl.textContent = `Найдено: ${count} ${count === 1 ? 'предмет' : count < 5 ? 'предмета' : 'предметов'}`;
+                countEl.className = 'search-results-count';
+            }
+        }
+        if (clearBtn) clearBtn.style.display = 'block';
     }
 }
 

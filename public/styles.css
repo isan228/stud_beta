@@ -3752,3 +3752,108 @@ html[data-theme="dark"] .navbar {
     }
 }
 
+/* Стили для поиска по предметам */
+.search-container {
+    margin: 2rem 0;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.search-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: var(--card-bg);
+    border: 2px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: 0.75rem 1rem;
+    transition: var(--transition);
+    box-shadow: var(--shadow);
+}
+
+.search-wrapper:focus-within {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1), var(--shadow-md);
+}
+
+.search-icon {
+    font-size: 1.25rem;
+    margin-right: 0.75rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.search-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--text-color);
+    font-size: 1rem;
+    padding: 0.25rem 0;
+}
+
+.search-input::placeholder {
+    color: var(--text-muted);
+}
+
+.clear-search-btn {
+    background: var(--bg-secondary);
+    border: none;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 1rem;
+    transition: var(--transition);
+    flex-shrink: 0;
+    margin-left: 0.5rem;
+}
+
+.clear-search-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-color);
+    transform: scale(1.1);
+}
+
+.search-results-count {
+    margin-top: 1rem;
+    text-align: center;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    padding: 0.5rem 1rem;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    display: inline-block;
+}
+
+.search-results-count.no-results {
+    color: var(--danger-color);
+    background: rgba(220, 38, 38, 0.1);
+}
+
+/* Адаптивность для поиска */
+@media (max-width: 768px) {
+    .search-container {
+        margin: 1.5rem 0;
+    }
+
+    .search-wrapper {
+        padding: 0.625rem 0.875rem;
+    }
+
+    .search-input {
+        font-size: 16px; /* Предотвращает зум на iOS */
+    }
+
+    .search-results-count {
+        font-size: 0.875rem;
+        padding: 0.5rem 0.75rem;
+    }
+}
+

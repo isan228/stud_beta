@@ -47,6 +47,23 @@
                     Каждый предмет содержит множество тестов различной сложности.
                 </p>
             </div>
+            
+            <!-- Поиск по предметам -->
+            <div class="search-container">
+                <div class="search-wrapper">
+                    <span class="search-icon">🔍</span>
+                    <input 
+                        type="text" 
+                        id="subjectSearch" 
+                        class="search-input" 
+                        placeholder="Поиск по предметам..."
+                        autocomplete="off"
+                    >
+                    <button id="clearSearch" class="clear-search-btn" style="display: none;" aria-label="Очистить поиск">✕</button>
+                </div>
+                <div id="searchResultsCount" class="search-results-count" style="display: none;"></div>
+            </div>
+            
             <div id="subjectsList" class="subjects-grid">
                 <div style="text-align: center; padding: 3rem; width: 100%; grid-column: 1 / -1;">
                     <div class="loading" style="margin: 0 auto;"></div>
@@ -115,6 +132,40 @@
                 showRegisterModal();
             } else {
                 loadSubjects();
+            }
+            
+            // Настройка поиска по предметам
+            const searchInput = document.getElementById('subjectSearch');
+            const clearBtn = document.getElementById('clearSearch');
+            
+            if (searchInput) {
+                // Поиск при вводе текста
+                let searchTimeout;
+                searchInput.addEventListener('input', (e) => {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        filterSubjects(e.target.value);
+                    }, 300); // Задержка 300мс для оптимизации
+                });
+                
+                // Поиск при нажатии Enter
+                searchInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        filterSubjects(e.target.value);
+                    }
+                });
+            }
+            
+            // Кнопка очистки поиска
+            if (clearBtn) {
+                clearBtn.addEventListener('click', () => {
+                    if (searchInput) {
+                        searchInput.value = '';
+                        filterSubjects('');
+                        searchInput.focus();
+                    }
+                });
             }
         });
     </script>
