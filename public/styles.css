@@ -1147,32 +1147,25 @@ html[data-theme="dark"] .navbar {
 
 .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--primary-color), var(--success-color), var(--primary-color));
-    background-size: 200% 100%;
+    background: linear-gradient(90deg, var(--primary-color), var(--primary-light));
     transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     border-radius: 4px;
     width: 0%;
-    animation: shimmer 2s linear infinite;
     position: relative;
     overflow: hidden;
-    box-shadow: 0 0 10px rgba(37, 99, 235, 0.5);
+    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
 }
 
 .progress-fill::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
-    animation: shimmer 1.5s infinite;
+    display: none;
 }
 
 #progressText {
     font-size: 0.9rem;
     color: var(--text-secondary);
     font-weight: 500;
+    transition: opacity 0.1s ease;
+    display: inline-block;
 }
 
 .test-timer {
@@ -1200,6 +1193,10 @@ html[data-theme="dark"] .navbar {
     color: var(--text-color);
     font-weight: 500;
     font-size: 0.9rem;
+    transition: opacity 0.1s ease;
+    display: inline-block;
+    min-width: 3.5rem;
+    text-align: center;
 }
 
 .test-content {

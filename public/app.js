@@ -770,10 +770,11 @@ function startTimer(seconds) {
     const updateTimer = () => {
         const minutes = Math.floor(timeLeft / 60);
         const secs = timeLeft % 60;
+        const newText = `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         
-        if (timerDisplayEl) {
-            timerDisplayEl.textContent = 
-                `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        if (timerDisplayEl && timerDisplayEl.textContent !== newText) {
+            // Обновляем только если текст изменился, чтобы избежать лишних перерисовок
+            timerDisplayEl.textContent = newText;
         }
         
         if (timeLeft <= 0) {
