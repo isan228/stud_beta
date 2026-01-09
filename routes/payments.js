@@ -247,6 +247,17 @@ router.post('/create', [
     });
     
     console.log(`Payment created: ${paymentResult.paymentId} ${userId ? `for user ${userId}` : '(test mode, no user)'}`);
+    console.log('📤 Payment result:', {
+      success: paymentResult.success,
+      paymentId: paymentResult.paymentId,
+      paymentUrl: paymentResult.paymentUrl,
+      status: paymentResult.status
+    });
+    
+    if (!paymentResult.paymentUrl) {
+      console.error('⚠️  WARNING: paymentUrl is missing from Finik response!');
+      console.error('Full payment result:', JSON.stringify(paymentResult, null, 2));
+    }
     
     res.json({
       success: true,

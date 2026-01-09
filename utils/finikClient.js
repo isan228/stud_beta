@@ -389,23 +389,53 @@ ZwIDAQAB
       redirect: 'manual' // Не следовать редиректу автоматически
     });
     
+    // Логируем ответ от Finik API
+    console.log('📥 Finik API Response:', {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries()),
+      url: url
+    });
+    
     // Обрабатываем ответ
     if (response.status === 302 || response.status === 301) {
       // Редирект - это нормально, получаем payment URL
       const paymentUrl = response.headers.get('location');
+      console.log('✅ Payment created, redirect URL:', paymentUrl);
       return {
         success: true,
         paymentId: paymentId,
         paymentUrl: paymentUrl,
         status: 'CREATED'
       };
-    } else if (response.status === 201) {
+    } else if (response.status === 201 || response.status === 200) {
       // JSON ответ (если API вернет JSON)
-      const data = await response.json();
+      const responseText = await response.text();
+      console.log('📄 Finik API Response body:', responseText);
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        // Если не JSON, возможно это HTML или другой формат
+        console.log('⚠️  Response is not JSON, trying to extract URL from headers');
+        const location = response.headers.get('location');
+        if (location) {
+          return {
+            success: true,
+            paymentId: paymentId,
+            paymentUrl: location,
+            status: 'CREATED'
+          };
+        }
+        throw new Error('Invalid response format from Finik API');
+      }
+      
+      console.log('✅ Payment created, response data:', data);
       return {
         success: true,
         paymentId: paymentId,
-        paymentUrl: data.paymentUrl || response.headers.get('location'),
+        paymentUrl: data.paymentUrl || data.url || data.redirectUrl || response.headers.get('location'),
         status: data.status || 'CREATED',
         data: data
       };
