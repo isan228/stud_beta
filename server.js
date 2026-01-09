@@ -10,6 +10,22 @@ const app = express();
 // Middleware
 app.use(cors());
 
+// Защита от path traversal и других атак
+app.use((req, res, next) => {
+  // Блокируем попытки path traversal
+  if (req.path.includes('..') || 
+      req.path.includes('%2e%2e') || 
+      req.path.includes('%2E%2E') ||
+      req.path.includes('\\') ||
+      req.path.includes('//') ||
+      req.path.includes('/proc/') ||
+      req.path.includes('/etc/') ||
+      req.path.includes('/sys/')) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  next();
+});
+
 // Важно: Webhook Finik требует raw body для валидации подписи
 // Поэтому обрабатываем webhook до общего express.json()
 app.use('/api/payments/webhook', express.raw({ type: 'application/json', limit: '10mb' }));
@@ -70,8 +86,29 @@ Object.keys(pages).forEach(route => {
 
 // Статические файлы (CSS, JS, изображения и т.д.) - только для файлов с расширениями
 app.use(express.static(path.join(__dirname, 'public'), {
-  index: false
+  index: false,
+  dotfiles: 'deny', // Запрещаем доступ к скрытым файлам
+  setHeaders: (res, path) => {
+    // Безопасные заголовки для статических файлов
+    res.set('X-Content-Type-Options', 'nosniff');
+  }
 }));
+
+// Обработка ошибок для статических файлов (тихие ошибки для атак)
+app.use((err, req, res, next) => {
+  // Игнорируем ошибки path traversal (это атаки)
+  if (err.message && (
+    err.message.includes('Failed to decode param') ||
+    err.message.includes('ENOENT') ||
+    err.message.includes('path traversal')
+  )) {
+    // Тихий ответ 404 для атак, не логируем
+    return res.status(404).json({ error: 'Not found' });
+  }
+  // Для реальных ошибок логируем
+  console.error('Static file error:', err.message);
+  res.status(500).json({ error: 'Internal server error' });
+});
 
 // Для всех остальных маршрутов (кроме API и статических файлов)
 app.get('*', (req, res) => {
