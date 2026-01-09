@@ -9,6 +9,12 @@ const app = express();
 
 // Middleware
 app.use(cors());
+
+// Важно: Webhook Finik требует raw body для валидации подписи
+// Поэтому обрабатываем webhook до общего express.json()
+app.use('/api/payments/webhook', express.raw({ type: 'application/json', limit: '10mb' }));
+
+// Общие middleware для остальных роутов
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -19,6 +25,7 @@ app.use('/api', require('./routes/favorites'));
 app.use('/api', require('./routes/stats'));
 app.use('/api', require('./routes/contact'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/payments', require('./routes/payments'));
 
 // Загрузка PDF - опционально (может не работать на некоторых версиях Node.js)
 try {
@@ -43,7 +50,9 @@ const pages = {
   '/contact': 'contact.html',
   '/login': 'login.html',
   '/register': 'register.html',
-  '/admin': 'admin.html'
+  '/admin': 'admin.html',
+  '/payment': 'payment.html',
+  '/payment/success': 'payment-success.html'
 };
 
 // Обработка маршрутов страниц

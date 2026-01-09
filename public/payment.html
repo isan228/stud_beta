@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Оплата - stud.kg</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .payment-container {
+            max-width: 600px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .payment-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .payment-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .form-group label {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 0.75rem;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1rem;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+        
+        .amount-display {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            text-align: center;
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+        }
+        
+        .payment-info {
+            background: var(--bg-secondary);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        
+        .payment-info p {
+            margin: 0.5rem 0;
+            color: var(--text-secondary);
+        }
+        
+        .btn-pay {
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .btn-pay:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-pay:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .test-mode-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background: #ff9800;
+            color: white;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        
+        .status-message {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            text-align: center;
+        }
+        
+        .status-message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status-message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status-message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="/"><h1>STUD.kg</h1></a>
+            </div>
+            <div class="nav-menu">
+                <a href="/" class="nav-link">Главная</a>
+                <a href="/profile" class="nav-link">Профиль</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="payment-container">
+            <div class="payment-header">
+                <h1>Тестовая страница оплаты</h1>
+                <span class="test-mode-badge">ТЕСТОВЫЙ РЕЖИМ</span>
+            </div>
+
+            <div class="payment-info">
+                <p><strong>Интеграция:</strong> Finik Payments</p>
+                <p><strong>Статус:</strong> Тестирование</p>
+                <p><strong>Webhook URL:</strong> <code>/api/payments/webhook</code></p>
+            </div>
+
+            <form id="paymentForm" class="payment-form">
+                <div class="form-group">
+                    <label for="amount">Сумма оплаты (сом)</label>
+                    <input 
+                        type="number" 
+                        id="amount" 
+                        name="amount" 
+                        min="1" 
+                        step="0.01" 
+                        value="100" 
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Описание платежа</label>
+                    <textarea 
+                        id="description" 
+                        name="description" 
+                        rows="3" 
+                        placeholder="Оплата за подписку на платформу stud.kg"
+                    ></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="paymentType">Тип платежа</label>
+                    <select id="paymentType" name="paymentType">
+                        <option value="subscription">Подписка</option>
+                        <option value="premium">Премиум доступ</option>
+                        <option value="test">Тестовый платеж</option>
+                    </select>
+                </div>
+
+                <div class="amount-display" id="amountDisplay">
+                    100 сом
+                </div>
+
+                <button type="submit" class="btn-pay" id="payButton">
+                    Перейти к оплате
+                </button>
+            </form>
+
+            <div id="statusMessage" class="status-message" style="display: none;"></div>
+
+            <div style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid var(--border-color);">
+                <h3>Информация для тестирования:</h3>
+                <ul style="color: var(--text-secondary); line-height: 1.8;">
+                    <li>Webhook будет отправлен на: <code>/api/payments/webhook</code></li>
+                    <li>Подпись валидируется с помощью публичного ключа Finik</li>
+                    <li>Статусы платежей: PENDING, SUCCEEDED, FAILED</li>
+                    <li>Все транзакции сохраняются в базе данных</li>
+                </ul>
+            </div>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+    <script>
+        // Инициализация темы
+        initTheme();
+
+        // Обновление отображения суммы
+        const amountInput = document.getElementById('amount');
+        const amountDisplay = document.getElementById('amountDisplay');
+        
+        amountInput.addEventListener('input', function() {
+            const amount = parseFloat(this.value) || 0;
+            amountDisplay.textContent = `${amount.toFixed(2)} сом`;
+        });
+
+        // Обработка формы оплаты
+        const paymentForm = document.getElementById('paymentForm');
+        const payButton = document.getElementById('payButton');
+        const statusMessage = document.getElementById('statusMessage');
+
+        paymentForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const amount = parseFloat(amountInput.value);
+            const description = document.getElementById('description').value;
+            const paymentType = document.getElementById('paymentType').value;
+
+            if (amount <= 0) {
+                showMessage('Введите корректную сумму', 'error');
+                return;
+            }
+
+            // Проверяем авторизацию
+            const token = localStorage.getItem('token');
+            if (!token) {
+                showMessage('Необходимо войти в систему', 'error');
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 2000);
+                return;
+            }
+
+            payButton.disabled = true;
+            payButton.textContent = 'Обработка...';
+
+            try {
+                // Создаем платеж
+                const response = await fetch('/api/payments/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        amount,
+                        description: description || `Оплата: ${paymentType}`,
+                        paymentType,
+                        fields: {
+                            paymentType,
+                            description: description || `Оплата: ${paymentType}`
+                        }
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    if (data.success && data.paymentUrl) {
+                        showMessage('Платеж создан! Перенаправление на страницу оплаты...', 'success');
+                        
+                        // Редирект на страницу оплаты Finik
+                        setTimeout(() => {
+                            window.location.href = data.paymentUrl;
+                        }, 1500);
+                    } else {
+                        showMessage(data.message || 'Платеж создан, но URL не получен', 'info');
+                        console.log('Payment created:', data);
+                    }
+                } else {
+                    const errorData = await response.json();
+                    showMessage(errorData.error || 'Ошибка при создании платежа', 'error');
+                }
+            } catch (error) {
+                console.error('Payment error:', error);
+                showMessage('Ошибка соединения с сервером', 'error');
+            } finally {
+                payButton.disabled = false;
+                payButton.textContent = 'Перейти к оплате';
+            }
+        });
+
+        function showMessage(message, type) {
+            statusMessage.textContent = message;
+            statusMessage.className = `status-message ${type}`;
+            statusMessage.style.display = 'block';
+            
+            setTimeout(() => {
+                statusMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        // Загружаем пользователя
+        loadUser().then(isLoggedIn => {
+            if (!isLoggedIn) {
+                showMessage('Необходимо войти в систему. Перенаправление...', 'info');
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 2000);
+            }
+        });
+    </script>
+</body>
+</html>
+

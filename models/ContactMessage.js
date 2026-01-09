@@ -43,3 +43,4 @@ const ContactMessage = sequelize.define('ContactMessage', {
 
 module.exports = ContactMessage;
 
+

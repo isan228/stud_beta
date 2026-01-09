@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Оплата успешна - stud.kg</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .success-container {
+            max-width: 600px;
+            margin: 4rem auto;
+            padding: 3rem;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        
+        .success-icon {
+            font-size: 5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .success-title {
+            font-size: 2rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+        
+        .success-message {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+        
+        .payment-details {
+            background: var(--bg-secondary);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin: 2rem 0;
+            text-align: left;
+        }
+        
+        .payment-details h3 {
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+        
+        .payment-details p {
+            margin: 0.5rem 0;
+            color: var(--text-secondary);
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 2rem;
+        }
+        
+        .btn {
+            padding: 0.75rem 2rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 2px solid var(--border-color);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="/"><h1>STUD.kg</h1></a>
+            </div>
+            <div class="nav-menu">
+                <a href="/" class="nav-link">Главная</a>
+                <a href="/profile" class="nav-link">Профиль</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="success-container">
+            <div class="success-icon">✅</div>
+            <h1 class="success-title">Оплата успешно завершена!</h1>
+            <p class="success-message">
+                Спасибо за оплату. Ваш платеж обрабатывается и будет подтвержден в ближайшее время.
+            </p>
+            
+            <div class="payment-details" id="paymentDetails" style="display: none;">
+                <h3>Детали платежа</h3>
+                <p><strong>Сумма:</strong> <span id="paymentAmount">-</span></p>
+                <p><strong>Описание:</strong> <span id="paymentDescription">-</span></p>
+                <p><strong>Статус:</strong> <span id="paymentStatus">Обрабатывается</span></p>
+            </div>
+            
+            <div class="btn-group">
+                <a href="/profile" class="btn btn-primary">Перейти в профиль</a>
+                <a href="/" class="btn btn-secondary">На главную</a>
+            </div>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+    <script>
+        // Инициализация темы
+        initTheme();
+        
+        // Получаем параметры из URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const amount = urlParams.get('amount');
+        const description = urlParams.get('description');
+        const userId = urlParams.get('userId');
+        
+        // Отображаем детали платежа, если есть
+        if (amount) {
+            document.getElementById('paymentDetails').style.display = 'block';
+            document.getElementById('paymentAmount').textContent = amount + ' сом';
+            document.getElementById('paymentDescription').textContent = description || 'Оплата услуг';
+        }
+        
+        // Проверяем статус транзакции через API (если пользователь авторизован)
+        const token = localStorage.getItem('token');
+        if (token && userId) {
+            // Можно добавить проверку статуса транзакции через API
+            // fetch(`/api/payments/transactions?userId=${userId}`)
+        }
+    </script>
+</body>
+</html>
+

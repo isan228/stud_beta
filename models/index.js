@@ -9,6 +9,7 @@ const TestResult = require('./TestResult');
 const UserStats = require('./UserStats');
 const Admin = require('./Admin');
 const ContactMessage = require('./ContactMessage');
+const Transaction = require('./Transaction');
 
 // Определение связей
 User.hasMany(TestResult, { foreignKey: 'userId', as: 'TestResults' });
@@ -36,6 +37,10 @@ Question.belongsToMany(User, { through: Favorite, foreignKey: 'questionId' });
 Favorite.belongsTo(Question, { foreignKey: 'questionId', as: 'Question' });
 Favorite.belongsTo(User, { foreignKey: 'userId', as: 'User' });
 
+// Связи для Transaction
+User.hasMany(Transaction, { foreignKey: 'userId', as: 'Transactions' });
+Transaction.belongsTo(User, { foreignKey: 'userId', as: 'User' });
+
 module.exports = {
   sequelize,
   User,
@@ -47,6 +52,7 @@ module.exports = {
   TestResult,
   UserStats,
   Admin,
-  ContactMessage
+  ContactMessage,
+  Transaction
 };
 
