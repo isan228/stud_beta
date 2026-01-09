@@ -10,33 +10,57 @@ const app = express();
 // Middleware
 app.use(cors());
 
-// Защита от path traversal и других атак
+// Защита от path traversal и других атак (ПЕРВЫМ, до всего остального)
 app.use((req, res, next) => {
   try {
-    // Декодируем URL для проверки
-    const decodedPath = decodeURIComponent(req.path);
-    const lowerPath = decodedPath.toLowerCase();
+    // Проверяем raw URL path (до декодирования)
+    const rawPath = req.path;
+    const lowerRawPath = rawPath.toLowerCase();
     
-    // Блокируем попытки path traversal и атаки
-    if (
-      decodedPath.includes('..') || 
-      decodedPath.includes('%2e%2e') || 
-      decodedPath.includes('%2E%2E') ||
-      decodedPath.includes('\\') ||
-      decodedPath.includes('//') ||
-      lowerPath.includes('/proc/') ||
-      lowerPath.includes('/etc/') ||
-      lowerPath.includes('/sys/') ||
-      lowerPath.includes('environ') ||
-      lowerPath.includes('passwd') ||
-      lowerPath.includes('shadow')
-    ) {
-      // Тихий ответ для атак (не логируем)
-      return res.status(403).json({ error: 'Forbidden' });
+    // Блокируем подозрительные паттерны в raw URL
+    const suspiciousPatterns = [
+      '..', '%2e%2e', '%2E%2E', '%c0%af', '%e0%80%af',
+      '\\', '//', '/proc/', '/etc/', '/sys/',
+      'environ', 'passwd', 'shadow', 'bash_history',
+      'win.ini', 'access.log', '.bash'
+    ];
+    
+    for (const pattern of suspiciousPatterns) {
+      if (lowerRawPath.includes(pattern.toLowerCase())) {
+        // Тихий ответ для атак (не логируем, не тратим ресурсы)
+        return res.status(403).json({ error: 'Forbidden' });
+      }
     }
+    
+    // Пытаемся декодировать для дополнительной проверки
+    try {
+      const decodedPath = decodeURIComponent(req.path);
+      const lowerDecodedPath = decodedPath.toLowerCase();
+      
+      // Дополнительные проверки после декодирования
+      if (
+        decodedPath.includes('..') ||
+        decodedPath.includes('\\') ||
+        decodedPath.includes('//') ||
+        lowerDecodedPath.includes('/proc/') ||
+        lowerDecodedPath.includes('/etc/') ||
+        lowerDecodedPath.includes('/sys/') ||
+        lowerDecodedPath.includes('environ') ||
+        lowerDecodedPath.includes('passwd') ||
+        lowerDecodedPath.includes('shadow')
+      ) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+    } catch (decodeError) {
+      // Если не удалось декодировать и есть подозрительные символы - блокируем
+      if (rawPath.includes('%')) {
+        return res.status(400).json({ error: 'Bad Request' });
+      }
+    }
+    
     next();
   } catch (e) {
-    // Если не удалось декодировать - это подозрительно
+    // Любая ошибка в проверке - блокируем
     return res.status(400).json({ error: 'Bad Request' });
   }
 });

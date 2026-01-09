@@ -129,6 +129,22 @@ async function createPayment(params) {
   // Получаем приватный ключ из файла или переменной окружения
   const privateKeyPem = getPrivateKey();
   
+  // Проверяем формат приватного ключа
+  if (!privateKeyPem.includes('BEGIN PRIVATE KEY') && !privateKeyPem.includes('BEGIN RSA PRIVATE KEY')) {
+    throw new Error('Invalid private key format. Must start with -----BEGIN PRIVATE KEY----- or -----BEGIN RSA PRIVATE KEY-----');
+  }
+  
+  // Логируем конфигурацию (всегда для диагностики)
+  console.log('✅ Configuration loaded:', {
+    apiKey: apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT SET',
+    privateKey: privateKeyPem ? 'LOADED' : 'NOT LOADED',
+    privateKeyLength: privateKeyPem ? privateKeyPem.length : 0,
+    privateKeyFormat: privateKeyPem.includes('BEGIN PRIVATE KEY') ? 'PKCS#8' : 
+                     privateKeyPem.includes('BEGIN RSA PRIVATE KEY') ? 'PKCS#1' : 'UNKNOWN',
+    accountId: accountId ? 'SET' : 'NOT SET',
+    environment: process.env.FINIK_ENV || 'beta'
+  });
+  
   // Генерируем PaymentId (UUID)
   const paymentId = uuidv4();
   
