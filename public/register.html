@@ -4,105 +4,72 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <meta name="theme-color" content="#2563eb">
-    <title>Регистрация - stud.kg</title>
+    <title>Оформление подписки - stud.kg</title>
     <link rel="stylesheet" href="styles.css">
     <style>
-        .subscription-selection {
-            margin-bottom: 2rem;
+        body {
+            background: linear-gradient(135deg, var(--bg-color) 0%, var(--bg-secondary) 100%);
+            min-height: 100vh;
         }
         
-        .subscription-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-top: 1.5rem;
+        .subscription-page {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
         }
         
-        .subscription-card {
-            border: 2px solid var(--border-color);
-            border-radius: var(--radius);
-            padding: 1.5rem;
+        .page-header {
             text-align: center;
-            cursor: pointer;
-            transition: var(--transition);
-            background: var(--card-bg);
-            position: relative;
+            margin-bottom: 3rem;
         }
         
-        .subscription-card:hover:not(.disabled) {
-            border-color: var(--primary-color);
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-md);
-        }
-        
-        .subscription-card.selected {
-            border-color: var(--primary-color);
-            background: var(--primary-color);
-            color: white;
-        }
-        
-        .subscription-card.selected * {
-            color: white;
-        }
-        
-        .subscription-card.disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            position: relative;
-        }
-        
-        .subscription-card.disabled::after {
-            content: 'В разработке';
-            position: absolute;
-            top: 0.5rem;
-            right: 0.5rem;
-            background: var(--warning-color);
-            color: white;
-            padding: 0.25rem 0.5rem;
-            border-radius: 0.25rem;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-        
-        .subscription-title {
-            font-size: 1.25rem;
-            font-weight: 600;
+        .page-header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
             margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
         
-        .subscription-price {
-            font-size: 1.75rem;
-            font-weight: bold;
-            color: var(--primary-color);
-            margin: 0.5rem 0;
-        }
-        
-        .subscription-card.selected .subscription-price {
-            color: white;
-        }
-        
-        .subscription-description {
-            font-size: 0.875rem;
+        .page-header p {
+            font-size: 1.125rem;
             color: var(--text-secondary);
-            margin-top: 0.5rem;
-        }
-        
-        .subscription-card.selected .subscription-description {
-            color: rgba(255, 255, 255, 0.9);
         }
         
         .registration-steps {
             display: flex;
             justify-content: center;
-            margin-bottom: 2rem;
-            gap: 1rem;
+            align-items: center;
+            margin-bottom: 3rem;
+            gap: 2rem;
+            flex-wrap: wrap;
         }
         
         .step {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.75rem;
             color: var(--text-secondary);
+            position: relative;
+        }
+        
+        .step:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            right: -1.5rem;
+            width: 2rem;
+            height: 2px;
+            background: var(--border-color);
+        }
+        
+        .step.active::after {
+            background: var(--primary-color);
+        }
+        
+        .step.completed::after {
+            background: var(--success-color);
         }
         
         .step.active {
@@ -115,20 +82,24 @@
         }
         
         .step-number {
-            width: 2rem;
-            height: 2rem;
+            width: 2.5rem;
+            height: 2.5rem;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             background: var(--bg-secondary);
-            border: 2px solid var(--border-color);
+            border: 3px solid var(--border-color);
+            font-weight: 600;
+            transition: all 0.3s ease;
         }
         
         .step.active .step-number {
             background: var(--primary-color);
             color: white;
             border-color: var(--primary-color);
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
         }
         
         .step.completed .step-number {
@@ -137,16 +108,392 @@
             border-color: var(--success-color);
         }
         
+        .step-label {
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        
         .registration-step {
             display: none;
+            animation: fadeIn 0.3s ease;
         }
         
         .registration-step.active {
             display: block;
         }
         
-        .btn-back {
-            margin-right: 1rem;
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Стили для карточек подписок */
+        .subscription-selection {
+            margin-bottom: 2rem;
+        }
+        
+        .subscription-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        
+        .subscription-card {
+            border: 2px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: var(--card-bg);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .subscription-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-color), var(--primary-light));
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+        
+        .subscription-card:hover:not(.disabled)::before {
+            transform: scaleX(1);
+        }
+        
+        .subscription-card:hover:not(.disabled) {
+            border-color: var(--primary-color);
+            transform: translateY(-8px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+        }
+        
+        .subscription-card.selected {
+            border-color: var(--primary-color);
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+            color: white;
+            transform: translateY(-8px);
+            box-shadow: 0 12px 24px rgba(37, 99, 235, 0.3);
+        }
+        
+        .subscription-card.selected::before {
+            transform: scaleX(1);
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .subscription-card.selected * {
+            color: white;
+        }
+        
+        .subscription-card.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            position: relative;
+        }
+        
+        .subscription-card.disabled::after {
+            content: 'В разработке';
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: var(--warning-color);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(217, 119, 6, 0.3);
+        }
+        
+        .subscription-badge {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            backdrop-filter: blur(10px);
+        }
+        
+        .subscription-card.selected .subscription-badge {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .subscription-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            margin-top: 0.5rem;
+        }
+        
+        .subscription-price {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--primary-color);
+            margin: 1rem 0;
+            line-height: 1;
+        }
+        
+        .subscription-card.selected .subscription-price {
+            color: white;
+        }
+        
+        .subscription-period {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+        }
+        
+        .subscription-card.selected .subscription-period {
+            color: rgba(255, 255, 255, 0.9);
+        }
+        
+        .subscription-description {
+            font-size: 0.9375rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-top: 1rem;
+        }
+        
+        .subscription-card.selected .subscription-description {
+            color: rgba(255, 255, 255, 0.95);
+        }
+        
+        .subscription-features {
+            margin-top: 1.5rem;
+            text-align: left;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .subscription-card.selected .subscription-features {
+            border-top-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .subscription-features ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .subscription-features li {
+            padding: 0.5rem 0;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .subscription-card.selected .subscription-features li {
+            color: rgba(255, 255, 255, 0.95);
+        }
+        
+        .subscription-features li::before {
+            content: '✓';
+            color: var(--success-color);
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        
+        .subscription-card.selected .subscription-features li::before {
+            color: white;
+        }
+        
+        /* Форма данных */
+        .data-form-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+        
+        .form-section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+        }
+        
+        .auth-form .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .auth-form .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+        }
+        
+        .auth-form .form-group input {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            font-size: 1rem;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+        
+        .auth-form .form-group input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            background: var(--card-bg);
+        }
+        
+        .checkbox-group {
+            background: var(--bg-secondary);
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+        }
+        
+        .checkbox-group label {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            cursor: pointer;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            margin-top: 0.25rem;
+            cursor: pointer;
+        }
+        
+        .checkbox-group small {
+            display: block;
+            margin-top: 0.5rem;
+            color: var(--text-muted);
+            font-size: 0.8125rem;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+        
+        .btn {
+            padding: 0.875rem 2rem;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+            color: white;
+            flex: 1;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(37, 99, 235, 0.3);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 2px solid var(--border-color);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--text-secondary);
+        }
+        
+        .btn-block {
+            width: 100%;
+            margin-top: 2rem;
+        }
+        
+        /* Шаг оплаты */
+        .payment-loading {
+            text-align: center;
+            padding: 4rem 2rem;
+            background: var(--card-bg);
+            border-radius: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+        
+        .payment-loading h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+        
+        .payment-loading p {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+        
+        .auth-link {
+            text-align: center;
+            margin-top: 2rem;
+            color: var(--text-secondary);
+        }
+        
+        .auth-link a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .auth-link a:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 768px) {
+            .subscription-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .registration-steps {
+                gap: 1rem;
+            }
+            
+            .step:not(:last-child)::after {
+                display: none;
+            }
+            
+            .step-label {
+                display: none;
+            }
+            
+            .data-form-container {
+                padding: 1.5rem;
+            }
+            
+            .page-header h1 {
+                font-size: 2rem;
+            }
         }
     </style>
 </head>
@@ -160,49 +507,96 @@
     </nav>
 
     <main class="main-content">
-        <div class="auth-container">
-            <h2>Регистрация</h2>
+        <div class="subscription-page">
+            <div class="page-header">
+                <h1>Оформление подписки</h1>
+                <p>Выберите подходящий тариф и начните подготовку к экзаменам</p>
+            </div>
             
             <!-- Шаги регистрации -->
             <div class="registration-steps">
                 <div class="step active" id="step1">
                     <div class="step-number">1</div>
-                    <span>Выбор подписки</span>
+                    <span class="step-label">Выбор подписки</span>
                 </div>
                 <div class="step" id="step2">
                     <div class="step-number">2</div>
-                    <span>Данные</span>
+                    <span class="step-label">Данные</span>
                 </div>
                 <div class="step" id="step3">
                     <div class="step-number">3</div>
-                    <span>Оплата</span>
+                    <span class="step-label">Оплата</span>
                 </div>
             </div>
             
             <!-- Шаг 1: Выбор подписки -->
             <div class="registration-step active" id="subscriptionStep">
                 <div class="subscription-selection">
-                    <h3 style="text-align: center; margin-bottom: 1rem;">Выберите подписку</h3>
                     <div class="subscription-grid">
                         <div class="subscription-card" data-subscription="1" data-amount="500">
+                            <div class="subscription-badge">Популярный</div>
                             <div class="subscription-title">1 месяц</div>
-                            <div class="subscription-price">500 сом</div>
-                            <div class="subscription-description">Полный доступ на 1 месяц</div>
+                            <div class="subscription-price">500 <span style="font-size: 1.5rem;">сом</span></div>
+                            <div class="subscription-period">Полный доступ на 1 месяц</div>
+                            <div class="subscription-description">
+                                Идеально для начала подготовки
+                            </div>
+                            <div class="subscription-features">
+                                <ul>
+                                    <li>Неограниченный доступ к тестам</li>
+                                    <li>Все предметы</li>
+                                    <li>Статистика и прогресс</li>
+                                    <li>Система избранного</li>
+                                </ul>
+                            </div>
                         </div>
                         <div class="subscription-card disabled" data-subscription="2" data-amount="900">
                             <div class="subscription-title">2 месяца</div>
-                            <div class="subscription-price">900 сом</div>
-                            <div class="subscription-description">Полный доступ на 2 месяца</div>
+                            <div class="subscription-price">900 <span style="font-size: 1.5rem;">сом</span></div>
+                            <div class="subscription-period">Полный доступ на 2 месяца</div>
+                            <div class="subscription-description">
+                                Экономия 100 сом
+                            </div>
+                            <div class="subscription-features">
+                                <ul>
+                                    <li>Неограниченный доступ к тестам</li>
+                                    <li>Все предметы</li>
+                                    <li>Статистика и прогресс</li>
+                                    <li>Система избранного</li>
+                                </ul>
+                            </div>
                         </div>
                         <div class="subscription-card disabled" data-subscription="3" data-amount="1200">
                             <div class="subscription-title">3 месяца</div>
-                            <div class="subscription-price">1200 сом</div>
-                            <div class="subscription-description">Полный доступ на 3 месяца</div>
+                            <div class="subscription-price">1200 <span style="font-size: 1.5rem;">сом</span></div>
+                            <div class="subscription-period">Полный доступ на 3 месяца</div>
+                            <div class="subscription-description">
+                                Максимальная экономия
+                            </div>
+                            <div class="subscription-features">
+                                <ul>
+                                    <li>Неограниченный доступ к тестам</li>
+                                    <li>Все предметы</li>
+                                    <li>Статистика и прогресс</li>
+                                    <li>Система избранного</li>
+                                </ul>
+                            </div>
                         </div>
                         <div class="subscription-card disabled" data-subscription="group" data-amount="2000">
                             <div class="subscription-title">Групповая</div>
-                            <div class="subscription-price">2000 сом</div>
-                            <div class="subscription-description">Для групп от 5 человек</div>
+                            <div class="subscription-price">2000 <span style="font-size: 1.5rem;">сом</span></div>
+                            <div class="subscription-period">Для групп от 5 человек</div>
+                            <div class="subscription-description">
+                                Специальные условия для групп
+                            </div>
+                            <div class="subscription-features">
+                                <ul>
+                                    <li>Неограниченный доступ к тестам</li>
+                                    <li>Все предметы</li>
+                                    <li>Статистика и прогресс</li>
+                                    <li>Система избранного</li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -213,56 +607,59 @@
             
             <!-- Шаг 2: Форма данных -->
             <div class="registration-step" id="dataStep">
-                <form id="registerForm" class="auth-form">
-                    <div class="form-group">
-                        <label for="regUsername">Никнейм</label>
-                        <input type="text" id="regUsername" name="username" required minlength="3" maxlength="50">
-                    </div>
-                    <div class="form-group">
-                        <label for="regEmail">Email</label>
-                        <input type="email" id="regEmail" name="email" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="regPassword">Пароль</label>
-                        <input type="password" id="regPassword" name="password" required minlength="6">
-                    </div>
-                    <div class="form-group">
-                        <label for="regConfirmPassword">Подтвердите пароль</label>
-                        <input type="password" id="regConfirmPassword" name="confirmPassword" required>
-                    </div>
-                    <div class="form-group checkbox-group">
-                        <label for="dataConsent">
-                            <input type="checkbox" id="dataConsent" name="dataConsent" value="true" required style="pointer-events: auto; z-index: 10; position: relative;">
-                            <span>Согласие на обработку персональных данных</span>
-                        </label>
-                        <small>Обязательно для регистрации</small>
-                    </div>
-                    <div class="form-group checkbox-group">
-                        <label for="publicOffer">
-                            <input type="checkbox" id="publicOffer" name="publicOffer" value="true" required style="pointer-events: auto; z-index: 10; position: relative;">
-                            <span>Согласие с публичной офертой</span>
-                        </label>
-                        <small>Обязательно для регистрации</small>
-                    </div>
-                    <div style="display: flex; gap: 1rem;">
-                        <button type="button" class="btn btn-secondary btn-back" id="backToSubscriptionBtn">Назад</button>
-                        <button type="submit" class="btn btn-primary" style="flex: 1;">Перейти к оплате</button>
-                    </div>
-                </form>
+                <div class="data-form-container">
+                    <h2 class="form-section-title">Заполните данные</h2>
+                    <form id="registerForm" class="auth-form">
+                        <div class="form-group">
+                            <label for="regUsername">Никнейм</label>
+                            <input type="text" id="regUsername" name="username" required minlength="3" maxlength="50" placeholder="Введите ваш никнейм">
+                        </div>
+                        <div class="form-group">
+                            <label for="regEmail">Email</label>
+                            <input type="email" id="regEmail" name="email" required placeholder="your@email.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="regPassword">Пароль</label>
+                            <input type="password" id="regPassword" name="password" required minlength="6" placeholder="Минимум 6 символов">
+                        </div>
+                        <div class="form-group">
+                            <label for="regConfirmPassword">Подтвердите пароль</label>
+                            <input type="password" id="regConfirmPassword" name="confirmPassword" required placeholder="Повторите пароль">
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <label for="dataConsent">
+                                <input type="checkbox" id="dataConsent" name="dataConsent" value="true" required style="pointer-events: auto; z-index: 10; position: relative;">
+                                <span>Согласие на обработку персональных данных</span>
+                            </label>
+                            <small>Обязательно для регистрации</small>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <label for="publicOffer">
+                                <input type="checkbox" id="publicOffer" name="publicOffer" value="true" required style="pointer-events: auto; z-index: 10; position: relative;">
+                                <span>Согласие с публичной офертой</span>
+                            </label>
+                            <small>Обязательно для регистрации</small>
+                        </div>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-secondary" id="backToSubscriptionBtn">Назад</button>
+                            <button type="submit" class="btn btn-primary">Перейти к оплате</button>
+                        </div>
+                    </form>
+                </div>
             </div>
             
             <!-- Шаг 3: Оплата -->
             <div class="registration-step" id="paymentStep">
-                <div style="text-align: center; padding: 2rem;">
+                <div class="payment-loading">
                     <h3>Обработка платежа...</h3>
-                    <p style="color: var(--text-secondary); margin-top: 1rem;">
+                    <p>
                         Пожалуйста, подождите, происходит перенаправление на страницу оплаты
                     </p>
                     <div class="loading" style="margin: 2rem auto;"></div>
                 </div>
             </div>
             
-            <p class="auth-link" style="margin-top: 1.5rem;">Уже есть аккаунт? <a href="/login">Войти</a></p>
+            <p class="auth-link">Уже есть аккаунт? <a href="/login">Войти</a></p>
         </div>
     </main>
 
