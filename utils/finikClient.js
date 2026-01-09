@@ -355,7 +355,7 @@ ZwIDAQAB
   }
   
   // Отправляем запрос
-  const url = `${baseUrl}${path}`;
+  const url = `${baseUrl}${apiPath}`;
   
   try {
     const response = await fetch(url, {
