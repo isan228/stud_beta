@@ -158,20 +158,21 @@
                 `;
             }
             
-            // Проверяем создание аккаунта каждые 3 секунды
+            // Проверяем создание аккаунта каждые 2 секунды
             let checkCount = 0;
-            const maxChecks = 10; // Максимум 30 секунд
+            const maxChecks = 20; // Максимум 40 секунд (20 проверок * 2 секунды)
             
             const checkAccountCreation = async () => {
                 checkCount++;
+                console.log(`Checking account creation (attempt ${checkCount}/${maxChecks})...`);
                 
                 // Пытаемся получить данные регистрации из sessionStorage
                 const pendingRegistration = sessionStorage.getItem('pendingRegistration');
                 if (pendingRegistration) {
-                    const regData = JSON.parse(pendingRegistration);
-                    
-                    // Пытаемся войти с этими данными
                     try {
+                        const regData = JSON.parse(pendingRegistration);
+                        
+                        // Пытаемся войти с этими данными
                         const loginResponse = await fetch('/api/auth/login', {
                             method: 'POST',
                             headers: {
@@ -187,6 +188,8 @@
                             const result = await loginResponse.json();
                             localStorage.setItem('token', result.token);
                             sessionStorage.removeItem('pendingRegistration');
+                            
+                            console.log('✅ Account created and logged in successfully!');
                             
                             // Обновляем сообщение
                             if (successMessage) {
@@ -204,17 +207,30 @@
                             }, 2000);
                             
                             return; // Останавливаем проверку
+                        } else {
+                            const errorData = await loginResponse.json().catch(() => ({}));
+                            console.log(`Account not ready yet (status: ${loginResponse.status})`);
+                            
+                            // Если это 401 (неверные данные) или 404 (пользователь не найден), продолжаем проверку
+                            if (loginResponse.status === 401 || loginResponse.status === 404) {
+                                // Продолжаем проверку
+                            } else {
+                                console.error('Unexpected error during login check:', errorData);
+                            }
                         }
                     } catch (error) {
                         console.error('Error checking account:', error);
                     }
+                } else {
+                    console.log('No pending registration data in sessionStorage');
                 }
                 
                 // Продолжаем проверку если не достигли лимита
                 if (checkCount < maxChecks) {
-                    setTimeout(checkAccountCreation, 3000);
+                    setTimeout(checkAccountCreation, 2000); // Проверяем каждые 2 секунды
                 } else {
-                    // После 30 секунд показываем сообщение что можно войти вручную
+                    // После максимального количества попыток показываем сообщение
+                    console.log('Max checks reached, showing manual login option');
                     if (successMessage) {
                         successMessage.innerHTML += `
                             <p style="margin-top: 1rem; color: var(--text-muted); font-size: 0.9rem;">
@@ -225,8 +241,8 @@
                 }
             };
             
-            // Начинаем проверку через 5 секунд
-            setTimeout(checkAccountCreation, 5000);
+            // Начинаем проверку через 3 секунды (webhook обычно приходит быстро)
+            setTimeout(checkAccountCreation, 3000);
         }
         
         // Отображаем детали платежа, если есть

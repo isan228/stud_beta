@@ -35,8 +35,22 @@ router.post('/webhook', async (req, res) => {
     console.log('✅ Finik webhook received and validated:', {
       transactionId: payload.transactionId || payload.id,
       status: payload.status,
-      amount: payload.amount
+      amount: payload.amount,
+      hasFields: !!payload.fields,
+      hasData: !!payload.data,
+      fieldsKeys: payload.fields ? Object.keys(payload.fields) : [],
+      dataKeys: payload.data ? Object.keys(payload.data) : []
     });
+    
+    // Детальное логирование для регистрационных платежей
+    if (payload.fields && (payload.fields.registrationData || payload.fields.paymentType === 'registration')) {
+      console.log('📝 Registration payment detected in webhook');
+      console.log('Fields:', JSON.stringify(payload.fields, null, 2));
+    }
+    if (payload.data && (payload.data.registrationData || payload.data.paymentType === 'registration')) {
+      console.log('📝 Registration payment detected in webhook data');
+      console.log('Data:', JSON.stringify(payload.data, null, 2));
+    }
     
     // Ищем существующую транзакцию по transactionId или id
     const finikTransactionId = payload.transactionId || payload.id;
@@ -64,13 +78,55 @@ router.post('/webhook', async (req, res) => {
       // Обработка успешного платежа
       if (transaction.status === 'SUCCEEDED') {
         // Если это платеж за регистрацию и есть данные регистрации
-        if (transaction.fields && transaction.fields.registrationData && !transaction.userId) {
-          try {
-            // Парсим registrationData если это строка
-            let registrationData = transaction.fields.registrationData;
-            if (typeof registrationData === 'string') {
+        // Проверяем registrationData в разных местах: transaction.fields, payload.fields, payload.data
+        let registrationData = null;
+        
+        // 1. Проверяем в transaction.fields (сохранено при создании платежа)
+        if (transaction.fields && transaction.fields.registrationData) {
+          registrationData = transaction.fields.registrationData;
+          if (typeof registrationData === 'string') {
+            try {
               registrationData = JSON.parse(registrationData);
+            } catch (e) {
+              console.error('Error parsing registrationData from transaction.fields:', e);
+              registrationData = null;
             }
+          }
+        }
+        
+        // 2. Если не нашли, проверяем в payload.fields (пришло от Finik)
+        if (!registrationData && payload.fields && payload.fields.registrationData) {
+          registrationData = payload.fields.registrationData;
+          if (typeof registrationData === 'string') {
+            try {
+              registrationData = JSON.parse(registrationData);
+            } catch (e) {
+              console.error('Error parsing registrationData from payload.fields:', e);
+              registrationData = null;
+            }
+          }
+        }
+        
+        // 3. Если не нашли, проверяем в payload.data (пришло от Finik)
+        if (!registrationData && payload.data && payload.data.registrationData) {
+          registrationData = payload.data.registrationData;
+          if (typeof registrationData === 'string') {
+            try {
+              registrationData = JSON.parse(registrationData);
+            } catch (e) {
+              console.error('Error parsing registrationData from payload.data:', e);
+              registrationData = null;
+            }
+          }
+        }
+        
+        // Если нашли registrationData и пользователь еще не создан
+        if (registrationData && !transaction.userId) {
+          try {
+            console.log('🔍 Found registrationData, attempting to create user:', {
+              email: registrationData.email,
+              username: registrationData.username
+            });
             
             // Проверяем, не существует ли уже пользователь
             const existingUser = await User.findOne({
@@ -107,8 +163,11 @@ router.post('/webhook', async (req, res) => {
             }
           } catch (error) {
             console.error('❌ Error creating user from registration payment:', error);
+            console.error('Error details:', error.message, error.stack);
             // Не прерываем обработку webhook, но логируем ошибку
           }
+        } else if (!registrationData && !transaction.userId) {
+          console.log('ℹ️  No registrationData found in transaction or payload');
         }
         
         if (transaction.userId) {
@@ -167,10 +226,29 @@ router.post('/webhook', async (req, res) => {
       
       // Обработка успешного платежа (для новых транзакций)
       if (transaction.status === 'SUCCEEDED') {
-        // Если это платеж за регистрацию и есть данные регистрации
-        if (registrationDataFromFields && !transaction.userId) {
+        // Ищем registrationData в разных местах
+        let registrationData = registrationDataFromFields;
+        
+        // Если не нашли в payload.fields, проверяем payload.data
+        if (!registrationData && payload.data && payload.data.registrationData) {
           try {
-            const registrationData = registrationDataFromFields;
+            if (typeof payload.data.registrationData === 'string') {
+              registrationData = JSON.parse(payload.data.registrationData);
+            } else {
+              registrationData = payload.data.registrationData;
+            }
+          } catch (e) {
+            console.error('Error parsing registrationData from payload.data:', e);
+          }
+        }
+        
+        // Если нашли registrationData и пользователь еще не создан
+        if (registrationData && !transaction.userId) {
+          try {
+            console.log('🔍 Found registrationData in new transaction, attempting to create user:', {
+              email: registrationData.email,
+              username: registrationData.username
+            });
             
             // Проверяем, не существует ли уже пользователь
             const existingUser = await User.findOne({
@@ -210,6 +288,8 @@ router.post('/webhook', async (req, res) => {
             console.error('Error details:', error.message, error.stack);
             // Не прерываем обработку webhook, но логируем ошибку
           }
+        } else if (!registrationData) {
+          console.log('ℹ️  No registrationData found in payload for new transaction');
         }
         
         if (transaction.userId) {
@@ -461,19 +541,28 @@ router.post('/create-registration', [
     
     // Сохраняем транзакцию в БД (со статусом PENDING)
     // userId будет null до успешной оплаты
+    const transactionFields = {
+      paymentType: paymentType || 'registration',
+      registrationData: registrationData, // Сохраняем данные для создания аккаунта
+      subscriptionType: registrationData.subscription?.type || '1'
+    };
+    
     const transaction = await Transaction.create({
       userId: null, // Будет установлен после создания пользователя
       finikTransactionId: paymentResult.paymentId,
       amount: amount,
       status: 'PENDING',
-      fields: {
-        paymentType: paymentType || 'registration',
-        registrationData: registrationData, // Сохраняем данные для создания аккаунта
-        subscriptionType: registrationData.subscription?.type || '1'
-      }
+      fields: transactionFields
     });
     
-    console.log(`Registration payment created: ${paymentResult.paymentId}`);
+    console.log(`📝 Registration payment created: ${paymentResult.paymentId}`);
+    console.log('💾 Transaction saved with registrationData:', {
+      transactionId: transaction.id,
+      paymentId: paymentResult.paymentId,
+      email: registrationData.email,
+      username: registrationData.username,
+      hasRegistrationData: !!transactionFields.registrationData
+    });
     
     res.json({
       success: true,
