@@ -127,6 +127,107 @@
         const amount = urlParams.get('amount');
         const description = urlParams.get('description');
         const userId = urlParams.get('userId');
+        const isRegistration = urlParams.get('registration') === 'true';
+        
+        // Если это регистрация, показываем специальное сообщение
+        if (isRegistration) {
+            const successTitle = document.querySelector('.success-title');
+            const successMessage = document.querySelector('.success-message');
+            const btnGroup = document.querySelector('.btn-group');
+            
+            if (successTitle) {
+                successTitle.textContent = 'Регистрация успешна!';
+            }
+            
+            if (successMessage) {
+                successMessage.innerHTML = `
+                    <p style="margin-bottom: 1rem;">
+                        Спасибо за регистрацию! Ваш аккаунт будет создан после подтверждения оплаты.
+                    </p>
+                    <p style="font-size: 0.9rem; color: var(--text-muted);">
+                        Обычно это занимает несколько секунд. Вы будете автоматически перенаправлены на страницу входа.
+                    </p>
+                `;
+            }
+            
+            // Меняем кнопки
+            if (btnGroup) {
+                btnGroup.innerHTML = `
+                    <a href="/login" class="btn btn-primary">Войти в аккаунт</a>
+                    <a href="/" class="btn btn-secondary">На главную</a>
+                `;
+            }
+            
+            // Проверяем создание аккаунта каждые 3 секунды
+            let checkCount = 0;
+            const maxChecks = 10; // Максимум 30 секунд
+            
+            const checkAccountCreation = async () => {
+                checkCount++;
+                
+                // Пытаемся получить данные регистрации из sessionStorage
+                const pendingRegistration = sessionStorage.getItem('pendingRegistration');
+                if (pendingRegistration) {
+                    const regData = JSON.parse(pendingRegistration);
+                    
+                    // Пытаемся войти с этими данными
+                    try {
+                        const loginResponse = await fetch('/api/auth/login', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                identifier: regData.email,
+                                password: regData.password
+                            })
+                        });
+                        
+                        if (loginResponse.ok) {
+                            const result = await loginResponse.json();
+                            localStorage.setItem('token', result.token);
+                            sessionStorage.removeItem('pendingRegistration');
+                            
+                            // Обновляем сообщение
+                            if (successMessage) {
+                                successMessage.innerHTML = `
+                                    <p style="margin-bottom: 1rem; color: var(--success-color); font-weight: 600;">
+                                        ✅ Аккаунт успешно создан!
+                                    </p>
+                                    <p>Вы будете перенаправлены на главную страницу...</p>
+                                `;
+                            }
+                            
+                            // Редирект на главную через 2 секунды
+                            setTimeout(() => {
+                                window.location.href = '/';
+                            }, 2000);
+                            
+                            return; // Останавливаем проверку
+                        }
+                    } catch (error) {
+                        console.error('Error checking account:', error);
+                    }
+                }
+                
+                // Продолжаем проверку если не достигли лимита
+                if (checkCount < maxChecks) {
+                    setTimeout(checkAccountCreation, 3000);
+                } else {
+                    // После 30 секунд показываем сообщение что можно войти вручную
+                    if (successMessage) {
+                        successMessage.innerHTML += `
+                            <p style="margin-top: 1rem; color: var(--text-muted); font-size: 0.9rem;">
+                                Если аккаунт еще не создан, попробуйте войти через несколько минут или обратитесь в поддержку.
+                            </p>
+                        `;
+                    }
+                }
+            };
+            
+            // Начинаем проверку через 5 секунд
+            setTimeout(checkAccountCreation, 5000);
+        }
         
         // Отображаем детали платежа, если есть
         if (amount) {

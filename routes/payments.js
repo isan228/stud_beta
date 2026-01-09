@@ -62,12 +62,62 @@ router.post('/webhook', async (req, res) => {
       console.log(`📝 Transaction ${transaction.id} updated to status: ${transaction.status}`);
       
       // Обработка успешного платежа
-      if (transaction.status === 'SUCCEEDED' && transaction.userId) {
-        // Здесь можно добавить бизнес-логику:
-        // - Активировать подписку пользователя
-        // - Добавить баланс
-        // - Отправить уведомление
-        console.log(`✅ Processing successful payment for user ${transaction.userId}`);
+      if (transaction.status === 'SUCCEEDED') {
+        // Если это платеж за регистрацию и есть данные регистрации
+        if (transaction.fields && transaction.fields.registrationData && !transaction.userId) {
+          try {
+            // Парсим registrationData если это строка
+            let registrationData = transaction.fields.registrationData;
+            if (typeof registrationData === 'string') {
+              registrationData = JSON.parse(registrationData);
+            }
+            
+            // Проверяем, не существует ли уже пользователь
+            const existingUser = await User.findOne({
+              where: {
+                [require('sequelize').Op.or]: [
+                  { email: registrationData.email },
+                  { username: registrationData.username }
+                ]
+              }
+            });
+            
+            if (existingUser) {
+              console.log(`⚠️  User already exists: ${registrationData.email}`);
+              // Привязываем транзакцию к существующему пользователю
+              transaction.userId = existingUser.id;
+              await transaction.save();
+            } else {
+              // Создаем нового пользователя
+              const newUser = await User.create({
+                username: registrationData.username,
+                email: registrationData.email,
+                password: registrationData.password, // Будет захеширован в hook
+                status: 'approved' // Автоматически одобряем после оплаты
+              });
+              
+              // Создаем статистику для пользователя
+              await require('../models').UserStats.create({ userId: newUser.id });
+              
+              // Привязываем транзакцию к пользователю
+              transaction.userId = newUser.id;
+              await transaction.save();
+              
+              console.log(`✅ User created after successful payment: ${newUser.id} (${newUser.email})`);
+            }
+          } catch (error) {
+            console.error('❌ Error creating user from registration payment:', error);
+            // Не прерываем обработку webhook, но логируем ошибку
+          }
+        }
+        
+        if (transaction.userId) {
+          // Здесь можно добавить бизнес-логику:
+          // - Активировать подписку пользователя
+          // - Добавить баланс
+          // - Отправить уведомление
+          console.log(`✅ Processing successful payment for user ${transaction.userId}`);
+        }
       }
     } else {
       // Создаем новую транзакцию
@@ -77,6 +127,21 @@ router.post('/webhook', async (req, res) => {
         userId = parseInt(payload.fields.userId);
       } else if (payload.data && payload.data.userId) {
         userId = parseInt(payload.data.userId);
+      }
+      
+      // Извлекаем registrationData из fields если есть
+      let registrationDataFromFields = null;
+      if (payload.fields && payload.fields.registrationData) {
+        try {
+          // Если это строка JSON, парсим
+          if (typeof payload.fields.registrationData === 'string') {
+            registrationDataFromFields = JSON.parse(payload.fields.registrationData);
+          } else {
+            registrationDataFromFields = payload.fields.registrationData;
+          }
+        } catch (e) {
+          console.error('Error parsing registrationData:', e);
+        }
       }
       
       transaction = await Transaction.create({
@@ -100,9 +165,56 @@ router.post('/webhook', async (req, res) => {
       
       console.log(`✨ New transaction ${transaction.id} created`);
       
-      // Обработка успешного платежа
-      if (transaction.status === 'SUCCEEDED' && transaction.userId) {
-        console.log(`✅ Processing successful payment for user ${transaction.userId}`);
+      // Обработка успешного платежа (для новых транзакций)
+      if (transaction.status === 'SUCCEEDED') {
+        // Если это платеж за регистрацию и есть данные регистрации
+        if (registrationDataFromFields && !transaction.userId) {
+          try {
+            const registrationData = registrationDataFromFields;
+            
+            // Проверяем, не существует ли уже пользователь
+            const existingUser = await User.findOne({
+              where: {
+                [require('sequelize').Op.or]: [
+                  { email: registrationData.email },
+                  { username: registrationData.username }
+                ]
+              }
+            });
+            
+            if (existingUser) {
+              console.log(`⚠️  User already exists: ${registrationData.email}`);
+              // Привязываем транзакцию к существующему пользователю
+              transaction.userId = existingUser.id;
+              await transaction.save();
+            } else {
+              // Создаем нового пользователя
+              const newUser = await User.create({
+                username: registrationData.username,
+                email: registrationData.email,
+                password: registrationData.password, // Будет захеширован в hook
+                status: 'approved' // Автоматически одобряем после оплаты
+              });
+              
+              // Создаем статистику для пользователя
+              await require('../models').UserStats.create({ userId: newUser.id });
+              
+              // Привязываем транзакцию к пользователю
+              transaction.userId = newUser.id;
+              await transaction.save();
+              
+              console.log(`✅ User created after successful payment: ${newUser.id} (${newUser.email})`);
+            }
+          } catch (error) {
+            console.error('❌ Error creating user from registration payment:', error);
+            console.error('Error details:', error.message, error.stack);
+            // Не прерываем обработку webhook, но логируем ошибку
+          }
+        }
+        
+        if (transaction.userId) {
+          console.log(`✅ Processing successful payment for user ${transaction.userId}`);
+        }
       }
     }
     
@@ -270,6 +382,110 @@ router.post('/create', [
     
   } catch (error) {
     console.error('Error creating payment:', error);
+    
+    // Обработка различных типов ошибок
+    if (error.message.includes('FINIK_')) {
+      return res.status(500).json({ 
+        error: 'Ошибка конфигурации Finik: ' + error.message 
+      });
+    }
+    
+    if (error.message.includes('HTTP')) {
+      return res.status(400).json({ 
+        error: 'Ошибка при создании платежа: ' + error.message 
+      });
+    }
+    
+    res.status(500).json({ 
+      error: 'Ошибка сервера: ' + error.message 
+    });
+  }
+});
+
+/**
+ * Создать платеж для регистрации (без авторизации)
+ * POST /api/payments/create-registration
+ */
+router.post('/create-registration', [
+  body('amount').isFloat({ min: 0.01 }).withMessage('Сумма должна быть больше 0'),
+  body('description').optional().isString(),
+  body('registrationData').isObject().withMessage('Данные регистрации обязательны'),
+  body('registrationData.username').trim().isLength({ min: 3, max: 50 }).withMessage('Никнейм должен быть от 3 до 50 символов'),
+  body('registrationData.email').isEmail().withMessage('Некорректный email'),
+  body('registrationData.password').isLength({ min: 6 }).withMessage('Пароль должен быть минимум 6 символов')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    
+    const { amount, description, paymentType, registrationData } = req.body;
+    
+    // Получаем конфигурацию из .env
+    const accountId = process.env.FINIK_ACCOUNT_ID;
+    const merchantCategoryCode = process.env.FINIK_MERCHANT_CATEGORY_CODE || '0742';
+    const nameEn = process.env.FINIK_NAME_EN || 'stud.kg Payment';
+    const webhookUrl = process.env.FINIK_WEBHOOK_URL || `${req.protocol}://${req.get('host')}/api/payments/webhook`;
+    const redirectUrl = process.env.FINIK_REDIRECT_URL || `${req.protocol}://${req.get('host')}/payment/success`;
+    
+    if (!accountId) {
+      return res.status(500).json({ 
+        error: 'FINIK_ACCOUNT_ID не настроен. Проверьте конфигурацию.' 
+      });
+    }
+    
+    // Формируем redirect URL с параметрами
+    const redirectUrlWithParams = new URL(redirectUrl);
+    redirectUrlWithParams.searchParams.set('registration', 'true');
+    redirectUrlWithParams.searchParams.set('amount', amount);
+    if (description) {
+      redirectUrlWithParams.searchParams.set('description', description);
+    }
+    
+    // Создаем платеж через Finik API
+    const paymentResult = await createPayment({
+      amount: amount,
+      redirectUrl: redirectUrlWithParams.toString(),
+      accountId: accountId,
+      merchantCategoryCode: merchantCategoryCode,
+      nameEn: nameEn,
+      webhookUrl: webhookUrl,
+      description: description || `Регистрация: ${paymentType || 'subscription'}`,
+      customFields: {
+        registrationData: JSON.stringify(registrationData), // Сохраняем данные регистрации
+        paymentType: paymentType || 'registration',
+        subscriptionType: registrationData.subscription?.type || '1'
+      }
+    });
+    
+    // Сохраняем транзакцию в БД (со статусом PENDING)
+    // userId будет null до успешной оплаты
+    const transaction = await Transaction.create({
+      userId: null, // Будет установлен после создания пользователя
+      finikTransactionId: paymentResult.paymentId,
+      amount: amount,
+      status: 'PENDING',
+      fields: {
+        paymentType: paymentType || 'registration',
+        registrationData: registrationData, // Сохраняем данные для создания аккаунта
+        subscriptionType: registrationData.subscription?.type || '1'
+      }
+    });
+    
+    console.log(`Registration payment created: ${paymentResult.paymentId}`);
+    
+    res.json({
+      success: true,
+      message: 'Платеж создан успешно',
+      paymentId: paymentResult.paymentId,
+      paymentUrl: paymentResult.paymentUrl,
+      transactionId: transaction.id,
+      amount: amount
+    });
+    
+  } catch (error) {
+    console.error('Error creating registration payment:', error);
     
     // Обработка различных типов ошибок
     if (error.message.includes('FINIK_')) {

@@ -6,6 +6,149 @@
     <meta name="theme-color" content="#2563eb">
     <title>Регистрация - stud.kg</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        .subscription-selection {
+            margin-bottom: 2rem;
+        }
+        
+        .subscription-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        
+        .subscription-card {
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: var(--transition);
+            background: var(--card-bg);
+            position: relative;
+        }
+        
+        .subscription-card:hover:not(.disabled) {
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .subscription-card.selected {
+            border-color: var(--primary-color);
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .subscription-card.selected * {
+            color: white;
+        }
+        
+        .subscription-card.disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            position: relative;
+        }
+        
+        .subscription-card.disabled::after {
+            content: 'В разработке';
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: var(--warning-color);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .subscription-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .subscription-price {
+            font-size: 1.75rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin: 0.5rem 0;
+        }
+        
+        .subscription-card.selected .subscription-price {
+            color: white;
+        }
+        
+        .subscription-description {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+        }
+        
+        .subscription-card.selected .subscription-description {
+            color: rgba(255, 255, 255, 0.9);
+        }
+        
+        .registration-steps {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem;
+            gap: 1rem;
+        }
+        
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+        }
+        
+        .step.active {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+        
+        .step.completed {
+            color: var(--success-color);
+        }
+        
+        .step-number {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-secondary);
+            border: 2px solid var(--border-color);
+        }
+        
+        .step.active .step-number {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+        
+        .step.completed .step-number {
+            background: var(--success-color);
+            color: white;
+            border-color: var(--success-color);
+        }
+        
+        .registration-step {
+            display: none;
+        }
+        
+        .registration-step.active {
+            display: block;
+        }
+        
+        .btn-back {
+            margin-right: 1rem;
+        }
+    </style>
 </head>
 <body>
     <nav class="navbar">
@@ -19,51 +162,263 @@
     <main class="main-content">
         <div class="auth-container">
             <h2>Регистрация</h2>
-            <form id="registerForm" class="auth-form">
-                <div class="form-group">
-                    <label for="regUsername">Никнейм</label>
-                    <input type="text" id="regUsername" name="username" required minlength="3" maxlength="50">
+            
+            <!-- Шаги регистрации -->
+            <div class="registration-steps">
+                <div class="step active" id="step1">
+                    <div class="step-number">1</div>
+                    <span>Выбор подписки</span>
                 </div>
-                <div class="form-group">
-                    <label for="regEmail">Email</label>
-                    <input type="email" id="regEmail" name="email" required>
+                <div class="step" id="step2">
+                    <div class="step-number">2</div>
+                    <span>Данные</span>
                 </div>
-                <div class="form-group">
-                    <label for="regPassword">Пароль</label>
-                    <input type="password" id="regPassword" name="password" required minlength="6">
+                <div class="step" id="step3">
+                    <div class="step-number">3</div>
+                    <span>Оплата</span>
                 </div>
-                <div class="form-group">
-                    <label for="regConfirmPassword">Подтвердите пароль</label>
-                    <input type="password" id="regConfirmPassword" name="confirmPassword" required>
+            </div>
+            
+            <!-- Шаг 1: Выбор подписки -->
+            <div class="registration-step active" id="subscriptionStep">
+                <div class="subscription-selection">
+                    <h3 style="text-align: center; margin-bottom: 1rem;">Выберите подписку</h3>
+                    <div class="subscription-grid">
+                        <div class="subscription-card" data-subscription="1" data-amount="500">
+                            <div class="subscription-title">1 месяц</div>
+                            <div class="subscription-price">500 сом</div>
+                            <div class="subscription-description">Полный доступ на 1 месяц</div>
+                        </div>
+                        <div class="subscription-card disabled" data-subscription="2" data-amount="900">
+                            <div class="subscription-title">2 месяца</div>
+                            <div class="subscription-price">900 сом</div>
+                            <div class="subscription-description">Полный доступ на 2 месяца</div>
+                        </div>
+                        <div class="subscription-card disabled" data-subscription="3" data-amount="1200">
+                            <div class="subscription-title">3 месяца</div>
+                            <div class="subscription-price">1200 сом</div>
+                            <div class="subscription-description">Полный доступ на 3 месяца</div>
+                        </div>
+                        <div class="subscription-card disabled" data-subscription="group" data-amount="2000">
+                            <div class="subscription-title">Групповая</div>
+                            <div class="subscription-price">2000 сом</div>
+                            <div class="subscription-description">Для групп от 5 человек</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="form-group checkbox-group">
-                    <label for="dataConsent">
-                        <input type="checkbox" id="dataConsent" name="dataConsent" value="true" required style="pointer-events: auto; z-index: 10; position: relative;">
-                        <span>Согласие на обработку персональных данных</span>
-                    </label>
-                    <small>Обязательно для регистрации</small>
+                <button type="button" class="btn btn-primary btn-block" id="continueToDataBtn" disabled>
+                    Продолжить
+                </button>
+            </div>
+            
+            <!-- Шаг 2: Форма данных -->
+            <div class="registration-step" id="dataStep">
+                <form id="registerForm" class="auth-form">
+                    <div class="form-group">
+                        <label for="regUsername">Никнейм</label>
+                        <input type="text" id="regUsername" name="username" required minlength="3" maxlength="50">
+                    </div>
+                    <div class="form-group">
+                        <label for="regEmail">Email</label>
+                        <input type="email" id="regEmail" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="regPassword">Пароль</label>
+                        <input type="password" id="regPassword" name="password" required minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label for="regConfirmPassword">Подтвердите пароль</label>
+                        <input type="password" id="regConfirmPassword" name="confirmPassword" required>
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <label for="dataConsent">
+                            <input type="checkbox" id="dataConsent" name="dataConsent" value="true" required style="pointer-events: auto; z-index: 10; position: relative;">
+                            <span>Согласие на обработку персональных данных</span>
+                        </label>
+                        <small>Обязательно для регистрации</small>
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <label for="publicOffer">
+                            <input type="checkbox" id="publicOffer" name="publicOffer" value="true" required style="pointer-events: auto; z-index: 10; position: relative;">
+                            <span>Согласие с публичной офертой</span>
+                        </label>
+                        <small>Обязательно для регистрации</small>
+                    </div>
+                    <div style="display: flex; gap: 1rem;">
+                        <button type="button" class="btn btn-secondary btn-back" id="backToSubscriptionBtn">Назад</button>
+                        <button type="submit" class="btn btn-primary" style="flex: 1;">Перейти к оплате</button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Шаг 3: Оплата -->
+            <div class="registration-step" id="paymentStep">
+                <div style="text-align: center; padding: 2rem;">
+                    <h3>Обработка платежа...</h3>
+                    <p style="color: var(--text-secondary); margin-top: 1rem;">
+                        Пожалуйста, подождите, происходит перенаправление на страницу оплаты
+                    </p>
+                    <div class="loading" style="margin: 2rem auto;"></div>
                 </div>
-                <div class="form-group checkbox-group">
-                    <label for="publicOffer">
-                        <input type="checkbox" id="publicOffer" name="publicOffer" value="true" required style="pointer-events: auto; z-index: 10; position: relative;">
-                        <span>Согласие с публичной офертой</span>
-                    </label>
-                    <small>Обязательно для регистрации</small>
-                </div>
-                <button type="submit" class="btn btn-primary btn-block">Зарегистрироваться</button>
-                <p class="auth-link">Уже есть аккаунт? <a href="/login">Войти</a></p>
-            </form>
+            </div>
+            
+            <p class="auth-link" style="margin-top: 1.5rem;">Уже есть аккаунт? <a href="/login">Войти</a></p>
         </div>
     </main>
 
     <div id="notification" class="notification"></div>
     <script src="app.js"></script>
     <script>
+        let selectedSubscription = null;
+        let registrationData = null;
+        
         document.addEventListener('DOMContentLoaded', () => {
             initTheme();
             setupEventListeners();
+            setupRegistrationSteps();
         });
+        
+        function setupRegistrationSteps() {
+            // Выбор подписки
+            const subscriptionCards = document.querySelectorAll('.subscription-card');
+            const continueBtn = document.getElementById('continueToDataBtn');
+            
+            subscriptionCards.forEach(card => {
+                card.addEventListener('click', function() {
+                    if (this.classList.contains('disabled')) {
+                        return;
+                    }
+                    
+                    // Убираем выделение с других карточек
+                    subscriptionCards.forEach(c => c.classList.remove('selected'));
+                    // Выделяем выбранную
+                    this.classList.add('selected');
+                    
+                    selectedSubscription = {
+                        type: this.dataset.subscription,
+                        amount: parseFloat(this.dataset.amount)
+                    };
+                    
+                    continueBtn.disabled = false;
+                });
+            });
+            
+            // Кнопка "Продолжить" к форме данных
+            continueBtn.addEventListener('click', () => {
+                if (selectedSubscription) {
+                    showStep(2);
+                }
+            });
+            
+            // Кнопка "Назад" к выбору подписки
+            const backBtn = document.getElementById('backToSubscriptionBtn');
+            if (backBtn) {
+                backBtn.addEventListener('click', () => {
+                    showStep(1);
+                });
+            }
+        }
+        
+        function showStep(stepNumber) {
+            // Скрываем все шаги
+            document.querySelectorAll('.registration-step').forEach(step => {
+                step.classList.remove('active');
+            });
+            
+            // Обновляем индикаторы шагов
+            document.querySelectorAll('.step').forEach((step, index) => {
+                step.classList.remove('active', 'completed');
+                if (index + 1 < stepNumber) {
+                    step.classList.add('completed');
+                } else if (index + 1 === stepNumber) {
+                    step.classList.add('active');
+                }
+            });
+            
+            // Показываем нужный шаг
+            if (stepNumber === 1) {
+                document.getElementById('subscriptionStep').classList.add('active');
+            } else if (stepNumber === 2) {
+                document.getElementById('dataStep').classList.add('active');
+            } else if (stepNumber === 3) {
+                document.getElementById('paymentStep').classList.add('active');
+            }
+        }
+        
+        // Переопределяем handleRegister для нового процесса
+        const registerForm = document.getElementById('registerForm');
+        if (registerForm) {
+            registerForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                if (!selectedSubscription) {
+                    showNotification('Пожалуйста, выберите подписку', 'error');
+                    showStep(1);
+                    return;
+                }
+                
+                const formData = new FormData(this);
+                const data = {
+                    username: formData.get('username'),
+                    email: formData.get('email'),
+                    password: formData.get('password'),
+                    confirmPassword: formData.get('confirmPassword'),
+                    dataConsent: document.getElementById('dataConsent').checked ? 'true' : 'false',
+                    publicOffer: document.getElementById('publicOffer').checked ? 'true' : 'false',
+                    subscription: selectedSubscription
+                };
+                
+                // Проверка чекбоксов
+                if (!document.getElementById('dataConsent').checked) {
+                    showNotification('Необходимо согласие на обработку персональных данных', 'error');
+                    return;
+                }
+                
+                if (!document.getElementById('publicOffer').checked) {
+                    showNotification('Необходимо согласие с публичной офертой', 'error');
+                    return;
+                }
+                
+                // Сохраняем данные регистрации
+                registrationData = data;
+                
+                // Переходим к оплате
+                showStep(3);
+                
+                try {
+                    // Создаем платеж для регистрации
+                    const response = await fetch('/api/payments/create-registration', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            amount: selectedSubscription.amount,
+                            description: `Регистрация: подписка на ${selectedSubscription.type === '1' ? '1 месяц' : selectedSubscription.type + ' месяца'}`,
+                            paymentType: 'registration',
+                            registrationData: data
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok && result.paymentUrl) {
+                        // Сохраняем данные регистрации в sessionStorage на случай если нужно будет вернуться
+                        sessionStorage.setItem('pendingRegistration', JSON.stringify(data));
+                        
+                        // Редирект на оплату
+                        window.location.href = result.paymentUrl;
+                    } else {
+                        showNotification(result.error || 'Ошибка при создании платежа', 'error');
+                        showStep(2);
+                    }
+                } catch (error) {
+                    console.error('Ошибка создания платежа:', error);
+                    showNotification('Ошибка соединения с сервером', 'error');
+                    showStep(2);
+                }
+            });
+        }
     </script>
 </body>
 </html>
-
