@@ -54,9 +54,12 @@ function getPrivateKey() {
  */
 function getFinikBaseUrl() {
   const env = process.env.FINIK_ENV || 'prod';
+  console.log('🔧 Finik Environment:', env, 'FINIK_ENV from process.env:', process.env.FINIK_ENV);
   if (env === 'prod') {
+    console.log('✅ Using PRODUCTION URL: https://api.acquiring.averspay.kg');
     return 'https://api.acquiring.averspay.kg';
   }
+  console.log('⚠️  Using BETA URL: https://beta.api.acquiring.averspay.kg');
   return 'https://beta.api.acquiring.averspay.kg';
 }
 
@@ -172,6 +175,16 @@ async function createPayment(params) {
   const host = getFinikHost();
   const apiPath = '/v1/payment';
   const timestamp = Date.now().toString();
+  
+  // Логируем для диагностики
+  console.log('🌐 Finik API Configuration:', {
+    baseUrl,
+    host,
+    apiPath,
+    fullUrl: `${baseUrl}${apiPath}`,
+    env: process.env.FINIK_ENV || 'prod (default)',
+    FINIK_ENV: process.env.FINIK_ENV
+  });
   
   // Формируем заголовки для подписи
   const headers = {
@@ -300,11 +313,17 @@ async function createPayment(params) {
   try {
     // Получаем публичный ключ из файла или используем встроенный
     let publicKeyForVerification;
-    const publicKeyPath = path.join(process.cwd(), 'finik_public.pem');
-    if (fs.existsSync(publicKeyPath)) {
-      publicKeyForVerification = fs.readFileSync(publicKeyPath, 'utf8').trim();
-      console.log('📋 Using public key from file: finik_public.pem');
-    } else {
+    try {
+      const publicKeyPath = path.join(process.cwd(), 'finik_public.pem');
+      if (fs.existsSync(publicKeyPath)) {
+        publicKeyForVerification = fs.readFileSync(publicKeyPath, 'utf8').trim();
+        console.log('📋 Using public key from file: finik_public.pem');
+      }
+    } catch (pathError) {
+      console.log('⚠️  Could not read public key file:', pathError.message);
+    }
+    
+    if (!publicKeyForVerification) {
       // Используем встроенный ключ Finik (для проверки, но не для подписи)
       const env = process.env.FINIK_ENV || 'prod';
       const FINIK_PUBLIC_KEYS = {
