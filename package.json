@@ -41,7 +41,7 @@
     "sequelize": "^6.35.0",
     "uuid": "^9.0.1",
     "node-fetch": "^2.7.0",
-    "@mancho.devs/authorizer": "^1.0.0"
+    "@mancho.devs/authorizer": "^2.12.8"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
