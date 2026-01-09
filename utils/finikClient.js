@@ -176,6 +176,24 @@ async function createPayment(params) {
   const signer = new Signer(requestData);
   const signature = await signer.sign(privateKeyPem);
   
+  // Отладочная информация (только в development)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Finik Payment Request:', {
+      url: `${baseUrl}${path}`,
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey ? 'SET' : 'NOT SET',
+        'x-api-timestamp': timestamp,
+        'signature': signature ? 'SET' : 'NOT SET'
+      },
+      body: {
+        Amount: body.Amount,
+        CardType: body.CardType,
+        PaymentId: body.PaymentId
+      }
+    });
+  }
+  
   // Отправляем запрос
   const url = `${baseUrl}${path}`;
   
