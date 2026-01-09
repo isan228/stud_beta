@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
 const { sequelize } = require('./models');
@@ -114,11 +115,20 @@ const pages = {
 Object.keys(pages).forEach(route => {
   app.get(route, (req, res) => {
     const filePath = path.join(__dirname, 'public', pages[route]);
-    res.sendFile(filePath, (err) => {
+    
+    // Проверяем существование файла перед отправкой
+    fs.access(filePath, fs.constants.F_OK, (err) => {
       if (err) {
-        console.error(`Ошибка отправки файла ${pages[route]}:`, err);
-        res.status(404).send('Страница не найдена');
+        console.error(`Файл не найден: ${filePath}`, err);
+        return res.status(404).send('Страница не найдена');
       }
+      
+      res.sendFile(filePath, (sendErr) => {
+        if (sendErr) {
+          console.error(`Ошибка отправки файла ${pages[route]}:`, sendErr);
+          res.status(500).send('Ошибка сервера');
+        }
+      });
     });
   });
 });
