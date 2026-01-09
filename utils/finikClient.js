@@ -170,7 +170,7 @@ async function createPayment(params) {
   // Получаем URL и Host
   const baseUrl = getFinikBaseUrl();
   const host = getFinikHost();
-  const path = '/v1/payment';
+  const apiPath = '/v1/payment';
   const timestamp = Date.now().toString();
   
   // Формируем заголовки для подписи
@@ -195,7 +195,7 @@ async function createPayment(params) {
   
   // Отладочная информация (всегда логируем для диагностики 403)
   console.log('🔐 Finik Payment Request Details:', {
-    url: `${baseUrl}${path}`,
+    url: `${baseUrl}${apiPath}`,
     method: 'POST',
     host: host,
     environment: process.env.FINIK_ENV || 'beta',
