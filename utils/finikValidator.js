@@ -47,8 +47,8 @@ function getPublicKey() {
   }
   
   // Если файл не найден, используем встроенные ключи Finik
-  const env = process.env.FINIK_ENV || 'beta';
-  const builtInKey = FINIK_PUBLIC_KEYS[env] || FINIK_PUBLIC_KEYS.beta;
+  const env = process.env.FINIK_ENV || 'prod';
+  const builtInKey = FINIK_PUBLIC_KEYS[env] || FINIK_PUBLIC_KEYS.prod;
   if (process.env.NODE_ENV === 'development') {
     console.log(`✅ Используется встроенный публичный ключ Finik (${env})`);
   }

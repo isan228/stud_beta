@@ -53,7 +53,7 @@ function getPrivateKey() {
  * Получить базовый URL Finik API
  */
 function getFinikBaseUrl() {
-  const env = process.env.FINIK_ENV || 'beta';
+  const env = process.env.FINIK_ENV || 'prod';
   if (env === 'prod') {
     return 'https://api.acquiring.averspay.kg';
   }
@@ -64,7 +64,7 @@ function getFinikBaseUrl() {
  * Получить Host заголовок для Finik API
  */
 function getFinikHost() {
-  const env = process.env.FINIK_ENV || 'beta';
+  const env = process.env.FINIK_ENV || 'prod';
   if (env === 'prod') {
     return 'api.acquiring.averspay.kg';
   }
@@ -143,7 +143,7 @@ async function createPayment(params) {
     privateKeyFormat: privateKeyPem.includes('BEGIN PRIVATE KEY') ? 'PKCS#8' : 
                      privateKeyPem.includes('BEGIN RSA PRIVATE KEY') ? 'PKCS#1' : 'UNKNOWN',
     accountId: accountId ? 'SET' : 'NOT SET',
-    environment: process.env.FINIK_ENV || 'beta'
+    environment: process.env.FINIK_ENV || 'prod'
   });
   
   // Генерируем PaymentId (UUID)
@@ -198,7 +198,7 @@ async function createPayment(params) {
     url: `${baseUrl}${apiPath}`,
     method: 'POST',
     host: host,
-    environment: process.env.FINIK_ENV || 'beta',
+    environment: process.env.FINIK_ENV || 'prod',
     headers: {
       'Host': host,
       'x-api-key': apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT SET',
@@ -306,7 +306,7 @@ async function createPayment(params) {
       console.log('📋 Using public key from file: finik_public.pem');
     } else {
       // Используем встроенный ключ Finik (для проверки, но не для подписи)
-      const env = process.env.FINIK_ENV || 'beta';
+      const env = process.env.FINIK_ENV || 'prod';
       const FINIK_PUBLIC_KEYS = {
         prod: `-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuF/PUmhMPPidcMxhZBPb
@@ -327,7 +327,7 @@ uLSHqL5S2yu1dffyMcMVi9E/Q2HCTcez5OvOllgOtkNYHSv9pnrMRuws3u87+hNT
 ZwIDAQAB
 -----END PUBLIC KEY-----`
       };
-      publicKeyForVerification = FINIK_PUBLIC_KEYS[env] || FINIK_PUBLIC_KEYS.beta;
+      publicKeyForVerification = FINIK_PUBLIC_KEYS[env] || FINIK_PUBLIC_KEYS.prod;
       console.log('📋 Using built-in Finik public key for verification (this is NOT your key)');
     }
     const testMessage = 'test signature verification';
