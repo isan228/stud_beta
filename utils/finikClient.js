@@ -183,7 +183,7 @@ async function createPayment(params) {
   // Создаем данные для подписи (формат для @mancho.devs/authorizer)
   const requestData = {
     httpMethod: 'POST',
-    path: path,
+    path: apiPath,
     headers: headers,
     queryStringParameters: undefined,
     body: body
