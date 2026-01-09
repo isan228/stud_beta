@@ -2,6 +2,7 @@ const { Signer } = require('@mancho.devs/authorizer');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 // Используем node-fetch для Node.js < 18, или встроенный fetch для Node.js 18+
 let fetch;
@@ -225,13 +226,78 @@ async function createPayment(params) {
   
   // Проверяем каноническую строку для подписи (для отладки)
   try {
-    const canonicalString = signer.getCanonicalString ? signer.getCanonicalString() : 'N/A';
-    console.log('📝 Canonical string length:', canonicalString.length);
-    if (process.env.NODE_ENV === 'development') {
-      console.log('📝 Canonical string (first 200 chars):', canonicalString.substring(0, 200));
+    // Пытаемся получить каноническую строку через внутренние методы Signer
+    let canonicalString = 'N/A';
+    if (signer.getCanonicalString) {
+      canonicalString = signer.getCanonicalString();
+    } else if (signer._canonicalString) {
+      canonicalString = signer._canonicalString;
+    }
+    
+    console.log('📝 Canonical string for signature:');
+    console.log('   Length:', canonicalString.length);
+    console.log('   First 300 chars:', canonicalString.substring(0, 300));
+    console.log('   Last 100 chars:', canonicalString.substring(Math.max(0, canonicalString.length - 100)));
+  } catch (e) {
+    console.log('⚠️  Could not get canonical string:', e.message);
+  }
+  
+  // Проверяем соответствие приватного и публичного ключей (для диагностики)
+  try {
+    // Получаем публичный ключ из файла или используем встроенный
+    let publicKeyForVerification;
+    const publicKeyPath = path.join(process.cwd(), 'finik_public.pem');
+    if (fs.existsSync(publicKeyPath)) {
+      publicKeyForVerification = fs.readFileSync(publicKeyPath, 'utf8').trim();
+      console.log('📋 Using public key from file: finik_public.pem');
+    } else {
+      // Используем встроенный ключ Finik (для проверки, но не для подписи)
+      const env = process.env.FINIK_ENV || 'beta';
+      const FINIK_PUBLIC_KEYS = {
+        prod: `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuF/PUmhMPPidcMxhZBPb
+BSGJoSphmCI+h6ru8fG8guAlcPMVlhs+ThTjw2LHABvciwtpj51ebJ4EqhlySPyT
+hqSfXI6Jp5dPGJNDguxfocohaz98wvT+WAF86DEglZ8dEsfoumojFUy5sTOBdHEu
+g94B4BbrJvjmBa1YIx9Azse4HFlWhzZoYPgyQpArhokeHOHIN2QFzJqeriANO+wV
+aUMta2AhRVZHbfyJ36XPhGO6A5FYQWgjzkI65cxZs5LaNFmRx6pjnhjIeVKKgF99
+4OoYCzhuR9QmWkPl7tL4Kd68qa/xHLz0Psnuhm0CStWOYUu3J7ZpzRK8GoEXRcr8
+tQIDAQAB
+-----END PUBLIC KEY-----`,
+        beta: `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwlrlKz/8gLWd1ARWGA/8
+o3a3Qy8G+hPifyqiPosiTY6nCHovANMIJXk6DH4qAqqZeLu8pLGxudkPbv8dSyG7
+F9PZEAryMPzjoB/9P/F6g0W46K/FHDtwTM3YIVvstbEbL19m8yddv/xCT9JPPJTb
+LsSTVZq5zCqvKzpupwlGS3Q3oPyLAYe+ZUn4Bx2J1WQrBu3b08fNaR3E8pAkCK27
+JqFnP0eFfa817VCtyVKcFHb5ij/D0eUP519Qr/pgn+gsoG63W4pPHN/pKwQUUiAy
+uLSHqL5S2yu1dffyMcMVi9E/Q2HCTcez5OvOllgOtkNYHSv9pnrMRuws3u87+hNT
+ZwIDAQAB
+-----END PUBLIC KEY-----`
+      };
+      publicKeyForVerification = FINIK_PUBLIC_KEYS[env] || FINIK_PUBLIC_KEYS.beta;
+      console.log('📋 Using built-in Finik public key for verification (this is NOT your key)');
+    }
+    const testMessage = 'test signature verification';
+    const testSigner = crypto.createSign('RSA-SHA256');
+    testSigner.update(testMessage);
+    const testSignature = testSigner.sign(privateKeyPem, 'base64');
+    
+    const verifier = crypto.createVerify('RSA-SHA256');
+    verifier.update(testMessage);
+    const isValid = verifier.verify(publicKeyForVerification, testSignature, 'base64');
+    
+    console.log('🔑 Key pair verification:', isValid ? '✅ VALID' : '❌ INVALID');
+    if (!isValid) {
+      console.error('⚠️  WARNING: Private and public keys do not match!');
+      console.error('   This will cause 403 Forbidden errors.');
+      console.error('   Make sure you sent the correct public key to Finik.');
+      console.error('   Your public key should be generated from your private key:');
+      console.error('   openssl rsa -in finik_private.pem -pubout > finik_public.pem');
+    } else {
+      console.log('✅ Your private key matches the public key in finik_public.pem');
+      console.log('   Make sure this public key was sent to Finik representatives.');
     }
   } catch (e) {
-    // Метод может быть недоступен
+    console.error('⚠️  Could not verify key pair:', e.message);
   }
   
   // Отправляем запрос
