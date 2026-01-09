@@ -390,10 +390,15 @@ ZwIDAQAB
     });
     
     // Логируем ответ от Finik API
+    const responseHeaders = {};
+    response.headers.forEach((value, key) => {
+      responseHeaders[key] = value;
+    });
+    
     console.log('📥 Finik API Response:', {
       status: response.status,
       statusText: response.statusText,
-      headers: Object.fromEntries(response.headers.entries()),
+      headers: responseHeaders,
       url: url
     });
     
@@ -402,6 +407,16 @@ ZwIDAQAB
       // Редирект - это нормально, получаем payment URL
       const paymentUrl = response.headers.get('location');
       console.log('✅ Payment created, redirect URL:', paymentUrl);
+      console.log('🔍 Full redirect URL details:', {
+        paymentUrl,
+        paymentId,
+        isFullUrl: paymentUrl && paymentUrl.startsWith('http')
+      });
+      
+      if (!paymentUrl) {
+        throw new Error('Finik API returned redirect but no location header');
+      }
+      
       return {
         success: true,
         paymentId: paymentId,
@@ -440,7 +455,7 @@ ZwIDAQAB
         data: data
       };
     } else {
-      // Ошибка
+      // Ошибка или неожиданный статус
       const errorText = await response.text();
       let errorData;
       try {
@@ -450,21 +465,39 @@ ZwIDAQAB
       }
       
       // Логируем детали ошибки для отладки
-      console.error('Finik API Error:', {
+      console.error('❌ Finik API Error:', {
         status: response.status,
         statusText: response.statusText,
         error: errorData,
         url: url,
+        responseText: errorText.substring(0, 500), // Первые 500 символов
         headers: {
           'x-api-key': apiKey ? 'SET' : 'NOT SET',
-          'x-api-timestamp': timestamp
+          'x-api-timestamp': timestamp,
+          'location': response.headers.get('location')
         }
       });
+      
+      // Если это редирект на страницу с ошибкой, попробуем извлечь URL
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get('location');
+        if (location) {
+          console.log('⚠️  Got redirect with error status, but location exists:', location);
+          // Возможно это все равно правильный URL для оплаты
+          return {
+            success: true,
+            paymentId: paymentId,
+            paymentUrl: location,
+            status: 'CREATED',
+            warning: 'Got redirect with non-standard status code'
+          };
+        }
+      }
       
       const errorMessage = errorData.message || 
                           errorData.ErrorMessage || 
                           errorData.errorMessage || 
-                          `HTTP ${response.status}: ${errorText}`;
+                          `HTTP ${response.status}: ${errorText.substring(0, 200)}`;
       
       throw new Error(errorMessage);
     }
