@@ -176,22 +176,46 @@ async function createPayment(params) {
   const signer = new Signer(requestData);
   const signature = await signer.sign(privateKeyPem);
   
-  // Отладочная информация (только в development)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Finik Payment Request:', {
-      url: `${baseUrl}${path}`,
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey ? 'SET' : 'NOT SET',
-        'x-api-timestamp': timestamp,
-        'signature': signature ? 'SET' : 'NOT SET'
-      },
-      body: {
-        Amount: body.Amount,
-        CardType: body.CardType,
-        PaymentId: body.PaymentId
+  // Отладочная информация (всегда логируем для диагностики 403)
+  console.log('🔐 Finik Payment Request Details:', {
+    url: `${baseUrl}${path}`,
+    method: 'POST',
+    host: host,
+    environment: process.env.FINIK_ENV || 'beta',
+    headers: {
+      'Host': host,
+      'x-api-key': apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT SET',
+      'x-api-timestamp': timestamp,
+      'signature': signature ? `${signature.substring(0, 20)}...` : 'NOT SET'
+    },
+    body: {
+      Amount: body.Amount,
+      CardType: body.CardType,
+      PaymentId: body.PaymentId,
+      RedirectUrl: body.RedirectUrl,
+      Data: {
+        accountId: body.Data.accountId,
+        merchantCategoryCode: body.Data.merchantCategoryCode,
+        name_en: body.Data.name_en,
+        webhookUrl: body.Data.webhookUrl
       }
-    });
+    },
+    requestData: {
+      httpMethod: requestData.httpMethod,
+      path: requestData.path,
+      headers: requestData.headers
+    }
+  });
+  
+  // Проверяем каноническую строку для подписи (для отладки)
+  try {
+    const canonicalString = signer.getCanonicalString ? signer.getCanonicalString() : 'N/A';
+    console.log('📝 Canonical string length:', canonicalString.length);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📝 Canonical string (first 200 chars):', canonicalString.substring(0, 200));
+    }
+  } catch (e) {
+    // Метод может быть недоступен
   }
   
   // Отправляем запрос
