@@ -12,18 +12,33 @@ app.use(cors());
 
 // Защита от path traversal и других атак
 app.use((req, res, next) => {
-  // Блокируем попытки path traversal
-  if (req.path.includes('..') || 
-      req.path.includes('%2e%2e') || 
-      req.path.includes('%2E%2E') ||
-      req.path.includes('\\') ||
-      req.path.includes('//') ||
-      req.path.includes('/proc/') ||
-      req.path.includes('/etc/') ||
-      req.path.includes('/sys/')) {
-    return res.status(403).json({ error: 'Forbidden' });
+  try {
+    // Декодируем URL для проверки
+    const decodedPath = decodeURIComponent(req.path);
+    const lowerPath = decodedPath.toLowerCase();
+    
+    // Блокируем попытки path traversal и атаки
+    if (
+      decodedPath.includes('..') || 
+      decodedPath.includes('%2e%2e') || 
+      decodedPath.includes('%2E%2E') ||
+      decodedPath.includes('\\') ||
+      decodedPath.includes('//') ||
+      lowerPath.includes('/proc/') ||
+      lowerPath.includes('/etc/') ||
+      lowerPath.includes('/sys/') ||
+      lowerPath.includes('environ') ||
+      lowerPath.includes('passwd') ||
+      lowerPath.includes('shadow')
+    ) {
+      // Тихий ответ для атак (не логируем)
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    next();
+  } catch (e) {
+    // Если не удалось декодировать - это подозрительно
+    return res.status(400).json({ error: 'Bad Request' });
   }
-  next();
 });
 
 // Важно: Webhook Finik требует raw body для валидации подписи

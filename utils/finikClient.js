@@ -222,11 +222,24 @@ async function createPayment(params) {
         errorData = { errorMessage: errorText };
       }
       
-      throw new Error(
-        errorData.ErrorMessage || 
-        errorData.errorMessage || 
-        `HTTP ${response.status}: ${errorText}`
-      );
+      // Логируем детали ошибки для отладки
+      console.error('Finik API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData,
+        url: url,
+        headers: {
+          'x-api-key': apiKey ? 'SET' : 'NOT SET',
+          'x-api-timestamp': timestamp
+        }
+      });
+      
+      const errorMessage = errorData.message || 
+                          errorData.ErrorMessage || 
+                          errorData.errorMessage || 
+                          `HTTP ${response.status}: ${errorText}`;
+      
+      throw new Error(errorMessage);
     }
   } catch (error) {
     if (error.message.includes('Failed to generate signature')) {

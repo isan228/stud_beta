@@ -283,11 +283,10 @@
                     })
                 });
 
+                // Читаем body только один раз
                 const data = await response.json();
 
                 if (response.ok) {
-                    const data = await response.json();
-                    
                     if (data.success && data.paymentUrl) {
                         showMessage('Платеж создан! Перенаправление на страницу оплаты...', 'success');
                         
@@ -300,8 +299,8 @@
                         console.log('Payment created:', data);
                     }
                 } else {
-                    const errorData = await response.json();
-                    showMessage(errorData.error || 'Ошибка при создании платежа', 'error');
+                    showMessage(data.error || 'Ошибка при создании платежа', 'error');
+                    console.error('Payment creation error:', data);
                 }
             } catch (error) {
                 console.error('Payment error:', error);
