@@ -224,22 +224,76 @@ async function createPayment(params) {
     }
   });
   
-  // Проверяем каноническую строку для подписи (для отладки)
+  // Строим каноническую строку вручную для диагностики
   try {
-    // Пытаемся получить каноническую строку через внутренние методы Signer
-    let canonicalString = 'N/A';
-    if (signer.getCanonicalString) {
-      canonicalString = signer.getCanonicalString();
-    } else if (signer._canonicalString) {
-      canonicalString = signer._canonicalString;
-    }
+    // Используем тот же алгоритм, что и Signer
+    const buildCanonicalString = (reqData) => {
+      let data = '';
+      
+      // 1. HTTP метод в нижнем регистре
+      data += reqData.httpMethod.toLowerCase() + '\n';
+      
+      // 2. Путь
+      data += reqData.path + '\n';
+      
+      // 3. Заголовки (Host и x-api-*), отсортированные
+      const headerEntries = [];
+      if (reqData.headers.Host) {
+        headerEntries.push(['host', reqData.headers.Host.toLowerCase()]);
+      }
+      Object.keys(reqData.headers).forEach(key => {
+        if (key.toLowerCase().startsWith('x-api-')) {
+          headerEntries.push([key.toLowerCase(), String(reqData.headers[key])]);
+        }
+      });
+      headerEntries.sort((a, b) => a[0].localeCompare(b[0]));
+      const headersStr = headerEntries.map(([k, v]) => `${k}:${v}`).join('&');
+      data += headersStr + '\n';
+      
+      // 4. Query параметры (если есть)
+      if (reqData.queryStringParameters && Object.keys(reqData.queryStringParameters).length > 0) {
+        const queryEntries = Object.entries(reqData.queryStringParameters)
+          .map(([k, v]) => [encodeURIComponent(k), encodeURIComponent(v || '')])
+          .sort((a, b) => a[0].localeCompare(b[0]));
+        const queryStr = queryEntries.map(([k, v]) => `${k}=${v}`).join('&');
+        data += queryStr + '\n';
+      }
+      
+      // 5. JSON body (отсортированный)
+      const sortedBody = {};
+      Object.keys(reqData.body).sort().forEach(key => {
+        sortedBody[key] = reqData.body[key];
+      });
+      data += JSON.stringify(sortedBody);
+      
+      return data;
+    };
+    
+    const canonicalString = buildCanonicalString(requestData);
     
     console.log('📝 Canonical string for signature:');
     console.log('   Length:', canonicalString.length);
-    console.log('   First 300 chars:', canonicalString.substring(0, 300));
-    console.log('   Last 100 chars:', canonicalString.substring(Math.max(0, canonicalString.length - 100)));
+    console.log('   Full string:');
+    console.log('   ' + canonicalString.split('\n').join('\n   '));
+    
+    // Проверяем подпись локально (для диагностики)
+    const testVerifier = crypto.createVerify('RSA-SHA256');
+    testVerifier.update(canonicalString, 'utf8');
+    
+    // Пытаемся проверить с публичным ключом из файла
+    const publicKeyPath = path.join(process.cwd(), 'finik_public.pem');
+    if (fs.existsSync(publicKeyPath)) {
+      const publicKey = fs.readFileSync(publicKeyPath, 'utf8').trim();
+      const isValid = testVerifier.verify(publicKey, signature, 'base64');
+      console.log('🔍 Local signature verification:', isValid ? '✅ VALID' : '❌ INVALID');
+      if (!isValid) {
+        console.error('⚠️  Signature verification failed locally!');
+        console.error('   This means the signature is incorrect or keys do not match.');
+      }
+    }
   } catch (e) {
-    console.log('⚠️  Could not get canonical string:', e.message);
+    console.log('⚠️  Could not build canonical string:', e.message);
+    console.error(e);
   }
   
   // Проверяем соответствие приватного и публичного ключей (для диагностики)
