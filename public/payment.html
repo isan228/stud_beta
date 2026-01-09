@@ -251,27 +251,23 @@
                 return;
             }
 
-            // Проверяем авторизацию
+            // ТЕСТОВЫЙ РЕЖИМ: авторизация не обязательна
             const token = localStorage.getItem('token');
-            if (!token) {
-                showMessage('Необходимо войти в систему', 'error');
-                setTimeout(() => {
-                    window.location.href = '/login';
-                }, 2000);
-                return;
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
             }
 
             payButton.disabled = true;
             payButton.textContent = 'Обработка...';
 
             try {
-                // Создаем платеж
+                // Создаем платеж (без обязательной авторизации для теста)
                 const response = await fetch('/api/payments/create', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
+                    headers: headers,
                     body: JSON.stringify({
                         amount,
                         description: description || `Оплата: ${paymentType}`,
@@ -321,13 +317,13 @@
             }, 5000);
         }
 
-        // Загружаем пользователя
+        // ТЕСТОВЫЙ РЕЖИМ: авторизация не обязательна
+        // Пытаемся загрузить пользователя, но не требуем авторизацию
         loadUser().then(isLoggedIn => {
-            if (!isLoggedIn) {
-                showMessage('Необходимо войти в систему. Перенаправление...', 'info');
-                setTimeout(() => {
-                    window.location.href = '/login';
-                }, 2000);
+            if (isLoggedIn) {
+                console.log('Пользователь авторизован');
+            } else {
+                console.log('Тестовый режим: работа без авторизации');
             }
         });
     </script>

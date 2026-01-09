@@ -166,8 +166,9 @@ router.get('/transactions/:id', auth, async (req, res) => {
 /**
  * Создать платеж через Finik API
  * POST /api/payments/create
+ * ВРЕМЕННО БЕЗ АВТОРИЗАЦИИ ДЛЯ ТЕСТИРОВАНИЯ
  */
-router.post('/create', auth, [
+router.post('/create', [
   body('amount').isFloat({ min: 0.01 }).withMessage('Сумма должна быть больше 0'),
   body('description').optional().isString()
 ], async (req, res) => {
@@ -192,9 +193,25 @@ router.post('/create', auth, [
       });
     }
     
+    // Получаем userId из токена (если есть) или null для тестирования
+    let userId = null;
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '');
+      if (token) {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        userId = decoded.userId;
+      }
+    } catch (e) {
+      // Игнорируем ошибки токена - работаем без авторизации для теста
+      console.log('Тестовый режим: платеж без авторизации');
+    }
+    
     // Формируем redirect URL с параметрами
     const redirectUrlWithParams = new URL(redirectUrl);
-    redirectUrlWithParams.searchParams.set('userId', req.user.id);
+    if (userId) {
+      redirectUrlWithParams.searchParams.set('userId', userId);
+    }
     redirectUrlWithParams.searchParams.set('amount', amount);
     if (description) {
       redirectUrlWithParams.searchParams.set('description', description);
@@ -210,24 +227,26 @@ router.post('/create', auth, [
       webhookUrl: webhookUrl,
       description: description || `Оплата: ${paymentType || 'subscription'}`,
       customFields: {
-        userId: req.user.id.toString(),
-        paymentType: paymentType || 'subscription'
+        ...(userId && { userId: userId.toString() }),
+        paymentType: paymentType || 'subscription',
+        testMode: 'true' // Помечаем как тестовый платеж
       }
     });
     
     // Сохраняем транзакцию в БД (со статусом PENDING)
     const transaction = await Transaction.create({
-      userId: req.user.id,
+      userId: userId, // Может быть null для тестирования
       finikTransactionId: paymentResult.paymentId,
       amount: amount,
       status: 'PENDING',
       fields: {
         paymentType: paymentType || 'subscription',
-        description: description || `Оплата: ${paymentType || 'subscription'}`
+        description: description || `Оплата: ${paymentType || 'subscription'}`,
+        testMode: true
       }
     });
     
-    console.log(`Payment created: ${paymentResult.paymentId} for user ${req.user.id}`);
+    console.log(`Payment created: ${paymentResult.paymentId} ${userId ? `for user ${userId}` : '(test mode, no user)'}`);
     
     res.json({
       success: true,
