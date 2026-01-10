@@ -172,10 +172,14 @@
                     statusMessage.textContent = `Проверка создания аккаунта... (${checkCount}/${maxChecks})`;
                 }
                 
-                // Пытаемся получить данные регистрации из sessionStorage
-                const pendingRegistration = sessionStorage.getItem('pendingRegistration');
+                // Пытаемся получить данные регистрации из localStorage или sessionStorage
+                let pendingRegistration = localStorage.getItem('pendingRegistration');
                 if (!pendingRegistration) {
-                    console.log('⚠️ No pending registration data in sessionStorage');
+                    pendingRegistration = sessionStorage.getItem('pendingRegistration');
+                }
+                
+                if (!pendingRegistration) {
+                    console.log('⚠️ No pending registration data found in localStorage or sessionStorage');
                     if (checkCount < maxChecks) {
                         setTimeout(checkAccountCreation, 2000);
                     } else {
@@ -207,12 +211,15 @@
                     if (loginResponse.ok) {
                         const result = await loginResponse.json();
                         localStorage.setItem('token', result.token);
+                        // Удаляем данные регистрации из обоих хранилищ
+                        localStorage.removeItem('pendingRegistration');
                         sessionStorage.removeItem('pendingRegistration');
                         
                         console.log('✅ Account created and logged in successfully!', {
                             userId: result.user?.id,
                             email: result.user?.email,
-                            username: result.user?.username
+                            username: result.user?.username,
+                            token: result.token ? 'SET' : 'NOT SET'
                         });
                         
                         // Обновляем сообщение
@@ -235,11 +242,12 @@
                             btnGroup.style.display = 'none';
                         }
                         
-                        // Редирект на главную через 1.5 секунды
+                        // Редирект на главную через 1 секунду (быстрее для лучшего UX)
                         setTimeout(() => {
                             console.log('🔄 Redirecting to home page...');
-                            window.location.href = '/';
-                        }, 1500);
+                            // Принудительно перезагружаем страницу для обновления UI
+                            window.location.replace('/');
+                        }, 1000);
                         
                         return; // Останавливаем проверку
                     } else {
@@ -293,7 +301,20 @@
             
             // Начинаем проверку сразу (webhook обычно приходит быстро, но может быть задержка)
             console.log('🚀 Starting account creation check...');
-            setTimeout(checkAccountCreation, 2000); // Начинаем через 2 секунды
+            console.log('📋 URL params:', {
+                registration: isRegistration,
+                amount: amount,
+                description: description,
+                paymentId: urlParams.get('paymentId'),
+                status: urlParams.get('status')
+            });
+            
+            // Проверяем наличие данных регистрации сразу
+            const hasPendingReg = localStorage.getItem('pendingRegistration') || sessionStorage.getItem('pendingRegistration');
+            console.log('💾 Pending registration data:', hasPendingReg ? 'FOUND' : 'NOT FOUND');
+            
+            // Начинаем проверку сразу (не ждем 2 секунды)
+            checkAccountCreation();
         }
         
         // Отображаем детали платежа, если есть

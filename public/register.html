@@ -842,7 +842,9 @@
                         return;
                     }
                     
-                    // Сохраняем данные регистрации в sessionStorage на случай если нужно будет вернуться
+                    // Сохраняем данные регистрации в localStorage (более надежно, чем sessionStorage при редиректах)
+                    localStorage.setItem('pendingRegistration', JSON.stringify(data));
+                    // Также сохраняем в sessionStorage для совместимости
                     sessionStorage.setItem('pendingRegistration', JSON.stringify(data));
                     
                     console.log('🔄 Redirecting to Finik payment page:', result.paymentUrl);
