@@ -250,18 +250,39 @@ router.post('/webhook', async (req, res) => {
         userId = parseInt(payload.data.userId);
       }
       
-      // Извлекаем registrationData из fields если есть
+      // Извлекаем registrationData из data (приоритет) или fields
       let registrationDataFromFields = null;
-      if (payload.fields && payload.fields.registrationData) {
+      
+      // Сначала проверяем payload.data (где обычно находятся данные от Finik)
+      if (payload.data && payload.data.registrationData) {
+        console.log('📦 Found registrationData in payload.data (creating new transaction)');
         try {
-          // Если это строка JSON, парсим
+          if (typeof payload.data.registrationData === 'string') {
+            registrationDataFromFields = JSON.parse(payload.data.registrationData);
+          } else {
+            registrationDataFromFields = payload.data.registrationData;
+          }
+          console.log('✅ Parsed registrationData from payload.data:', {
+            email: registrationDataFromFields.email,
+            username: registrationDataFromFields.username,
+            hasPassword: !!registrationDataFromFields.password
+          });
+        } catch (e) {
+          console.error('Error parsing registrationData from payload.data:', e);
+        }
+      }
+      
+      // Если не нашли в data, проверяем fields
+      if (!registrationDataFromFields && payload.fields && payload.fields.registrationData) {
+        console.log('📦 Found registrationData in payload.fields');
+        try {
           if (typeof payload.fields.registrationData === 'string') {
             registrationDataFromFields = JSON.parse(payload.fields.registrationData);
           } else {
             registrationDataFromFields = payload.fields.registrationData;
           }
         } catch (e) {
-          console.error('Error parsing registrationData:', e);
+          console.error('Error parsing registrationData from payload.fields:', e);
         }
       }
       
@@ -291,11 +312,17 @@ router.post('/webhook', async (req, res) => {
         // Ищем registrationData в разных местах
         let registrationData = registrationDataFromFields;
         
-        // Если не нашли в payload.fields, проверяем payload.data
+        // Если не нашли в payload.fields, проверяем payload.data - ПРИОРИТЕТНО
         if (!registrationData && payload.data && payload.data.registrationData) {
+          console.log('📦 Found registrationData in payload.data (new transaction)');
           try {
             if (typeof payload.data.registrationData === 'string') {
               registrationData = JSON.parse(payload.data.registrationData);
+              console.log('✅ Parsed registrationData from payload.data:', {
+                email: registrationData.email,
+                username: registrationData.username,
+                hasPassword: !!registrationData.password
+              });
             } else {
               registrationData = payload.data.registrationData;
             }
