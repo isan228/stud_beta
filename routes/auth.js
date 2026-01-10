@@ -38,19 +38,19 @@ router.post('/register', [
       return res.status(400).json({ error: 'Пользователь с таким email или никнеймом уже существует' });
     }
 
-    // Создание пользователя со статусом pending (ожидает одобрения)
+    // Создание пользователя со статусом approved (автоматически одобрен)
     const user = await User.create({ 
       username, 
       email, 
       password,
-      status: 'pending'
+      status: 'approved'
     });
 
     // Создание статистики
     await UserStats.create({ userId: user.id });
 
     res.status(201).json({
-      message: 'Заявка на регистрацию отправлена. Ожидайте одобрения администратора.',
+      message: 'Регистрация успешно завершена!',
       user: {
         id: user.id,
         username: user.username,
@@ -96,18 +96,15 @@ router.post('/login', [
       return res.status(401).json({ error: 'Неверный email/никнейм или пароль' });
     }
 
-    // Проверка статуса пользователя
-    if (user.status === 'pending') {
-      return res.status(403).json({ 
-        error: 'Ваша регистрация еще не одобрена администратором. Ожидайте одобрения.' 
-      });
-    }
-
+    // Проверка статуса пользователя (только для отклоненных)
     if (user.status === 'rejected') {
       return res.status(403).json({ 
         error: 'Ваша регистрация была отклонена. Обратитесь к администратору.' 
       });
     }
+    
+    // Пользователи со статусом 'pending' или 'approved' могут входить
+    // (для обратной совместимости со старыми пользователями)
 
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 
