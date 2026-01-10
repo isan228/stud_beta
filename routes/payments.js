@@ -71,8 +71,10 @@ router.post('/webhook', async (req, res) => {
     
     if (transaction) {
       // Обновляем существующую транзакцию
-      transaction.status = payload.status === 'SUCCEEDED' ? 'SUCCEEDED' : 
-                          payload.status === 'FAILED' ? 'FAILED' : 'PENDING';
+      // Проверяем статус без учета регистра (может быть "succeeded", "SUCCEEDED", "Succeeded")
+      const statusUpper = (payload.status || '').toUpperCase();
+      transaction.status = statusUpper === 'SUCCEEDED' ? 'SUCCEEDED' : 
+                          statusUpper === 'FAILED' ? 'FAILED' : 'PENDING';
       transaction.amount = payload.amount || transaction.amount;
       transaction.net = payload.net || transaction.net;
       transaction.receiptNumber = payload.receiptNumber || transaction.receiptNumber;
@@ -84,7 +86,7 @@ router.post('/webhook', async (req, res) => {
       
       await transaction.save();
       
-      console.log(`📝 Transaction ${transaction.id} updated to status: ${transaction.status}`);
+      console.log(`📝 Transaction ${transaction.id} updated to status: ${transaction.status} (from payload.status: ${payload.status})`);
       
       // Обработка успешного платежа
       if (transaction.status === 'SUCCEEDED') {
@@ -286,14 +288,18 @@ router.post('/webhook', async (req, res) => {
         }
       }
       
+      // Проверяем статус без учета регистра
+      const statusUpper = (payload.status || '').toUpperCase();
+      const transactionStatus = statusUpper === 'SUCCEEDED' ? 'SUCCEEDED' : 
+                                statusUpper === 'FAILED' ? 'FAILED' : 'PENDING';
+      
       transaction = await Transaction.create({
         userId,
         finikTransactionId,
         finikAccountId: payload.accountId,
         amount: payload.amount,
         net: payload.net,
-        status: payload.status === 'SUCCEEDED' ? 'SUCCEEDED' : 
-                payload.status === 'FAILED' ? 'FAILED' : 'PENDING',
+        status: transactionStatus,
         transactionType: payload.transactionType,
         receiptNumber: payload.receiptNumber,
         requestDate: payload.requestDate,
@@ -305,7 +311,7 @@ router.post('/webhook', async (req, res) => {
         rawPayload: payload
       });
       
-      console.log(`✨ New transaction ${transaction.id} created`);
+      console.log(`✨ New transaction ${transaction.id} created with status: ${transaction.status} (from payload.status: ${payload.status})`);
       
       // Обработка успешного платежа (для новых транзакций)
       if (transaction.status === 'SUCCEEDED') {
