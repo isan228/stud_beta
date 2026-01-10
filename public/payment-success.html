@@ -309,11 +309,14 @@
             
             if (successMessage) {
                 successMessage.innerHTML = `
+                    <p style="margin-bottom: 1rem; font-size: 1.1rem;">
+                        Платеж уже подтвержден!
+                    </p>
                     <p style="margin-bottom: 1rem;">
-                        Спасибо за регистрацию! Ваш аккаунт создается после подтверждения оплаты.
+                        Войдите данными, которыми зарегистрировались.
                     </p>
                     <p style="font-size: 0.9rem; color: var(--text-muted);" id="statusMessage">
-                        Ожидание подтверждения оплаты... Обычно это занимает несколько секунд.
+                        Проверка создания аккаунта...
                     </p>
                 `;
             }
