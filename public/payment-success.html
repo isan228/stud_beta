@@ -163,14 +163,39 @@
         }
         
         .btn-secondary {
-            background: var(--bg-secondary);
+            background: rgba(107, 114, 128, 0.1);
             color: var(--text-primary);
-            border: 2px solid var(--border-color);
+            border: 2px solid rgba(107, 114, 128, 0.3);
         }
         
         .btn-secondary:hover {
-            background: var(--bg-tertiary);
-            border-color: var(--text-secondary);
+            background: rgba(107, 114, 128, 0.2);
+            border-color: rgba(107, 114, 128, 0.5);
+        }
+        
+        /* Исправление для темной темы - кнопки должны быть видны */
+        [data-theme="dark"] .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        [data-theme="dark"] .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+            color: #ffffff;
+        }
+        
+        /* Исправление для темной темы - кнопки должны быть видны */
+        [data-theme="dark"] .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        [data-theme="dark"] .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
         }
         
         .status-message {
@@ -396,11 +421,13 @@
                             `;
                         }
                         
-                        // Обновляем кнопки - показываем выбор действий
+                        // Обновляем кнопки - показываем кнопку "Перейти к авторизации"
+                        // Пользователь уже авторизован (токен сохранен), просто переходим на главную
                         if (btnGroup) {
                             btnGroup.innerHTML = `
-                                <a href="/" class="btn btn-primary">На главную страницу</a>
-                                <a href="/tests" class="btn btn-secondary">Начать тестирование</a>
+                                <a href="/" class="btn btn-primary" id="goToAuthBtn">
+                                    Перейти к авторизации
+                                </a>
                             `;
                         }
                         
