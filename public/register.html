@@ -745,8 +745,10 @@
         // Переопределяем handleRegister для нового процесса
         const registerForm = document.getElementById('registerForm');
         if (registerForm) {
+            // Используем capture phase чтобы наш обработчик вызвался первым
             registerForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
+                e.stopImmediatePropagation(); // Останавливаем все другие обработчики
                 
                 if (!selectedSubscription) {
                     showNotification('Пожалуйста, выберите подписку', 'error');

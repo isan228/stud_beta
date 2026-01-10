@@ -241,8 +241,9 @@ function setupEventListeners() {
     }
 
     // Формы
+    // НЕ добавляем обработчик регистрации на странице /register - там используется новый процесс с оплатой
     const registerForm = document.getElementById('registerForm');
-    if (registerForm) {
+    if (registerForm && !window.location.pathname.includes('/register')) {
         registerForm.addEventListener('submit', handleRegister);
     }
     
