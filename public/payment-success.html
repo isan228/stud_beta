@@ -154,12 +154,24 @@
         
         .btn-primary {
             background: linear-gradient(135deg, var(--primary-color) 0%, #1d4ed8 100%);
-            color: white;
+            color: white !important;
             box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+            font-weight: 600;
         }
         
         .btn-primary:hover {
             box-shadow: 0 8px 24px rgba(37, 99, 235, 0.4);
+            color: white !important;
+        }
+        
+        /* Убеждаемся, что текст виден */
+        .btn {
+            color: inherit;
+            text-decoration: none;
+        }
+        
+        .btn-primary {
+            color: #ffffff !important;
         }
         
         
@@ -399,11 +411,7 @@
                         // Обновляем кнопки - показываем только кнопку "Войти"
                         // Пользователь уже авторизован (токен сохранен), просто переходим на главную
                         if (btnGroup) {
-                            btnGroup.innerHTML = `
-                                <a href="/" class="btn btn-primary">
-                                    Войти
-                                </a>
-                            `;
+                            btnGroup.innerHTML = '<a href="/" class="btn btn-primary">Войти</a>';
                         }
                         
                         // Удаляем статус сообщение
