@@ -552,7 +552,7 @@
                         </div>
                         <div class="subscription-card disabled" data-subscription="2" data-amount="900">
                             <div class="subscription-title">2 месяца</div>
-                            <div class="subscription-price">900 <span style="font-size: 1.5rem;">сом</span></div>
+                            <div class="subscription-price" style="display: none;"></div>
                             <div class="subscription-period">Полный доступ на 2 месяца</div>
                             <div class="subscription-description">
                                 Экономия 100 сом
@@ -568,7 +568,7 @@
                         </div>
                         <div class="subscription-card disabled" data-subscription="3" data-amount="1200">
                             <div class="subscription-title">3 месяца</div>
-                            <div class="subscription-price">1200 <span style="font-size: 1.5rem;">сом</span></div>
+                            <div class="subscription-price" style="display: none;"></div>
                             <div class="subscription-period">Полный доступ на 3 месяца</div>
                             <div class="subscription-description">
                                 Максимальная экономия
@@ -584,7 +584,7 @@
                         </div>
                         <div class="subscription-card disabled" data-subscription="group" data-amount="2000">
                             <div class="subscription-title">Групповая</div>
-                            <div class="subscription-price">2000 <span style="font-size: 1.5rem;">сом</span></div>
+                            <div class="subscription-price" style="display: none;"></div>
                             <div class="subscription-period">Для групп от 5 человек</div>
                             <div class="subscription-description">
                                 Специальные условия для групп
@@ -600,9 +600,6 @@
                         </div>
                     </div>
                 </div>
-                <button type="button" class="btn btn-primary btn-block" id="continueToDataBtn" disabled>
-                    Продолжить
-                </button>
             </div>
             
             <!-- Шаг 2: Форма данных -->
@@ -678,7 +675,6 @@
         function setupRegistrationSteps() {
             // Выбор подписки
             const subscriptionCards = document.querySelectorAll('.subscription-card');
-            const continueBtn = document.getElementById('continueToDataBtn');
             
             subscriptionCards.forEach(card => {
                 card.addEventListener('click', function() {
@@ -696,15 +692,9 @@
                         amount: parseFloat(this.dataset.amount)
                     };
                     
-                    continueBtn.disabled = false;
-                });
-            });
-            
-            // Кнопка "Продолжить" к форме данных
-            continueBtn.addEventListener('click', () => {
-                if (selectedSubscription) {
+                    // Сразу переходим к заполнению данных
                     showStep(2);
-                }
+                });
             });
             
             // Кнопка "Назад" к выбору подписки
