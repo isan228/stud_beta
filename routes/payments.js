@@ -125,7 +125,9 @@ router.post('/webhook', async (req, res) => {
           try {
             console.log('🔍 Found registrationData, attempting to create user:', {
               email: registrationData.email,
-              username: registrationData.username
+              username: registrationData.username,
+              hasPassword: !!registrationData.password,
+              subscriptionType: registrationData.subscription?.type
             });
             
             // Проверяем, не существует ли уже пользователь
@@ -139,12 +141,24 @@ router.post('/webhook', async (req, res) => {
             });
             
             if (existingUser) {
-              console.log(`⚠️  User already exists: ${registrationData.email}`);
+              console.log(`⚠️  User already exists: ${registrationData.email} (ID: ${existingUser.id})`);
               // Привязываем транзакцию к существующему пользователю
               transaction.userId = existingUser.id;
               await transaction.save();
+              console.log(`✅ Transaction ${transaction.id} linked to existing user ${existingUser.id}`);
             } else {
+              // Проверяем наличие обязательных полей
+              if (!registrationData.username || !registrationData.email || !registrationData.password) {
+                console.error('❌ Missing required registration data:', {
+                  hasUsername: !!registrationData.username,
+                  hasEmail: !!registrationData.email,
+                  hasPassword: !!registrationData.password
+                });
+                throw new Error('Missing required registration data');
+              }
+              
               // Создаем нового пользователя
+              console.log('👤 Creating new user account...');
               const newUser = await User.create({
                 username: registrationData.username,
                 email: registrationData.email,
@@ -152,22 +166,39 @@ router.post('/webhook', async (req, res) => {
                 status: 'approved' // Автоматически одобряем после оплаты
               });
               
+              console.log(`✅ User account created: ID ${newUser.id}, email: ${newUser.email}`);
+              
               // Создаем статистику для пользователя
               await require('../models').UserStats.create({ userId: newUser.id });
+              console.log(`✅ UserStats created for user ${newUser.id}`);
               
               // Привязываем транзакцию к пользователю
               transaction.userId = newUser.id;
               await transaction.save();
               
-              console.log(`✅ User created after successful payment: ${newUser.id} (${newUser.email})`);
+              console.log(`✅ Transaction ${transaction.id} linked to new user ${newUser.id}`);
+              console.log(`🎉 Registration completed successfully for ${newUser.email}`);
             }
           } catch (error) {
             console.error('❌ Error creating user from registration payment:', error);
-            console.error('Error details:', error.message, error.stack);
+            console.error('Error details:', {
+              message: error.message,
+              stack: error.stack,
+              registrationData: {
+                email: registrationData?.email,
+                username: registrationData?.username,
+                hasPassword: !!registrationData?.password
+              }
+            });
             // Не прерываем обработку webhook, но логируем ошибку
           }
         } else if (!registrationData && !transaction.userId) {
           console.log('ℹ️  No registrationData found in transaction or payload');
+          console.log('Transaction fields:', JSON.stringify(transaction.fields, null, 2));
+          console.log('Payload fields:', JSON.stringify(payload.fields, null, 2));
+          console.log('Payload data:', JSON.stringify(payload.data, null, 2));
+        } else if (registrationData && transaction.userId) {
+          console.log(`ℹ️  User already linked to transaction: userId=${transaction.userId}`);
         }
         
         if (transaction.userId) {
@@ -247,7 +278,9 @@ router.post('/webhook', async (req, res) => {
           try {
             console.log('🔍 Found registrationData in new transaction, attempting to create user:', {
               email: registrationData.email,
-              username: registrationData.username
+              username: registrationData.username,
+              hasPassword: !!registrationData.password,
+              subscriptionType: registrationData.subscription?.type
             });
             
             // Проверяем, не существует ли уже пользователь
@@ -261,12 +294,24 @@ router.post('/webhook', async (req, res) => {
             });
             
             if (existingUser) {
-              console.log(`⚠️  User already exists: ${registrationData.email}`);
+              console.log(`⚠️  User already exists: ${registrationData.email} (ID: ${existingUser.id})`);
               // Привязываем транзакцию к существующему пользователю
               transaction.userId = existingUser.id;
               await transaction.save();
+              console.log(`✅ Transaction ${transaction.id} linked to existing user ${existingUser.id}`);
             } else {
+              // Проверяем наличие обязательных полей
+              if (!registrationData.username || !registrationData.email || !registrationData.password) {
+                console.error('❌ Missing required registration data:', {
+                  hasUsername: !!registrationData.username,
+                  hasEmail: !!registrationData.email,
+                  hasPassword: !!registrationData.password
+                });
+                throw new Error('Missing required registration data');
+              }
+              
               // Создаем нового пользователя
+              console.log('👤 Creating new user account...');
               const newUser = await User.create({
                 username: registrationData.username,
                 email: registrationData.email,
@@ -274,22 +319,38 @@ router.post('/webhook', async (req, res) => {
                 status: 'approved' // Автоматически одобряем после оплаты
               });
               
+              console.log(`✅ User account created: ID ${newUser.id}, email: ${newUser.email}`);
+              
               // Создаем статистику для пользователя
               await require('../models').UserStats.create({ userId: newUser.id });
+              console.log(`✅ UserStats created for user ${newUser.id}`);
               
               // Привязываем транзакцию к пользователю
               transaction.userId = newUser.id;
               await transaction.save();
               
-              console.log(`✅ User created after successful payment: ${newUser.id} (${newUser.email})`);
+              console.log(`✅ Transaction ${transaction.id} linked to new user ${newUser.id}`);
+              console.log(`🎉 Registration completed successfully for ${newUser.email}`);
             }
           } catch (error) {
             console.error('❌ Error creating user from registration payment:', error);
-            console.error('Error details:', error.message, error.stack);
+            console.error('Error details:', {
+              message: error.message,
+              stack: error.stack,
+              registrationData: {
+                email: registrationData?.email,
+                username: registrationData?.username,
+                hasPassword: !!registrationData?.password
+              }
+            });
             // Не прерываем обработку webhook, но логируем ошибку
           }
         } else if (!registrationData) {
           console.log('ℹ️  No registrationData found in payload for new transaction');
+          console.log('Payload fields:', JSON.stringify(payload.fields, null, 2));
+          console.log('Payload data:', JSON.stringify(payload.data, null, 2));
+        } else if (registrationData && transaction.userId) {
+          console.log(`ℹ️  User already linked to transaction: userId=${transaction.userId}`);
         }
         
         if (transaction.userId) {

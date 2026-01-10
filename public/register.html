@@ -783,6 +783,13 @@
                 showStep(3);
                 
                 try {
+                    console.log('📝 Creating registration payment with data:', {
+                        amount: selectedSubscription.amount,
+                        email: data.email,
+                        username: data.username,
+                        subscriptionType: selectedSubscription.type
+                    });
+                    
                     // Создаем платеж для регистрации
                     const response = await fetch('/api/payments/create-registration', {
                         method: 'POST',
@@ -793,25 +800,53 @@
                             amount: selectedSubscription.amount,
                             description: `Регистрация: подписка на ${selectedSubscription.type === '1' ? '1 месяц' : selectedSubscription.type + ' месяца'}`,
                             paymentType: 'registration',
-                            registrationData: data
+                            registrationData: {
+                                username: data.username,
+                                email: data.email,
+                                password: data.password,
+                                subscription: selectedSubscription
+                            }
                         })
                     });
                     
-                    const result = await response.json();
+                    console.log('📥 Payment creation response status:', response.status);
                     
-                    if (response.ok && result.paymentUrl) {
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        let errorData;
+                        try {
+                            errorData = JSON.parse(errorText);
+                        } catch (e) {
+                            errorData = { error: errorText };
+                        }
+                        console.error('❌ Payment creation failed:', errorData);
+                        showNotification(errorData.error || errorData.message || 'Ошибка при создании платежа', 'error');
+                        showStep(2);
+                        return;
+                    }
+                    
+                    const result = await response.json();
+                    console.log('✅ Payment created successfully:', {
+                        paymentId: result.paymentId,
+                        hasPaymentUrl: !!result.paymentUrl,
+                        paymentUrl: result.paymentUrl
+                    });
+                    
+                    if (result.paymentUrl) {
                         // Сохраняем данные регистрации в sessionStorage на случай если нужно будет вернуться
                         sessionStorage.setItem('pendingRegistration', JSON.stringify(data));
                         
+                        console.log('🔄 Redirecting to Finik payment page...');
                         // Редирект на оплату
                         window.location.href = result.paymentUrl;
                     } else {
-                        showNotification(result.error || 'Ошибка при создании платежа', 'error');
+                        console.error('❌ No paymentUrl in response:', result);
+                        showNotification('Ошибка: не получен URL для оплаты', 'error');
                         showStep(2);
                     }
                 } catch (error) {
-                    console.error('Ошибка создания платежа:', error);
-                    showNotification('Ошибка соединения с сервером', 'error');
+                    console.error('❌ Error creating payment:', error);
+                    showNotification('Ошибка соединения с сервером: ' + error.message, 'error');
                     showStep(2);
                 }
             });
