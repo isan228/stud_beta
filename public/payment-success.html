@@ -6,79 +6,232 @@
     <title>Оплата успешна - stud.kg</title>
     <link rel="stylesheet" href="styles.css">
     <style>
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .main-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1rem;
+        }
+        
         .success-container {
-            max-width: 600px;
-            margin: 4rem auto;
-            padding: 3rem;
+            max-width: 650px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 3.5rem 2.5rem;
             background: var(--card-bg);
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
             text-align: center;
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .success-icon-wrapper {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 2rem;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
+            animation: scaleIn 0.5s ease-out 0.2s both;
+        }
+        
+        @keyframes scaleIn {
+            from {
+                transform: scale(0);
+            }
+            to {
+                transform: scale(1);
+            }
         }
         
         .success-icon {
-            font-size: 5rem;
-            margin-bottom: 1rem;
+            font-size: 4rem;
+            color: white;
         }
         
         .success-title {
-            font-size: 2rem;
-            color: var(--primary-color);
+            font-size: 2.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
             margin-bottom: 1rem;
+            line-height: 1.2;
         }
         
         .success-message {
             color: var(--text-secondary);
-            margin-bottom: 2rem;
-            line-height: 1.6;
+            margin-bottom: 2.5rem;
+            line-height: 1.8;
+            font-size: 1.05rem;
+        }
+        
+        .success-message strong {
+            color: var(--text-primary);
+            font-weight: 600;
         }
         
         .payment-details {
             background: var(--bg-secondary);
-            padding: 1.5rem;
-            border-radius: 8px;
+            padding: 2rem;
+            border-radius: 16px;
             margin: 2rem 0;
             text-align: left;
+            border: 1px solid var(--border-color);
         }
         
         .payment-details h3 {
-            margin-bottom: 1rem;
+            margin-bottom: 1.25rem;
             color: var(--text-primary);
+            font-size: 1.25rem;
+            font-weight: 600;
         }
         
         .payment-details p {
-            margin: 0.5rem 0;
+            margin: 0.75rem 0;
             color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .payment-details strong {
+            color: var(--text-primary);
+            font-weight: 600;
+            margin-right: 1rem;
         }
         
         .btn-group {
             display: flex;
             gap: 1rem;
             justify-content: center;
-            margin-top: 2rem;
+            margin-top: 2.5rem;
+            flex-wrap: wrap;
         }
         
         .btn {
-            padding: 0.75rem 2rem;
-            border-radius: 8px;
+            padding: 1rem 2.5rem;
+            border-radius: 12px;
             text-decoration: none;
             font-weight: 600;
-            transition: transform 0.2s;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 180px;
+            border: none;
+            cursor: pointer;
         }
         
         .btn:hover {
-            transform: translateY(-2px);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+        
+        .btn:active {
+            transform: translateY(-1px);
         }
         
         .btn-primary {
-            background: var(--primary-color);
+            background: linear-gradient(135deg, var(--primary-color) 0%, #1d4ed8 100%);
             color: white;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+        
+        .btn-primary:hover {
+            box-shadow: 0 8px 24px rgba(37, 99, 235, 0.4);
         }
         
         .btn-secondary {
             background: var(--bg-secondary);
             color: var(--text-primary);
             border: 2px solid var(--border-color);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--text-secondary);
+        }
+        
+        .status-message {
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            margin-top: 1.5rem;
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+        
+        .status-message.success {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: #10b981;
+            color: #059669;
+        }
+        
+        .account-created-message {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%);
+            border: 2px solid #10b981;
+            border-radius: 16px;
+            padding: 2rem;
+            margin: 2rem 0;
+        }
+        
+        .account-created-message h3 {
+            color: #059669;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+        
+        .account-created-message p {
+            color: var(--text-secondary);
+            margin: 0.5rem 0;
+            line-height: 1.6;
+        }
+        
+        .account-created-message .username {
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        
+        @media (max-width: 640px) {
+            .success-container {
+                padding: 2rem 1.5rem;
+            }
+            
+            .success-title {
+                font-size: 1.75rem;
+            }
+            
+            .btn-group {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+            }
         }
     </style>
 </head>
@@ -97,7 +250,9 @@
 
     <main class="main-content">
         <div class="success-container">
-            <div class="success-icon">✅</div>
+            <div class="success-icon-wrapper">
+                <div class="success-icon">✓</div>
+            </div>
             <h1 class="success-title">Оплата успешно завершена!</h1>
             <p class="success-message">
                 Спасибо за оплату. Ваш платеж обрабатывается и будет подтвержден в ближайшее время.
@@ -222,32 +377,37 @@
                             token: result.token ? 'SET' : 'NOT SET'
                         });
                         
-                        // Обновляем сообщение
+                        // Обновляем сообщение - показываем что аккаунт создан
+                        if (successTitle) {
+                            successTitle.textContent = 'Аккаунт успешно создан!';
+                        }
+                        
                         if (successMessage) {
                             successMessage.innerHTML = `
-                                <p style="margin-bottom: 1rem; color: #10b981; font-weight: 600; font-size: 1.1rem;">
-                                    ✅ Аккаунт успешно создан и активирован!
-                                </p>
-                                <p style="color: var(--text-secondary);">
-                                    Добро пожаловать, <strong>${result.user?.username || regData.username}</strong>!
-                                </p>
-                                <p style="font-size: 0.9rem; color: var(--text-muted); margin-top: 1rem;">
-                                    Вы будете перенаправлены на главную страницу...
-                                </p>
+                                <div class="account-created-message">
+                                    <h3>✅ Ваш аккаунт создан и активирован!</h3>
+                                    <p>
+                                        Добро пожаловать, <span class="username">${result.user?.username || regData.username}</span>!
+                                    </p>
+                                    <p style="margin-top: 1rem; font-size: 0.95rem;">
+                                        Теперь вы можете начать использовать все возможности платформы.
+                                    </p>
+                                </div>
                             `;
                         }
                         
-                        // Скрываем кнопки
+                        // Обновляем кнопки - показываем выбор действий
                         if (btnGroup) {
-                            btnGroup.style.display = 'none';
+                            btnGroup.innerHTML = `
+                                <a href="/" class="btn btn-primary">На главную страницу</a>
+                                <a href="/tests" class="btn btn-secondary">Начать тестирование</a>
+                            `;
                         }
                         
-                        // Редирект на главную через 1 секунду (быстрее для лучшего UX)
-                        setTimeout(() => {
-                            console.log('🔄 Redirecting to home page...');
-                            // Принудительно перезагружаем страницу для обновления UI
-                            window.location.replace('/');
-                        }, 1000);
+                        // Удаляем статус сообщение
+                        if (statusMessage) {
+                            statusMessage.style.display = 'none';
+                        }
                         
                         return; // Останавливаем проверку
                     } else {
