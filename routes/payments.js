@@ -622,8 +622,33 @@ router.post('/create-registration', [
       paymentId: paymentResult.paymentId,
       email: registrationData.email,
       username: registrationData.username,
-      hasRegistrationData: !!transactionFields.registrationData
+      hasRegistrationData: !!transactionFields.registrationData,
+      hasPaymentUrl: !!paymentResult.paymentUrl,
+      paymentUrl: paymentResult.paymentUrl
     });
+    
+    // Проверяем наличие paymentUrl
+    if (!paymentResult.paymentUrl) {
+      console.error('❌ ERROR: paymentUrl is missing from Finik response!');
+      console.error('Full payment result:', JSON.stringify(paymentResult, null, 2));
+      return res.status(500).json({
+        error: 'Ошибка: не получен URL для оплаты от Finik. Проверьте логи сервера.',
+        paymentId: paymentResult.paymentId,
+        transactionId: transaction.id
+      });
+    }
+    
+    // Проверяем формат paymentUrl
+    if (!paymentResult.paymentUrl.startsWith('http://') && !paymentResult.paymentUrl.startsWith('https://')) {
+      console.error('❌ ERROR: Invalid paymentUrl format:', paymentResult.paymentUrl);
+      return res.status(500).json({
+        error: 'Ошибка: некорректный формат URL для оплаты',
+        paymentId: paymentResult.paymentId,
+        transactionId: transaction.id
+      });
+    }
+    
+    console.log('✅ Payment URL is valid, sending response to client');
     
     res.json({
       success: true,

@@ -533,10 +533,10 @@
             <div class="registration-step active" id="subscriptionStep">
                 <div class="subscription-selection">
                     <div class="subscription-grid">
-                        <div class="subscription-card" data-subscription="1" data-amount="500">
+                        <div class="subscription-card" data-subscription="1" data-amount="20">
                             <div class="subscription-badge">Популярный</div>
                             <div class="subscription-title">1 месяц</div>
-                            <div class="subscription-price">500 <span style="font-size: 1.5rem;">сом</span></div>
+                            <div class="subscription-price">20 <span style="font-size: 1.5rem;">сом</span></div>
                             <div class="subscription-period">Полный доступ на 1 месяц</div>
                             <div class="subscription-description">
                                 Идеально для начала подготовки
@@ -827,23 +827,51 @@
                     
                     const result = await response.json();
                     console.log('✅ Payment created successfully:', {
+                        success: result.success,
                         paymentId: result.paymentId,
                         hasPaymentUrl: !!result.paymentUrl,
-                        paymentUrl: result.paymentUrl
+                        paymentUrl: result.paymentUrl,
+                        fullResponse: result
                     });
                     
-                    if (result.paymentUrl) {
-                        // Сохраняем данные регистрации в sessionStorage на случай если нужно будет вернуться
-                        sessionStorage.setItem('pendingRegistration', JSON.stringify(data));
-                        
-                        console.log('🔄 Redirecting to Finik payment page...');
-                        // Редирект на оплату
-                        window.location.href = result.paymentUrl;
-                    } else {
+                    // Проверяем наличие paymentUrl
+                    if (!result.paymentUrl) {
                         console.error('❌ No paymentUrl in response:', result);
-                        showNotification('Ошибка: не получен URL для оплаты', 'error');
+                        showNotification('Ошибка: не получен URL для оплаты. Проверьте консоль для деталей.', 'error');
                         showStep(2);
+                        return;
                     }
+                    
+                    // Проверяем, что paymentUrl валидный
+                    if (!result.paymentUrl.startsWith('http://') && !result.paymentUrl.startsWith('https://')) {
+                        console.error('❌ Invalid paymentUrl format:', result.paymentUrl);
+                        showNotification('Ошибка: некорректный URL для оплаты', 'error');
+                        showStep(2);
+                        return;
+                    }
+                    
+                    // Сохраняем данные регистрации в sessionStorage на случай если нужно будет вернуться
+                    sessionStorage.setItem('pendingRegistration', JSON.stringify(data));
+                    
+                    console.log('🔄 Redirecting to Finik payment page:', result.paymentUrl);
+                    
+                    // Показываем сообщение пользователю перед редиректом
+                    const paymentStep = document.getElementById('paymentStep');
+                    if (paymentStep) {
+                        const loadingDiv = paymentStep.querySelector('.payment-loading');
+                        if (loadingDiv) {
+                            loadingDiv.innerHTML = `
+                                <h3>Перенаправление на страницу оплаты...</h3>
+                                <p>Пожалуйста, подождите, происходит перенаправление на страницу оплаты Finik</p>
+                                <div class="loading" style="margin: 2rem auto;"></div>
+                            `;
+                        }
+                    }
+                    
+                    // Редирект на оплату с небольшой задержкой для показа сообщения
+                    setTimeout(() => {
+                        window.location.href = result.paymentUrl;
+                    }, 500);
                 } catch (error) {
                     console.error('❌ Error creating payment:', error);
                     showNotification('Ошибка соединения с сервером: ' + error.message, 'error');
