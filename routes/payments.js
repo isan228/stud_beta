@@ -190,13 +190,28 @@ router.post('/webhook', async (req, res) => {
                 throw new Error('Missing required registration data');
               }
               
+              // Обрабатываем реферальный код
+              let referredBy = null;
+              if (registrationData.referralCode) {
+                const referrer = await User.findOne({ 
+                  where: { referralCode: registrationData.referralCode.toUpperCase() } 
+                });
+                if (referrer) {
+                  referredBy = referrer.id;
+                  console.log(`✅ Referral code found: ${registrationData.referralCode}, referrer ID: ${referrer.id}`);
+                } else {
+                  console.log(`⚠️  Invalid referral code: ${registrationData.referralCode}`);
+                }
+              }
+              
               // Создаем нового пользователя
               console.log('👤 Creating new user account...');
               const newUser = await User.create({
                 username: registrationData.username,
                 email: registrationData.email,
                 password: registrationData.password, // Будет захеширован в hook
-                status: 'approved' // Автоматически одобряем после оплаты
+                status: 'approved', // Автоматически одобряем после оплаты
+                referredBy: referredBy
               });
               
               console.log(`✅ User account created: ID ${newUser.id}, email: ${newUser.email}`);
@@ -210,6 +225,21 @@ router.post('/webhook', async (req, res) => {
               await transaction.save();
               
               console.log(`✅ Transaction ${transaction.id} linked to new user ${newUser.id}`);
+              
+              // Начисляем 50 монеток рефереру, если есть
+              if (referredBy) {
+                try {
+                  const referrer = await User.findByPk(referredBy);
+                  if (referrer) {
+                    referrer.coins = (referrer.coins || 0) + 50;
+                    await referrer.save();
+                    console.log(`✅ Начислено 50 монеток рефереру ${referrer.username} (ID: ${referrer.id}). Новый баланс: ${referrer.coins}`);
+                  }
+                } catch (error) {
+                  console.error('❌ Ошибка начисления монеток рефереру:', error);
+                }
+              }
+              
               console.log(`🎉 Registration completed successfully for ${newUser.email}`);
             }
           } catch (error) {
