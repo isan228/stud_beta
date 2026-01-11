@@ -867,6 +867,13 @@ function showQuestion() {
     progressTextEl.textContent = 
         `Вопрос ${currentQuestionIndex + 1} из ${currentQuestions.length}`;
     
+    // Проверяем наличие ответов
+    if (!question.Answers || question.Answers.length === 0) {
+        console.error('Вопрос без ответов:', question);
+        showNotification('Ошибка: вопрос не содержит ответов', 'error');
+        return;
+    }
+    
     // Добавляем звездочку в правый верхний угол
     const favoriteContainer = document.getElementById('favoriteContainer');
     if (favoriteContainer && currentUser) {
