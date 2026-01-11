@@ -95,29 +95,15 @@
                     console.log(`Загружен тест: ${data.questions.length} вопросов, индекс: ${data.questionIndex}`);
                     
                     // Запускаем таймер, если есть
-                    if (data.timer && typeof startTimer === 'function') {
-                        startTimer(data.timer);
+                    if (data.timer && typeof window.startTimer === 'function') {
+                        window.startTimer(data.timer);
                     }
                     
                     // Показываем первый вопрос
                     // Небольшая задержка, чтобы убедиться, что все функции загружены
                     setTimeout(() => {
-                        if (typeof showQuestion === 'function') {
-                            // Устанавливаем переменные перед вызовом
-                            if (window.currentTestId === undefined) {
-                                // Если переменные не установлены через window, устанавливаем напрямую
-                                // Это нужно для функций внутри app.js
-                                eval(`
-                                    if (typeof currentTestId !== 'undefined') {
-                                        currentTestId = ${JSON.stringify(data.testId)};
-                                        currentQuestions = ${JSON.stringify(data.questions)};
-                                        currentAnswers = ${JSON.stringify(data.answers || {})};
-                                        currentQuestionIndex = ${data.questionIndex || 0};
-                                        testStartTime = ${data.startTime || Date.now()};
-                                    }
-                                `);
-                            }
-                            showQuestion();
+                        if (typeof window.showQuestion === 'function') {
+                            window.showQuestion();
                         } else {
                             console.error('showQuestion не найдена');
                             window.location.href = '/tests';
