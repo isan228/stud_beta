@@ -206,7 +206,7 @@ window.addEventListener('popstate', (e) => {
 
 function setupEventListeners() {
     // Пропускаем инициализацию на странице админки
-    if (window.location.pathname.includes('/admin')) {
+    if (window.location.pathname.includes('/admin') || document.getElementById('adminLoginForm')) {
         console.log('Пропуск инициализации app.js на странице админки');
         return;
     }

@@ -81,10 +81,20 @@ function showAdminDashboard() {
 // Вход администратора
 async function handleAdminLogin(e) {
     e.preventDefault();
-    const formData = new FormData(e.target);
+    e.stopImmediatePropagation(); // Останавливаем все другие обработчики
+    
+    // Проверяем, что это действительно форма админки
+    const form = e.target;
+    if (!form || form.id !== 'adminLoginForm') {
+        console.error('Попытка входа не через форму админки!');
+        return;
+    }
+    
+    const formData = new FormData(form);
     const data = Object.fromEntries(formData);
 
-    console.log('Попытка входа с данными:', { username: data.username });
+    console.log('Попытка входа администратора с данными:', { username: data.username });
+    console.log('Отправка запроса на:', `${ADMIN_API_URL}/login`);
 
     try {
         const response = await fetch(`${ADMIN_API_URL}/login`, {
@@ -903,8 +913,12 @@ function setupAdminEventListeners() {
         // Удаляем все предыдущие обработчики, если есть
         const newForm = adminLoginForm.cloneNode(true);
         adminLoginForm.parentNode.replaceChild(newForm, adminLoginForm);
-        // Привязываем обработчик к новой форме с приоритетом
-        newForm.addEventListener('submit', handleAdminLogin, true); // useCapture = true для приоритета
+        // Привязываем обработчик к новой форме с приоритетом и stopImmediatePropagation
+        newForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            e.stopImmediatePropagation(); // Останавливаем все другие обработчики
+            handleAdminLogin(e);
+        }, true); // useCapture = true для приоритета
         console.log('Обработчик формы админки привязан к:', newForm.id);
     } else {
         console.warn('Форма adminLoginForm не найдена');
