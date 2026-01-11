@@ -57,6 +57,17 @@
                 currentAnswers = data.answers || {};
                 currentQuestionIndex = data.questionIndex || 0;
                 testStartTime = data.startTime || Date.now();
+                
+                // Проверяем, что вопросы загружены
+                if (!currentQuestions || currentQuestions.length === 0) {
+                    console.error('Вопросы не найдены в testData');
+                    showNotification('Ошибка: вопросы не загружены', 'error');
+                    window.location.href = '/tests';
+                    return;
+                }
+                
+                console.log(`Загружен тест: ${currentQuestions.length} вопросов, индекс: ${currentQuestionIndex}`);
+                
                 if (data.timer) {
                     startTimer(data.timer);
                 }

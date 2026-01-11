@@ -765,6 +765,14 @@ async function startTest() {
         }
 
         currentQuestions = await response.json();
+        
+        // Проверяем, что вопросы получены
+        if (!currentQuestions || currentQuestions.length === 0) {
+            showNotification('Ошибка: вопросы не найдены для этого теста', 'error');
+            return;
+        }
+        
+        console.log(`Загружено вопросов: ${currentQuestions.length}`);
         currentAnswers = {};
         currentQuestionIndex = 0;
         testStartTime = Date.now();
@@ -829,6 +837,14 @@ function startTimer(seconds) {
 }
 
 function showQuestion() {
+    // Проверяем, что есть вопросы
+    if (!currentQuestions || currentQuestions.length === 0) {
+        console.error('Нет вопросов для отображения');
+        showNotification('Ошибка: вопросы не загружены', 'error');
+        window.location.href = '/tests';
+        return;
+    }
+    
     if (currentQuestionIndex >= currentQuestions.length) {
         finishTest();
         return;
