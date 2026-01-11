@@ -627,6 +627,36 @@ router.post('/create-registration', [
     
     const { amount, description, paymentType, registrationData } = req.body;
     
+    // Обработка реферального кода и применение скидки
+    let finalAmount = parseFloat(amount);
+    let referralCode = null;
+    let referrerId = null;
+    const REFERRAL_DISCOUNT = 50; // Скидка 50 сом для реферала
+    
+    if (registrationData.referralCode) {
+      referralCode = registrationData.referralCode.toUpperCase();
+      const referrer = await User.findOne({ where: { referralCode } });
+      if (referrer) {
+        referrerId = referrer.id;
+        // Применяем скидку 50 сом
+        finalAmount = Math.max(0, finalAmount - REFERRAL_DISCOUNT);
+        console.log(`✅ Referral code found: ${referralCode}, discount applied: ${REFERRAL_DISCOUNT} som, final amount: ${finalAmount}`);
+      } else {
+        console.log(`⚠️  Invalid referral code: ${referralCode}`);
+      }
+    }
+    
+    // Сохраняем registrationData в fields для обработки в webhook
+    const registrationDataForFields = {
+      ...registrationData,
+      subscription: registrationData.subscription || {},
+      referralCode: referralCode,
+      referrerId: referrerId,
+      originalAmount: parseFloat(amount),
+      discount: referralCode ? REFERRAL_DISCOUNT : 0,
+      finalAmount: finalAmount
+    };
+    
     // Получаем конфигурацию из .env
     const accountId = process.env.FINIK_ACCOUNT_ID;
     const merchantCategoryCode = process.env.FINIK_MERCHANT_CATEGORY_CODE || '0742';
@@ -643,14 +673,17 @@ router.post('/create-registration', [
     // Формируем redirect URL с параметрами
     const redirectUrlWithParams = new URL(redirectUrl);
     redirectUrlWithParams.searchParams.set('registration', 'true');
-    redirectUrlWithParams.searchParams.set('amount', amount);
+    redirectUrlWithParams.searchParams.set('amount', finalAmount);
     if (description) {
       redirectUrlWithParams.searchParams.set('description', description);
     }
+    if (referralCode) {
+      redirectUrlWithParams.searchParams.set('referralCode', referralCode);
+    }
     
-    // Создаем платеж через Finik API
+    // Создаем платеж через Finik API (используем финальную сумму со скидкой)
     const paymentResult = await createPayment({
-      amount: amount,
+      amount: finalAmount,
       redirectUrl: redirectUrlWithParams.toString(),
       accountId: accountId,
       merchantCategoryCode: merchantCategoryCode,
@@ -658,7 +691,7 @@ router.post('/create-registration', [
       webhookUrl: webhookUrl,
       description: description || `Регистрация: ${paymentType || 'subscription'}`,
       customFields: {
-        registrationData: JSON.stringify(registrationData), // Сохраняем данные регистрации
+        registrationData: JSON.stringify(registrationDataForFields), // Сохраняем данные регистрации с реферальным кодом
         paymentType: paymentType || 'registration',
         subscriptionType: registrationData.subscription?.type || '1'
       }
@@ -668,14 +701,14 @@ router.post('/create-registration', [
     // userId будет null до успешной оплаты
     const transactionFields = {
       paymentType: paymentType || 'registration',
-      registrationData: registrationData, // Сохраняем данные для создания аккаунта
+      registrationData: registrationDataForFields, // Сохраняем данные для создания аккаунта с реферальным кодом
       subscriptionType: registrationData.subscription?.type || '1'
     };
     
     const transaction = await Transaction.create({
       userId: null, // Будет установлен после создания пользователя
       finikTransactionId: paymentResult.paymentId,
-      amount: amount,
+      amount: finalAmount, // Сохраняем финальную сумму со скидкой
       status: 'PENDING',
       fields: transactionFields
     });

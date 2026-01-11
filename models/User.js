@@ -36,6 +36,24 @@ const User = sequelize.define('User', {
     defaultValue: 'pending',
     allowNull: false
   },
+  referralCode: {
+    type: DataTypes.STRING(20),
+    unique: true,
+    allowNull: true
+  },
+  coins: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    allowNull: false
+  },
+  referredBy: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'Users',
+      key: 'id'
+    }
+  },
   createdAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
@@ -49,6 +67,25 @@ const User = sequelize.define('User', {
     beforeCreate: async (user) => {
       if (user.password) {
         user.password = await bcrypt.hash(user.password, 10);
+      }
+      // Генерируем уникальный реферальный код, если его нет
+      if (!user.referralCode) {
+        let code;
+        let exists = true;
+        let attempts = 0;
+        while (exists && attempts < 10) {
+          code = crypto.randomBytes(4).toString('hex').toUpperCase();
+          const existing = await User.findOne({ where: { referralCode: code } });
+          exists = !!existing;
+          attempts++;
+        }
+        if (!exists) {
+          user.referralCode = code;
+        } else {
+          // Fallback: используем ID + случайные символы
+          const timestamp = Date.now().toString(36).toUpperCase();
+          user.referralCode = `REF${timestamp.slice(-6)}`;
+        }
       }
     },
     beforeUpdate: async (user) => {

@@ -665,10 +665,25 @@
     <script>
         let selectedSubscription = null;
         let registrationData = null;
+        let referralCode = null;
+        const REFERRAL_DISCOUNT = 50; // Скидка 50 сом
         
         document.addEventListener('DOMContentLoaded', () => {
             initTheme();
             setupEventListeners();
+            
+            // Проверяем наличие реферального кода в URL
+            const urlParams = new URLSearchParams(window.location.search);
+            referralCode = urlParams.get('ref');
+            if (referralCode) {
+                referralCode = referralCode.toUpperCase();
+                console.log('✅ Referral code found in URL:', referralCode);
+                // Показываем уведомление о скидке
+                setTimeout(() => {
+                    showNotification(`🎉 Скидка 50 сом применена! Код: ${referralCode}`, 'success');
+                }, 500);
+            }
+            
             setupRegistrationSteps();
         });
         
@@ -687,10 +702,32 @@
                     // Выделяем выбранную
                     this.classList.add('selected');
                     
+                    let amount = parseFloat(this.dataset.amount);
+                    // Применяем скидку, если есть реферальный код
+                    if (referralCode) {
+                        amount = Math.max(0, amount - REFERRAL_DISCOUNT);
+                    }
+                    
                     selectedSubscription = {
                         type: this.dataset.subscription,
-                        amount: parseFloat(this.dataset.amount)
+                        amount: amount,
+                        originalAmount: parseFloat(this.dataset.amount),
+                        discount: referralCode ? REFERRAL_DISCOUNT : 0
                     };
+                    
+                    // Обновляем отображение цены со скидкой
+                    const priceElement = this.querySelector('.subscription-price');
+                    if (priceElement && referralCode) {
+                        const originalPrice = parseFloat(this.dataset.amount);
+                        priceElement.innerHTML = `
+                            <span style="text-decoration: line-through; opacity: 0.6; font-size: 1.5rem; margin-right: 0.5rem;">${originalPrice}</span>
+                            <span style="color: var(--success-color);">${amount}</span>
+                            <span style="font-size: 1.5rem;">сом</span>
+                            <div style="font-size: 0.875rem; margin-top: 0.25rem; color: var(--success-color); font-weight: 600;">
+                                Скидка ${REFERRAL_DISCOUNT} сом
+                            </div>
+                        `;
+                    }
                     
                     // Сразу переходим к заполнению данных
                     showStep(2);
@@ -796,7 +833,8 @@
                                 username: data.username,
                                 email: data.email,
                                 password: data.password,
-                                subscription: selectedSubscription
+                                subscription: selectedSubscription,
+                                referralCode: referralCode
                             }
                         })
                     });

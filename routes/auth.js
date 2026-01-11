@@ -25,7 +25,7 @@ router.post('/register', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { username, email, password } = req.body;
+    const { username, email, password, referralCode } = req.body;
 
     // Проверка существующего пользователя
     const existingUser = await User.findOne({
@@ -38,12 +38,22 @@ router.post('/register', [
       return res.status(400).json({ error: 'Пользователь с таким email или никнеймом уже существует' });
     }
 
+    // Проверка и обработка реферального кода
+    let referredBy = null;
+    if (referralCode) {
+      const referrer = await User.findOne({ where: { referralCode: referralCode.toUpperCase() } });
+      if (referrer) {
+        referredBy = referrer.id;
+      }
+    }
+
     // Создание пользователя со статусом approved (автоматически одобрен)
     const user = await User.create({ 
       username, 
       email, 
       password,
-      status: 'approved'
+      status: 'approved',
+      referredBy
     });
 
     // Создание статистики
@@ -127,7 +137,7 @@ router.post('/login', [
 router.get('/me', require('../middleware/auth'), async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
-      attributes: ['id', 'username', 'email', 'createdAt']
+      attributes: ['id', 'username', 'email', 'createdAt', 'referralCode', 'coins']
     });
     res.json({ user });
   } catch (error) {

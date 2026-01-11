@@ -1278,6 +1278,32 @@ async function loadProfile() {
                     day: 'numeric'
                 });
             }
+            
+            // Обновляем баланс монеток
+            const coinsEl = document.getElementById('userCoins');
+            if (coinsEl) {
+                coinsEl.textContent = user.coins || 0;
+            }
+            
+            // Обновляем реферальную ссылку
+            const referralLinkEl = document.getElementById('referralLink');
+            if (referralLinkEl && user.referralCode) {
+                const referralUrl = `${window.location.origin}/register?ref=${user.referralCode}`;
+                referralLinkEl.value = referralUrl;
+            }
+            
+            // Обработчик кнопки копирования
+            const copyBtn = document.getElementById('copyReferralLink');
+            if (copyBtn) {
+                copyBtn.addEventListener('click', () => {
+                    if (referralLinkEl && referralLinkEl.value) {
+                        referralLinkEl.select();
+                        referralLinkEl.setSelectionRange(0, 99999); // Для мобильных
+                        document.execCommand('copy');
+                        showNotification('Реферальная ссылка скопирована!', 'success');
+                    }
+                });
+            }
         }
 
         // Загружаем статистику
