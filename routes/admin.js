@@ -104,12 +104,6 @@ router.get('/dashboard/stats', adminAuth, async (req, res) => {
       attributes: ['id', 'username', 'email', 'createdAt', 'status']
     });
 
-    const pendingUsers = await User.findAll({
-      where: { status: 'pending' },
-      order: [['createdAt', 'DESC']],
-      limit: 5,
-      attributes: ['id', 'username', 'email', 'createdAt', 'status']
-    });
 
     const recentResults = await TestResult.findAll({
       include: [{
@@ -188,97 +182,6 @@ router.get('/users', adminAuth, async (req, res) => {
   }
 });
 
-// Получить заявки на регистрацию
-router.get('/registration-requests', adminAuth, async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const offset = (page - 1) * limit;
-    const status = req.query.status || 'pending';
-    const search = req.query.search || '';
-
-    const where = { status };
-    if (search) {
-      where[Op.or] = [
-        { username: { [Op.iLike]: `%${search}%` } },
-        { email: { [Op.iLike]: `%${search}%` } }
-      ];
-    }
-
-    const { count, rows: users } = await User.findAndCountAll({
-      where,
-      limit,
-      offset,
-      order: [['createdAt', 'DESC']],
-      attributes: { exclude: ['password'] }
-    });
-
-    res.json({
-      users,
-      pagination: {
-        total: count,
-        page,
-        limit,
-        totalPages: Math.ceil(count / limit)
-      }
-    });
-  } catch (error) {
-    console.error('Ошибка получения заявок:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
-});
-
-// Одобрить регистрацию
-router.post('/users/:id/approve', adminAuth, async (req, res) => {
-  try {
-    const user = await User.findByPk(req.params.id);
-    if (!user) {
-      return res.status(404).json({ error: 'Пользователь не найден' });
-    }
-
-    user.status = 'approved';
-    await user.save();
-
-    res.json({ 
-      message: 'Регистрация одобрена',
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        status: user.status
-      }
-    });
-  } catch (error) {
-    console.error('Ошибка одобрения регистрации:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
-});
-
-// Отклонить регистрацию
-router.post('/users/:id/reject', adminAuth, async (req, res) => {
-  try {
-    const user = await User.findByPk(req.params.id);
-    if (!user) {
-      return res.status(404).json({ error: 'Пользователь не найден' });
-    }
-
-    user.status = 'rejected';
-    await user.save();
-
-    res.json({ 
-      message: 'Регистрация отклонена',
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        status: user.status
-      }
-    });
-  } catch (error) {
-    console.error('Ошибка отклонения регистрации:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
-});
 
 // Удалить пользователя
 router.delete('/users/:id', adminAuth, async (req, res) => {

@@ -294,31 +294,6 @@ async function loadDashboard() {
             console.error('Ошибка загрузки последних сообщений:', error);
         }
 
-        // Заявки на регистрацию
-        const pendingUsersList = document.getElementById('pendingUsersList');
-        if (data.pendingUsers && data.pendingUsers.length > 0) {
-            pendingUsersList.innerHTML = data.pendingUsers.map(user => {
-                const date = new Date(user.createdAt);
-                return `
-                    <div class="admin-list-item" style="border-left: 4px solid var(--primary-color);">
-                        <div style="flex: 1;">
-                            <strong>${user.username}</strong>
-                            <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0.25rem 0 0;">${user.email}</p>
-                        </div>
-                        <div style="display: flex; gap: 0.5rem; align-items: center;">
-                            <span style="color: var(--text-muted); font-size: 0.875rem; margin-right: 1rem;">
-                                ${date.toLocaleDateString('ru-RU')}
-                            </span>
-                            <button class="btn btn-success btn-sm" onclick="approveRegistration(${user.id})">Одобрить</button>
-                            <button class="btn btn-danger btn-sm" onclick="rejectRegistration(${user.id})">Отклонить</button>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        } else {
-            pendingUsersList.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 2rem;">Нет заявок на регистрацию</p>';
-        }
-
         // Последние пользователи
         const recentUsersList = document.getElementById('recentUsersList');
         if (data.recentUsers && data.recentUsers.length > 0) {
@@ -1168,25 +1143,6 @@ function setupAdminEventListeners() {
         });
     }
 
-    // Фильтры и поиск для заявок на регистрацию
-    const registrationsStatusFilter = document.getElementById('registrationsStatusFilter');
-    if (registrationsStatusFilter) {
-        registrationsStatusFilter.addEventListener('change', () => {
-            loadRegistrations(1);
-        });
-    }
-
-    const registrationsSearch = document.getElementById('registrationsSearch');
-    if (registrationsSearch) {
-        let searchTimeout;
-        registrationsSearch.addEventListener('input', () => {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                loadRegistrations(1);
-            }, 500);
-        });
-    }
-
     // Кнопки в модальном окне сообщения
     const saveMessageStatusBtn = document.getElementById('saveMessageStatusBtn');
     if (saveMessageStatusBtn) {
@@ -1349,9 +1305,6 @@ function switchTab(tabName) {
             break;
         case 'messages':
             loadMessages();
-            break;
-        case 'registrations':
-            loadRegistrations();
             break;
     }
 }
@@ -1607,149 +1560,4 @@ window.viewMessage = viewMessage;
 window.deleteMessage = deleteMessage;
 
 // Загрузка заявок на регистрацию
-let currentRegistrationsPage = 1;
-
-async function loadRegistrations(page = 1) {
-    try {
-        const status = document.getElementById('registrationsStatusFilter')?.value || 'pending';
-        const search = document.getElementById('registrationsSearch')?.value || '';
-        const statusParam = status === 'all' ? '' : status;
-        const url = `${ADMIN_API_URL}/registration-requests?page=${page}&limit=20&status=${encodeURIComponent(statusParam)}&search=${encodeURIComponent(search)}`;
-        
-        const response = await fetch(url, {
-            headers: {
-                'Authorization': `Bearer ${currentAdminToken}`
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error('Ошибка загрузки заявок');
-        }
-
-        const data = await response.json();
-        currentRegistrationsPage = page;
-
-        const registrationsList = document.getElementById('registrationsList');
-        if (data.users && data.users.length > 0) {
-            registrationsList.innerHTML = data.users.map(user => {
-                const date = new Date(user.createdAt);
-                const statusLabels = {
-                    'pending': 'Ожидает одобрения',
-                    'approved': 'Одобрено',
-                    'rejected': 'Отклонено'
-                };
-                const statusColors = {
-                    'pending': 'var(--primary-color)',
-                    'approved': 'var(--success-color)',
-                    'rejected': 'var(--danger-color)'
-                };
-                const isPending = user.status === 'pending';
-
-                return `
-                    <div class="admin-list-item ${isPending ? 'new-message' : ''}" style="${isPending ? 'border-left: 4px solid var(--primary-color);' : ''}">
-                        <div style="flex: 1;">
-                            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                                <strong>${user.username}</strong>
-                                ${isPending ? '<span style="background: var(--primary-color); color: white; padding: 0.125rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 600;">НОВАЯ ЗАЯВКА</span>' : ''}
-                            </div>
-                            <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0.25rem 0;">
-                                ${user.email}
-                            </p>
-                            <p style="color: var(--text-secondary); font-size: 0.75rem; margin: 0.5rem 0 0;">
-                                Дата регистрации: ${date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                        </div>
-                        <div style="text-align: right; min-width: 200px;">
-                            <span style="color: ${statusColors[user.status] || 'var(--text-muted)'}; font-size: 0.75rem; font-weight: 600; display: block; margin-bottom: 0.5rem;">
-                                ${statusLabels[user.status] || user.status}
-                            </span>
-                            ${isPending ? `
-                                <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-                                    <button class="btn btn-success btn-sm" onclick="approveRegistration(${user.id})">Одобрить</button>
-                                    <button class="btn btn-danger btn-sm" onclick="rejectRegistration(${user.id})">Отклонить</button>
-                                </div>
-                            ` : ''}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        } else {
-            registrationsList.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 2rem;">Заявки не найдены</p>';
-        }
-
-        // Пагинация
-        const pagination = document.getElementById('registrationsPagination');
-        if (pagination && data.pagination) {
-            const { totalPages, page: currentPage } = data.pagination;
-            let paginationHTML = '';
-            for (let i = 1; i <= totalPages; i++) {
-                paginationHTML += `<button class="admin-pagination-btn ${i === currentPage ? 'active' : ''}" onclick="loadRegistrations(${i})">${i}</button>`;
-            }
-            pagination.innerHTML = paginationHTML;
-        }
-    } catch (error) {
-        console.error('Ошибка загрузки заявок:', error);
-        showNotification('Ошибка загрузки заявок', 'error');
-    }
-}
-
-// Одобрить регистрацию
-async function approveRegistration(userId) {
-    if (!confirm('Вы уверены, что хотите одобрить эту регистрацию?')) {
-        return;
-    }
-
-    try {
-        const response = await fetch(`${ADMIN_API_URL}/users/${userId}/approve`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${currentAdminToken}`
-            }
-        });
-
-        if (response.ok) {
-            showNotification('Регистрация одобрена', 'success');
-            loadRegistrations(currentRegistrationsPage);
-            loadDashboard();
-        } else {
-            const result = await response.json();
-            showNotification(result.error || 'Ошибка одобрения', 'error');
-        }
-    } catch (error) {
-        console.error('Ошибка одобрения регистрации:', error);
-        showNotification('Ошибка одобрения регистрации', 'error');
-    }
-}
-
-// Отклонить регистрацию
-async function rejectRegistration(userId) {
-    if (!confirm('Вы уверены, что хотите отклонить эту регистрацию?')) {
-        return;
-    }
-
-    try {
-        const response = await fetch(`${ADMIN_API_URL}/users/${userId}/reject`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${currentAdminToken}`
-            }
-        });
-
-        if (response.ok) {
-            showNotification('Регистрация отклонена', 'success');
-            loadRegistrations(currentRegistrationsPage);
-            loadDashboard();
-        } else {
-            const result = await response.json();
-            showNotification(result.error || 'Ошибка отклонения', 'error');
-        }
-    } catch (error) {
-        console.error('Ошибка отклонения регистрации:', error);
-        showNotification('Ошибка отклонения регистрации', 'error');
-    }
-}
-
-window.loadRegistrations = loadRegistrations;
-window.approveRegistration = approveRegistration;
-window.rejectRegistration = rejectRegistration;
 
