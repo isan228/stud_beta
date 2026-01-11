@@ -4,51 +4,27 @@ const multer = require('multer');
 const adminAuth = require('../middleware/adminAuth');
 const { Question, Answer, Test } = require('../models');
 
-// Пытаемся загрузить pdf-parse, но делаем это опциональным
-let pdfParse = null;
-let pdfParseError = null;
-try {
-  pdfParse = require('pdf-parse');
-  console.log('✓ pdf-parse успешно загружен');
-} catch (error) {
-  pdfParseError = error;
-  console.warn('⚠️  pdf-parse не может быть загружен. Загрузка PDF будет недоступна.');
-  console.warn('   Ошибка:', error.message);
-  console.warn('   Попробуйте переустановить: npm install pdf-parse');
-}
-
-// Настройка multer для загрузки файлов
+// Настройка multer для загрузки TXT файлов
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB
   },
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'application/pdf') {
+    // Принимаем текстовые файлы
+    if (file.mimetype === 'text/plain' || file.originalname.endsWith('.txt')) {
       cb(null, true);
     } else {
-      cb(new Error('Только PDF файлы разрешены'), false);
+      cb(new Error('Только TXT файлы разрешены'), false);
     }
   }
 });
 
-// Загрузка и парсинг PDF с вопросами
-router.post('/upload-pdf', adminAuth, upload.single('pdf'), async (req, res) => {
+// Загрузка и парсинг TXT файла с вопросами
+router.post('/upload-pdf', adminAuth, upload.single('txt'), async (req, res) => {
   try {
-    // Проверяем, доступен ли pdf-parse
-    if (!pdfParse) {
-      const errorMessage = pdfParseError 
-        ? `Модуль pdf-parse не может быть загружен: ${pdfParseError.message}. Попробуйте переустановить: npm install pdf-parse`
-        : 'Модуль pdf-parse не может быть загружен. Используйте ручной ввод вопросов.';
-      
-      return res.status(503).json({ 
-        error: 'Загрузка PDF временно недоступна',
-        message: errorMessage
-      });
-    }
-
     if (!req.file) {
-      return res.status(400).json({ error: 'PDF файл не загружен' });
+      return res.status(400).json({ error: 'TXT файл не загружен' });
     }
 
     const { testId } = req.body;
@@ -63,33 +39,21 @@ router.post('/upload-pdf', adminAuth, upload.single('pdf'), async (req, res) => 
       return res.status(404).json({ error: 'Тест не найден' });
     }
 
-    // Парсим PDF
-    let pdfData;
-    try {
-      pdfData = await pdfParse(req.file.buffer);
-    } catch (parseError) {
-      console.error('Ошибка парсинга PDF:', parseError);
-      return res.status(500).json({ 
-        error: 'Ошибка парсинга PDF файла',
-        message: parseError.message || 'Не удалось извлечь текст из PDF. Убедитесь, что файл не поврежден.'
-      });
-    }
-    
-    const text = pdfData.text;
+    // Читаем текст из файла
+    const text = req.file.buffer.toString('utf8');
     
     if (!text || text.trim().length === 0) {
       return res.status(400).json({ 
-        error: 'PDF файл пуст или не содержит текста',
-        message: 'Убедитесь, что PDF содержит текст, а не только изображения.'
+        error: 'TXT файл пуст',
+        message: 'Убедитесь, что файл содержит текст.'
       });
     }
 
     // Парсим вопросы из текста
-    // Формат: Вопрос?\nA) Ответ1\nB) Ответ2\nC) Ответ3\nD) Ответ4\nПравильный ответ: A
-    const questions = parseQuestionsFromPDF(text);
+    const questions = parseQuestionsFromText(text);
 
     if (questions.length === 0) {
-      return res.status(400).json({ error: 'Не удалось найти вопросы в PDF. Убедитесь, что формат правильный.' });
+      return res.status(400).json({ error: 'Не удалось найти вопросы в TXT файле. Убедитесь, что формат правильный.' });
     }
 
     // Сохраняем вопросы в базу данных
@@ -121,12 +85,12 @@ router.post('/upload-pdf', adminAuth, upload.single('pdf'), async (req, res) => 
       questions: createdQuestions
     });
   } catch (error) {
-    console.error('Ошибка загрузки PDF:', error);
-    res.status(500).json({ error: error.message || 'Ошибка обработки PDF файла' });
+    console.error('Ошибка загрузки TXT:', error);
+    res.status(500).json({ error: error.message || 'Ошибка обработки TXT файла' });
   }
 });
 
-// Функция парсинга вопросов из текста PDF
+// Функция парсинга вопросов из текста
 // Поддерживается только формат:
 // "ID":"1";
 // "Q":"Вопрос";
@@ -136,10 +100,10 @@ router.post('/upload-pdf', adminAuth, upload.single('pdf'), async (req, res) => 
 // "A4":"Ответ 4";
 // "A5":"Ответ 5"; (опционально)
 // "Correct":"4";
-function parseQuestionsFromPDF(text) {
+function parseQuestionsFromText(text) {
   const questions = [];
   
-  console.log('Начало парсинга PDF. Поддерживается только формат с "ID", "Q", "A1-A5", "Correct"');
+  console.log('Начало парсинга TXT. Поддерживается только формат с "ID", "Q", "A1-A5", "Correct"');
   
   // Разбиваем текст на блоки по "ID"
   const blocks = text.split(/"ID"\s*:\s*"/);

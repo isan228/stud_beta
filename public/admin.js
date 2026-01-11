@@ -1232,7 +1232,7 @@ async function handlePdfUpload(e) {
         });
         
         if (progressBar) progressBar.style.width = '70%';
-        if (statusText) statusText.textContent = 'Обработка PDF...';
+        if (statusText) statusText.textContent = 'Обработка TXT...';
         
         const result = await response.json();
         
@@ -1257,14 +1257,14 @@ async function handlePdfUpload(e) {
                 loadQuestions();
             }, 500);
         } else {
-            throw new Error(result.error || 'Ошибка загрузки PDF');
+            throw new Error(result.error || 'Ошибка загрузки TXT');
         }
     } catch (error) {
-        console.error('Ошибка загрузки PDF:', error);
+        console.error('Ошибка загрузки TXT:', error);
         if (typeof showNotification === 'function') {
-            showNotification(error.message || 'Ошибка загрузки PDF', 'error');
+            showNotification(error.message || 'Ошибка загрузки TXT', 'error');
         } else {
-            alert(error.message || 'Ошибка загрузки PDF');
+            alert(error.message || 'Ошибка загрузки TXT');
         }
         if (progressDiv) progressDiv.style.display = 'none';
         if (progressBar) progressBar.style.width = '0%';
