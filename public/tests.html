@@ -122,16 +122,24 @@
     <script src="app.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
-            initTheme();
-            const userLoaded = await loadUser();
-            setupEventListeners();
+            window.initTheme();
+            const userLoaded = await window.loadUser();
+            window.setupEventListeners();
             
             // Проверяем авторизацию перед загрузкой предметов
-            console.log('Проверка авторизации. currentUser:', currentUser, 'userLoaded:', userLoaded);
-            if (!currentUser) {
-                showRegisterModal();
+            console.log('Проверка авторизации. currentUser:', window.currentUser, 'userLoaded:', userLoaded);
+            if (!window.currentUser) {
+                if (typeof showRegisterModal === 'function') {
+                    showRegisterModal();
+                } else {
+                    window.location.href = '/register';
+                }
             } else {
-                loadSubjects();
+                if (typeof window.loadSubjects === 'function') {
+                    window.loadSubjects();
+                } else {
+                    console.error('loadSubjects не найдена');
+                }
             }
             
             // Настройка поиска по предметам
