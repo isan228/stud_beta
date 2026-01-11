@@ -1,5 +1,10 @@
-// API базовый URL
-const API_URL = '/api';
+// Полностью отключаем app.js на странице админки
+if (window.location.pathname.includes('/admin') || document.getElementById('adminLoginForm')) {
+    console.log('app.js: Страница админки обнаружена, скрипт отключен');
+    // Не выполняем никакой код на странице админки
+} else {
+    // API базовый URL
+    const API_URL = '/api';
 
 // Состояние приложения
 let currentUser = null;
@@ -522,7 +527,15 @@ async function handleRegister(e) {
 
 async function handleLogin(e) {
     e.preventDefault();
-    const formData = new FormData(e.target);
+    
+    // СТРОГАЯ ПРОВЕРКА: не обрабатываем форму админки
+    const form = e.target;
+    if (!form || form.id === 'adminLoginForm' || form.id.includes('admin')) {
+        console.warn('app.js: Попытка обработать форму админки через handleLogin - игнорируем');
+        return;
+    }
+    
+    const formData = new FormData(form);
     const data = Object.fromEntries(formData);
 
     // Переименовываем identifier в identifier для backend
@@ -1676,4 +1689,6 @@ window.selectAnswer = selectAnswer;
 window.removeFavorite = removeFavorite;
 window.toggleFavorite = toggleFavorite;
 window.showTestResults = showTestResults;
+
+} // Закрываем блок else для страницы админки
 
