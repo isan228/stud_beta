@@ -123,6 +123,15 @@ Object.keys(pages).forEach(route => {
         return res.status(404).send('Страница не найдена');
       }
       
+      // Отключаем кеширование для admin.html, чтобы всегда получать свежую версию
+      if (route === '/admin') {
+        res.set({
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        });
+      }
+      
       res.sendFile(filePath, (sendErr) => {
         if (sendErr) {
           console.error(`Ошибка отправки файла ${pages[route]}:`, sendErr);
@@ -137,9 +146,18 @@ Object.keys(pages).forEach(route => {
 app.use(express.static(path.join(__dirname, 'public'), {
   index: false,
   dotfiles: 'deny', // Запрещаем доступ к скрытым файлам
-  setHeaders: (res, path) => {
+  setHeaders: (res, filePath) => {
     // Безопасные заголовки для статических файлов
     res.set('X-Content-Type-Options', 'nosniff');
+    
+    // Отключаем кеширование для app.js и admin.js, чтобы всегда получать свежие версии
+    if (filePath.includes('app.js') || filePath.includes('admin.js')) {
+      res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      });
+    }
   }
 }));
 
