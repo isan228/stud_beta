@@ -1287,9 +1287,20 @@ async function loadProfile() {
             
             // Обновляем реферальную ссылку
             const referralLinkEl = document.getElementById('referralLink');
-            if (referralLinkEl && user.referralCode) {
-                const referralUrl = `${window.location.origin}/register?ref=${user.referralCode}`;
-                referralLinkEl.value = referralUrl;
+            if (referralLinkEl) {
+                if (user.referralCode) {
+                    const referralUrl = `${window.location.origin}/register?ref=${user.referralCode}`;
+                    referralLinkEl.value = referralUrl;
+                } else {
+                    // Если кода нет, показываем сообщение
+                    referralLinkEl.value = 'Генерация кода...';
+                    referralLinkEl.disabled = true;
+                    // Перезагружаем данные пользователя через секунду
+                    setTimeout(async () => {
+                        await fetchUser();
+                        await loadProfile();
+                    }, 1000);
+                }
             }
             
             // Обработчик кнопки копирования

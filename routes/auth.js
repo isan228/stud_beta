@@ -139,6 +139,30 @@ router.get('/me', require('../middleware/auth'), async (req, res) => {
     const user = await User.findByPk(req.user.id, {
       attributes: ['id', 'username', 'email', 'createdAt', 'referralCode', 'coins']
     });
+    
+    // Если у пользователя нет реферального кода, генерируем его
+    if (!user.referralCode) {
+      const crypto = require('crypto');
+      let code;
+      let exists = true;
+      let attempts = 0;
+      while (exists && attempts < 10) {
+        code = crypto.randomBytes(4).toString('hex').toUpperCase();
+        const existing = await User.findOne({ where: { referralCode: code } });
+        exists = !!existing;
+        attempts++;
+      }
+      if (!exists) {
+        user.referralCode = code;
+      } else {
+        // Fallback: используем ID + случайные символы
+        const timestamp = Date.now().toString(36).toUpperCase();
+        user.referralCode = `REF${timestamp.slice(-6)}`;
+      }
+      await user.save();
+      console.log(`✅ Generated referral code for user ${user.id}: ${user.referralCode}`);
+    }
+    
     res.json({ user });
   } catch (error) {
     console.error('Ошибка получения пользователя:', error);
