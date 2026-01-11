@@ -392,7 +392,14 @@
 
     <div id="notification" class="notification"></div>
     <script src="admin.js"></script>
-    <script src="app.js"></script>
+    <!-- app.js не нужен на странице админки, чтобы избежать конфликтов -->
+    <script>
+        // Минимальная инициализация темы из app.js (если нужна)
+        (function() {
+            const theme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
 </body>
 </html>
 
