@@ -152,7 +152,9 @@
                 searchInput.addEventListener('input', (e) => {
                     clearTimeout(searchTimeout);
                     searchTimeout = setTimeout(() => {
-                        filterSubjects(e.target.value);
+                        if (typeof window.filterSubjects === 'function') {
+                            window.filterSubjects(e.target.value);
+                        }
                     }, 300); // Задержка 300мс для оптимизации
                 });
                 
@@ -160,7 +162,9 @@
                 searchInput.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') {
                         e.preventDefault();
-                        filterSubjects(e.target.value);
+                        if (typeof window.filterSubjects === 'function') {
+                            window.filterSubjects(e.target.value);
+                        }
                     }
                 });
             }
@@ -170,7 +174,9 @@
                 clearBtn.addEventListener('click', () => {
                     if (searchInput) {
                         searchInput.value = '';
-                        filterSubjects('');
+                        if (typeof window.filterSubjects === 'function') {
+                            window.filterSubjects('');
+                        }
                         searchInput.focus();
                     }
                 });
