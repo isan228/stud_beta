@@ -1743,6 +1743,7 @@ async function handleContact(e) {
 // Глобальные функции для onclick
 // Экспорт функций для использования в HTML
 window.loadUser = loadUser;
+window.fetchUser = fetchUser;
 window.initTheme = initTheme;
 window.setupEventListeners = setupEventListeners;
 window.loadSubjectTests = loadSubjectTests;
@@ -1759,6 +1760,8 @@ window.startTimer = startTimer;
 window.nextQuestion = nextQuestion;
 window.prevQuestion = prevQuestion;
 window.finishTest = finishTest;
+window.loadProfile = loadProfile;
+window.showNotification = showNotification;
 
 // Экспорт переменных состояния для доступа из inline скриптов
 Object.defineProperty(window, 'currentUser', {

@@ -173,15 +173,25 @@
             }
             
             currentToken = token;
-            await fetchUser();
+            if (typeof window.fetchUser === 'function') {
+                await window.fetchUser();
+            } else {
+                console.error('fetchUser не найдена');
+                window.location.href = '/login';
+                return;
+            }
             
-            if (!currentUser) {
+            if (!window.currentUser) {
                 window.location.href = '/login';
                 return;
             }
             
             // Загружаем профиль после успешной авторизации
-            await loadProfile();
+            if (typeof window.loadProfile === 'function') {
+                await window.loadProfile();
+            } else {
+                console.error('loadProfile не найдена');
+            }
             
             // Обработчик формы изменения пароля
             const changePasswordForm = document.getElementById('changePasswordForm');
