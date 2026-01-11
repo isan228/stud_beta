@@ -22,6 +22,49 @@ function showNotification(message, type = 'info') {
     }, 3000);
 }
 
+// Функции для работы с темой
+function initTheme() {
+    const theme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    updateThemeIcon(theme);
+    console.log('Theme initialized:', theme);
+}
+
+function toggleTheme(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    // Получаем текущую тему из атрибута или localStorage
+    let currentTheme = document.documentElement.getAttribute('data-theme');
+    if (!currentTheme || currentTheme === 'null' || currentTheme === '') {
+        currentTheme = localStorage.getItem('theme') || 'light';
+    }
+    
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    
+    // Устанавливаем новую тему
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    updateThemeIcon(newTheme);
+    
+    console.log('Theme toggled to:', newTheme);
+}
+
+function updateThemeIcon(theme) {
+    const themeToggle = document.getElementById('themeToggle');
+    if (themeToggle) {
+        const icon = themeToggle.querySelector('.theme-icon');
+        if (icon) {
+            icon.textContent = theme === 'dark' ? '☀️' : '🌙';
+        } else {
+            // Если нет .theme-icon, обновляем текст кнопки
+            themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
+        }
+    }
+}
+
 // Инициализация
 function initAdmin() {
     console.log('Инициализация админ-панели');
