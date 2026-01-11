@@ -216,7 +216,6 @@ async function loadDashboard() {
         document.getElementById('statTotalTests').textContent = stats.totalTests || 0;
         document.getElementById('statTotalQuestions').textContent = stats.totalQuestions || 0;
         document.getElementById('statTotalResults').textContent = stats.totalResults || 0;
-        document.getElementById('statPendingRegistrations').textContent = stats.pendingRegistrations || 0;
 
         // Загружаем статистику сообщений
         try {

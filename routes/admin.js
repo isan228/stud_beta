@@ -97,7 +97,6 @@ router.get('/dashboard/stats', adminAuth, async (req, res) => {
     const totalTests = await Test.count();
     const totalQuestions = await Question.count();
     const totalResults = await TestResult.count();
-    const pendingRegistrations = await User.count({ where: { status: 'pending' } });
     
     const recentUsers = await User.findAll({
       order: [['createdAt', 'DESC']],
@@ -136,10 +135,8 @@ router.get('/dashboard/stats', adminAuth, async (req, res) => {
         totalTests,
         totalQuestions,
         totalResults,
-        pendingRegistrations
       },
       recentUsers,
-      pendingUsers,
       recentResults
     });
   } catch (error) {
