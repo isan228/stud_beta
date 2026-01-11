@@ -190,12 +190,16 @@
                 goToTestsBtn.addEventListener('click', async (e) => {
                     e.preventDefault();
                     // Убеждаемся, что пользователь загружен
-                    if (!currentUser) {
-                        await loadUser();
+                    if (!window.currentUser) {
+                        await window.loadUser();
                     }
                     // Проверяем авторизацию
-                    if (!currentUser) {
-                        showRegisterModal();
+                    if (!window.currentUser) {
+                        if (typeof showRegisterModal === 'function') {
+                            showRegisterModal();
+                        } else {
+                            window.location.href = '/register';
+                        }
                     } else {
                         window.location.href = '/tests';
                     }

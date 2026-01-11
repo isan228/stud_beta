@@ -1716,5 +1716,12 @@ window.removeFavorite = removeFavorite;
 window.toggleFavorite = toggleFavorite;
 window.showTestResults = showTestResults;
 
+// Экспорт переменных состояния для доступа из inline скриптов
+Object.defineProperty(window, 'currentUser', {
+    get: () => currentUser,
+    set: (value) => { currentUser = value; },
+    configurable: true
+});
+
 } // Закрываем блок else для страницы админки
 
