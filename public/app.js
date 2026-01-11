@@ -248,7 +248,8 @@ function setupEventListeners() {
     }
     
     const loginForm = document.getElementById('loginForm');
-    if (loginForm && !loginForm.id.includes('admin')) {
+    // НЕ привязываем обработчик к форме админки
+    if (loginForm && !loginForm.id.includes('admin') && loginForm.id !== 'adminLoginForm') {
         loginForm.addEventListener('submit', handleLogin);
     }
     
@@ -405,6 +406,12 @@ function setupEventListeners() {
 
 // Инициализация на всех страницах
 async function init() {
+    // Полностью пропускаем инициализацию на странице админки
+    if (window.location.pathname.includes('/admin') || document.getElementById('adminLoginForm')) {
+        console.log('app.js: Пропуск инициализации на странице админки');
+        return;
+    }
+    
     initTheme();
     await loadUser();
     setupEventListeners();
@@ -414,10 +421,18 @@ async function init() {
     handleRoute(window.location.pathname);
 }
 
-if (document.readyState === 'loading') {
+// Не инициализируем app.js на странице админки
+if (window.location.pathname.includes('/admin')) {
+    console.log('app.js: Страница админки обнаружена, инициализация отключена');
+} else if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {
-    init();
+    // Дополнительная проверка перед инициализацией
+    if (!document.getElementById('adminLoginForm')) {
+        init();
+    } else {
+        console.log('app.js: Форма админки обнаружена, инициализация отключена');
+    }
 }
 
 // Анимации при прокрутке

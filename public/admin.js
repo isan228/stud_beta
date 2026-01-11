@@ -907,21 +907,34 @@ function setupAdminEventListeners() {
     }
     eventListenersSetup = true;
     
-    // Вход
+    // Вход - привязываем обработчик с максимальным приоритетом
     const adminLoginForm = document.getElementById('adminLoginForm');
     if (adminLoginForm) {
         // Удаляем все предыдущие обработчики, если есть
         const newForm = adminLoginForm.cloneNode(true);
         adminLoginForm.parentNode.replaceChild(newForm, adminLoginForm);
-        // Привязываем обработчик к новой форме с приоритетом и stopImmediatePropagation
-        newForm.addEventListener('submit', (e) => {
+        
+        // Привязываем обработчик с максимальным приоритетом
+        // Используем capture phase (true) для выполнения первым
+        newForm.addEventListener('submit', function(e) {
             e.preventDefault();
             e.stopImmediatePropagation(); // Останавливаем все другие обработчики
+            e.stopPropagation(); // Останавливаем всплытие события
+            console.log('admin.js: Обработчик формы админки вызван');
             handleAdminLogin(e);
         }, true); // useCapture = true для приоритета
-        console.log('Обработчик формы админки привязан к:', newForm.id);
+        
+        // Также добавляем обработчик в bubble phase для надежности
+        newForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            console.log('admin.js: Резервный обработчик формы админки вызван');
+            handleAdminLogin(e);
+        }, false);
+        
+        console.log('✅ Обработчик формы админки привязан к:', newForm.id);
     } else {
-        console.warn('Форма adminLoginForm не найдена');
+        console.warn('⚠️ Форма adminLoginForm не найдена');
     }
 
     // Выход
