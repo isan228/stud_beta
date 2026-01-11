@@ -93,9 +93,13 @@ router.post('/tests/:testId/questions', auth, async (req, res) => {
     // Случайный порядок ответов
     if (randomizeAnswers) {
       questions = questions.map(q => {
-        const answers = [...q.Answers].sort(() => Math.random() - 0.5);
+        const answers = [...(q.Answers || [])].sort(() => Math.random() - 0.5);
         return { 
-          ...q, 
+          id: q.id,
+          text: q.text,
+          testId: q.testId,
+          createdAt: q.createdAt,
+          updatedAt: q.updatedAt,
           Answers: answers.map(a => ({
             id: a.id,
             text: a.text
@@ -110,7 +114,7 @@ router.post('/tests/:testId/questions', auth, async (req, res) => {
         testId: q.testId,
         createdAt: q.createdAt,
         updatedAt: q.updatedAt,
-        Answers: q.Answers.map(a => ({
+        Answers: (q.Answers || []).map(a => ({
           id: a.id,
           text: a.text
         }))

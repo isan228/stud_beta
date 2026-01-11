@@ -21,7 +21,7 @@ const upload = multer({
 });
 
 // Загрузка и парсинг TXT файла с вопросами
-router.post('/upload-pdf', adminAuth, upload.single('txt'), async (req, res) => {
+router.post('/upload-pdf', adminAuth, upload.single('pdf'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'TXT файл не загружен' });
