@@ -162,7 +162,8 @@ router.get('/users', adminAuth, async (req, res) => {
       order: [['createdAt', 'DESC']],
       include: [{
         model: UserStats,
-        as: 'UserStats'
+        as: 'UserStat',
+        required: false
       }],
       attributes: { exclude: ['password'] }
     });

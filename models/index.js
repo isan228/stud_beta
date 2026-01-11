@@ -18,7 +18,7 @@ TestResult.belongsTo(User, { foreignKey: 'userId', as: 'User' });
 Test.hasMany(TestResult, { foreignKey: 'testId' });
 TestResult.belongsTo(Test, { foreignKey: 'testId', as: 'Test' });
 
-User.hasOne(UserStats, { foreignKey: 'userId', as: 'UserStats' });
+User.hasOne(UserStats, { foreignKey: 'userId', as: 'UserStat' });
 UserStats.belongsTo(User, { foreignKey: 'userId' });
 
 Subject.hasMany(Test, { foreignKey: 'subjectId' });
