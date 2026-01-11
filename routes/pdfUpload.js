@@ -127,204 +127,84 @@ router.post('/upload-pdf', adminAuth, upload.single('pdf'), async (req, res) => 
 });
 
 // Функция парсинга вопросов из текста PDF
+// Поддерживается только формат:
+// "ID":"1";
+// "Q":"Вопрос";
+// "A1":"Ответ 1";
+// "A2":"Ответ 2";
+// "A3":"Ответ 3";
+// "A4":"Ответ 4";
+// "A5":"Ответ 5"; (опционально)
+// "Correct":"4";
 function parseQuestionsFromPDF(text) {
   const questions = [];
   
-  // Разные форматы вопросов
-  // Формат 1: Q: Вопрос (может быть многострочным)\nA1: Ответ\nA2: Ответ\n...\nCorrect: 4
-  // Формат 2: Вопрос?\nA) Ответ\nB) Ответ\n...\nПравильный ответ: A
-  // Формат 3: 1. Вопрос?\nA) Ответ\nB) Ответ\n...\nОтвет: A
-
-  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  console.log('Начало парсинга PDF. Поддерживается только формат с "ID", "Q", "A1-A5", "Correct"');
   
-  let currentQuestion = null;
-  let currentQuestionLines = [];
-  let currentAnswers = [];
-  let currentAnswerIndex = null;
-  let currentAnswerText = [];
-  let correctAnswerIndex = null;
-  let inQuestion = false;
-  let inAnswer = false;
+  // Разбиваем текст на блоки по "ID"
+  const blocks = text.split(/"ID"\s*:\s*"/);
   
-  console.log('Начало парсинга PDF. Всего строк:', text.split('\n').length);
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (let i = 1; i < blocks.length; i++) { // Начинаем с 1, так как первый элемент пустой
+    const block = blocks[i];
     
-    // Формат 1: Q: вопрос (начало вопроса)
-    if (line.match(/^Q:\s*/i)) {
-      // Сохраняем последний ответ предыдущего вопроса, если был
-      if (currentAnswerIndex !== null && currentAnswerText.length > 0) {
-        currentAnswers[currentAnswerIndex] = {
-          text: currentAnswerText.join('\n').trim(),
-          index: currentAnswerIndex
-        };
-      }
+    try {
+      // Извлекаем ID
+      const idMatch = block.match(/^(\d+)"/);
+      if (!idMatch) continue;
       
-      // Завершаем предыдущий вопрос, если он был в процессе
-      if (currentQuestionLines.length > 0) {
-        currentQuestion = currentQuestionLines.join('\n').trim();
-        currentQuestionLines = []; // Очищаем для нового вопроса
-      }
+      // Извлекаем Q (вопрос)
+      const qMatch = block.match(/"Q"\s*:\s*"([^"]+)"/);
+      if (!qMatch) continue;
+      const questionText = qMatch[1];
       
-      // Сохраняем предыдущий вопрос
-      if (currentQuestion && currentAnswers.length > 0) {
-        const validAnswers = currentAnswers.filter(a => a && a.text && a.text.length > 0);
-        if (validAnswers.length > 0) {
-          questions.push({
-            text: currentQuestion,
-            answers: validAnswers.map((a, idx) => ({
-              text: a.text,
-              isCorrect: idx === correctAnswerIndex
-            }))
+      // Извлекаем ответы A1-A5
+      const answers = [];
+      for (let j = 1; j <= 5; j++) {
+        const aMatch = block.match(new RegExp(`"A${j}"\\s*:\\s*"([^"]+)"`));
+        if (aMatch) {
+          answers.push({
+            text: aMatch[1],
+            index: j
           });
         }
       }
       
-      // Начинаем новый вопрос
-      const questionStart = line.replace(/^Q:\s*/i, '').trim();
-      currentQuestionLines = questionStart ? [questionStart] : [];
-      currentAnswers = [];
-      currentAnswerIndex = null;
-      currentAnswerText = [];
-      correctAnswerIndex = null;
-      inQuestion = true;
-      inAnswer = false;
-    }
-    // Формат 1: A1, A2, A3, A4, A5: ответы (начало ответа)
-    else if (line.match(/^A\d+:\s*/i)) {
-      // Завершаем вопрос, если он был в процессе (всегда завершаем при встрече первого ответа)
-      if (inQuestion && currentQuestionLines.length > 0) {
-        currentQuestion = currentQuestionLines.join('\n').trim();
-        currentQuestionLines = []; // Очищаем, так как вопрос завершен
+      if (answers.length < 2) {
+        console.warn(`Вопрос ID ${idMatch[1]}: недостаточно ответов (минимум 2)`);
+        continue;
       }
       
-      // Сохраняем предыдущий ответ, если был
-      if (currentAnswerIndex !== null && currentAnswerText.length > 0) {
-        currentAnswers[currentAnswerIndex] = {
-          text: currentAnswerText.join('\n').trim(),
-          index: currentAnswerIndex
-        };
+      // Извлекаем правильный ответ
+      const correctMatch = block.match(/"Correct"\s*:\s*"(\d+)"/);
+      if (!correctMatch) {
+        console.warn(`Вопрос ID ${idMatch[1]}: не найден правильный ответ`);
+        continue;
       }
       
-      // Начинаем новый ответ
-      const match = line.match(/^A(\d+):\s*(.+)/i);
-      if (match) {
-        currentAnswerIndex = parseInt(match[1]) - 1; // A1 -> 0, A2 -> 1, etc.
-        const answerStart = match[2].trim();
-        currentAnswerText = answerStart ? [answerStart] : [];
-        inQuestion = false;
-        inAnswer = true;
-      }
-    }
-    // Формат 1: Correct: номер
-    else if (line.match(/^Correct:\s*/i)) {
-      // Сохраняем последний ответ
-      if (currentAnswerIndex !== null && currentAnswerText.length > 0) {
-        currentAnswers[currentAnswerIndex] = {
-          text: currentAnswerText.join('\n').trim(),
-          index: currentAnswerIndex
-        };
+      const correctIndex = parseInt(correctMatch[1]) - 1; // "Correct":"4" -> index 3
+      
+      if (correctIndex < 0 || correctIndex >= answers.length) {
+        console.warn(`Вопрос ID ${idMatch[1]}: неправильный индекс правильного ответа (${correctIndex + 1}, всего ответов: ${answers.length})`);
+        continue;
       }
       
-      // Завершаем вопрос, если он был в процессе (всегда завершаем при встрече Correct)
-      if (inQuestion && currentQuestionLines.length > 0) {
-        currentQuestion = currentQuestionLines.join('\n').trim();
-        currentQuestionLines = []; // Очищаем, так как вопрос завершен
-      }
-      
-      const match = line.match(/^Correct:\s*(\d+)/i);
-      if (match) {
-        correctAnswerIndex = parseInt(match[1]) - 1; // Correct: 4 -> index 3
-      }
-      
-      inQuestion = false;
-      inAnswer = false;
-    }
-    // Продолжение вопроса (если мы в режиме вопроса и не встретили A1)
-    else if (inQuestion && !line.match(/^A\d+:/i) && !line.match(/^Correct:/i)) {
-      currentQuestionLines.push(line);
-    }
-    // Продолжение ответа (если мы в режиме ответа)
-    else if (inAnswer && currentAnswerIndex !== null && !line.match(/^A\d+:/i) && !line.match(/^Correct:/i) && !line.match(/^Q:/i)) {
-      currentAnswerText.push(line);
-    }
-    // Формат 2: Определяем начало вопроса (старый формат)
-    else if (line.match(/^\d+[\.\)]\s*.+\?/) || (line.includes('?') && !line.match(/^[A-D][\.\)]/) && !line.match(/^A\d+:/i))) {
-      // Сохраняем предыдущий вопрос
-      if (currentQuestion && currentAnswers.length > 0) {
-        questions.push({
-          text: currentQuestion,
-          answers: currentAnswers.map(a => ({
-            text: a.text,
-            isCorrect: a.isCorrect || false
-          }))
-        });
-      }
-      
-      // Начинаем новый вопрос
-      currentQuestion = line.replace(/^\d+[\.\)]\s*/, '');
-      currentAnswers = [];
-      correctAnswerIndex = null;
-    }
-    // Формат 2: Определяем вариант ответа (старый формат)
-    else if (line.match(/^[A-D][\.\)]\s*/) || (line.match(/^\d+[\.\)]\s*/) && !line.match(/^Correct:/i))) {
-      const answerText = line.replace(/^[A-D][\.\)]\s*/, '').replace(/^\d+[\.\)]\s*/, '');
-      const letter = line.match(/^([A-D])/)?.[1] || null;
-      
-      currentAnswers.push({
-        text: answerText,
-        letter: letter,
-        isCorrect: false
-      });
-    }
-    // Формат 2: Определяем правильный ответ (старый формат)
-    else if (line.match(/Правильный ответ:|Ответ:|Правильный:/i)) {
-      const match = line.match(/([A-D]|\d+)/i);
-      if (match) {
-        const correctAnswer = match[1].toUpperCase();
-        
-        // Отмечаем правильный ответ
-        if (currentAnswers.length > 0) {
-          currentAnswers.forEach((ans, idx) => {
-            if (ans.letter === correctAnswer || (idx + 1).toString() === correctAnswer) {
-              ans.isCorrect = true;
-            }
-          });
-        }
-      }
-    }
-  }
-
-  // Сохраняем последний ответ, если он был в процессе
-  if (currentAnswerIndex !== null && currentAnswerText.length > 0) {
-    currentAnswers[currentAnswerIndex] = {
-      text: currentAnswerText.join('\n').trim(),
-      index: currentAnswerIndex
-    };
-  }
-  
-  // Завершаем вопрос, если он был в процессе (формат Q:/A1-A5)
-  if (currentQuestionLines.length > 0) {
-    currentQuestion = currentQuestionLines.join('\n').trim();
-  }
-
-  // Сохраняем последний вопрос
-  if (currentQuestion) {
-    // Фильтруем пустые ответы для формата A1-A5
-    const validAnswers = currentAnswers.filter(a => a && a.text && a.text.length > 0);
-    
-    if (validAnswers.length > 0) {
+      // Формируем объект вопроса
       questions.push({
-        text: currentQuestion,
-        answers: validAnswers.map((a, idx) => ({
+        text: questionText,
+        answers: answers.map((a, idx) => ({
           text: a.text,
-          isCorrect: correctAnswerIndex !== null ? idx === correctAnswerIndex : (a.isCorrect || false)
+          isCorrect: idx === correctIndex
         }))
       });
+      
+      console.log(`✓ Вопрос ID ${idMatch[1]} успешно распарсен: "${questionText.substring(0, 50)}..."`);
+    } catch (error) {
+      console.error(`Ошибка парсинга блока ${i}:`, error);
+      continue;
     }
   }
-
+  
+  console.log(`Всего распарсено вопросов: ${questions.length}`);
   return questions;
 }
 
