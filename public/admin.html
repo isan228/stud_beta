@@ -265,24 +265,17 @@
                 <div class="form-group">
                     <label for="pdfFile">PDF файл</label>
                     <input type="file" id="pdfFile" accept=".pdf" required>
-                    <small style="color: var(--text-muted); display: block; margin-top: 0.5rem; line-height: 1.5;">
-                        <strong>Формат PDF:</strong><br>
-                        <strong>Формат 1 (рекомендуемый):</strong><br>
-                        Q: Вопрос?<br>
-                        A1: Ответ 1<br>
-                        A2: Ответ 2<br>
-                        A3: Ответ 3<br>
-                        A4: Ответ 4<br>
-                        A5: Ответ 5 (опционально)<br>
-                        Correct: 4<br><br>
-                        <strong>Формат 2 (старый):</strong><br>
-                        1. Вопрос?<br>
-                        A) Ответ 1<br>
-                        B) Ответ 2<br>
-                        C) Ответ 3<br>
-                        D) Ответ 4<br>
-                        Правильный ответ: A
-                    </small>
+                    <div style="background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius); margin-top: 0.5rem;">
+                        <p style="margin: 0 0 0.5rem 0; font-weight: 600; color: var(--text-primary);">Формат PDF:</p>
+                        <pre style="margin: 0; font-size: 0.875rem; white-space: pre-wrap; word-wrap: break-word; color: var(--text-secondary); font-family: 'Courier New', monospace;">"ID":"1";
+"Q":"Вопрос?";
+"A1":"Ответ 1";
+"A2":"Ответ 2";
+"A3":"Ответ 3";
+"A4":"Ответ 4";
+"A5":"Ответ 5"; (опционально)
+"Correct":"4";</pre>
+                    </div>
                 </div>
                 <div id="pdfUploadProgress" style="display: none; margin: 1rem 0;">
                     <div style="background: var(--bg-secondary); border-radius: var(--radius); padding: 0.25rem; height: 24px;">
