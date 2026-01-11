@@ -44,35 +44,92 @@
     <div id="notification" class="notification"></div>
     <script src="app.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            initTheme();
-            loadUser();
-            setupEventListeners();
-            // Тест загружается через sessionStorage или параметры URL
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Инициализация темы и пользователя
+            if (typeof window.initTheme === 'function') {
+                window.initTheme();
+            }
+            if (typeof window.loadUser === 'function') {
+                await window.loadUser();
+            }
+            if (typeof window.setupEventListeners === 'function') {
+                window.setupEventListeners();
+            }
+            
+            // Тест загружается через sessionStorage
             const testData = sessionStorage.getItem('testData');
+            console.log('testData из sessionStorage:', testData ? 'найдено' : 'не найдено');
+            
             if (testData) {
-                const data = JSON.parse(testData);
-                currentTestId = data.testId;
-                currentQuestions = data.questions;
-                currentAnswers = data.answers || {};
-                currentQuestionIndex = data.questionIndex || 0;
-                testStartTime = data.startTime || Date.now();
-                
-                // Проверяем, что вопросы загружены
-                if (!currentQuestions || currentQuestions.length === 0) {
-                    console.error('Вопросы не найдены в testData');
-                    showNotification('Ошибка: вопросы не загружены', 'error');
+                try {
+                    const data = JSON.parse(testData);
+                    console.log('Данные теста распарсены:', {
+                        testId: data.testId,
+                        questionsCount: data.questions ? data.questions.length : 0,
+                        questionIndex: data.questionIndex,
+                        hasTimer: !!data.timer
+                    });
+                    
+                    // Проверяем, что вопросы загружены
+                    if (!data.questions || data.questions.length === 0) {
+                        console.error('Вопросы не найдены в testData');
+                        if (typeof showNotification === 'function') {
+                            showNotification('Ошибка: вопросы не загружены', 'error');
+                        }
+                        sessionStorage.removeItem('testData');
+                        window.location.href = '/tests';
+                        return;
+                    }
+                    
+                    // Устанавливаем глобальные переменные через window (если они экспортированы)
+                    // Иначе используем локальные переменные, которые будут доступны в функциях
+                    if (typeof window !== 'undefined') {
+                        // Сохраняем данные для использования в функциях app.js
+                        window.currentTestId = data.testId;
+                        window.currentQuestions = data.questions;
+                        window.currentAnswers = data.answers || {};
+                        window.currentQuestionIndex = data.questionIndex || 0;
+                        window.testStartTime = data.startTime || Date.now();
+                    }
+                    
+                    console.log(`Загружен тест: ${data.questions.length} вопросов, индекс: ${data.questionIndex}`);
+                    
+                    // Запускаем таймер, если есть
+                    if (data.timer && typeof startTimer === 'function') {
+                        startTimer(data.timer);
+                    }
+                    
+                    // Показываем первый вопрос
+                    // Небольшая задержка, чтобы убедиться, что все функции загружены
+                    setTimeout(() => {
+                        if (typeof showQuestion === 'function') {
+                            // Устанавливаем переменные перед вызовом
+                            if (window.currentTestId === undefined) {
+                                // Если переменные не установлены через window, устанавливаем напрямую
+                                // Это нужно для функций внутри app.js
+                                eval(`
+                                    if (typeof currentTestId !== 'undefined') {
+                                        currentTestId = ${JSON.stringify(data.testId)};
+                                        currentQuestions = ${JSON.stringify(data.questions)};
+                                        currentAnswers = ${JSON.stringify(data.answers || {})};
+                                        currentQuestionIndex = ${data.questionIndex || 0};
+                                        testStartTime = ${data.startTime || Date.now()};
+                                    }
+                                `);
+                            }
+                            showQuestion();
+                        } else {
+                            console.error('showQuestion не найдена');
+                            window.location.href = '/tests';
+                        }
+                    }, 100);
+                } catch (error) {
+                    console.error('Ошибка парсинга testData:', error);
+                    sessionStorage.removeItem('testData');
                     window.location.href = '/tests';
-                    return;
                 }
-                
-                console.log(`Загружен тест: ${currentQuestions.length} вопросов, индекс: ${currentQuestionIndex}`);
-                
-                if (data.timer) {
-                    startTimer(data.timer);
-                }
-                showQuestion();
             } else {
+                console.error('testData не найдено в sessionStorage');
                 window.location.href = '/tests';
             }
         });

@@ -1717,11 +1717,47 @@ window.selectAnswer = selectAnswer;
 window.removeFavorite = removeFavorite;
 window.toggleFavorite = toggleFavorite;
 window.showTestResults = showTestResults;
+window.showQuestion = showQuestion;
+window.startTimer = startTimer;
+window.nextQuestion = nextQuestion;
+window.prevQuestion = prevQuestion;
+window.finishTest = finishTest;
 
 // Экспорт переменных состояния для доступа из inline скриптов
 Object.defineProperty(window, 'currentUser', {
     get: () => currentUser,
     set: (value) => { currentUser = value; },
+    configurable: true
+});
+
+// Экспорт переменных теста
+Object.defineProperty(window, 'currentTestId', {
+    get: () => currentTestId,
+    set: (value) => { currentTestId = value; },
+    configurable: true
+});
+
+Object.defineProperty(window, 'currentQuestions', {
+    get: () => currentQuestions,
+    set: (value) => { currentQuestions = value; },
+    configurable: true
+});
+
+Object.defineProperty(window, 'currentAnswers', {
+    get: () => currentAnswers,
+    set: (value) => { currentAnswers = value; },
+    configurable: true
+});
+
+Object.defineProperty(window, 'currentQuestionIndex', {
+    get: () => currentQuestionIndex,
+    set: (value) => { currentQuestionIndex = value; },
+    configurable: true
+});
+
+Object.defineProperty(window, 'testStartTime', {
+    get: () => testStartTime,
+    set: (value) => { testStartTime = value; },
     configurable: true
 });
 
