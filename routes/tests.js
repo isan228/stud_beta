@@ -82,7 +82,8 @@ router.post('/tests/:testId/questions', auth, async (req, res) => {
       return res.status(404).json({ error: 'Тест не найден' });
     }
 
-    let questions = [...test.Questions];
+    // Преобразуем в JSON сразу, чтобы избежать циклических ссылок
+    let questions = test.Questions.map(q => q.toJSON());
 
     // Ограничение количества вопросов
     if (questionCount && questionCount < questions.length) {
@@ -93,18 +94,28 @@ router.post('/tests/:testId/questions', auth, async (req, res) => {
     if (randomizeAnswers) {
       questions = questions.map(q => {
         const answers = [...q.Answers].sort(() => Math.random() - 0.5);
-        return { ...q.toJSON(), Answers: answers };
+        return { 
+          ...q, 
+          Answers: answers.map(a => ({
+            id: a.id,
+            text: a.text
+          }))
+        };
       });
+    } else {
+      // Удаляем информацию о правильности ответов
+      questions = questions.map(q => ({
+        id: q.id,
+        text: q.text,
+        testId: q.testId,
+        createdAt: q.createdAt,
+        updatedAt: q.updatedAt,
+        Answers: q.Answers.map(a => ({
+          id: a.id,
+          text: a.text
+        }))
+      }));
     }
-
-    // Удаляем информацию о правильности ответов
-    questions = questions.map(q => ({
-      ...q,
-      Answers: q.Answers.map(a => ({
-        id: a.id,
-        text: a.text
-      }))
-    }));
 
     res.json(questions);
   } catch (error) {
