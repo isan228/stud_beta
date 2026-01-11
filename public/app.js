@@ -1682,6 +1682,9 @@ async function handleContact(e) {
 
 // Глобальные функции для onclick
 // Экспорт функций для использования в HTML
+window.loadUser = loadUser;
+window.initTheme = initTheme;
+window.setupEventListeners = setupEventListeners;
 window.loadSubjectTests = loadSubjectTests;
 window.loadTestSettings = loadTestSettings;
 window.navigateTo = navigateTo;
