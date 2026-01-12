@@ -21,8 +21,8 @@ TestResult.belongsTo(Test, { foreignKey: 'testId', as: 'Test' });
 User.hasOne(UserStats, { foreignKey: 'userId', as: 'UserStat' });
 UserStats.belongsTo(User, { foreignKey: 'userId' });
 
-Subject.hasMany(Test, { foreignKey: 'subjectId' });
-Test.belongsTo(Subject, { foreignKey: 'subjectId' });
+Subject.hasMany(Test, { foreignKey: 'subjectId', as: 'Tests' });
+Test.belongsTo(Subject, { foreignKey: 'subjectId', as: 'Subject' });
 
 Test.hasMany(Question, { foreignKey: 'testId', onDelete: 'CASCADE', as: 'Questions' });
 Question.belongsTo(Test, { foreignKey: 'testId', as: 'Test' });

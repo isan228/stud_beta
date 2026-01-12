@@ -26,25 +26,230 @@
                 </div>
                 <div class="result-percentage" id="resultPercentage">0%</div>
                 <div id="resultDetails"></div>
-                <a href="/tests" class="btn btn-primary">Вернуться к тестам</a>
+                <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem;">
+                    <button class="btn btn-secondary" id="showAnalysisBtn" style="display: none;">📊 Разбор ошибок</button>
+                    <a href="/tests" class="btn btn-primary">Вернуться к тестам</a>
+                </div>
             </div>
         </div>
     </main>
 
+    <!-- Модальное окно разбора теста -->
+    <div id="testAnalysisModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
+            <span class="modal-close" id="testAnalysisModalClose">&times;</span>
+            <h2 id="testAnalysisTitle">Разбор ошибок</h2>
+            <div id="testAnalysisContent"></div>
+        </div>
+    </div>
+
+    <style>
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .test-analysis-item {
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-light);
+            background: var(--bg-secondary);
+        }
+        .test-analysis-item.correct {
+            border-left: 4px solid var(--success-color);
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.05) 0%, var(--bg-secondary) 4%);
+        }
+        .test-analysis-item.incorrect {
+            border-left: 4px solid var(--danger-color);
+            background: linear-gradient(90deg, rgba(220, 38, 38, 0.05) 0%, var(--bg-secondary) 4%);
+        }
+        .test-analysis-question {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+        .test-analysis-answer {
+            padding: 0.75rem 1rem;
+            margin: 0.5rem 0;
+            border-radius: var(--radius);
+            background: var(--card-bg);
+        }
+        .test-analysis-answer.user-answer {
+            border: 2px solid var(--danger-color);
+            background: rgba(220, 38, 38, 0.1);
+        }
+        .test-analysis-answer.correct-answer {
+            border: 2px solid var(--success-color);
+            background: rgba(16, 185, 129, 0.1);
+        }
+        .test-analysis-label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-secondary);
+        }
+    </style>
+
     <div id="notification" class="notification"></div>
     <script src="app.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        let currentResultData = null;
+        
+        document.addEventListener('DOMContentLoaded', async () => {
             initTheme();
+            await loadUser();
+            
             const resultData = sessionStorage.getItem('testResult');
             if (resultData) {
-                const result = JSON.parse(resultData);
-                showTestResults(result);
-                sessionStorage.removeItem('testResult');
+                currentResultData = JSON.parse(resultData);
+                showTestResults(currentResultData);
+                
+                // Показываем кнопку разбора если есть вопросы и результаты
+                if (currentResultData.questions && currentResultData.results) {
+                    const showAnalysisBtn = document.getElementById('showAnalysisBtn');
+                    if (showAnalysisBtn) {
+                        showAnalysisBtn.style.display = 'block';
+                        showAnalysisBtn.addEventListener('click', () => {
+                            showTestAnalysisFromSession(currentResultData);
+                        });
+                    }
+                }
             } else {
                 window.location.href = '/tests';
             }
         });
+        
+        // Функция для показа разбора из sessionStorage
+        function showTestAnalysisFromSession(resultData) {
+            const modal = document.getElementById('testAnalysisModal');
+            const content = document.getElementById('testAnalysisContent');
+            const title = document.getElementById('testAnalysisTitle');
+            
+            if (!modal || !content) {
+                if (typeof showNotification === 'function') {
+                    showNotification('Модальное окно не найдено', 'error');
+                }
+                return;
+            }
+            
+            if (!resultData.questions || !resultData.results) {
+                content.innerHTML = `
+                    <div style="text-align: center; padding: 2rem;">
+                        <p style="color: var(--text-secondary);">Детальная информация о тесте недоступна.</p>
+                    </div>
+                `;
+                modal.style.display = 'block';
+                return;
+            }
+            
+            modal.style.display = 'block';
+            title.textContent = 'Разбор ошибок';
+            
+            const percentage = resultData.percentage || Math.round((resultData.score / resultData.total) * 100);
+            const correctCount = resultData.score;
+            const incorrectCount = resultData.total - resultData.score;
+            const timeSpentMinutes = resultData.timeSpent ? Math.floor(resultData.timeSpent / 60) : 0;
+            const timeSpentSeconds = resultData.timeSpent ? resultData.timeSpent % 60 : 0;
+            
+            content.innerHTML = `
+                <div style="margin-bottom: 2rem; padding: 1.5rem; background: linear-gradient(135deg, var(--card-bg) 0%, var(--bg-secondary) 100%); border-radius: var(--radius-lg); border: 1px solid var(--border-light);">
+                    <h3 style="margin-bottom: 1rem; color: var(--text-color);">Общая статистика</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-light);">
+                        <div style="text-align: center;">
+                            <p style="font-size: 2rem; font-weight: 700; color: var(--primary-color); line-height: 1;">${resultData.score}/${resultData.total}</p>
+                            <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">Правильных ответов</p>
+                        </div>
+                        <div style="text-align: center;">
+                            <p style="font-size: 2rem; font-weight: 700; color: ${percentage >= 80 ? 'var(--success-color)' : percentage >= 60 ? 'var(--primary-color)' : 'var(--danger-color)'}; line-height: 1;">${percentage}%</p>
+                            <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">Точность</p>
+                        </div>
+                        <div style="text-align: center;">
+                            <p style="font-size: 2rem; font-weight: 700; color: var(--success-color); line-height: 1;">${correctCount}</p>
+                            <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">Правильно</p>
+                        </div>
+                        <div style="text-align: center;">
+                            <p style="font-size: 2rem; font-weight: 700; color: var(--danger-color); line-height: 1;">${incorrectCount}</p>
+                            <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">Ошибок</p>
+                        </div>
+                        ${resultData.timeSpent ? `
+                            <div style="text-align: center;">
+                                <p style="font-size: 2rem; font-weight: 700; color: var(--text-secondary); line-height: 1;">${timeSpentMinutes}:${timeSpentSeconds.toString().padStart(2, '0')}</p>
+                                <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">Время</p>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+                
+                <h3 style="margin-bottom: 1rem; color: var(--text-color);">Детальный разбор по вопросам</h3>
+                ${resultData.questions.map((question, index) => {
+                    const questionResult = resultData.results[question.id];
+                    if (!questionResult) return '';
+                    
+                    const userAnswerId = resultData.answers[question.id];
+                    const userAnswer = question.Answers?.find(a => a.id === parseInt(userAnswerId));
+                    const correctAnswer = question.Answers?.find(a => a.isCorrect || a.id === questionResult.correctAnswerId);
+                    const isCorrect = questionResult.correct;
+                    
+                    return `
+                        <div class="test-analysis-item ${isCorrect ? 'correct' : 'incorrect'}">
+                            <div style="display: flex; align-items: start; gap: 1rem; margin-bottom: 1rem;">
+                                <div style="min-width: 2rem; height: 2rem; border-radius: 50%; background: ${isCorrect ? 'var(--success-color)' : 'var(--danger-color)'}; color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.875rem;">
+                                    ${index + 1}
+                                </div>
+                                <div style="flex: 1;">
+                                    <div class="test-analysis-question">${question.text}</div>
+                                    <div style="margin-top: 0.75rem;">
+                                        <span style="padding: 0.25rem 0.75rem; border-radius: 0.25rem; font-size: 0.875rem; font-weight: 600; background-color: ${isCorrect ? 'rgba(16, 185, 129, 0.1)' : 'rgba(220, 38, 38, 0.1)'}; color: ${isCorrect ? 'var(--success-color)' : 'var(--danger-color)'};">
+                                            ${isCorrect ? '✓ Правильно' : '✗ Неправильно'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            ${!isCorrect ? `
+                                <div style="margin-top: 1rem;">
+                                    <div class="test-analysis-label" style="color: var(--danger-color);">Ваш ответ:</div>
+                                    <div class="test-analysis-answer user-answer">
+                                        ${userAnswer?.text || 'Не отвечено'}
+                                    </div>
+                                </div>
+                            ` : ''}
+                            <div style="margin-top: ${!isCorrect ? '1rem' : '0'};">
+                                <div class="test-analysis-label" style="color: var(--success-color);">Правильный ответ:</div>
+                                <div class="test-analysis-answer correct-answer">
+                                    ${correctAnswer?.text || 'Не найден'}
+                                </div>
+                            </div>
+                            ${!isCorrect && question.Answers && question.Answers.length > 0 ? `
+                                <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-light);">
+                                    <div class="test-analysis-label">Все варианты ответов:</div>
+                                    ${question.Answers.map(answer => `
+                                        <div class="test-analysis-answer" style="border: ${answer.isCorrect ? '2px solid var(--success-color)' : answer.id === parseInt(userAnswerId) ? '2px solid var(--danger-color)' : '1px solid var(--border-light)'}; background: ${answer.isCorrect ? 'rgba(16, 185, 129, 0.1)' : answer.id === parseInt(userAnswerId) ? 'rgba(220, 38, 38, 0.1)' : 'var(--card-bg)'};">
+                                            ${answer.isCorrect ? '✓ ' : answer.id === parseInt(userAnswerId) ? '✗ ' : ''}${answer.text}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }).join('')}
+            `;
+            
+            // Обработчик закрытия модального окна
+            const closeBtn = document.getElementById('testAnalysisModalClose');
+            if (closeBtn) {
+                closeBtn.onclick = () => {
+                    modal.style.display = 'none';
+                };
+            }
+            
+            // Закрытие по клику вне модального окна
+            modal.onclick = (e) => {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
+            };
+        }
     </script>
 </body>
 </html>

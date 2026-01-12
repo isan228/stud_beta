@@ -1015,7 +1015,8 @@ async function finishTest() {
             results: result.results || {},
             questions: currentQuestions,
             answers: currentAnswers,
-            timeSpent
+            timeSpent,
+            testId: currentTestId // Сохраняем testId для разбора
         }));
 
         // Переходим на страницу результатов
@@ -1373,6 +1374,9 @@ async function loadProfile() {
         }
 
         const recentList = document.getElementById('recentResultsList');
+        console.log('Загружено результатов:', data.recentResults?.length || 0);
+        console.log('Данные результатов:', data.recentResults);
+        
         if (data.recentResults && data.recentResults.length > 0) {
             recentList.innerHTML = data.recentResults.map(result => {
                 const percentage = Math.round((result.score / result.totalQuestions) * 100);

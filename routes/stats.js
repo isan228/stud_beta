@@ -45,14 +45,18 @@ router.get('/stats', auth, async (req, res) => {
       include: [{
         model: require('../models').Test,
         as: 'Test',
+        required: false,
         include: [{
           model: require('../models').Subject,
-          as: 'Subject'
+          as: 'Subject',
+          required: false
         }]
       }],
       order: [['createdAt', 'DESC']],
       limit: 20
     });
+    
+    console.log(`Загружено результатов для пользователя ${req.user.id}: ${recentResults.length}`);
 
     res.json({
       stats: {
