@@ -996,7 +996,9 @@ async function finishTest() {
                         score: result.score,
                         totalQuestions: result.total,
                         timeSpent,
-                        answers: currentAnswers
+                        answers: currentAnswers,
+                        questions: currentQuestions, // Сохраняем вопросы для разбора
+                        results: result.results // Сохраняем результаты проверки
                     })
                 });
             } catch (error) {
@@ -1412,7 +1414,7 @@ async function loadProfile() {
                                 </div>
                             </div>
                         </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 0.75rem; border-top: 1px solid var(--border-light);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 0.75rem; border-top: 1px solid var(--border-light); flex-wrap: wrap; gap: 1rem;">
                             <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0;">
                                 ${date.toLocaleDateString('ru-RU', {
                                     year: 'numeric',
@@ -1422,9 +1424,14 @@ async function loadProfile() {
                                     minute: '2-digit'
                                 })}
                             </p>
-                            <span style="padding: 0.25rem 0.75rem; border-radius: 0.25rem; font-size: 0.875rem; font-weight: 600; background-color: ${percentage >= 80 ? 'rgba(16, 185, 129, 0.1)' : percentage >= 60 ? 'rgba(37, 99, 235, 0.1)' : 'rgba(220, 38, 38, 0.1)'}; color: ${percentage >= 80 ? 'var(--success-color)' : percentage >= 60 ? 'var(--primary-color)' : 'var(--danger-color)'};">
-                                ${percentage >= 80 ? 'Отлично' : percentage >= 60 ? 'Хорошо' : 'Нужно улучшить'}
-                            </span>
+                            <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+                                <span style="padding: 0.25rem 0.75rem; border-radius: 0.25rem; font-size: 0.875rem; font-weight: 600; background-color: ${percentage >= 80 ? 'rgba(16, 185, 129, 0.1)' : percentage >= 60 ? 'rgba(37, 99, 235, 0.1)' : 'rgba(220, 38, 38, 0.1)'}; color: ${percentage >= 80 ? 'var(--success-color)' : percentage >= 60 ? 'var(--primary-color)' : 'var(--danger-color)'};">
+                                    ${percentage >= 80 ? 'Отлично' : percentage >= 60 ? 'Хорошо' : 'Нужно улучшить'}
+                                </span>
+                                <button class="btn btn-secondary" onclick="showTestAnalysis(${result.id})" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    📊 Разбор
+                                </button>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -1770,12 +1777,189 @@ Object.defineProperty(window, 'currentUser', {
     configurable: true
 });
 
-// Экспорт переменных теста
-Object.defineProperty(window, 'currentTestId', {
-    get: () => currentTestId,
-    set: (value) => { currentTestId = value; },
-    configurable: true
-});
+// Разбор теста
+async function showTestAnalysis(resultId) {
+    const modal = document.getElementById('testAnalysisModal');
+    const content = document.getElementById('testAnalysisContent');
+    const title = document.getElementById('testAnalysisTitle');
+    
+    if (!modal || !content) {
+        showNotification('Модальное окно не найдено', 'error');
+        return;
+    }
+    
+    // Показываем модальное окно
+    modal.style.display = 'block';
+    content.innerHTML = `
+        <div style="text-align: center; padding: 2rem;">
+            <div class="spinner" style="border: 4px solid var(--bg-secondary); border-top: 4px solid var(--primary-color); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+            <p style="margin-top: 1rem; color: var(--text-secondary);">Загрузка разбора...</p>
+        </div>
+    `;
+    
+    try {
+        const response = await fetch(`${API_URL}/stats/test-result/${resultId}`, {
+            headers: {
+                'Authorization': `Bearer ${currentToken}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Ошибка загрузки разбора');
+        }
+        
+        const data = await response.json();
+        const result = data.result;
+        
+        if (!result.questions || !result.results) {
+            content.innerHTML = `
+                <div style="text-align: center; padding: 2rem;">
+                    <p style="color: var(--text-secondary);">Детальная информация о тесте недоступна. Эта функция доступна только для тестов, пройденных после обновления системы.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const testName = result.Test?.name || 'Неизвестный тест';
+        const subjectName = result.Test?.Subject?.name || '';
+        const percentage = Math.round((result.score / result.totalQuestions) * 100);
+        const date = new Date(result.createdAt);
+        const timeSpentMinutes = result.timeSpent ? Math.floor(result.timeSpent / 60) : 0;
+        const timeSpentSeconds = result.timeSpent ? result.timeSpent % 60 : 0;
+        
+        title.textContent = `Разбор: ${testName}`;
+        
+        // Подсчитываем статистику
+        const correctCount = result.score;
+        const incorrectCount = result.totalQuestions - result.score;
+        const correctPercentage = percentage;
+        
+        content.innerHTML = `
+            <div style="margin-bottom: 2rem; padding: 1.5rem; background: linear-gradient(135deg, var(--card-bg) 0%, var(--bg-secondary) 100%); border-radius: var(--radius-lg); border: 1px solid var(--border-light);">
+                <h3 style="margin-bottom: 1rem; color: var(--text-color);">Общая информация</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                    <div>
+                        <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 0.25rem;">Тест</p>
+                        <p style="font-weight: 600; color: var(--text-color);">${testName}</p>
+                    </div>
+                    ${subjectName ? `
+                        <div>
+                            <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 0.25rem;">Предмет</p>
+                            <p style="font-weight: 600; color: var(--text-color);">${subjectName}</p>
+                        </div>
+                    ` : ''}
+                    <div>
+                        <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 0.25rem;">Дата прохождения</p>
+                        <p style="font-weight: 600; color: var(--text-color);">${date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                    </div>
+                    ${result.timeSpent ? `
+                        <div>
+                            <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 0.25rem;">Время</p>
+                            <p style="font-weight: 600; color: var(--text-color);">${timeSpentMinutes}:${timeSpentSeconds.toString().padStart(2, '0')}</p>
+                        </div>
+                    ` : ''}
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-light);">
+                    <div style="text-align: center;">
+                        <p style="font-size: 2rem; font-weight: 700; color: var(--primary-color); line-height: 1;">${result.score}/${result.totalQuestions}</p>
+                        <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">Правильных ответов</p>
+                    </div>
+                    <div style="text-align: center;">
+                        <p style="font-size: 2rem; font-weight: 700; color: ${correctPercentage >= 80 ? 'var(--success-color)' : correctPercentage >= 60 ? 'var(--primary-color)' : 'var(--danger-color)'}; line-height: 1;">${correctPercentage}%</p>
+                        <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">Точность</p>
+                    </div>
+                    <div style="text-align: center;">
+                        <p style="font-size: 2rem; font-weight: 700; color: var(--success-color); line-height: 1;">${correctCount}</p>
+                        <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">Правильно</p>
+                    </div>
+                    <div style="text-align: center;">
+                        <p style="font-size: 2rem; font-weight: 700; color: var(--danger-color); line-height: 1;">${incorrectCount}</p>
+                        <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">Ошибок</p>
+                    </div>
+                </div>
+            </div>
+            
+            <h3 style="margin-bottom: 1rem; color: var(--text-color);">Детальный разбор по вопросам</h3>
+            ${result.questions.map((question, index) => {
+                const questionResult = result.results[question.id];
+                if (!questionResult) return '';
+                
+                const userAnswerId = result.answers[question.id];
+                const userAnswer = question.Answers?.find(a => a.id === parseInt(userAnswerId));
+                const correctAnswer = question.Answers?.find(a => a.isCorrect || a.id === questionResult.correctAnswerId);
+                const isCorrect = questionResult.correct;
+                
+                return `
+                    <div class="test-analysis-item ${isCorrect ? 'correct' : 'incorrect'}">
+                        <div style="display: flex; align-items: start; gap: 1rem; margin-bottom: 1rem;">
+                            <div style="min-width: 2rem; height: 2rem; border-radius: 50%; background: ${isCorrect ? 'var(--success-color)' : 'var(--danger-color)'}; color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.875rem;">
+                                ${index + 1}
+                            </div>
+                            <div style="flex: 1;">
+                                <div class="test-analysis-question">${question.text}</div>
+                                <div style="margin-top: 0.75rem;">
+                                    <span style="padding: 0.25rem 0.75rem; border-radius: 0.25rem; font-size: 0.875rem; font-weight: 600; background-color: ${isCorrect ? 'rgba(16, 185, 129, 0.1)' : 'rgba(220, 38, 38, 0.1)'}; color: ${isCorrect ? 'var(--success-color)' : 'var(--danger-color)'};">
+                                        ${isCorrect ? '✓ Правильно' : '✗ Неправильно'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        ${!isCorrect ? `
+                            <div style="margin-top: 1rem;">
+                                <div class="test-analysis-label" style="color: var(--danger-color);">Ваш ответ:</div>
+                                <div class="test-analysis-answer user-answer">
+                                    ${userAnswer?.text || 'Не отвечено'}
+                                </div>
+                            </div>
+                        ` : ''}
+                        <div style="margin-top: ${!isCorrect ? '1rem' : '0'};">
+                            <div class="test-analysis-label" style="color: var(--success-color);">Правильный ответ:</div>
+                            <div class="test-analysis-answer correct-answer">
+                                ${correctAnswer?.text || 'Не найден'}
+                            </div>
+                        </div>
+                        ${!isCorrect && question.Answers && question.Answers.length > 0 ? `
+                            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-light);">
+                                <div class="test-analysis-label">Все варианты ответов:</div>
+                                ${question.Answers.map(answer => `
+                                    <div class="test-analysis-answer" style="border: ${answer.isCorrect ? '2px solid var(--success-color)' : answer.id === parseInt(userAnswerId) ? '2px solid var(--danger-color)' : '1px solid var(--border-light)'}; background: ${answer.isCorrect ? 'rgba(16, 185, 129, 0.1)' : answer.id === parseInt(userAnswerId) ? 'rgba(220, 38, 38, 0.1)' : 'var(--card-bg)'};">
+                                        ${answer.isCorrect ? '✓ ' : answer.id === parseInt(userAnswerId) ? '✗ ' : ''}${answer.text}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('')}
+        `;
+        
+        // Обработчик закрытия модального окна
+        const closeBtn = document.getElementById('testAnalysisModalClose');
+        if (closeBtn) {
+            closeBtn.onclick = () => {
+                modal.style.display = 'none';
+            };
+        }
+        
+        // Закрытие по клику вне модального окна
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
+        };
+        
+    } catch (error) {
+        console.error('Ошибка загрузки разбора:', error);
+        content.innerHTML = `
+            <div style="text-align: center; padding: 2rem;">
+                <p style="color: var(--danger-color);">Ошибка загрузки разбора теста. Попробуйте позже.</p>
+            </div>
+        `;
+    }
+}
+
+// Экспорт функции для использования в HTML
+window.showTestAnalysis = showTestAnalysis;
 
 Object.defineProperty(window, 'currentQuestions', {
     get: () => currentQuestions,

@@ -144,6 +144,68 @@
         </div>
     </main>
 
+    <!-- Модальное окно разбора теста -->
+    <div id="testAnalysisModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
+            <span class="modal-close" id="testAnalysisModalClose">&times;</span>
+            <h2 id="testAnalysisTitle">Разбор теста</h2>
+            <div id="testAnalysisContent">
+                <div style="text-align: center; padding: 2rem;">
+                    <div class="spinner" style="border: 4px solid var(--bg-secondary); border-top: 4px solid var(--primary-color); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+                    <p style="margin-top: 1rem; color: var(--text-secondary);">Загрузка разбора...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .test-analysis-item {
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-light);
+            background: var(--bg-secondary);
+        }
+        .test-analysis-item.correct {
+            border-left: 4px solid var(--success-color);
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.05) 0%, var(--bg-secondary) 4%);
+        }
+        .test-analysis-item.incorrect {
+            border-left: 4px solid var(--danger-color);
+            background: linear-gradient(90deg, rgba(220, 38, 38, 0.05) 0%, var(--bg-secondary) 4%);
+        }
+        .test-analysis-question {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+        .test-analysis-answer {
+            padding: 0.75rem 1rem;
+            margin: 0.5rem 0;
+            border-radius: var(--radius);
+            background: var(--card-bg);
+        }
+        .test-analysis-answer.user-answer {
+            border: 2px solid var(--danger-color);
+            background: rgba(220, 38, 38, 0.1);
+        }
+        .test-analysis-answer.correct-answer {
+            border: 2px solid var(--success-color);
+            background: rgba(16, 185, 129, 0.1);
+        }
+        .test-analysis-label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-secondary);
+        }
+    </style>
+
     <footer class="footer">
         <div class="container">
             <div class="footer-content">

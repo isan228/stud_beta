@@ -39,6 +39,16 @@ const TestResult = sequelize.define('TestResult', {
     type: DataTypes.JSONB,
     defaultValue: {}
   },
+  questions: {
+    type: DataTypes.JSONB,
+    allowNull: true,
+    comment: 'Детальная информация о вопросах для разбора'
+  },
+  results: {
+    type: DataTypes.JSONB,
+    allowNull: true,
+    comment: 'Результаты проверки каждого вопроса для разбора'
+  },
   createdAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW

@@ -76,7 +76,7 @@ router.get('/stats', auth, async (req, res) => {
 // Сохранить результат теста
 router.post('/stats/test-result', auth, async (req, res) => {
   try {
-    const { testId, score, totalQuestions, timeSpent, answers } = req.body;
+    const { testId, score, totalQuestions, timeSpent, answers, questions, results } = req.body;
 
     // Сохранение результата
     const result = await TestResult.create({
@@ -85,7 +85,9 @@ router.post('/stats/test-result', auth, async (req, res) => {
       score,
       totalQuestions,
       timeSpent,
-      answers
+      answers,
+      questions: questions || null,
+      results: results || null
     });
 
     // Обновление статистики
@@ -103,6 +105,35 @@ router.post('/stats/test-result', auth, async (req, res) => {
     res.json({ message: 'Результат сохранен', result });
   } catch (error) {
     console.error('Ошибка сохранения результата:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Получить детальный результат теста для разбора
+router.get('/stats/test-result/:id', auth, async (req, res) => {
+  try {
+    const result = await TestResult.findOne({
+      where: {
+        id: req.params.id,
+        userId: req.user.id
+      },
+      include: [{
+        model: require('../models').Test,
+        as: 'Test',
+        include: [{
+          model: require('../models').Subject,
+          as: 'Subject'
+        }]
+      }]
+    });
+
+    if (!result) {
+      return res.status(404).json({ error: 'Результат не найден' });
+    }
+
+    res.json({ result });
+  } catch (error) {
+    console.error('Ошибка получения результата:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
