@@ -982,77 +982,79 @@ async function finishTest() {
             result = await response.json();
         }
 
-        // Сохранение результата (только если есть testId)
+        // Загружаем полные вопросы с правильными ответами для разбора
+        let fullQuestions = currentQuestions;
         if (currentTestId && currentUser) {
             try {
-                // Загружаем полные вопросы с правильными ответами для разбора
-                let fullQuestions = currentQuestions;
-                try {
-                    const fullTestResponse = await fetch(`${API_URL}/tests/tests/${currentTestId}`, {
-                        headers: {
-                            'Authorization': `Bearer ${currentToken}`
-                        }
+                const fullTestResponse = await fetch(`${API_URL}/tests/tests/${currentTestId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`
+                    }
+                });
+                if (fullTestResponse.ok) {
+                    const fullTest = await fullTestResponse.json();
+                    // Создаем маппинг вопросов с правильными ответами
+                    const questionsMap = {};
+                    fullTest.Questions?.forEach(q => {
+                        questionsMap[q.id] = q;
                     });
-                    if (fullTestResponse.ok) {
-                        const fullTest = await fullTestResponse.json();
-                        // Создаем маппинг вопросов с правильными ответами
-                        const questionsMap = {};
-                        fullTest.Questions?.forEach(q => {
-                            questionsMap[q.id] = q;
-                        });
-                        // Обновляем вопросы с правильными ответами
-                        fullQuestions = currentQuestions.map(q => {
-                            const fullQ = questionsMap[q.id];
-                            if (fullQ && fullQ.Answers) {
-                                const answersWithCorrect = fullQ.Answers.map(a => {
-                                    // Нормализуем isCorrect: приводим к boolean
-                                    let isCorrect = false;
-                                    if (a.isCorrect === true || a.isCorrect === 1 || a.isCorrect === '1' || a.isCorrect === 'true') {
-                                        isCorrect = true;
-                                    }
-                                    
-                                    return {
-                                        id: a.id,
-                                        text: a.text,
-                                        isCorrect: isCorrect
-                                    };
-                                });
-                                
-                                // Логируем для отладки
-                                const correctAnswers = answersWithCorrect.filter(a => a.isCorrect);
-                                if (correctAnswers.length === 0) {
-                                    console.warn(`⚠️ Вопрос ${q.id} не имеет правильного ответа!`, {
-                                        questionId: q.id,
-                                        questionText: q.text?.substring(0, 50),
-                                        answers: fullQ.Answers.map(a => ({ 
-                                            id: a.id, 
-                                            text: a.text?.substring(0, 50), 
-                                            isCorrect: a.isCorrect,
-                                            isCorrectType: typeof a.isCorrect
-                                        }))
-                                    });
-                                } else {
-                                    console.log(`✅ Вопрос ${q.id} имеет ${correctAnswers.length} правильный(ых) ответ(ов)`, {
-                                        questionId: q.id,
-                                        correctAnswerIds: correctAnswers.map(a => a.id),
-                                        correctAnswerTexts: correctAnswers.map(a => a.text?.substring(0, 50))
-                                    });
+                    // Обновляем вопросы с правильными ответами
+                    fullQuestions = currentQuestions.map(q => {
+                        const fullQ = questionsMap[q.id];
+                        if (fullQ && fullQ.Answers) {
+                            const answersWithCorrect = fullQ.Answers.map(a => {
+                                // Нормализуем isCorrect: приводим к boolean
+                                let isCorrect = false;
+                                if (a.isCorrect === true || a.isCorrect === 1 || a.isCorrect === '1' || a.isCorrect === 'true') {
+                                    isCorrect = true;
                                 }
                                 
                                 return {
-                                    ...q,
-                                    Answers: answersWithCorrect
+                                    id: a.id,
+                                    text: a.text,
+                                    isCorrect: isCorrect
                                 };
+                            });
+                            
+                            // Логируем для отладки
+                            const correctAnswers = answersWithCorrect.filter(a => a.isCorrect);
+                            if (correctAnswers.length === 0) {
+                                console.warn(`⚠️ Вопрос ${q.id} не имеет правильного ответа!`, {
+                                    questionId: q.id,
+                                    questionText: q.text?.substring(0, 50),
+                                    answers: fullQ.Answers.map(a => ({ 
+                                        id: a.id, 
+                                        text: a.text?.substring(0, 50), 
+                                        isCorrect: a.isCorrect,
+                                        isCorrectType: typeof a.isCorrect
+                                    }))
+                                });
+                            } else {
+                                console.log(`✅ Вопрос ${q.id} имеет ${correctAnswers.length} правильный(ых) ответ(ов)`, {
+                                    questionId: q.id,
+                                    correctAnswerIds: correctAnswers.map(a => a.id),
+                                    correctAnswerTexts: correctAnswers.map(a => a.text?.substring(0, 50))
+                                });
                             }
-                            console.warn(`⚠️ Не найден полный вопрос ${q.id} в загруженном тесте`);
-                            return q;
-                        });
-                    }
-                } catch (error) {
-                    console.error('Ошибка загрузки полных вопросов:', error);
-                    // Используем текущие вопросы, если не удалось загрузить
+                            
+                            return {
+                                ...q,
+                                Answers: answersWithCorrect
+                            };
+                        }
+                        console.warn(`⚠️ Не найден полный вопрос ${q.id} в загруженном тесте`);
+                        return q;
+                    });
                 }
-                
+            } catch (error) {
+                console.error('Ошибка загрузки полных вопросов:', error);
+                // Используем текущие вопросы, если не удалось загрузить
+            }
+        }
+
+        // Сохранение результата (только если есть testId)
+        if (currentTestId && currentUser) {
+            try {
                 await fetch(`${API_URL}/stats/test-result`, {
                     method: 'POST',
                     headers: {
@@ -1081,7 +1083,7 @@ async function finishTest() {
             total: result.total,
             percentage: result.percentage || Math.round((result.score / result.total) * 100),
             results: result.results || {},
-            questions: currentQuestions,
+            questions: fullQuestions, // Сохраняем вопросы с правильными ответами
             answers: currentAnswers,
             timeSpent,
             testId: currentTestId // Сохраняем testId для разбора

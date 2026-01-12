@@ -157,11 +157,24 @@ router.post('/tests/:testId/check', auth, async (req, res) => {
 
     questionsToCheck.forEach(question => {
       const userAnswerId = answers[question.id];
-      const correctAnswer = question.Answers.find(a => a.isCorrect);
+      // Ищем правильный ответ с нормализацией isCorrect
+      let correctAnswer = null;
+      for (const answer of question.Answers) {
+        // Нормализуем isCorrect: проверяем разные форматы
+        const isCorrect = answer.isCorrect === true || 
+                         answer.isCorrect === 1 || 
+                         answer.isCorrect === '1' || 
+                         answer.isCorrect === 'true' ||
+                         String(answer.isCorrect).toLowerCase() === 'true';
+        if (isCorrect) {
+          correctAnswer = answer;
+          break;
+        }
+      }
       
       if (userAnswerId && correctAnswer && parseInt(userAnswerId) === correctAnswer.id) {
         correctCount++;
-        results[question.id] = { correct: true, answerId: correctAnswer.id };
+        results[question.id] = { correct: true, answerId: correctAnswer.id, correctAnswerId: correctAnswer.id };
       } else {
         results[question.id] = { 
           correct: false, 
