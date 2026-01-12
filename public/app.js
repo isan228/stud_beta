@@ -1004,15 +1004,32 @@ async function finishTest() {
                         fullQuestions = currentQuestions.map(q => {
                             const fullQ = questionsMap[q.id];
                             if (fullQ && fullQ.Answers) {
+                                const answersWithCorrect = fullQ.Answers.map(a => ({
+                                    id: a.id,
+                                    text: a.text,
+                                    isCorrect: a.isCorrect === true || a.isCorrect === 1 || a.isCorrect === 'true'
+                                }));
+                                
+                                // Логируем для отладки
+                                const correctAnswers = answersWithCorrect.filter(a => a.isCorrect);
+                                if (correctAnswers.length === 0) {
+                                    console.warn(`⚠️ Вопрос ${q.id} не имеет правильного ответа!`, {
+                                        questionId: q.id,
+                                        answers: answersWithCorrect.map(a => ({ id: a.id, text: a.text.substring(0, 50), isCorrect: a.isCorrect }))
+                                    });
+                                } else {
+                                    console.log(`✅ Вопрос ${q.id} имеет ${correctAnswers.length} правильный(ых) ответ(ов)`, {
+                                        questionId: q.id,
+                                        correctAnswerIds: correctAnswers.map(a => a.id)
+                                    });
+                                }
+                                
                                 return {
                                     ...q,
-                                    Answers: fullQ.Answers.map(a => ({
-                                        id: a.id,
-                                        text: a.text,
-                                        isCorrect: a.isCorrect
-                                    }))
+                                    Answers: answersWithCorrect
                                 };
                             }
+                            console.warn(`⚠️ Не найден полный вопрос ${q.id} в загруженном тесте`);
                             return q;
                         });
                     }
@@ -1115,11 +1132,42 @@ function showTestResults(result) {
             const userAnswer = question.Answers?.find(a => a.id === parseInt(userAnswerId));
             // Ищем правильный ответ: сначала по correctAnswerId из результатов, потом по isCorrect
             let correctAnswer = null;
+            
+            // Логируем для отладки
+            console.log(`Поиск правильного ответа для вопроса ${question.id}:`, {
+                questionId: question.id,
+                correctAnswerId: questionResult.correctAnswerId,
+                answersCount: question.Answers?.length || 0,
+                answers: question.Answers?.map(a => ({ 
+                    id: a.id, 
+                    text: a.text?.substring(0, 50), 
+                    isCorrect: a.isCorrect 
+                })) || []
+            });
+            
             if (questionResult.correctAnswerId) {
                 correctAnswer = question.Answers?.find(a => a.id === questionResult.correctAnswerId);
+                if (correctAnswer) {
+                    console.log(`✅ Найден правильный ответ по correctAnswerId: ${correctAnswer.id}`);
+                } else {
+                    console.warn(`⚠️ Не найден ответ с id ${questionResult.correctAnswerId} в вопросах`);
+                }
             }
             if (!correctAnswer) {
-                correctAnswer = question.Answers?.find(a => a.isCorrect === true);
+                correctAnswer = question.Answers?.find(a => a.isCorrect === true || a.isCorrect === 1 || a.isCorrect === 'true');
+                if (correctAnswer) {
+                    console.log(`✅ Найден правильный ответ по isCorrect: ${correctAnswer.id}`);
+                } else {
+                    console.warn(`⚠️ Не найден ответ с isCorrect=true. Все ответы:`, question.Answers?.map(a => ({ id: a.id, isCorrect: a.isCorrect })));
+                }
+            }
+            
+            if (!correctAnswer && question.Answers && question.Answers.length > 0) {
+                console.error(`❌ Правильный ответ не найден для вопроса ${question.id}!`, {
+                    questionId: question.id,
+                    questionText: question.text?.substring(0, 100),
+                    answers: question.Answers.map(a => ({ id: a.id, text: a.text?.substring(0, 50), isCorrect: a.isCorrect }))
+                });
             }
             
             return `
@@ -1933,7 +1981,32 @@ async function showTestAnalysis(resultId) {
                 
                 const userAnswerId = result.answers[question.id];
                 const userAnswer = question.Answers?.find(a => a.id === parseInt(userAnswerId));
-                const correctAnswer = question.Answers?.find(a => a.isCorrect || a.id === questionResult.correctAnswerId);
+                // Ищем правильный ответ: сначала по correctAnswerId из результатов, потом по isCorrect
+                let correctAnswer = null;
+                
+                if (questionResult.correctAnswerId) {
+                    correctAnswer = question.Answers?.find(a => a.id === questionResult.correctAnswerId);
+                }
+                if (!correctAnswer) {
+                    // Ищем по isCorrect (проверяем разные форматы)
+                    correctAnswer = question.Answers?.find(a => 
+                        a.isCorrect === true || 
+                        a.isCorrect === 1 || 
+                        a.isCorrect === 'true' ||
+                        String(a.isCorrect).toLowerCase() === 'true'
+                    );
+                }
+                
+                // Если все еще не найден, пробуем найти первый ответ с isCorrect
+                if (!correctAnswer && question.Answers) {
+                    for (const answer of question.Answers) {
+                        if (answer.isCorrect === true || answer.isCorrect === 1 || answer.isCorrect === 'true') {
+                            correctAnswer = answer;
+                            break;
+                        }
+                    }
+                }
+                
                 const isCorrect = questionResult.correct;
                 
                 return `

@@ -190,11 +190,28 @@
                     const userAnswer = question.Answers?.find(a => a.id === parseInt(userAnswerId));
                     // Ищем правильный ответ: сначала по correctAnswerId из результатов, потом по isCorrect
                     let correctAnswer = null;
+                    
                     if (questionResult.correctAnswerId) {
                         correctAnswer = question.Answers?.find(a => a.id === questionResult.correctAnswerId);
                     }
                     if (!correctAnswer) {
-                        correctAnswer = question.Answers?.find(a => a.isCorrect === true);
+                        // Ищем по isCorrect (проверяем разные форматы)
+                        correctAnswer = question.Answers?.find(a => 
+                            a.isCorrect === true || 
+                            a.isCorrect === 1 || 
+                            a.isCorrect === 'true' ||
+                            String(a.isCorrect).toLowerCase() === 'true'
+                        );
+                    }
+                    
+                    // Если все еще не найден, пробуем найти первый ответ с isCorrect
+                    if (!correctAnswer && question.Answers) {
+                        for (const answer of question.Answers) {
+                            if (answer.isCorrect) {
+                                correctAnswer = answer;
+                                break;
+                            }
+                        }
                     }
                     const isCorrect = questionResult.correct;
                     
