@@ -985,6 +985,42 @@ async function finishTest() {
         // Сохранение результата (только если есть testId)
         if (currentTestId && currentUser) {
             try {
+                // Загружаем полные вопросы с правильными ответами для разбора
+                let fullQuestions = currentQuestions;
+                try {
+                    const fullTestResponse = await fetch(`${API_URL}/tests/tests/${currentTestId}`, {
+                        headers: {
+                            'Authorization': `Bearer ${currentToken}`
+                        }
+                    });
+                    if (fullTestResponse.ok) {
+                        const fullTest = await fullTestResponse.json();
+                        // Создаем маппинг вопросов с правильными ответами
+                        const questionsMap = {};
+                        fullTest.Questions?.forEach(q => {
+                            questionsMap[q.id] = q;
+                        });
+                        // Обновляем вопросы с правильными ответами
+                        fullQuestions = currentQuestions.map(q => {
+                            const fullQ = questionsMap[q.id];
+                            if (fullQ && fullQ.Answers) {
+                                return {
+                                    ...q,
+                                    Answers: fullQ.Answers.map(a => ({
+                                        id: a.id,
+                                        text: a.text,
+                                        isCorrect: a.isCorrect
+                                    }))
+                                };
+                            }
+                            return q;
+                        });
+                    }
+                } catch (error) {
+                    console.error('Ошибка загрузки полных вопросов:', error);
+                    // Используем текущие вопросы, если не удалось загрузить
+                }
+                
                 await fetch(`${API_URL}/stats/test-result`, {
                     method: 'POST',
                     headers: {
@@ -997,7 +1033,7 @@ async function finishTest() {
                         totalQuestions: result.total,
                         timeSpent,
                         answers: currentAnswers,
-                        questions: currentQuestions, // Сохраняем вопросы для разбора
+                        questions: fullQuestions, // Сохраняем вопросы с правильными ответами
                         results: result.results // Сохраняем результаты проверки
                     })
                 });
@@ -1077,7 +1113,14 @@ function showTestResults(result) {
             
             const userAnswerId = result.answers[question.id];
             const userAnswer = question.Answers?.find(a => a.id === parseInt(userAnswerId));
-            const correctAnswer = question.Answers?.find(a => a.isCorrect || a.id === questionResult.correctAnswerId);
+            // Ищем правильный ответ: сначала по correctAnswerId из результатов, потом по isCorrect
+            let correctAnswer = null;
+            if (questionResult.correctAnswerId) {
+                correctAnswer = question.Answers?.find(a => a.id === questionResult.correctAnswerId);
+            }
+            if (!correctAnswer) {
+                correctAnswer = question.Answers?.find(a => a.isCorrect === true);
+            }
             
             return `
                 <div style="margin: 1rem 0; padding: 1rem; border-radius: 0.5rem; background-color: var(--bg-secondary); border-left: 4px solid ${questionResult.correct ? 'var(--success-color)' : 'var(--danger-color)'};">
@@ -1919,7 +1962,9 @@ async function showTestAnalysis(resultId) {
                         <div style="margin-top: ${!isCorrect ? '1rem' : '0'};">
                             <div class="test-analysis-label" style="color: var(--success-color);">Правильный ответ:</div>
                             <div class="test-analysis-answer correct-answer">
-                                ${correctAnswer?.text || 'Не найден'}
+                                ${correctAnswer?.text || (question.Answers && question.Answers.length > 0 ? 
+                                    '<span style="color: var(--danger-color);">⚠️ Правильный ответ не отмечен в тесте. Проверьте настройки теста в админ-панели.</span>' : 
+                                    'Не найден')}
                             </div>
                         </div>
                         ${!isCorrect && question.Answers && question.Answers.length > 0 ? `

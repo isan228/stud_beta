@@ -188,7 +188,14 @@
                     
                     const userAnswerId = resultData.answers[question.id];
                     const userAnswer = question.Answers?.find(a => a.id === parseInt(userAnswerId));
-                    const correctAnswer = question.Answers?.find(a => a.isCorrect || a.id === questionResult.correctAnswerId);
+                    // Ищем правильный ответ: сначала по correctAnswerId из результатов, потом по isCorrect
+                    let correctAnswer = null;
+                    if (questionResult.correctAnswerId) {
+                        correctAnswer = question.Answers?.find(a => a.id === questionResult.correctAnswerId);
+                    }
+                    if (!correctAnswer) {
+                        correctAnswer = question.Answers?.find(a => a.isCorrect === true);
+                    }
                     const isCorrect = questionResult.correct;
                     
                     return `
@@ -217,7 +224,9 @@
                             <div style="margin-top: ${!isCorrect ? '1rem' : '0'};">
                                 <div class="test-analysis-label" style="color: var(--success-color);">Правильный ответ:</div>
                                 <div class="test-analysis-answer correct-answer">
-                                    ${correctAnswer?.text || 'Не найден'}
+                                    ${correctAnswer?.text || (question.Answers && question.Answers.length > 0 ? 
+                                        '<span style="color: var(--danger-color);">⚠️ Правильный ответ не отмечен в тесте. Проверьте настройки теста в админ-панели.</span>' : 
+                                        'Не найден')}
                                 </div>
                             </div>
                             ${!isCorrect && question.Answers && question.Answers.length > 0 ? `
