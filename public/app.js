@@ -1130,7 +1130,7 @@ function showTestResults(result) {
                     </p>
                     ${!questionResult.correct ? `
                         <p style="color: var(--text-secondary); margin-bottom: 0.25rem;">Ваш ответ: ${userAnswer?.text || 'Не отвечено'}</p>
-                        <p style="color: var(--success-color);">Правильный ответ: ${correctAnswer?.text || ''}</p>
+                        <p style="color: var(--success-color);">Правильный ответ: ${correctAnswer?.text || (question.Answers && question.Answers.length > 0 ? '⚠️ Правильный ответ не отмечен в тесте. Проверьте настройки теста в админ-панели.' : 'Не найден')}</p>
                     ` : ''}
                 </div>
             `;
