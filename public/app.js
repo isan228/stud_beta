@@ -1004,23 +1004,38 @@ async function finishTest() {
                         fullQuestions = currentQuestions.map(q => {
                             const fullQ = questionsMap[q.id];
                             if (fullQ && fullQ.Answers) {
-                                const answersWithCorrect = fullQ.Answers.map(a => ({
-                                    id: a.id,
-                                    text: a.text,
-                                    isCorrect: a.isCorrect === true || a.isCorrect === 1 || a.isCorrect === 'true'
-                                }));
+                                const answersWithCorrect = fullQ.Answers.map(a => {
+                                    // Нормализуем isCorrect: приводим к boolean
+                                    let isCorrect = false;
+                                    if (a.isCorrect === true || a.isCorrect === 1 || a.isCorrect === '1' || a.isCorrect === 'true') {
+                                        isCorrect = true;
+                                    }
+                                    
+                                    return {
+                                        id: a.id,
+                                        text: a.text,
+                                        isCorrect: isCorrect
+                                    };
+                                });
                                 
                                 // Логируем для отладки
                                 const correctAnswers = answersWithCorrect.filter(a => a.isCorrect);
                                 if (correctAnswers.length === 0) {
                                     console.warn(`⚠️ Вопрос ${q.id} не имеет правильного ответа!`, {
                                         questionId: q.id,
-                                        answers: answersWithCorrect.map(a => ({ id: a.id, text: a.text.substring(0, 50), isCorrect: a.isCorrect }))
+                                        questionText: q.text?.substring(0, 50),
+                                        answers: fullQ.Answers.map(a => ({ 
+                                            id: a.id, 
+                                            text: a.text?.substring(0, 50), 
+                                            isCorrect: a.isCorrect,
+                                            isCorrectType: typeof a.isCorrect
+                                        }))
                                     });
                                 } else {
                                     console.log(`✅ Вопрос ${q.id} имеет ${correctAnswers.length} правильный(ых) ответ(ов)`, {
                                         questionId: q.id,
-                                        correctAnswerIds: correctAnswers.map(a => a.id)
+                                        correctAnswerIds: correctAnswers.map(a => a.id),
+                                        correctAnswerTexts: correctAnswers.map(a => a.text?.substring(0, 50))
                                     });
                                 }
                                 

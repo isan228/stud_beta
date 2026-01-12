@@ -135,6 +135,24 @@ router.get('/stats/test-result/:id', auth, async (req, res) => {
       return res.status(404).json({ error: 'Результат не найден' });
     }
 
+    // Нормализуем данные questions - убеждаемся, что isCorrect правильно обработан
+    if (result.questions && Array.isArray(result.questions)) {
+      result.questions = result.questions.map(question => {
+        if (question.Answers && Array.isArray(question.Answers)) {
+          question.Answers = question.Answers.map(answer => {
+            // Нормализуем isCorrect: приводим к boolean
+            if (answer.isCorrect === 'true' || answer.isCorrect === 1 || answer.isCorrect === '1') {
+              answer.isCorrect = true;
+            } else if (answer.isCorrect === 'false' || answer.isCorrect === 0 || answer.isCorrect === '0' || answer.isCorrect === null || answer.isCorrect === undefined) {
+              answer.isCorrect = false;
+            }
+            return answer;
+          });
+        }
+        return question;
+      });
+    }
+
     res.json({ result });
   } catch (error) {
     console.error('Ошибка получения результата:', error);
