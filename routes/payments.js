@@ -244,6 +244,17 @@ router.post('/webhook', async (req, res) => {
               
               console.log(`✅ Transaction ${transaction.id} linked to new user ${newUser.id}`);
               
+              // Начисляем 50 монеток новому пользователю за регистрацию по реферальной ссылке
+              if (referredBy) {
+                try {
+                  newUser.coins = (newUser.coins || 0) + 50;
+                  await newUser.save();
+                  console.log(`✅ Начислено 50 монеток новому пользователю ${newUser.username} (ID: ${newUser.id}) за регистрацию по реферальной ссылке. Новый баланс: ${newUser.coins}`);
+                } catch (error) {
+                  console.error('❌ Ошибка начисления монеток новому пользователю:', error);
+                }
+              }
+              
               // Начисляем 50 монеток рефереру, если есть
               if (referredBy) {
                 try {
@@ -705,53 +716,20 @@ router.post('/create-registration', [
     
     const { amount, description, paymentType, registrationData } = req.body;
     
-    // Обработка реферального кода и применение скидки
+    // Обработка реферального кода (без скидки, только для начисления монет)
     let finalAmount = parseFloat(amount);
     let referralCode = null;
     let referrerId = null;
-    const REFERRAL_DISCOUNT = 50; // Скидка 50 сом для реферала
-    
-    // Проверяем, была ли скидка уже применена на клиенте
-    const subscription = registrationData.subscription || {};
-    const alreadyDiscounted = subscription.discount && subscription.discount > 0;
-    const originalAmount = subscription.originalAmount ? parseFloat(subscription.originalAmount) : parseFloat(amount);
-    
-    console.log('💰 Payment amount calculation:', {
-      receivedAmount: amount,
-      originalAmount: originalAmount,
-      subscriptionAmount: subscription.amount,
-      subscriptionDiscount: subscription.discount,
-      alreadyDiscounted: alreadyDiscounted,
-      referralCode: registrationData.referralCode
-    });
     
     if (registrationData.referralCode) {
       referralCode = registrationData.referralCode.toUpperCase();
       const referrer = await User.findOne({ where: { referralCode } });
       if (referrer) {
         referrerId = referrer.id;
-        // ВСЕГДА используем originalAmount для расчета, чтобы избежать двойного применения скидки
-        if (alreadyDiscounted && originalAmount) {
-          // Скидка уже применена на клиенте, используем переданную сумму (уже со скидкой)
-          finalAmount = parseFloat(amount);
-          console.log(`✅ Referral code found: ${referralCode}, discount already applied on client. Using received amount: ${finalAmount} (original: ${originalAmount})`);
-        } else {
-          // Применяем скидку на сервере, используя originalAmount
-          finalAmount = Math.max(0, originalAmount - REFERRAL_DISCOUNT);
-          console.log(`✅ Referral code found: ${referralCode}, discount applied on server: ${REFERRAL_DISCOUNT} som, final amount: ${finalAmount} (original: ${originalAmount})`);
-        }
+        console.log(`✅ Referral code found: ${referralCode}, referrer ID: ${referrer.id}`);
       } else {
         console.log(`⚠️  Invalid referral code: ${referralCode}`);
-        // Если код невалидный, но скидка была применена на клиенте, возвращаем оригинальную цену
-        if (alreadyDiscounted && originalAmount) {
-          finalAmount = originalAmount;
-          console.log(`⚠️  Invalid referral code, reverting to original amount: ${finalAmount}`);
-        }
       }
-    } else if (alreadyDiscounted && originalAmount) {
-      // Если скидка была применена на клиенте, но referralCode не передан, используем переданную сумму
-      finalAmount = parseFloat(amount);
-      console.log(`ℹ️  No referral code, but discount was applied on client. Using received amount: ${finalAmount}`);
     }
     
     // Сохраняем registrationData в fields для обработки в webhook
@@ -759,10 +737,7 @@ router.post('/create-registration', [
       ...registrationData,
       subscription: registrationData.subscription || {},
       referralCode: referralCode,
-      referrerId: referrerId,
-      originalAmount: originalAmount,
-      discount: alreadyDiscounted ? subscription.discount : (referralCode ? REFERRAL_DISCOUNT : 0),
-      finalAmount: finalAmount
+      referrerId: referrerId
     };
     
     // Получаем конфигурацию из .env
@@ -789,7 +764,7 @@ router.post('/create-registration', [
       redirectUrlWithParams.searchParams.set('referralCode', referralCode);
     }
     
-    // Создаем платеж через Finik API (используем финальную сумму со скидкой)
+    // Создаем платеж через Finik API
     const paymentResult = await createPayment({
       amount: finalAmount,
       redirectUrl: redirectUrlWithParams.toString(),
@@ -816,7 +791,7 @@ router.post('/create-registration', [
     const transaction = await Transaction.create({
       userId: null, // Будет установлен после создания пользователя
       finikTransactionId: paymentResult.paymentId,
-      amount: finalAmount, // Сохраняем финальную сумму со скидкой
+      amount: finalAmount,
       status: 'PENDING',
       fields: transactionFields
     });
