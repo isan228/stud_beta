@@ -55,6 +55,11 @@ const User = sequelize.define('User', {
       key: 'id'
     }
   },
+  subscriptionEndDate: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'Дата окончания подписки'
+  },
   createdAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW

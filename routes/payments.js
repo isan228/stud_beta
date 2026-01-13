@@ -240,7 +240,34 @@ router.post('/webhook', async (req, res) => {
                 }
               }
               
+              // Устанавливаем дату окончания подписки
+              const subscriptionType = registrationData.subscription?.type || '1';
+              const subscriptionMonths = parseInt(subscriptionType) || 1;
+              const subscriptionEndDate = new Date();
+              subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + subscriptionMonths);
+              newUser.subscriptionEndDate = subscriptionEndDate;
+              await newUser.save();
+              console.log(`✅ Subscription end date set for user ${newUser.id}: ${subscriptionEndDate.toISOString()}`);
+              
               console.log(`🎉 Registration completed successfully for ${newUser.email}`);
+            } else if (existingUser) {
+              // Обновляем подписку для существующего пользователя
+              const subscriptionType = registrationData?.subscription?.type || '1';
+              const subscriptionMonths = parseInt(subscriptionType) || 1;
+              let subscriptionEndDate = new Date();
+              
+              // Если у пользователя уже есть активная подписка, продлеваем её
+              if (existingUser.subscriptionEndDate && new Date(existingUser.subscriptionEndDate) > new Date()) {
+                subscriptionEndDate = new Date(existingUser.subscriptionEndDate);
+                subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + subscriptionMonths);
+              } else {
+                // Иначе начинаем с текущей даты
+                subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + subscriptionMonths);
+              }
+              
+              existingUser.subscriptionEndDate = subscriptionEndDate;
+              await existingUser.save();
+              console.log(`✅ Subscription updated for existing user ${existingUser.id}: ${subscriptionEndDate.toISOString()}`);
             }
           } catch (error) {
             console.error('❌ Error creating user from registration payment:', error);
@@ -265,10 +292,31 @@ router.post('/webhook', async (req, res) => {
         }
         
         if (transaction.userId) {
-          // Здесь можно добавить бизнес-логику:
-          // - Активировать подписку пользователя
-          // - Добавить баланс
-          // - Отправить уведомление
+          // Обновляем подписку пользователя, если это платеж за подписку
+          try {
+            const user = await User.findByPk(transaction.userId);
+            if (user && registrationData?.subscription) {
+              const subscriptionType = registrationData.subscription.type || '1';
+              const subscriptionMonths = parseInt(subscriptionType) || 1;
+              let subscriptionEndDate = new Date();
+              
+              // Если у пользователя уже есть активная подписка, продлеваем её
+              if (user.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date()) {
+                subscriptionEndDate = new Date(user.subscriptionEndDate);
+                subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + subscriptionMonths);
+              } else {
+                // Иначе начинаем с текущей даты
+                subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + subscriptionMonths);
+              }
+              
+              user.subscriptionEndDate = subscriptionEndDate;
+              await user.save();
+              console.log(`✅ Subscription updated for user ${user.id}: ${subscriptionEndDate.toISOString()}`);
+            }
+          } catch (error) {
+            console.error('❌ Error updating subscription:', error);
+          }
+          
           console.log(`✅ Processing successful payment for user ${transaction.userId}`);
         }
       }
@@ -663,16 +711,31 @@ router.post('/create-registration', [
     let referrerId = null;
     const REFERRAL_DISCOUNT = 50; // Скидка 50 сом для реферала
     
+    // Проверяем, была ли скидка уже применена на клиенте
+    const subscription = registrationData.subscription || {};
+    const alreadyDiscounted = subscription.discount && subscription.discount > 0;
+    const originalAmount = subscription.originalAmount || parseFloat(amount);
+    
     if (registrationData.referralCode) {
       referralCode = registrationData.referralCode.toUpperCase();
       const referrer = await User.findOne({ where: { referralCode } });
       if (referrer) {
         referrerId = referrer.id;
-        // Применяем скидку 50 сом
-        finalAmount = Math.max(0, finalAmount - REFERRAL_DISCOUNT);
-        console.log(`✅ Referral code found: ${referralCode}, discount applied: ${REFERRAL_DISCOUNT} som, final amount: ${finalAmount}`);
+        // Применяем скидку только если она еще не была применена
+        if (!alreadyDiscounted) {
+          finalAmount = Math.max(0, finalAmount - REFERRAL_DISCOUNT);
+          console.log(`✅ Referral code found: ${referralCode}, discount applied: ${REFERRAL_DISCOUNT} som, final amount: ${finalAmount}`);
+        } else {
+          // Скидка уже применена на клиенте, используем переданную сумму
+          console.log(`✅ Referral code found: ${referralCode}, discount already applied on client, using amount: ${finalAmount}`);
+        }
       } else {
         console.log(`⚠️  Invalid referral code: ${referralCode}`);
+        // Если код невалидный, но скидка была применена на клиенте, возвращаем оригинальную цену
+        if (alreadyDiscounted) {
+          finalAmount = originalAmount;
+          console.log(`⚠️  Invalid referral code, reverting to original amount: ${finalAmount}`);
+        }
       }
     }
     
@@ -682,8 +745,8 @@ router.post('/create-registration', [
       subscription: registrationData.subscription || {},
       referralCode: referralCode,
       referrerId: referrerId,
-      originalAmount: parseFloat(amount),
-      discount: referralCode ? REFERRAL_DISCOUNT : 0,
+      originalAmount: originalAmount,
+      discount: alreadyDiscounted ? subscription.discount : (referralCode ? REFERRAL_DISCOUNT : 0),
       finalAmount: finalAmount
     };
     

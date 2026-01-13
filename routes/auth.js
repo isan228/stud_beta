@@ -137,7 +137,7 @@ router.post('/login', [
 router.get('/me', require('../middleware/auth'), async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
-      attributes: ['id', 'username', 'email', 'createdAt', 'referralCode', 'coins']
+      attributes: ['id', 'username', 'email', 'createdAt', 'referralCode', 'coins', 'subscriptionEndDate']
     });
     
     // Если у пользователя нет реферального кода, генерируем его

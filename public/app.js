@@ -1396,6 +1396,33 @@ async function loadProfile() {
                 coinsEl.textContent = user.coins || 0;
             }
             
+            // Обновляем дату окончания подписки
+            const subscriptionEndEl = document.getElementById('userSubscriptionEnd');
+            if (subscriptionEndEl) {
+                if (user.subscriptionEndDate) {
+                    const endDate = new Date(user.subscriptionEndDate);
+                    const now = new Date();
+                    const isActive = endDate > now;
+                    
+                    subscriptionEndEl.textContent = endDate.toLocaleDateString('ru-RU', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                    });
+                    
+                    // Добавляем стиль в зависимости от статуса
+                    if (isActive) {
+                        subscriptionEndEl.style.color = 'var(--success-color)';
+                    } else {
+                        subscriptionEndEl.style.color = 'var(--danger-color)';
+                        subscriptionEndEl.textContent += ' (истекла)';
+                    }
+                } else {
+                    subscriptionEndEl.textContent = 'Нет активной подписки';
+                    subscriptionEndEl.style.color = 'var(--text-secondary)';
+                }
+            }
+            
             // Обновляем реферальную ссылку
             const referralLinkEl = document.getElementById('referralLink');
             if (referralLinkEl) {
