@@ -1400,12 +1400,25 @@ async function loadProfile() {
             const referralLinkEl = document.getElementById('referralLink');
             if (referralLinkEl) {
                 if (user.referralCode) {
-                    const referralUrl = `${window.location.origin}/register?ref=${user.referralCode}`;
+                    // Используем более надежный способ получения базового URL
+                    let baseUrl = window.location.origin;
+                    // Если origin пустой, используем протокол + хост
+                    if (!baseUrl || baseUrl === 'null' || baseUrl === 'undefined') {
+                        baseUrl = `${window.location.protocol}//${window.location.host}`;
+                    }
+                    // Если и это не работает, используем дефолтный домен
+                    if (!baseUrl || baseUrl === 'null' || baseUrl === 'undefined') {
+                        baseUrl = 'https://stud.kg'; // Замените на ваш реальный домен
+                    }
+                    const referralUrl = `${baseUrl}/register?ref=${user.referralCode}`;
                     referralLinkEl.value = referralUrl;
+                    referralLinkEl.disabled = false;
+                    console.log('✅ Реферальная ссылка установлена:', referralUrl);
                 } else {
                     // Если кода нет, показываем сообщение
                     referralLinkEl.value = 'Генерация кода...';
                     referralLinkEl.disabled = true;
+                    console.log('⏳ Реферальный код отсутствует, ожидаем генерацию...');
                     // Перезагружаем данные пользователя через секунду
                     setTimeout(async () => {
                         await fetchUser();
