@@ -179,6 +179,24 @@ router.post('/webhook', async (req, res) => {
               transaction.userId = existingUser.id;
               await transaction.save();
               console.log(`✅ Transaction ${transaction.id} linked to existing user ${existingUser.id}`);
+              
+              // Обновляем подписку для существующего пользователя
+              const subscriptionType = registrationData?.subscription?.type || '1';
+              const subscriptionMonths = parseInt(subscriptionType) || 1;
+              let subscriptionEndDate = new Date();
+              
+              // Если у пользователя уже есть активная подписка, продлеваем её
+              if (existingUser.subscriptionEndDate && new Date(existingUser.subscriptionEndDate) > new Date()) {
+                subscriptionEndDate = new Date(existingUser.subscriptionEndDate);
+                subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + subscriptionMonths);
+              } else {
+                // Иначе начинаем с текущей даты
+                subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + subscriptionMonths);
+              }
+              
+              existingUser.subscriptionEndDate = subscriptionEndDate;
+              await existingUser.save();
+              console.log(`✅ Subscription updated for existing user ${existingUser.id}: ${subscriptionEndDate.toISOString()}`);
             } else {
               // Проверяем наличие обязательных полей
               if (!registrationData.username || !registrationData.email || !registrationData.password) {
@@ -250,24 +268,6 @@ router.post('/webhook', async (req, res) => {
               console.log(`✅ Subscription end date set for user ${newUser.id}: ${subscriptionEndDate.toISOString()}`);
               
               console.log(`🎉 Registration completed successfully for ${newUser.email}`);
-            } else if (existingUser) {
-              // Обновляем подписку для существующего пользователя
-              const subscriptionType = registrationData?.subscription?.type || '1';
-              const subscriptionMonths = parseInt(subscriptionType) || 1;
-              let subscriptionEndDate = new Date();
-              
-              // Если у пользователя уже есть активная подписка, продлеваем её
-              if (existingUser.subscriptionEndDate && new Date(existingUser.subscriptionEndDate) > new Date()) {
-                subscriptionEndDate = new Date(existingUser.subscriptionEndDate);
-                subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + subscriptionMonths);
-              } else {
-                // Иначе начинаем с текущей даты
-                subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + subscriptionMonths);
-              }
-              
-              existingUser.subscriptionEndDate = subscriptionEndDate;
-              await existingUser.save();
-              console.log(`✅ Subscription updated for existing user ${existingUser.id}: ${subscriptionEndDate.toISOString()}`);
             }
           } catch (error) {
             console.error('❌ Error creating user from registration payment:', error);
@@ -714,29 +714,44 @@ router.post('/create-registration', [
     // Проверяем, была ли скидка уже применена на клиенте
     const subscription = registrationData.subscription || {};
     const alreadyDiscounted = subscription.discount && subscription.discount > 0;
-    const originalAmount = subscription.originalAmount || parseFloat(amount);
+    const originalAmount = subscription.originalAmount ? parseFloat(subscription.originalAmount) : parseFloat(amount);
+    
+    console.log('💰 Payment amount calculation:', {
+      receivedAmount: amount,
+      originalAmount: originalAmount,
+      subscriptionAmount: subscription.amount,
+      subscriptionDiscount: subscription.discount,
+      alreadyDiscounted: alreadyDiscounted,
+      referralCode: registrationData.referralCode
+    });
     
     if (registrationData.referralCode) {
       referralCode = registrationData.referralCode.toUpperCase();
       const referrer = await User.findOne({ where: { referralCode } });
       if (referrer) {
         referrerId = referrer.id;
-        // Применяем скидку только если она еще не была применена
-        if (!alreadyDiscounted) {
-          finalAmount = Math.max(0, finalAmount - REFERRAL_DISCOUNT);
-          console.log(`✅ Referral code found: ${referralCode}, discount applied: ${REFERRAL_DISCOUNT} som, final amount: ${finalAmount}`);
+        // ВСЕГДА используем originalAmount для расчета, чтобы избежать двойного применения скидки
+        if (alreadyDiscounted && originalAmount) {
+          // Скидка уже применена на клиенте, используем переданную сумму (уже со скидкой)
+          finalAmount = parseFloat(amount);
+          console.log(`✅ Referral code found: ${referralCode}, discount already applied on client. Using received amount: ${finalAmount} (original: ${originalAmount})`);
         } else {
-          // Скидка уже применена на клиенте, используем переданную сумму
-          console.log(`✅ Referral code found: ${referralCode}, discount already applied on client, using amount: ${finalAmount}`);
+          // Применяем скидку на сервере, используя originalAmount
+          finalAmount = Math.max(0, originalAmount - REFERRAL_DISCOUNT);
+          console.log(`✅ Referral code found: ${referralCode}, discount applied on server: ${REFERRAL_DISCOUNT} som, final amount: ${finalAmount} (original: ${originalAmount})`);
         }
       } else {
         console.log(`⚠️  Invalid referral code: ${referralCode}`);
         // Если код невалидный, но скидка была применена на клиенте, возвращаем оригинальную цену
-        if (alreadyDiscounted) {
+        if (alreadyDiscounted && originalAmount) {
           finalAmount = originalAmount;
           console.log(`⚠️  Invalid referral code, reverting to original amount: ${finalAmount}`);
         }
       }
+    } else if (alreadyDiscounted && originalAmount) {
+      // Если скидка была применена на клиенте, но referralCode не передан, используем переданную сумму
+      finalAmount = parseFloat(amount);
+      console.log(`ℹ️  No referral code, but discount was applied on client. Using received amount: ${finalAmount}`);
     }
     
     // Сохраняем registrationData в fields для обработки в webhook
