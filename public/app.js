@@ -988,7 +988,8 @@ async function finishTest() {
             currentTestId,
             hasUser: !!currentUser,
             currentQuestionsCount: currentQuestions.length,
-            firstQuestionHasAnswers: currentQuestions[0]?.Answers?.length || 0
+            firstQuestionHasAnswers: currentQuestions[0]?.Answers?.length || 0,
+            firstQuestionId: currentQuestions[0]?.id
         });
         
         if (currentTestId && currentUser) {
@@ -1012,6 +1013,29 @@ async function finishTest() {
                         testId: fullTest.id,
                         questionsCount: fullTest.Questions?.length || 0
                     });
+                    
+                    // Проверяем, есть ли isCorrect в первом вопросе
+                    if (fullTest.Questions && fullTest.Questions.length > 0) {
+                        const firstQ = fullTest.Questions[0];
+                        if (firstQ.Answers && firstQ.Answers.length > 0) {
+                            const correctCount = firstQ.Answers.filter(a => a.isCorrect === true).length;
+                            console.log('🔍 Первый вопрос из полного теста:', {
+                                questionId: firstQ.id,
+                                answersCount: firstQ.Answers.length,
+                                correctAnswersCount: correctCount,
+                                answers: firstQ.Answers.map(a => ({
+                                    id: a.id,
+                                    isCorrect: a.isCorrect,
+                                    isCorrectType: typeof a.isCorrect,
+                                    text: a.text?.substring(0, 30)
+                                }))
+                            });
+                            
+                            if (correctCount === 0) {
+                                console.error('❌ КРИТИЧЕСКАЯ ОШИБКА: Первый вопрос в полном тесте не имеет правильных ответов!');
+                            }
+                        }
+                    }
                     
                     // Логируем первые несколько вопросов для отладки
                     if (fullTest.Questions && fullTest.Questions.length > 0) {
