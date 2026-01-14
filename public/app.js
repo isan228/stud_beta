@@ -1080,10 +1080,49 @@ async function finishTest() {
                         console.warn(`⚠️ Не найден полный вопрос ${q.id} в загруженном тесте`);
                         return q;
                     });
+                    
+                    // Проверяем, что хотя бы один вопрос имеет правильные ответы
+                    const hasCorrectAnswers = fullQuestions.some(q => 
+                        q.Answers && q.Answers.some(a => a.isCorrect === true)
+                    );
+                    
+                    if (!hasCorrectAnswers) {
+                        console.error('❌ КРИТИЧЕСКАЯ ОШИБКА: Ни один вопрос не имеет правильных ответов после загрузки полного теста!');
+                        console.log('Попытка использовать correctAnswerId из результатов проверки...');
+                        
+                        // Пытаемся использовать correctAnswerId из результатов проверки
+                        if (result && result.results) {
+                            fullQuestions = fullQuestions.map(q => {
+                                const questionResult = result.results[q.id];
+                                if (questionResult && questionResult.correctAnswerId && q.Answers) {
+                                    q.Answers = q.Answers.map(a => ({
+                                        ...a,
+                                        isCorrect: a.id === questionResult.correctAnswerId
+                                    }));
+                                }
+                                return q;
+                            });
+                        }
+                    }
+                } else {
+                    console.error('❌ Не удалось загрузить полный тест:', fullTestResponse.status, fullTestResponse.statusText);
                 }
             } catch (error) {
                 console.error('Ошибка загрузки полных вопросов:', error);
-                // Используем текущие вопросы, если не удалось загрузить
+                // Пытаемся использовать correctAnswerId из результатов проверки
+                if (result && result.results) {
+                    console.log('Попытка использовать correctAnswerId из результатов проверки...');
+                    fullQuestions = fullQuestions.map(q => {
+                        const questionResult = result.results[q.id];
+                        if (questionResult && questionResult.correctAnswerId && q.Answers) {
+                            q.Answers = q.Answers.map(a => ({
+                                ...a,
+                                isCorrect: a.id === questionResult.correctAnswerId
+                            }));
+                        }
+                        return q;
+                    });
+                }
             }
         }
 
