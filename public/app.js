@@ -1094,13 +1094,46 @@ async function finishTest() {
             }
         }
 
+        // Убеждаемся, что fullQuestions содержат нормализованный isCorrect перед сохранением
+        const questionsToSave = fullQuestions.map(q => {
+            if (q.Answers && Array.isArray(q.Answers)) {
+                return {
+                    ...q,
+                    Answers: q.Answers.map(a => {
+                        // Убеждаемся, что isCorrect нормализован (обрабатываем все форматы)
+                        let isCorrect = false;
+                        if (a.isCorrect === true) {
+                            isCorrect = true;
+                        } else if (a.isCorrect === false || a.isCorrect === null || a.isCorrect === undefined) {
+                            isCorrect = false;
+                        } else if (a.isCorrect === 1 || a.isCorrect === '1') {
+                            isCorrect = true;
+                        } else if (a.isCorrect === 0 || a.isCorrect === '0') {
+                            isCorrect = false;
+                        } else if (typeof a.isCorrect === 'string') {
+                            const str = a.isCorrect.toLowerCase().trim();
+                            isCorrect = str === 'true' || str === 't' || str === '1';
+                        } else {
+                            isCorrect = Boolean(a.isCorrect);
+                        }
+                        return {
+                            id: a.id,
+                            text: a.text,
+                            isCorrect: isCorrect // Всегда сохраняем как boolean
+                        };
+                    })
+                };
+            }
+            return q;
+        });
+        
         // Сохраняем результаты в sessionStorage для отображения на странице результатов
         sessionStorage.setItem('testResult', JSON.stringify({
             score: result.score,
             total: result.total,
             percentage: result.percentage || Math.round((result.score / result.total) * 100),
             results: result.results || {},
-            questions: fullQuestions, // Сохраняем вопросы с правильными ответами
+            questions: questionsToSave, // Сохраняем вопросы с нормализованными правильными ответами
             answers: currentAnswers,
             timeSpent,
             testId: currentTestId // Сохраняем testId для разбора
