@@ -82,30 +82,33 @@ router.get('/tests/:testId', async (req, res) => {
     
     // Логируем для отладки - проверяем формат isCorrect для всех вопросов
     if (testData.Questions && testData.Questions.length > 0) {
+      console.log(`📊 Загружен тест ${testData.id}, всего вопросов: ${testData.Questions.length}`);
+      
       testData.Questions.forEach((q, idx) => {
-        if (idx < 3 && q.Answers && q.Answers.length > 0) { // Логируем первые 3 вопроса
-          const hasCorrect = q.Answers.some(a => {
-            const isCorrect = a.isCorrect;
-            if (isCorrect === true) return true;
-            if (isCorrect === 1 || isCorrect === '1') return true;
-            if (typeof isCorrect === 'string') {
-              const str = isCorrect.toLowerCase().trim();
-              return str === 'true' || str === 't' || str === '1';
-            }
-            return Boolean(isCorrect);
-          });
+        if (idx < 5 && q.Answers && q.Answers.length > 0) { // Логируем первые 5 вопросов
+          const correctAnswers = q.Answers.filter(a => a.isCorrect === true);
+          const hasCorrect = correctAnswers.length > 0;
+          
           console.log(`🔍 Question ${q.id} (${idx + 1}/${testData.Questions.length}):`, {
             questionId: q.id,
+            questionText: q.text?.substring(0, 50),
             hasCorrectAnswer: hasCorrect,
+            correctAnswersCount: correctAnswers.length,
+            answersCount: q.Answers.length,
             answers: q.Answers.map(a => ({
               id: a.id,
               isCorrect: a.isCorrect,
               isCorrectType: typeof a.isCorrect,
               isCorrectValue: a.isCorrect,
               isCorrectStringified: String(a.isCorrect),
-              isCorrectDefined: a.isCorrect !== undefined && a.isCorrect !== null
+              isCorrectDefined: a.isCorrect !== undefined && a.isCorrect !== null,
+              text: a.text?.substring(0, 30)
             }))
           });
+          
+          if (!hasCorrect) {
+            console.error(`❌ ВНИМАНИЕ: Question ${q.id} не имеет правильных ответов после нормализации!`);
+          }
         }
       });
     }
