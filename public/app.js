@@ -952,6 +952,15 @@ function prevQuestion() {
 }
 
 async function finishTest() {
+    // КРИТИЧЕСКОЕ ЛОГИРОВАНИЕ В НАЧАЛЕ ФУНКЦИИ
+    console.error('=== FINISH TEST CALLED ===');
+    console.error('currentTestId:', currentTestId);
+    console.error('currentTestId type:', typeof currentTestId);
+    console.error('window.currentTestId:', window.currentTestId);
+    console.error('hasUser:', !!currentUser);
+    console.error('currentQuestions.length:', currentQuestions?.length || 0);
+    console.error('currentAnswers count:', Object.keys(currentAnswers || {}).length);
+    
     if (testTimer) {
         clearInterval(testTimer);
     }
@@ -969,6 +978,12 @@ async function finishTest() {
         console.error('hasUser:', !!currentUser);
         console.error('currentQuestions.length:', currentQuestions.length);
         console.error('currentAnswers:', Object.keys(currentAnswers).length);
+        
+        // Пробуем использовать window.currentTestId если currentTestId не установлен
+        if (!currentTestId && window.currentTestId) {
+            console.error('⚠️ currentTestId is null, using window.currentTestId:', window.currentTestId);
+            currentTestId = window.currentTestId;
+        }
         
         // Если это тест из избранного, проверяем локально
         if (!currentTestId) {
