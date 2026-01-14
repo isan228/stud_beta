@@ -56,24 +56,40 @@ router.get('/tests/:testId', async (req, res) => {
       return res.status(404).json({ error: 'Тест не найден' });
     }
 
-    // Логируем для отладки - проверяем формат isCorrect
-    if (test.Questions && test.Questions.length > 0) {
-      const firstQuestion = test.Questions[0];
-      if (firstQuestion.Answers && firstQuestion.Answers.length > 0) {
-        console.log('🔍 Sample answer isCorrect format:', {
-          questionId: firstQuestion.id,
-          answers: firstQuestion.Answers.map(a => ({
-            id: a.id,
-            isCorrect: a.isCorrect,
-            isCorrectType: typeof a.isCorrect,
-            isCorrectValue: a.isCorrect,
-            isCorrectStringified: String(a.isCorrect)
-          }))
-        });
-      }
+    // Преобразуем в JSON и убеждаемся, что isCorrect присутствует
+    const testData = test.toJSON();
+    
+    // Логируем для отладки - проверяем формат isCorrect для всех вопросов
+    if (testData.Questions && testData.Questions.length > 0) {
+      testData.Questions.forEach((q, idx) => {
+        if (idx < 3 && q.Answers && q.Answers.length > 0) { // Логируем первые 3 вопроса
+          const hasCorrect = q.Answers.some(a => {
+            const isCorrect = a.isCorrect;
+            if (isCorrect === true) return true;
+            if (isCorrect === 1 || isCorrect === '1') return true;
+            if (typeof isCorrect === 'string') {
+              const str = isCorrect.toLowerCase().trim();
+              return str === 'true' || str === 't' || str === '1';
+            }
+            return Boolean(isCorrect);
+          });
+          console.log(`🔍 Question ${q.id} (${idx + 1}/${testData.Questions.length}):`, {
+            questionId: q.id,
+            hasCorrectAnswer: hasCorrect,
+            answers: q.Answers.map(a => ({
+              id: a.id,
+              isCorrect: a.isCorrect,
+              isCorrectType: typeof a.isCorrect,
+              isCorrectValue: a.isCorrect,
+              isCorrectStringified: String(a.isCorrect),
+              isCorrectDefined: a.isCorrect !== undefined && a.isCorrect !== null
+            }))
+          });
+        }
+      });
     }
 
-    res.json(test);
+    res.json(testData);
   } catch (error) {
     console.error('Ошибка получения теста:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
