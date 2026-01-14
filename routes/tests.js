@@ -172,7 +172,8 @@ router.post('/tests/:testId/check', auth, async (req, res) => {
         as: 'Questions',
         include: [{
           model: Answer,
-          as: 'Answers'
+          as: 'Answers',
+          attributes: { include: ['id', 'text', 'isCorrect', 'questionId', 'createdAt', 'updatedAt'] } // Явно указываем атрибуты
         }]
       }]
     });
