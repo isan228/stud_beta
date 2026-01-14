@@ -961,11 +961,25 @@ async function finishTest() {
     try {
         let result;
         
+        // КРИТИЧЕСКОЕ ЛОГИРОВАНИЕ
+        console.error('=== FINISH TEST START ===');
+        console.error('currentTestId:', currentTestId);
+        console.error('currentTestId type:', typeof currentTestId);
+        console.error('currentTestId defined:', currentTestId !== null && currentTestId !== undefined);
+        console.error('hasUser:', !!currentUser);
+        console.error('currentQuestions.length:', currentQuestions.length);
+        console.error('currentAnswers:', Object.keys(currentAnswers).length);
+        
         // Если это тест из избранного, проверяем локально
         if (!currentTestId) {
+            console.error('⚠️ currentTestId is null/undefined - using local check');
             result = checkFavoriteTestAnswers();
         } else {
+            console.error('✅ currentTestId exists - sending request to server');
             const questionIds = currentQuestions.map(q => q.id);
+            console.error('Request URL:', `${API_URL}/tests/tests/${currentTestId}/check`);
+            console.error('Request body:', { answers: currentAnswers, questionIds });
+            
             const response = await fetch(`${API_URL}/tests/tests/${currentTestId}/check`, {
                 method: 'POST',
                 headers: {
@@ -975,11 +989,17 @@ async function finishTest() {
                 body: JSON.stringify({ answers: currentAnswers, questionIds })
             });
 
+            console.error('Response status:', response.status);
+            console.error('Response ok:', response.ok);
+
             if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Response error:', errorText);
                 throw new Error('Ошибка проверки ответов');
             }
 
             result = await response.json();
+            console.error('Response result:', result);
         }
 
         // Загружаем полные вопросы с правильными ответами для разбора
