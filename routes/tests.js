@@ -48,7 +48,7 @@ router.get('/tests/:testId', async (req, res) => {
         include: [{
           model: Answer,
           as: 'Answers',
-          attributes: { include: ['id', 'text', 'isCorrect', 'questionId', 'createdAt', 'updatedAt'] } // Явно указываем атрибуты
+          attributes: ['id', 'text', 'isCorrect', 'questionId', 'createdAt', 'updatedAt'] // Явно указываем атрибуты
         }]
       }]
     });
@@ -173,7 +173,7 @@ router.post('/tests/:testId/check', auth, async (req, res) => {
         include: [{
           model: Answer,
           as: 'Answers',
-          attributes: { include: ['id', 'text', 'isCorrect', 'questionId', 'createdAt', 'updatedAt'] } // Явно указываем атрибуты
+          attributes: ['id', 'text', 'isCorrect', 'questionId', 'createdAt', 'updatedAt'] // Явно указываем атрибуты
         }]
       }]
     });
