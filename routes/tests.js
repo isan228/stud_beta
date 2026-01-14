@@ -294,14 +294,22 @@ router.post('/tests/:testId/check', auth, async (req, res) => {
       
       // Если правильный ответ не найден, логируем предупреждение
       if (!correctAnswer) {
-        console.warn(`⚠️ No correct answer found for question ${question.id}! All answers:`, 
-          question.Answers.map(a => ({ 
-            id: a.id, 
-            isCorrect: a.isCorrect, 
-            isCorrectType: typeof a.isCorrect,
-            text: a.text?.substring(0, 50) 
-          }))
-        );
+        console.error(`❌ КРИТИЧЕСКАЯ ОШИБКА: No correct answer found for question ${question.id}!`, {
+          questionId: question.id,
+          questionText: question.text?.substring(0, 100),
+          answersCount: question.Answers.length,
+          allAnswers: question.Answers.map(a => {
+            const rawValue = a.getDataValue ? a.getDataValue('isCorrect') : a.isCorrect;
+            return { 
+              id: a.id, 
+              isCorrect: a.isCorrect,
+              rawIsCorrect: rawValue,
+              isCorrectType: typeof a.isCorrect,
+              rawIsCorrectType: typeof rawValue,
+              text: a.text?.substring(0, 50) 
+            };
+          })
+        });
       }
       
       // Нормализуем ID для сравнения (обеспечиваем, что оба числа)
