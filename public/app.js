@@ -2234,6 +2234,7 @@ window.setupEventListeners = setupEventListeners;
 window.loadSubjectTests = loadSubjectTests;
 window.loadTestSettings = loadTestSettings;
 window.loadSubjects = loadSubjects;
+window.startFavoriteTest = startFavoriteTest;
 window.filterSubjects = filterSubjects;
 window.navigateTo = navigateTo;
 window.selectAnswer = selectAnswer;
