@@ -188,6 +188,12 @@ router.post('/tests/:testId/questions', auth, async (req, res) => {
 
 // Проверка ответов
 router.post('/tests/:testId/check', auth, async (req, res) => {
+  // Явное логирование в stdout (работает даже если console.log отключен)
+  process.stdout.write(`\n📥 POST /tests/${req.params.testId}/check - Проверка ответов\n`);
+  process.stdout.write(`   User ID: ${req.user.id}\n`);
+  process.stdout.write(`   Questions: ${req.body.questionIds?.length || 0}\n`);
+  process.stdout.write(`   Answers: ${Object.keys(req.body.answers || {}).length}\n\n`);
+  
   console.log(`📥 POST /tests/${req.params.testId}/check - Проверка ответов`, {
     userId: req.user.id,
     questionsCount: req.body.questionIds?.length || 0,
