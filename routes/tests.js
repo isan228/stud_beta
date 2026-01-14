@@ -188,11 +188,13 @@ router.post('/tests/:testId/questions', auth, async (req, res) => {
 
 // Проверка ответов
 router.post('/tests/:testId/check', auth, async (req, res) => {
-  // Явное логирование в stdout (работает даже если console.log отключен)
-  process.stdout.write(`\n📥 POST /tests/${req.params.testId}/check - Проверка ответов\n`);
-  process.stdout.write(`   User ID: ${req.user.id}\n`);
-  process.stdout.write(`   Questions: ${req.body.questionIds?.length || 0}\n`);
-  process.stdout.write(`   Answers: ${Object.keys(req.body.answers || {}).length}\n\n`);
+  // КРИТИЧЕСКОЕ ЛОГИРОВАНИЕ - должно появиться в любом случае
+  const logMsg = `\n=== CHECK TEST START ===\nTest ID: ${req.params.testId}\nUser ID: ${req.user?.id}\nQuestions: ${req.body.questionIds?.length || 0}\nAnswers: ${Object.keys(req.body.answers || {}).length}\n=======================\n`;
+  
+  // Пробуем все способы логирования
+  console.error(logMsg); // stderr всегда выводится
+  process.stderr.write(logMsg); // Явный вывод в stderr
+  process.stdout.write(logMsg); // Явный вывод в stdout
   
   console.log(`📥 POST /tests/${req.params.testId}/check - Проверка ответов`, {
     userId: req.user.id,
