@@ -1261,6 +1261,15 @@ async function finishTest() {
         }
         
         // Сохраняем результаты в sessionStorage для отображения на странице результатов
+        console.log('💾 Сохранение в sessionStorage:', {
+            testId: currentTestId,
+            testIdType: typeof currentTestId,
+            testIdDefined: currentTestId !== null && currentTestId !== undefined,
+            questionsCount: questionsToSave.length,
+            resultsCount: Object.keys(result.results || {}).length,
+            hasCorrectAnswerIds: Object.values(result.results || {}).some(r => r.correctAnswerId !== null)
+        });
+        
         sessionStorage.setItem('testResult', JSON.stringify({
             score: result.score,
             total: result.total,
@@ -1269,7 +1278,7 @@ async function finishTest() {
             questions: questionsToSave, // Сохраняем вопросы с нормализованными правильными ответами
             answers: currentAnswers,
             timeSpent,
-            testId: currentTestId // Сохраняем testId для разбора
+            testId: currentTestId || window.currentTestId || null // Сохраняем testId для разбора (пробуем разные источники)
         }));
 
         // Переходим на страницу результатов
