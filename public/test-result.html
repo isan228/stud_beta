@@ -103,6 +103,24 @@
             const resultData = sessionStorage.getItem('testResult');
             if (resultData) {
                 currentResultData = JSON.parse(resultData);
+                
+                // Логируем для отладки - проверяем наличие isCorrect
+                if (currentResultData.questions && currentResultData.questions.length > 0) {
+                    const firstQ = currentResultData.questions[0];
+                    if (firstQ.Answers && firstQ.Answers.length > 0) {
+                        console.log('🔍 Данные из sessionStorage, первый вопрос:', {
+                            questionId: firstQ.id,
+                            answersCount: firstQ.Answers.length,
+                            answers: firstQ.Answers.map(a => ({
+                                id: a.id,
+                                isCorrect: a.isCorrect,
+                                isCorrectType: typeof a.isCorrect,
+                                isCorrectDefined: a.isCorrect !== undefined && a.isCorrect !== null
+                            }))
+                        });
+                    }
+                }
+                
                 showTestResults(currentResultData);
                 
                 // Показываем кнопку разбора если есть вопросы и результаты

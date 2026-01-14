@@ -993,6 +993,24 @@ async function finishTest() {
                 });
                 if (fullTestResponse.ok) {
                     const fullTest = await fullTestResponse.json();
+                    
+                    // Логируем первые несколько вопросов для отладки
+                    if (fullTest.Questions && fullTest.Questions.length > 0) {
+                        const firstQ = fullTest.Questions[0];
+                        if (firstQ.Answers && firstQ.Answers.length > 0) {
+                            console.log('🔍 Загружен полный тест, первый вопрос:', {
+                                questionId: firstQ.id,
+                                answersCount: firstQ.Answers.length,
+                                answers: firstQ.Answers.map(a => ({
+                                    id: a.id,
+                                    isCorrect: a.isCorrect,
+                                    isCorrectType: typeof a.isCorrect,
+                                    isCorrectDefined: a.isCorrect !== undefined && a.isCorrect !== null
+                                }))
+                            });
+                        }
+                    }
+                    
                     // Создаем маппинг вопросов с правильными ответами
                     const questionsMap = {};
                     fullTest.Questions?.forEach(q => {
