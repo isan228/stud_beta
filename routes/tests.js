@@ -61,18 +61,18 @@ router.get('/tests/:testId', async (req, res) => {
     const testData = test.toJSON();
     
     // Явно проверяем и нормализуем isCorrect для всех ответов
+    // ВАЖНО: Делаем это ПОСЛЕ toJSON(), чтобы получить чистые данные
     if (testData.Questions) {
       testData.Questions.forEach(q => {
-        if (q.Answers) {
+        if (q.Answers && Array.isArray(q.Answers)) {
           q.Answers.forEach(a => {
             // Нормализуем isCorrect: PostgreSQL может вернуть boolean, 't'/'f', или null
+            // Но в базе данных это boolean, так что просто проверяем наличие
             if (a.isCorrect === undefined || a.isCorrect === null) {
+              console.warn(`⚠️ Answer ${a.id} has undefined/null isCorrect, setting to false`);
               a.isCorrect = false;
-            } else if (typeof a.isCorrect === 'string') {
-              a.isCorrect = a.isCorrect.toLowerCase().trim() === 't' || a.isCorrect.toLowerCase().trim() === 'true' || a.isCorrect === '1';
-            } else if (typeof a.isCorrect === 'number') {
-              a.isCorrect = a.isCorrect === 1;
             } else {
+              // Убеждаемся, что это boolean
               a.isCorrect = Boolean(a.isCorrect);
             }
           });
