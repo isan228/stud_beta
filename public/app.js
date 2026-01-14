@@ -599,8 +599,24 @@ async function loadSubjects() {
         const response = await fetch(`${API_URL}/tests/subjects`);
         allSubjects = await response.json();
         
-        // Отображаем все предметы
-        displaySubjects(allSubjects);
+        // Проверяем количество избранных вопросов
+        let favoritesCount = 0;
+        try {
+            const favoritesResponse = await fetch(`${API_URL}/favorites`, {
+                headers: {
+                    'Authorization': `Bearer ${currentToken}`
+                }
+            });
+            if (favoritesResponse.ok) {
+                const favorites = await favoritesResponse.json();
+                favoritesCount = favorites.length;
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки избранного:', error);
+        }
+        
+        // Отображаем все предметы с карточкой избранного, если есть избранные вопросы
+        displaySubjects(allSubjects, favoritesCount);
     } catch (error) {
         console.error('Ошибка загрузки предметов:', error);
         showNotification('Ошибка загрузки предметов', 'error');
@@ -612,30 +628,67 @@ async function loadSubjects() {
 }
 
 // Функция отображения предметов
-function displaySubjects(subjects) {
+function displaySubjects(subjects, favoritesCount = 0) {
     const container = document.getElementById('subjectsList');
     if (!container) return;
     
+    let html = '';
+    
+    // Добавляем карточку "Тест из избранного" если есть избранные вопросы
+    if (favoritesCount > 0) {
+        html += `
+            <div class="subject-card card-animate" style="animation-delay: 0s; border: 2px solid var(--primary-color); background: linear-gradient(135deg, var(--primary-color)15, var(--bg-primary));" onclick="if(typeof startFavoriteTest === 'function') { startFavoriteTest(); } else { window.location.href='/favorites'; }">
+                <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                    <span style="font-size: 1.5rem;">⭐</span>
+                    <h3 style="margin: 0; color: var(--primary-color);">Тест из избранного</h3>
+                </div>
+                <p style="margin: 0; color: var(--text-secondary);">
+                    Пройдите тест из ${favoritesCount} ${favoritesCount === 1 ? 'вопроса' : favoritesCount < 5 ? 'вопросов' : 'вопросов'}, которые вы добавили в избранное
+                </p>
+            </div>
+        `;
+    }
+    
     if (subjects.length === 0) {
-        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 3rem; grid-column: 1 / -1;">Предметы не найдены</p>';
+        if (html === '') {
+            html = '<p style="text-align: center; color: var(--text-secondary); padding: 3rem; grid-column: 1 / -1;">Предметы не найдены</p>';
+        }
     } else {
-        container.innerHTML = subjects.map((subject, index) => {
+        html += subjects.map((subject, index) => {
             const name = encodeURIComponent(subject.name);
             const desc = encodeURIComponent(subject.description || '');
+            const delay = favoritesCount > 0 ? (index + 1) * 0.1 : index * 0.1;
             return `
-                <div class="subject-card card-animate" style="animation-delay: ${index * 0.1}s;" onclick="window.location.href='/subject-tests?id=${subject.id}&name=${name}&desc=${desc}'">
+                <div class="subject-card card-animate" style="animation-delay: ${delay}s;" onclick="window.location.href='/subject-tests?id=${subject.id}&name=${name}&desc=${desc}'">
                     <h3>${subject.name}</h3>
                     <p>${subject.description || 'Тесты по данному предмету для подготовки к экзаменам'}</p>
                 </div>
             `;
         }).join('');
     }
+    
+    container.innerHTML = html;
 }
 
 // Функция поиска по предметам
-function filterSubjects(searchQuery) {
+async function filterSubjects(searchQuery) {
     if (!searchQuery || searchQuery.trim() === '') {
-        displaySubjects(allSubjects);
+        // При очистке поиска загружаем избранное заново
+        let favoritesCount = 0;
+        try {
+            const favoritesResponse = await fetch(`${API_URL}/favorites`, {
+                headers: {
+                    'Authorization': `Bearer ${currentToken}`
+                }
+            });
+            if (favoritesResponse.ok) {
+                const favorites = await favoritesResponse.json();
+                favoritesCount = favorites.length;
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки избранного:', error);
+        }
+        displaySubjects(allSubjects, favoritesCount);
         updateSearchResultsCount(null);
         return;
     }
@@ -647,7 +700,8 @@ function filterSubjects(searchQuery) {
         return name.includes(query) || description.includes(query);
     });
     
-    displaySubjects(filtered);
+    // При поиске не показываем карточку избранного
+    displaySubjects(filtered, 0);
     updateSearchResultsCount(filtered.length);
 }
 
