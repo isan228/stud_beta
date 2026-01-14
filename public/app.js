@@ -1030,14 +1030,20 @@ async function finishTest() {
                             // Логируем для отладки
                             const correctAnswers = answersWithCorrect.filter(a => a.isCorrect);
                             if (correctAnswers.length === 0) {
-                                console.warn(`⚠️ Вопрос ${q.id} не имеет правильного ответа!`, {
+                                console.warn(`⚠️ Вопрос ${q.id} не имеет правильного ответа после нормализации!`, {
                                     questionId: q.id,
                                     questionText: q.text?.substring(0, 50),
-                                    answers: fullQ.Answers.map(a => ({ 
+                                    originalAnswers: fullQ.Answers.map(a => ({ 
                                         id: a.id, 
                                         text: a.text?.substring(0, 50), 
                                         isCorrect: a.isCorrect,
-                                        isCorrectType: typeof a.isCorrect
+                                        isCorrectType: typeof a.isCorrect,
+                                        isCorrectValue: JSON.stringify(a.isCorrect),
+                                        isCorrectStringified: String(a.isCorrect)
+                                    })),
+                                    normalizedAnswers: answersWithCorrect.map(a => ({
+                                        id: a.id,
+                                        isCorrect: a.isCorrect
                                     }))
                                 });
                             } else {
@@ -1212,12 +1218,26 @@ function showTestResults(result) {
                         isCorrectType: typeof correctAnswer.isCorrect
                     });
                 } else {
-                    console.warn(`⚠️ Не найден ответ с isCorrect=true. Все ответы:`, question.Answers?.map(a => ({ 
-                        id: a.id, 
-                        isCorrect: a.isCorrect,
-                        isCorrectType: typeof a.isCorrect,
-                        text: a.text?.substring(0, 30)
-                    })));
+                    console.warn(`⚠️ Не найден ответ с isCorrect=true. Все ответы:`, question.Answers?.map(a => {
+                        // Пробуем нормализовать и проверить
+                        let normalized = false;
+                        if (a.isCorrect === true) normalized = true;
+                        else if (a.isCorrect === 1 || a.isCorrect === '1') normalized = true;
+                        else if (typeof a.isCorrect === 'string') {
+                            const str = a.isCorrect.toLowerCase().trim();
+                            normalized = str === 'true' || str === 't' || str === '1';
+                        } else {
+                            normalized = Boolean(a.isCorrect);
+                        }
+                        return { 
+                            id: a.id, 
+                            isCorrect: a.isCorrect,
+                            isCorrectType: typeof a.isCorrect,
+                            isCorrectValue: JSON.stringify(a.isCorrect),
+                            normalized: normalized,
+                            text: a.text?.substring(0, 30)
+                        };
+                    }));
                 }
             }
             

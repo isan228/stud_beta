@@ -56,6 +56,23 @@ router.get('/tests/:testId', async (req, res) => {
       return res.status(404).json({ error: 'Тест не найден' });
     }
 
+    // Логируем для отладки - проверяем формат isCorrect
+    if (test.Questions && test.Questions.length > 0) {
+      const firstQuestion = test.Questions[0];
+      if (firstQuestion.Answers && firstQuestion.Answers.length > 0) {
+        console.log('🔍 Sample answer isCorrect format:', {
+          questionId: firstQuestion.id,
+          answers: firstQuestion.Answers.map(a => ({
+            id: a.id,
+            isCorrect: a.isCorrect,
+            isCorrectType: typeof a.isCorrect,
+            isCorrectValue: a.isCorrect,
+            isCorrectStringified: String(a.isCorrect)
+          }))
+        });
+      }
+    }
+
     res.json(test);
   } catch (error) {
     console.error('Ошибка получения теста:', error);
