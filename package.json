@@ -18,6 +18,7 @@
     "add-subjects": "node scripts/addSubjects.js",
     "add-tests": "node scripts/addTests.js",
     "check-pdf": "node scripts/checkPdfParse.js",
+    "check-answers": "node scripts/checkAnswers.js",
     "push": "git add -A && git commit -m \"Update: изменения в проекте\" && git push origin main"
   },
   "keywords": [
