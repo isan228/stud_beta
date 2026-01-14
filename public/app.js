@@ -1003,10 +1003,21 @@ async function finishTest() {
                         const fullQ = questionsMap[q.id];
                         if (fullQ && fullQ.Answers) {
                             const answersWithCorrect = fullQ.Answers.map(a => {
-                                // Нормализуем isCorrect: приводим к boolean
+                                // Нормализуем isCorrect: приводим к boolean (обрабатываем все форматы)
                                 let isCorrect = false;
-                                if (a.isCorrect === true || a.isCorrect === 1 || a.isCorrect === '1' || a.isCorrect === 'true') {
+                                if (a.isCorrect === true) {
                                     isCorrect = true;
+                                } else if (a.isCorrect === false || a.isCorrect === null || a.isCorrect === undefined) {
+                                    isCorrect = false;
+                                } else if (a.isCorrect === 1 || a.isCorrect === '1') {
+                                    isCorrect = true;
+                                } else if (a.isCorrect === 0 || a.isCorrect === '0') {
+                                    isCorrect = false;
+                                } else if (typeof a.isCorrect === 'string') {
+                                    const str = a.isCorrect.toLowerCase().trim();
+                                    isCorrect = str === 'true' || str === 't' || str === '1';
+                                } else {
+                                    isCorrect = Boolean(a.isCorrect);
                                 }
                                 
                                 return {
@@ -1103,7 +1114,18 @@ function checkFavoriteTestAnswers() {
 
     currentQuestions.forEach(question => {
         const userAnswerId = currentAnswers[question.id];
-        const correctAnswer = question.Answers.find(a => a.isCorrect);
+        // Улучшенная нормализация isCorrect
+        const correctAnswer = question.Answers.find(a => {
+            if (a.isCorrect === true) return true;
+            if (a.isCorrect === false || a.isCorrect === null || a.isCorrect === undefined) return false;
+            if (a.isCorrect === 1 || a.isCorrect === '1') return true;
+            if (a.isCorrect === 0 || a.isCorrect === '0') return false;
+            if (typeof a.isCorrect === 'string') {
+                const str = a.isCorrect.toLowerCase().trim();
+                return str === 'true' || str === 't' || str === '1';
+            }
+            return Boolean(a.isCorrect);
+        });
         
         if (userAnswerId && correctAnswer && parseInt(userAnswerId) === correctAnswer.id) {
             correctCount++;
@@ -1171,11 +1193,31 @@ function showTestResults(result) {
                 }
             }
             if (!correctAnswer) {
-                correctAnswer = question.Answers?.find(a => a.isCorrect === true || a.isCorrect === 1 || a.isCorrect === 'true');
+                // Улучшенная нормализация isCorrect для всех возможных форматов
+                correctAnswer = question.Answers?.find(a => {
+                    if (a.isCorrect === true) return true;
+                    if (a.isCorrect === false || a.isCorrect === null || a.isCorrect === undefined) return false;
+                    if (a.isCorrect === 1 || a.isCorrect === '1') return true;
+                    if (a.isCorrect === 0 || a.isCorrect === '0') return false;
+                    if (typeof a.isCorrect === 'string') {
+                        const str = a.isCorrect.toLowerCase().trim();
+                        return str === 'true' || str === 't' || str === '1';
+                    }
+                    return Boolean(a.isCorrect);
+                });
                 if (correctAnswer) {
-                    console.log(`✅ Найден правильный ответ по isCorrect: ${correctAnswer.id}`);
+                    console.log(`✅ Найден правильный ответ по isCorrect: ${correctAnswer.id}`, {
+                        answerId: correctAnswer.id,
+                        isCorrect: correctAnswer.isCorrect,
+                        isCorrectType: typeof correctAnswer.isCorrect
+                    });
                 } else {
-                    console.warn(`⚠️ Не найден ответ с isCorrect=true. Все ответы:`, question.Answers?.map(a => ({ id: a.id, isCorrect: a.isCorrect })));
+                    console.warn(`⚠️ Не найден ответ с isCorrect=true. Все ответы:`, question.Answers?.map(a => ({ 
+                        id: a.id, 
+                        isCorrect: a.isCorrect,
+                        isCorrectType: typeof a.isCorrect,
+                        text: a.text?.substring(0, 30)
+                    })));
                 }
             }
             
@@ -2045,19 +2087,39 @@ async function showTestAnalysis(resultId) {
                     correctAnswer = question.Answers?.find(a => a.id === questionResult.correctAnswerId);
                 }
                 if (!correctAnswer) {
-                    // Ищем по isCorrect (проверяем разные форматы)
-                    correctAnswer = question.Answers?.find(a => 
-                        a.isCorrect === true || 
-                        a.isCorrect === 1 || 
-                        a.isCorrect === 'true' ||
-                        String(a.isCorrect).toLowerCase() === 'true'
-                    );
+                    // Ищем по isCorrect (проверяем все возможные форматы)
+                    correctAnswer = question.Answers?.find(a => {
+                        if (a.isCorrect === true) return true;
+                        if (a.isCorrect === false || a.isCorrect === null || a.isCorrect === undefined) return false;
+                        if (a.isCorrect === 1 || a.isCorrect === '1') return true;
+                        if (a.isCorrect === 0 || a.isCorrect === '0') return false;
+                        if (typeof a.isCorrect === 'string') {
+                            const str = a.isCorrect.toLowerCase().trim();
+                            return str === 'true' || str === 't' || str === '1';
+                        }
+                        return Boolean(a.isCorrect);
+                    });
                 }
                 
                 // Если все еще не найден, пробуем найти первый ответ с isCorrect
                 if (!correctAnswer && question.Answers) {
                     for (const answer of question.Answers) {
-                        if (answer.isCorrect === true || answer.isCorrect === 1 || answer.isCorrect === 'true') {
+                        let isCorrect = false;
+                        if (answer.isCorrect === true) {
+                            isCorrect = true;
+                        } else if (answer.isCorrect === false || answer.isCorrect === null || answer.isCorrect === undefined) {
+                            isCorrect = false;
+                        } else if (answer.isCorrect === 1 || answer.isCorrect === '1') {
+                            isCorrect = true;
+                        } else if (answer.isCorrect === 0 || answer.isCorrect === '0') {
+                            isCorrect = false;
+                        } else if (typeof answer.isCorrect === 'string') {
+                            const str = answer.isCorrect.toLowerCase().trim();
+                            isCorrect = str === 'true' || str === 't' || str === '1';
+                        } else {
+                            isCorrect = Boolean(answer.isCorrect);
+                        }
+                        if (isCorrect) {
                             correctAnswer = answer;
                             break;
                         }
@@ -2101,9 +2163,29 @@ async function showTestAnalysis(resultId) {
                             <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-light);">
                                 <div class="test-analysis-label">Все варианты ответов:</div>
                                 ${question.Answers.map(answer => `
-                                    <div class="test-analysis-answer" style="border: ${answer.isCorrect ? '2px solid var(--success-color)' : answer.id === parseInt(userAnswerId) ? '2px solid var(--danger-color)' : '1px solid var(--border-light)'}; background: ${answer.isCorrect ? 'rgba(16, 185, 129, 0.1)' : answer.id === parseInt(userAnswerId) ? 'rgba(220, 38, 38, 0.1)' : 'var(--card-bg)'};">
-                                        ${answer.isCorrect ? '✓ ' : answer.id === parseInt(userAnswerId) ? '✗ ' : ''}${answer.text}
+                                    ${(() => {
+                                        // Нормализуем isCorrect для отображения
+                                        let isAnswerCorrect = false;
+                                        if (answer.isCorrect === true) {
+                                            isAnswerCorrect = true;
+                                        } else if (answer.isCorrect === false || answer.isCorrect === null || answer.isCorrect === undefined) {
+                                            isAnswerCorrect = false;
+                                        } else if (answer.isCorrect === 1 || answer.isCorrect === '1') {
+                                            isAnswerCorrect = true;
+                                        } else if (answer.isCorrect === 0 || answer.isCorrect === '0') {
+                                            isAnswerCorrect = false;
+                                        } else if (typeof answer.isCorrect === 'string') {
+                                            const str = answer.isCorrect.toLowerCase().trim();
+                                            isAnswerCorrect = str === 'true' || str === 't' || str === '1';
+                                        } else {
+                                            isAnswerCorrect = Boolean(answer.isCorrect);
+                                        }
+                                        return `
+                                    <div class="test-analysis-answer" style="border: ${isAnswerCorrect ? '2px solid var(--success-color)' : answer.id === parseInt(userAnswerId) ? '2px solid var(--danger-color)' : '1px solid var(--border-light)'}; background: ${isAnswerCorrect ? 'rgba(16, 185, 129, 0.1)' : answer.id === parseInt(userAnswerId) ? 'rgba(220, 38, 38, 0.1)' : 'var(--card-bg)'};">
+                                        ${isAnswerCorrect ? '✓ ' : answer.id === parseInt(userAnswerId) ? '✗ ' : ''}${answer.text}
                                     </div>
+                                        `;
+                                    })()}
                                 `).join('')}
                             </div>
                         ` : ''}
