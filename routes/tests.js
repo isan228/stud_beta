@@ -47,8 +47,8 @@ router.get('/tests/:testId', async (req, res) => {
         as: 'Questions',
         include: [{
           model: Answer,
-          as: 'Answers',
-          attributes: ['id', 'text', 'isCorrect', 'questionId', 'createdAt', 'updatedAt'] // Явно указываем атрибуты
+          as: 'Answers'
+          // Убираем явное указание attributes - Sequelize должен вернуть все поля
         }]
       }]
     });
@@ -59,6 +59,26 @@ router.get('/tests/:testId', async (req, res) => {
 
     // Преобразуем в JSON и убеждаемся, что isCorrect присутствует
     const testData = test.toJSON();
+    
+    // Явно проверяем и нормализуем isCorrect для всех ответов
+    if (testData.Questions) {
+      testData.Questions.forEach(q => {
+        if (q.Answers) {
+          q.Answers.forEach(a => {
+            // Нормализуем isCorrect: PostgreSQL может вернуть boolean, 't'/'f', или null
+            if (a.isCorrect === undefined || a.isCorrect === null) {
+              a.isCorrect = false;
+            } else if (typeof a.isCorrect === 'string') {
+              a.isCorrect = a.isCorrect.toLowerCase().trim() === 't' || a.isCorrect.toLowerCase().trim() === 'true' || a.isCorrect === '1';
+            } else if (typeof a.isCorrect === 'number') {
+              a.isCorrect = a.isCorrect === 1;
+            } else {
+              a.isCorrect = Boolean(a.isCorrect);
+            }
+          });
+        }
+      });
+    }
     
     // Логируем для отладки - проверяем формат isCorrect для всех вопросов
     if (testData.Questions && testData.Questions.length > 0) {
@@ -172,11 +192,32 @@ router.post('/tests/:testId/check', auth, async (req, res) => {
         as: 'Questions',
         include: [{
           model: Answer,
-          as: 'Answers',
-          attributes: ['id', 'text', 'isCorrect', 'questionId', 'createdAt', 'updatedAt'] // Явно указываем атрибуты
+          as: 'Answers'
+          // Убираем явное указание attributes - Sequelize должен вернуть все поля
         }]
       }]
     });
+    
+    // Нормализуем isCorrect для всех ответов перед проверкой
+    if (test && test.Questions) {
+      test.Questions.forEach(q => {
+        if (q.Answers) {
+          q.Answers.forEach(a => {
+            // Нормализуем isCorrect: PostgreSQL может вернуть boolean, 't'/'f', или null
+            const rawValue = a.get ? a.get('isCorrect') : a.isCorrect;
+            if (rawValue === undefined || rawValue === null) {
+              a.isCorrect = false;
+            } else if (typeof rawValue === 'string') {
+              a.isCorrect = rawValue.toLowerCase().trim() === 't' || rawValue.toLowerCase().trim() === 'true' || rawValue === '1';
+            } else if (typeof rawValue === 'number') {
+              a.isCorrect = rawValue === 1;
+            } else {
+              a.isCorrect = Boolean(rawValue);
+            }
+          });
+        }
+      });
+    }
 
     if (!test) {
       return res.status(404).json({ error: 'Тест не найден' });
