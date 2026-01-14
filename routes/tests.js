@@ -245,17 +245,23 @@ router.post('/tests/:testId/check', auth, async (req, res) => {
       // Ищем правильный ответ с нормализацией isCorrect
       let correctAnswer = null;
       
-      // Логируем все ответы для отладки
-      console.log(`🔍 Checking question ${question.id}:`, {
+      // Логируем все ответы для отладки - проверяем ДО нормализации
+      console.log(`🔍 Checking question ${question.id} (ДО нормализации):`, {
         userAnswerId: userAnswerId,
         userAnswerIdType: typeof userAnswerId,
-        answers: question.Answers.map(a => ({
-          id: a.id,
-          idType: typeof a.id,
-          isCorrect: a.isCorrect,
-          isCorrectType: typeof a.isCorrect,
-          text: a.text?.substring(0, 50)
-        }))
+        answersCount: question.Answers.length,
+        answers: question.Answers.map(a => {
+          const rawValue = a.getDataValue ? a.getDataValue('isCorrect') : a.isCorrect;
+          return {
+            id: a.id,
+            idType: typeof a.id,
+            isCorrect: a.isCorrect,
+            rawIsCorrect: rawValue,
+            isCorrectType: typeof a.isCorrect,
+            rawIsCorrectType: typeof rawValue,
+            text: a.text?.substring(0, 50)
+          };
+        })
       });
       
       for (const answer of question.Answers) {
