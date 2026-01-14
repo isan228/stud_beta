@@ -40,6 +40,7 @@ router.get('/subjects/:subjectId/tests', async (req, res) => {
 
 // Получить конкретный тест
 router.get('/tests/:testId', async (req, res) => {
+  console.log(`📥 GET /tests/${req.params.testId} - Запрос полного теста`);
   try {
     const test = await Test.findByPk(req.params.testId, {
       include: [{
@@ -187,6 +188,11 @@ router.post('/tests/:testId/questions', auth, async (req, res) => {
 
 // Проверка ответов
 router.post('/tests/:testId/check', auth, async (req, res) => {
+  console.log(`📥 POST /tests/${req.params.testId}/check - Проверка ответов`, {
+    userId: req.user.id,
+    questionsCount: req.body.questionIds?.length || 0,
+    answersCount: Object.keys(req.body.answers || {}).length
+  });
   try {
     const { answers, questionIds } = req.body; // { questionId: answerId }, [questionIds]
     const test = await Test.findByPk(req.params.testId, {
