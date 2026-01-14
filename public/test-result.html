@@ -105,19 +105,38 @@
                 currentResultData = JSON.parse(resultData);
                 
                 // Логируем для отладки - проверяем наличие isCorrect
+                console.log('📦 Загрузка из sessionStorage:', {
+                    hasQuestions: !!currentResultData.questions,
+                    questionsCount: currentResultData.questions?.length || 0,
+                    hasResults: !!currentResultData.results,
+                    testId: currentResultData.testId
+                });
+                
                 if (currentResultData.questions && currentResultData.questions.length > 0) {
                     const firstQ = currentResultData.questions[0];
                     if (firstQ.Answers && firstQ.Answers.length > 0) {
+                        const correctCount = firstQ.Answers.filter(a => a.isCorrect === true).length;
                         console.log('🔍 Данные из sessionStorage, первый вопрос:', {
                             questionId: firstQ.id,
                             answersCount: firstQ.Answers.length,
+                            correctAnswersCount: correctCount,
                             answers: firstQ.Answers.map(a => ({
                                 id: a.id,
                                 isCorrect: a.isCorrect,
                                 isCorrectType: typeof a.isCorrect,
-                                isCorrectDefined: a.isCorrect !== undefined && a.isCorrect !== null
+                                isCorrectDefined: a.isCorrect !== undefined && a.isCorrect !== null,
+                                text: a.text?.substring(0, 30)
                             }))
                         });
+                        
+                        if (correctCount === 0) {
+                            console.error('❌ КРИТИЧЕСКАЯ ОШИБКА: Первый вопрос в sessionStorage не имеет правильных ответов!');
+                            // Пытаемся использовать correctAnswerId из результатов
+                            if (currentResultData.results && currentResultData.results[firstQ.id]) {
+                                const correctAnswerId = currentResultData.results[firstQ.id].correctAnswerId;
+                                console.log('🔧 Попытка использовать correctAnswerId из результатов:', correctAnswerId);
+                            }
+                        }
                     }
                 }
                 

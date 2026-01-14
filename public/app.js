@@ -984,15 +984,34 @@ async function finishTest() {
 
         // Загружаем полные вопросы с правильными ответами для разбора
         let fullQuestions = currentQuestions;
+        console.log('🔍 Начало finishTest:', {
+            currentTestId,
+            hasUser: !!currentUser,
+            currentQuestionsCount: currentQuestions.length,
+            firstQuestionHasAnswers: currentQuestions[0]?.Answers?.length || 0
+        });
+        
         if (currentTestId && currentUser) {
             try {
+                console.log('📥 Загрузка полного теста с сервера...', { testId: currentTestId, API_URL });
                 const fullTestResponse = await fetch(`${API_URL}/tests/tests/${currentTestId}`, {
                     headers: {
                         'Authorization': `Bearer ${currentToken}`
                     }
                 });
+                
+                console.log('📥 Ответ сервера:', {
+                    status: fullTestResponse.status,
+                    statusText: fullTestResponse.statusText,
+                    ok: fullTestResponse.ok
+                });
+                
                 if (fullTestResponse.ok) {
                     const fullTest = await fullTestResponse.json();
+                    console.log('✅ Полный тест загружен:', {
+                        testId: fullTest.id,
+                        questionsCount: fullTest.Questions?.length || 0
+                    });
                     
                     // Логируем первые несколько вопросов для отладки
                     if (fullTest.Questions && fullTest.Questions.length > 0) {
