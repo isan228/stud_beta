@@ -434,7 +434,7 @@ router.post('/questions', adminAuth, [
     await Promise.all(answers.map(answer => 
       Answer.create({
         text: answer.text,
-        isCorrect: answer.isCorrect,
+        isCorrect: Boolean(answer.isCorrect), // Принудительно преобразуем в boolean
         questionId: question.id
       })
     ));
@@ -513,7 +513,7 @@ router.put('/answers/:id', adminAuth, [
 
     const { text, isCorrect } = req.body;
     answer.text = text;
-    answer.isCorrect = isCorrect;
+    answer.isCorrect = Boolean(isCorrect); // Принудительно преобразуем в boolean
     await answer.save();
 
     res.json(answer);

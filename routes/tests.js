@@ -159,28 +159,90 @@ router.post('/tests/:testId/check', auth, async (req, res) => {
       const userAnswerId = answers[question.id];
       // Ищем правильный ответ с нормализацией isCorrect
       let correctAnswer = null;
+      
+      // Логируем все ответы для отладки
+      console.log(`🔍 Checking question ${question.id}:`, {
+        userAnswerId: userAnswerId,
+        userAnswerIdType: typeof userAnswerId,
+        answers: question.Answers.map(a => ({
+          id: a.id,
+          idType: typeof a.id,
+          isCorrect: a.isCorrect,
+          isCorrectType: typeof a.isCorrect,
+          text: a.text?.substring(0, 50)
+        }))
+      });
+      
       for (const answer of question.Answers) {
         // Нормализуем isCorrect: проверяем разные форматы
-        const isCorrect = answer.isCorrect === true || 
-                         answer.isCorrect === 1 || 
-                         answer.isCorrect === '1' || 
-                         answer.isCorrect === 'true' ||
-                         String(answer.isCorrect).toLowerCase() === 'true';
+        // PostgreSQL может возвращать boolean как true/false, 't'/'f', 1/0, или как строку
+        let isCorrect = false;
+        
+        // Проверяем различные форматы boolean
+        if (answer.isCorrect === true) {
+          isCorrect = true;
+        } else if (answer.isCorrect === false || answer.isCorrect === null || answer.isCorrect === undefined) {
+          isCorrect = false;
+        } else if (answer.isCorrect === 1 || answer.isCorrect === '1') {
+          isCorrect = true;
+        } else if (answer.isCorrect === 0 || answer.isCorrect === '0') {
+          isCorrect = false;
+        } else if (typeof answer.isCorrect === 'string') {
+          const str = answer.isCorrect.toLowerCase().trim();
+          isCorrect = str === 'true' || str === 't' || str === '1';
+        } else if (typeof answer.isCorrect === 'boolean') {
+          isCorrect = answer.isCorrect;
+        }
+        
         if (isCorrect) {
           correctAnswer = answer;
+          console.log(`✅ Found correct answer for question ${question.id}:`, {
+            answerId: answer.id,
+            answerIdType: typeof answer.id,
+            isCorrect: answer.isCorrect,
+            isCorrectType: typeof answer.isCorrect,
+            normalizedIsCorrect: isCorrect
+          });
           break;
         }
       }
       
-      if (userAnswerId && correctAnswer && parseInt(userAnswerId) === correctAnswer.id) {
+      // Если правильный ответ не найден, логируем предупреждение
+      if (!correctAnswer) {
+        console.warn(`⚠️ No correct answer found for question ${question.id}! All answers:`, 
+          question.Answers.map(a => ({ 
+            id: a.id, 
+            isCorrect: a.isCorrect, 
+            isCorrectType: typeof a.isCorrect,
+            text: a.text?.substring(0, 50) 
+          }))
+        );
+      }
+      
+      // Нормализуем ID для сравнения (обеспечиваем, что оба числа)
+      const normalizedUserAnswerId = userAnswerId ? parseInt(String(userAnswerId)) : null;
+      const normalizedCorrectAnswerId = correctAnswer ? parseInt(String(correctAnswer.id)) : null;
+      
+      console.log(`📊 Comparison for question ${question.id}:`, {
+        normalizedUserAnswerId,
+        normalizedCorrectAnswerId,
+        match: normalizedUserAnswerId === normalizedCorrectAnswerId
+      });
+      
+      if (normalizedUserAnswerId && normalizedCorrectAnswerId && normalizedUserAnswerId === normalizedCorrectAnswerId) {
         correctCount++;
-        results[question.id] = { correct: true, answerId: correctAnswer.id, correctAnswerId: correctAnswer.id };
+        results[question.id] = { correct: true, answerId: normalizedCorrectAnswerId, correctAnswerId: normalizedCorrectAnswerId };
+        console.log(`✅ Question ${question.id}: CORRECT`);
       } else {
         results[question.id] = { 
           correct: false, 
-          userAnswerId: userAnswerId ? parseInt(userAnswerId) : null,
-          correctAnswerId: correctAnswer ? correctAnswer.id : null
+          userAnswerId: normalizedUserAnswerId,
+          correctAnswerId: normalizedCorrectAnswerId
         };
+        console.log(`❌ Question ${question.id}: INCORRECT`, {
+          userAnswerId: normalizedUserAnswerId,
+          correctAnswerId: normalizedCorrectAnswerId
+        });
       }
     });
 
