@@ -207,24 +207,33 @@ router.post('/tests/:testId/check', auth, async (req, res) => {
       });
       
       for (const answer of question.Answers) {
+        // Получаем isCorrect разными способами (на случай проблем с Sequelize)
+        let rawIsCorrect = answer.isCorrect;
+        if (rawIsCorrect === undefined && answer.getDataValue) {
+          rawIsCorrect = answer.getDataValue('isCorrect');
+        }
+        if (rawIsCorrect === undefined && answer.get) {
+          rawIsCorrect = answer.get('isCorrect');
+        }
+        
         // Нормализуем isCorrect: проверяем разные форматы
         // PostgreSQL может возвращать boolean как true/false, 't'/'f', 1/0, или как строку
         let isCorrect = false;
         
         // Проверяем различные форматы boolean
-        if (answer.isCorrect === true) {
+        if (rawIsCorrect === true) {
           isCorrect = true;
-        } else if (answer.isCorrect === false || answer.isCorrect === null || answer.isCorrect === undefined) {
+        } else if (rawIsCorrect === false || rawIsCorrect === null || rawIsCorrect === undefined) {
           isCorrect = false;
-        } else if (answer.isCorrect === 1 || answer.isCorrect === '1') {
+        } else if (rawIsCorrect === 1 || rawIsCorrect === '1') {
           isCorrect = true;
-        } else if (answer.isCorrect === 0 || answer.isCorrect === '0') {
+        } else if (rawIsCorrect === 0 || rawIsCorrect === '0') {
           isCorrect = false;
-        } else if (typeof answer.isCorrect === 'string') {
-          const str = answer.isCorrect.toLowerCase().trim();
+        } else if (typeof rawIsCorrect === 'string') {
+          const str = rawIsCorrect.toLowerCase().trim();
           isCorrect = str === 'true' || str === 't' || str === '1';
-        } else if (typeof answer.isCorrect === 'boolean') {
-          isCorrect = answer.isCorrect;
+        } else if (typeof rawIsCorrect === 'boolean') {
+          isCorrect = rawIsCorrect;
         }
         
         if (isCorrect) {
@@ -232,8 +241,8 @@ router.post('/tests/:testId/check', auth, async (req, res) => {
           console.log(`✅ Found correct answer for question ${question.id}:`, {
             answerId: answer.id,
             answerIdType: typeof answer.id,
-            isCorrect: answer.isCorrect,
-            isCorrectType: typeof answer.isCorrect,
+            rawIsCorrect: rawIsCorrect,
+            isCorrectType: typeof rawIsCorrect,
             normalizedIsCorrect: isCorrect
           });
           break;
