@@ -1145,6 +1145,39 @@ async function finishTest() {
             return q;
         });
         
+        // Логируем перед сохранением в sessionStorage
+        if (questionsToSave.length > 0) {
+            const firstQ = questionsToSave[0];
+            if (firstQ.Answers && firstQ.Answers.length > 0) {
+                const correctCount = firstQ.Answers.filter(a => a.isCorrect === true).length;
+                console.log('💾 Сохранение в sessionStorage, первый вопрос:', {
+                    questionId: firstQ.id,
+                    answersCount: firstQ.Answers.length,
+                    correctAnswersCount: correctCount,
+                    answers: firstQ.Answers.map(a => ({
+                        id: a.id,
+                        isCorrect: a.isCorrect,
+                        isCorrectType: typeof a.isCorrect
+                    }))
+                });
+                
+                if (correctCount === 0) {
+                    console.error('❌ ВНИМАНИЕ: Первый вопрос не имеет правильных ответов перед сохранением!', {
+                        questionId: firstQ.id,
+                        questionText: firstQ.text?.substring(0, 50),
+                        allAnswers: firstQ.Answers.map(a => ({
+                            id: a.id,
+                            text: a.text?.substring(0, 30),
+                            isCorrect: a.isCorrect,
+                            isCorrectType: typeof a.isCorrect
+                        }))
+                    });
+                }
+            }
+        } else {
+            console.error('❌ ВНИМАНИЕ: questionsToSave пуст! fullQuestions.length =', fullQuestions.length);
+        }
+        
         // Сохраняем результаты в sessionStorage для отображения на странице результатов
         sessionStorage.setItem('testResult', JSON.stringify({
             score: result.score,
