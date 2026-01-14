@@ -140,12 +140,23 @@ router.get('/stats/test-result/:id', auth, async (req, res) => {
       result.questions = result.questions.map(question => {
         if (question.Answers && Array.isArray(question.Answers)) {
           question.Answers = question.Answers.map(answer => {
-            // Нормализуем isCorrect: приводим к boolean
-            if (answer.isCorrect === 'true' || answer.isCorrect === 1 || answer.isCorrect === '1') {
-              answer.isCorrect = true;
-            } else if (answer.isCorrect === 'false' || answer.isCorrect === 0 || answer.isCorrect === '0' || answer.isCorrect === null || answer.isCorrect === undefined) {
-              answer.isCorrect = false;
+            // Нормализуем isCorrect: приводим к boolean (обрабатываем все форматы)
+            let isCorrect = false;
+            if (answer.isCorrect === true) {
+              isCorrect = true;
+            } else if (answer.isCorrect === false || answer.isCorrect === null || answer.isCorrect === undefined) {
+              isCorrect = false;
+            } else if (answer.isCorrect === 1 || answer.isCorrect === '1') {
+              isCorrect = true;
+            } else if (answer.isCorrect === 0 || answer.isCorrect === '0') {
+              isCorrect = false;
+            } else if (typeof answer.isCorrect === 'string') {
+              const str = answer.isCorrect.toLowerCase().trim();
+              isCorrect = str === 'true' || str === 't' || str === '1';
+            } else {
+              isCorrect = Boolean(answer.isCorrect);
             }
+            answer.isCorrect = isCorrect;
             return answer;
           });
         }
