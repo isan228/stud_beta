@@ -19,7 +19,9 @@
     "add-tests": "node scripts/addTests.js",
     "check-pdf": "node scripts/checkPdfParse.js",
     "check-answers": "node scripts/checkAnswers.js",
-    "push": "git add -A && git commit -m \"Update: изменения в проекте\" && git push origin main"
+    "push": "git add -A && git commit -m \"Update: изменения в проекте\" && git push origin main",
+    "push-auto": "git add -A && git commit -m \"Auto-update: изменения в проекте\" && git push origin main",
+    "push-ps": "powershell -ExecutionPolicy Bypass -File scripts/auto-push.ps1"
   },
   "keywords": [
     "education",
