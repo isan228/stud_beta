@@ -19,6 +19,7 @@ router.get('/subjects', async (req, res) => {
 // Получить тесты по предмету
 router.get('/subjects/:subjectId/tests', async (req, res) => {
   try {
+    // Получаем все тесты, включая бесплатные
     const tests = await Test.findAll({
       where: { subjectId: req.params.subjectId },
       include: [{
@@ -34,6 +35,29 @@ router.get('/subjects/:subjectId/tests', async (req, res) => {
     res.json(tests);
   } catch (error) {
     console.error('Ошибка получения тестов:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Получить только бесплатные тесты по предмету (для неавторизованных)
+router.get('/subjects/:subjectId/tests/free', async (req, res) => {
+  try {
+    const tests = await Test.findAll({
+      where: { 
+        subjectId: req.params.subjectId,
+        isFree: true
+      },
+      include: [{
+        model: Question,
+        as: 'Questions',
+        attributes: ['id'], // Только ID для подсчета
+        required: false
+      }],
+      order: [['createdAt', 'DESC']]
+    });
+    res.json(tests);
+  } catch (error) {
+    console.error('Ошибка получения бесплатных тестов:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
@@ -122,7 +146,8 @@ router.get('/tests/:testId', async (req, res) => {
 });
 
 // Получить вопросы для теста (с настройками)
-router.post('/tests/:testId/questions', auth, async (req, res) => {
+// Для бесплатных тестов авторизация не требуется
+router.post('/tests/:testId/questions', async (req, res) => {
   try {
     const { questionCount, randomizeAnswers } = req.body;
     const test = await Test.findByPk(req.params.testId, {
@@ -138,6 +163,35 @@ router.post('/tests/:testId/questions', auth, async (req, res) => {
 
     if (!test) {
       return res.status(404).json({ error: 'Тест не найден' });
+    }
+
+    // Проверяем доступ: если тест не бесплатный, требуется авторизация
+    if (!test.isFree) {
+      // Проверяем авторизацию для платных тестов
+      const token = req.header('Authorization')?.replace('Bearer ', '');
+      if (!token) {
+        return res.status(401).json({ error: 'Требуется авторизация для этого теста' });
+      }
+      
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const { User } = require('../models');
+        const user = await User.findByPk(decoded.userId);
+        
+        if (!user) {
+          return res.status(401).json({ error: 'Пользователь не найден' });
+        }
+        
+        // Проверяем подписку для платных тестов
+        if (user.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date()) {
+          // Подписка активна
+        } else {
+          return res.status(403).json({ error: 'Требуется активная подписка для этого теста' });
+        }
+      } catch (error) {
+        return res.status(401).json({ error: 'Недействительный токен' });
+      }
     }
 
     // Преобразуем в JSON сразу, чтобы избежать циклических ссылок
@@ -187,9 +241,55 @@ router.post('/tests/:testId/questions', auth, async (req, res) => {
 });
 
 // Проверка ответов
-router.post('/tests/:testId/check', auth, async (req, res) => {
+// Для бесплатных тестов авторизация не требуется
+router.post('/tests/:testId/check', async (req, res) => {
   // КРИТИЧЕСКОЕ ЛОГИРОВАНИЕ - должно появиться в любом случае
-  const logMsg = `\n=== CHECK TEST START ===\nTest ID: ${req.params.testId}\nUser ID: ${req.user?.id}\nQuestions: ${req.body.questionIds?.length || 0}\nAnswers: ${Object.keys(req.body.answers || {}).length}\n=======================\n`;
+  let userId = null;
+  let isFreeTest = false;
+  
+  try {
+    // Сначала проверяем, является ли тест бесплатным
+    const test = await Test.findByPk(req.params.testId);
+    if (!test) {
+      return res.status(404).json({ error: 'Тест не найден' });
+    }
+    
+    isFreeTest = test.isFree;
+    
+    // Если тест не бесплатный, проверяем авторизацию
+    if (!isFreeTest) {
+      const token = req.header('Authorization')?.replace('Bearer ', '');
+      if (!token) {
+        return res.status(401).json({ error: 'Требуется авторизация для этого теста' });
+      }
+      
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const { User } = require('../models');
+        const user = await User.findByPk(decoded.userId);
+        
+        if (!user) {
+          return res.status(401).json({ error: 'Пользователь не найден' });
+        }
+        
+        userId = user.id;
+        
+        // Проверяем подписку для платных тестов
+        if (user.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date()) {
+          // Подписка активна
+        } else {
+          return res.status(403).json({ error: 'Требуется активная подписка для этого теста' });
+        }
+      } catch (error) {
+        return res.status(401).json({ error: 'Недействительный токен' });
+      }
+    }
+  } catch (error) {
+    return res.status(500).json({ error: 'Ошибка проверки доступа' });
+  }
+  
+  const logMsg = `\n=== CHECK TEST START ===\nTest ID: ${req.params.testId}\nIs Free: ${isFreeTest}\nUser ID: ${userId || 'anonymous'}\nQuestions: ${req.body.questionIds?.length || 0}\nAnswers: ${Object.keys(req.body.answers || {}).length}\n=======================\n`;
   
   // Пробуем все способы логирования
   console.error(logMsg); // stderr всегда выводится
@@ -197,10 +297,12 @@ router.post('/tests/:testId/check', auth, async (req, res) => {
   process.stdout.write(logMsg); // Явный вывод в stdout
   
   console.log(`📥 POST /tests/${req.params.testId}/check - Проверка ответов`, {
-    userId: req.user.id,
+    userId: userId || 'anonymous',
+    isFreeTest,
     questionsCount: req.body.questionIds?.length || 0,
     answersCount: Object.keys(req.body.answers || {}).length
   });
+  
   try {
     const { answers, questionIds } = req.body; // { questionId: answerId }, [questionIds]
     const test = await Test.findByPk(req.params.testId, {

@@ -484,7 +484,7 @@ async function loadTests() {
             testsList.innerHTML = tests.map(test => `
                 <div class="admin-list-item">
                     <div style="flex: 1;">
-                        <h4>${test.name}</h4>
+                        <h4>${test.name} ${test.isFree ? '<span style="background: #10b981; color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">БЕСПЛАТНЫЙ</span>' : ''}</h4>
                         ${test.description ? `<p style="color: var(--text-muted); margin: 0.5rem 0;">${test.description}</p>` : ''}
                         <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
                             Предмет: ${test.Subject?.name || 'Неизвестно'} | Вопросов: ${test.Questions?.length || 0}
@@ -699,6 +699,7 @@ async function editTest(testId) {
             document.getElementById('testName').value = test.name;
             document.getElementById('testDescription').value = test.description || '';
             document.getElementById('testSubjectId').value = test.subjectId;
+            document.getElementById('testIsFree').checked = test.isFree || false;
             document.getElementById('testModalTitle').textContent = 'Редактировать тест';
             document.getElementById('testModal').style.display = 'block';
         }
@@ -792,6 +793,7 @@ async function saveTest(e) {
     const name = document.getElementById('testName').value;
     const description = document.getElementById('testDescription').value;
     const subjectId = parseInt(document.getElementById('testSubjectId').value);
+    const isFree = document.getElementById('testIsFree').checked;
 
     try {
         const url = id ? `${ADMIN_API_URL}/tests/${id}` : `${ADMIN_API_URL}/tests`;
@@ -803,7 +805,7 @@ async function saveTest(e) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${currentAdminToken}`
             },
-            body: JSON.stringify({ name, description, subjectId })
+            body: JSON.stringify({ name, description, subjectId, isFree })
         });
 
         if (response.ok) {

@@ -582,16 +582,7 @@ function logout() {
 let allSubjects = []; // Храним все предметы для фильтрации
 
 async function loadSubjects() {
-    // Проверяем авторизацию
-    if (!currentUser) {
-        const container = document.getElementById('subjectsList');
-        if (container) {
-            container.innerHTML = '';
-        }
-        showRegisterModal();
-        return;
-    }
-
+    // Для неавторизованных пользователей показываем предметы с бесплатными тестами
     try {
         const container = document.getElementById('subjectsList');
         if (!container) return;
@@ -599,20 +590,22 @@ async function loadSubjects() {
         const response = await fetch(`${API_URL}/tests/subjects`);
         allSubjects = await response.json();
         
-        // Проверяем количество избранных вопросов
+        // Проверяем количество избранных вопросов (только для авторизованных)
         let favoritesCount = 0;
-        try {
-            const favoritesResponse = await fetch(`${API_URL}/favorites`, {
-                headers: {
-                    'Authorization': `Bearer ${currentToken}`
+        if (currentUser) {
+            try {
+                const favoritesResponse = await fetch(`${API_URL}/favorites`, {
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`
+                    }
+                });
+                if (favoritesResponse.ok) {
+                    const favorites = await favoritesResponse.json();
+                    favoritesCount = favorites.length;
                 }
-            });
-            if (favoritesResponse.ok) {
-                const favorites = await favoritesResponse.json();
-                favoritesCount = favorites.length;
+            } catch (error) {
+                console.error('Ошибка загрузки избранного:', error);
             }
-        } catch (error) {
-            console.error('Ошибка загрузки избранного:', error);
         }
         
         // Отображаем все предметы с карточкой избранного, если есть избранные вопросы
@@ -738,7 +731,13 @@ async function loadSubjectTests(subjectId, subjectName, subjectDescription = '')
     currentSubjectDescription = subjectDescription;
     
     try {
-        const response = await fetch(`${API_URL}/tests/subjects/${subjectId}/tests`);
+        // Если пользователь не авторизован, загружаем только бесплатные тесты
+        let url = `${API_URL}/tests/subjects/${subjectId}/tests`;
+        if (!currentUser) {
+            url = `${API_URL}/tests/subjects/${subjectId}/tests/free`;
+        }
+        
+        const response = await fetch(url);
         const tests = await response.json();
         
         const subjectNameEl = document.getElementById('subjectName');
@@ -748,19 +747,28 @@ async function loadSubjectTests(subjectId, subjectName, subjectDescription = '')
         
         const descEl = document.getElementById('subjectDescription');
         if (descEl) {
-            descEl.textContent = subjectDescription || `Выберите тест для прохождения. Каждый тест можно настроить под свои потребности.`;
+            if (!currentUser) {
+                descEl.textContent = 'Бесплатные тесты доступны без регистрации. Выберите тест для прохождения.';
+            } else {
+                descEl.textContent = subjectDescription || `Выберите тест для прохождения. Каждый тест можно настроить под свои потребности.`;
+            }
         }
         
         const container = document.getElementById('testsList');
         if (container) {
             if (tests.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 3rem;">Тесты по данному предмету пока не добавлены</p>';
+                if (!currentUser) {
+                    container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 3rem;">Бесплатные тесты по данному предмету пока не добавлены. <a href="/register" style="color: var(--primary-color);">Зарегистрируйтесь</a> для доступа ко всем тестам.</p>';
+                } else {
+                    container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 3rem;">Тесты по данному предмету пока не добавлены</p>';
+                }
             } else {
             container.innerHTML = tests.map((test, index) => {
                 const testName = encodeURIComponent(test.name);
+                const isFree = test.isFree || false;
                 return `
                     <div class="test-card card-animate" style="animation-delay: ${index * 0.1}s;" onclick="window.location.href='/test-settings?id=${test.id}&name=${testName}&questions=${test.Questions?.length || 0}'">
-                        <h3>${test.name}</h3>
+                        <h3>${test.name} ${isFree ? '<span style="background: #10b981; color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">БЕСПЛАТНО</span>' : ''}</h3>
                         <p><strong>Вопросов:</strong> ${test.Questions?.length || 0}</p>
                         ${test.description ? `<p style="margin-top: 0.5rem; font-size: 0.9rem;">${test.description}</p>` : ''}
                     </div>
@@ -794,8 +802,21 @@ async function loadTestSettings(testId, testName, questionCount = 0) {
 }
 
 async function startTest() {
-    if (!currentUser) {
-        showNotification('Необходимо войти в систему', 'error');
+    // Проверяем, является ли тест бесплатным
+    let isFreeTest = false;
+    try {
+        const testResponse = await fetch(`${API_URL}/tests/tests/${currentTestId}`);
+        if (testResponse.ok) {
+            const test = await testResponse.json();
+            isFreeTest = test.isFree || false;
+        }
+    } catch (error) {
+        console.error('Ошибка проверки теста:', error);
+    }
+    
+    // Если тест не бесплатный, требуется авторизация
+    if (!isFreeTest && !currentUser) {
+        showNotification('Для этого теста необходима регистрация и подписка', 'error');
         return;
     }
 
@@ -805,12 +826,18 @@ async function startTest() {
     const timerMinutes = parseInt(document.getElementById('timerMinutes').value) || 30;
 
     try {
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        
+        // Добавляем токен только если пользователь авторизован
+        if (currentUser && currentToken) {
+            headers['Authorization'] = `Bearer ${currentToken}`;
+        }
+        
         const response = await fetch(`${API_URL}/tests/tests/${currentTestId}/questions`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${currentToken}`
-            },
+            headers: headers,
             body: JSON.stringify({ questionCount, randomizeAnswers })
         });
 
@@ -1049,12 +1076,30 @@ async function finishTest() {
             console.error('Request URL:', `${API_URL}/tests/tests/${currentTestId}/check`);
             console.error('Request body:', { answers: currentAnswers, questionIds });
             
+            // Проверяем, является ли тест бесплатным
+            let isFreeTest = false;
+            try {
+                const testResponse = await fetch(`${API_URL}/tests/tests/${currentTestId}`);
+                if (testResponse.ok) {
+                    const test = await testResponse.json();
+                    isFreeTest = test.isFree || false;
+                }
+            } catch (error) {
+                console.error('Ошибка проверки теста:', error);
+            }
+            
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            // Добавляем токен только если пользователь авторизован
+            if (currentUser && currentToken) {
+                headers['Authorization'] = `Bearer ${currentToken}`;
+            }
+            
             const response = await fetch(`${API_URL}/tests/tests/${currentTestId}/check`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${currentToken}`
-                },
+                headers: headers,
                 body: JSON.stringify({ answers: currentAnswers, questionIds })
             });
 

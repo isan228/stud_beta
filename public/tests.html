@@ -126,20 +126,12 @@
             const userLoaded = await window.loadUser();
             window.setupEventListeners();
             
-            // Проверяем авторизацию перед загрузкой предметов
-            console.log('Проверка авторизации. currentUser:', window.currentUser, 'userLoaded:', userLoaded);
-            if (!window.currentUser) {
-                if (typeof showRegisterModal === 'function') {
-                    showRegisterModal();
-                } else {
-                    window.location.href = '/register';
-                }
+            // Загружаем предметы (бесплатные тесты доступны без авторизации)
+            console.log('Загрузка предметов. currentUser:', window.currentUser, 'userLoaded:', userLoaded);
+            if (typeof window.loadSubjects === 'function') {
+                window.loadSubjects();
             } else {
-                if (typeof window.loadSubjects === 'function') {
-                    window.loadSubjects();
-                } else {
-                    console.error('loadSubjects не найдена');
-                }
+                console.error('loadSubjects не найдена');
             }
             
             // Настройка поиска по предметам

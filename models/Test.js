@@ -22,6 +22,12 @@ const Test = sequelize.define('Test', {
       key: 'id'
     }
   },
+  isFree: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    allowNull: false,
+    comment: 'Бесплатный тест для неавторизованных пользователей'
+  },
   createdAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW

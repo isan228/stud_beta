@@ -322,8 +322,13 @@ router.post('/tests', adminAuth, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, description, subjectId } = req.body;
-    const test = await Test.create({ name, description, subjectId });
+    const { name, description, subjectId, isFree } = req.body;
+    const test = await Test.create({ 
+      name, 
+      description, 
+      subjectId, 
+      isFree: isFree === true || isFree === 'true' 
+    });
     res.status(201).json(test);
   } catch (error) {
     console.error('Ошибка создания теста:', error);
@@ -346,9 +351,10 @@ router.put('/tests/:id', adminAuth, [
       return res.status(404).json({ error: 'Тест не найден' });
     }
 
-    const { name, description } = req.body;
+    const { name, description, isFree } = req.body;
     test.name = name;
     if (description !== undefined) test.description = description;
+    if (isFree !== undefined) test.isFree = isFree === true || isFree === 'true';
     await test.save();
 
     res.json(test);
