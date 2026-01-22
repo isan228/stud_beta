@@ -1742,23 +1742,48 @@ async function loadProfile() {
             }
         });
         
+        if (!userResponse.ok) {
+            console.error('❌ Failed to load user data:', {
+                status: userResponse.status,
+                statusText: userResponse.statusText
+            });
+            if (userResponse.status === 401) {
+                logout();
+                window.location.href = '/login';
+                return;
+            }
+            throw new Error(`Failed to load user: ${userResponse.status}`);
+        }
+        
         if (userResponse.ok) {
             const userData = await userResponse.json();
             const user = userData.user;
+            
+            console.log('📋 User data loaded:', {
+                id: user?.id,
+                username: user?.username,
+                email: user?.email,
+                subscriptionEndDate: user?.subscriptionEndDate,
+                coins: user?.coins
+            });
             
             const usernameEl = document.getElementById('userUsername');
             const emailEl = document.getElementById('userEmail');
             const createdAtEl = document.getElementById('userCreatedAt');
             
-            if (usernameEl) usernameEl.textContent = user.username;
-            if (emailEl) emailEl.textContent = user.email;
-            if (createdAtEl) {
+            if (usernameEl && user.username) usernameEl.textContent = user.username;
+            if (emailEl && user.email) emailEl.textContent = user.email;
+            if (createdAtEl && user.createdAt) {
                 const createdAt = new Date(user.createdAt);
-                createdAtEl.textContent = createdAt.toLocaleDateString('ru-RU', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                });
+                if (!isNaN(createdAt.getTime())) {
+                    createdAtEl.textContent = createdAt.toLocaleDateString('ru-RU', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                    });
+                } else {
+                    createdAtEl.textContent = '-';
+                }
             }
             
             // Обновляем баланс монеток
@@ -1769,42 +1794,58 @@ async function loadProfile() {
             
             // Обновляем дату окончания подписки
             const subscriptionEndEl = document.getElementById('userSubscriptionEnd');
+            console.log('🔍 Subscription debug:', {
+                elementFound: !!subscriptionEndEl,
+                subscriptionEndDate: user.subscriptionEndDate,
+                userData: user
+            });
+            
             if (subscriptionEndEl) {
                 if (user.subscriptionEndDate) {
                     const endDate = new Date(user.subscriptionEndDate);
                     const now = new Date();
                     const isActive = endDate > now;
                     
-                    // Форматируем дату с временем
-                    const formattedDate = endDate.toLocaleDateString('ru-RU', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                    });
-                    const formattedTime = endDate.toLocaleTimeString('ru-RU', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
-                    
-                    subscriptionEndEl.textContent = `${formattedDate} в ${formattedTime}`;
-                    
-                    // Добавляем стиль в зависимости от статуса
-                    if (isActive) {
-                        subscriptionEndEl.style.color = 'var(--success-color)';
-                        // Показываем сколько дней осталось
-                        const daysLeft = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
-                        if (daysLeft <= 7) {
-                            subscriptionEndEl.textContent += ` (осталось ${daysLeft} ${daysLeft === 1 ? 'день' : daysLeft < 5 ? 'дня' : 'дней'})`;
-                            subscriptionEndEl.style.color = 'var(--warning-color, #f59e0b)';
-                        }
-                    } else {
+                    // Проверяем валидность даты
+                    if (isNaN(endDate.getTime())) {
+                        console.error('❌ Invalid subscriptionEndDate:', user.subscriptionEndDate);
+                        subscriptionEndEl.textContent = 'Ошибка формата даты';
                         subscriptionEndEl.style.color = 'var(--danger-color)';
-                        subscriptionEndEl.textContent += ' (истекла)';
+                    } else {
+                        // Форматируем дату с временем
+                        const formattedDate = endDate.toLocaleDateString('ru-RU', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                        });
+                        const formattedTime = endDate.toLocaleTimeString('ru-RU', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                        
+                        subscriptionEndEl.textContent = `${formattedDate} в ${formattedTime}`;
+                        
+                        // Добавляем стиль в зависимости от статуса
+                        if (isActive) {
+                            subscriptionEndEl.style.color = 'var(--success-color)';
+                            // Показываем сколько дней осталось
+                            const daysLeft = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
+                            if (daysLeft <= 7) {
+                                subscriptionEndEl.textContent += ` (осталось ${daysLeft} ${daysLeft === 1 ? 'день' : daysLeft < 5 ? 'дня' : 'дней'})`;
+                                subscriptionEndEl.style.color = 'var(--warning-color, #f59e0b)';
+                            }
+                        } else {
+                            subscriptionEndEl.style.color = 'var(--danger-color)';
+                            subscriptionEndEl.textContent += ' (истекла)';
+                        }
                     }
                 } else {
+                    console.log('ℹ️ No subscriptionEndDate for user');
                     subscriptionEndEl.textContent = 'Нет активной подписки';
                     subscriptionEndEl.style.color = 'var(--text-secondary)';
                 }
+            } else {
+                console.error('❌ Element userSubscriptionEnd not found in DOM');
             }
             
             // Обновляем реферальную ссылку
