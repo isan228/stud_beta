@@ -1797,50 +1797,65 @@ async function loadProfile() {
             console.log('🔍 Subscription debug:', {
                 elementFound: !!subscriptionEndEl,
                 subscriptionEndDate: user.subscriptionEndDate,
-                userData: user
+                subscriptionEndDateType: typeof user.subscriptionEndDate,
+                subscriptionEndDateValue: user.subscriptionEndDate,
+                userKeys: Object.keys(user),
+                fullUserData: user
             });
             
             if (subscriptionEndEl) {
-                if (user.subscriptionEndDate) {
-                    const endDate = new Date(user.subscriptionEndDate);
-                    const now = new Date();
-                    const isActive = endDate > now;
-                    
-                    // Проверяем валидность даты
-                    if (isNaN(endDate.getTime())) {
-                        console.error('❌ Invalid subscriptionEndDate:', user.subscriptionEndDate);
-                        subscriptionEndEl.textContent = 'Ошибка формата даты';
-                        subscriptionEndEl.style.color = 'var(--danger-color)';
-                    } else {
-                        // Форматируем дату с временем
-                        const formattedDate = endDate.toLocaleDateString('ru-RU', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                        });
-                        const formattedTime = endDate.toLocaleTimeString('ru-RU', {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                        });
+                // Проверяем subscriptionEndDate - может быть null, undefined, или строкой/датой
+                const subscriptionDate = user.subscriptionEndDate;
+                
+                if (subscriptionDate !== null && subscriptionDate !== undefined && subscriptionDate !== '') {
+                    try {
+                        const endDate = new Date(subscriptionDate);
+                        const now = new Date();
                         
-                        subscriptionEndEl.textContent = `${formattedDate} в ${formattedTime}`;
-                        
-                        // Добавляем стиль в зависимости от статуса
-                        if (isActive) {
-                            subscriptionEndEl.style.color = 'var(--success-color)';
-                            // Показываем сколько дней осталось
-                            const daysLeft = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
-                            if (daysLeft <= 7) {
-                                subscriptionEndEl.textContent += ` (осталось ${daysLeft} ${daysLeft === 1 ? 'день' : daysLeft < 5 ? 'дня' : 'дней'})`;
-                                subscriptionEndEl.style.color = 'var(--warning-color, #f59e0b)';
-                            }
-                        } else {
+                        // Проверяем валидность даты
+                        if (isNaN(endDate.getTime())) {
+                            console.error('❌ Invalid subscriptionEndDate:', subscriptionDate, 'Type:', typeof subscriptionDate);
+                            subscriptionEndEl.textContent = 'Ошибка формата даты';
                             subscriptionEndEl.style.color = 'var(--danger-color)';
-                            subscriptionEndEl.textContent += ' (истекла)';
+                        } else {
+                            const isActive = endDate > now;
+                            
+                            // Форматируем дату с временем
+                            const formattedDate = endDate.toLocaleDateString('ru-RU', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric'
+                            });
+                            const formattedTime = endDate.toLocaleTimeString('ru-RU', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                            
+                            subscriptionEndEl.textContent = `${formattedDate} в ${formattedTime}`;
+                            
+                            // Добавляем стиль в зависимости от статуса
+                            if (isActive) {
+                                subscriptionEndEl.style.color = 'var(--success-color)';
+                                // Показываем сколько дней осталось
+                                const daysLeft = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
+                                if (daysLeft <= 7) {
+                                    subscriptionEndEl.textContent += ` (осталось ${daysLeft} ${daysLeft === 1 ? 'день' : daysLeft < 5 ? 'дня' : 'дней'})`;
+                                    subscriptionEndEl.style.color = 'var(--warning-color, #f59e0b)';
+                                }
+                                console.log('✅ Subscription is active, ends:', formattedDate, 'Days left:', daysLeft);
+                            } else {
+                                subscriptionEndEl.style.color = 'var(--danger-color)';
+                                subscriptionEndEl.textContent += ' (истекла)';
+                                console.log('⚠️ Subscription expired on:', formattedDate);
+                            }
                         }
+                    } catch (error) {
+                        console.error('❌ Error parsing subscriptionEndDate:', error, 'Value:', subscriptionDate);
+                        subscriptionEndEl.textContent = 'Ошибка обработки даты';
+                        subscriptionEndEl.style.color = 'var(--danger-color)';
                     }
                 } else {
-                    console.log('ℹ️ No subscriptionEndDate for user');
+                    console.log('ℹ️ No subscriptionEndDate for user (null/undefined/empty)');
                     subscriptionEndEl.textContent = 'Нет активной подписки';
                     subscriptionEndEl.style.color = 'var(--text-secondary)';
                 }

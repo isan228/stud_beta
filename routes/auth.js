@@ -163,6 +163,18 @@ router.get('/me', require('../middleware/auth'), async (req, res) => {
       console.log(`✅ Generated referral code for user ${user.id}: ${user.referralCode}`);
     }
     
+    // Логируем для отладки (только в development)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📋 User data for /me:', {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        subscriptionEndDate: user.subscriptionEndDate,
+        subscriptionEndDateType: typeof user.subscriptionEndDate,
+        hasSubscription: !!user.subscriptionEndDate
+      });
+    }
+    
     res.json({ user });
   } catch (error) {
     console.error('Ошибка получения пользователя:', error);
