@@ -1775,15 +1775,28 @@ async function loadProfile() {
                     const now = new Date();
                     const isActive = endDate > now;
                     
-                    subscriptionEndEl.textContent = endDate.toLocaleDateString('ru-RU', {
+                    // Форматируем дату с временем
+                    const formattedDate = endDate.toLocaleDateString('ru-RU', {
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric'
                     });
+                    const formattedTime = endDate.toLocaleTimeString('ru-RU', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    
+                    subscriptionEndEl.textContent = `${formattedDate} в ${formattedTime}`;
                     
                     // Добавляем стиль в зависимости от статуса
                     if (isActive) {
                         subscriptionEndEl.style.color = 'var(--success-color)';
+                        // Показываем сколько дней осталось
+                        const daysLeft = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
+                        if (daysLeft <= 7) {
+                            subscriptionEndEl.textContent += ` (осталось ${daysLeft} ${daysLeft === 1 ? 'день' : daysLeft < 5 ? 'дня' : 'дней'})`;
+                            subscriptionEndEl.style.color = 'var(--warning-color, #f59e0b)';
+                        }
                     } else {
                         subscriptionEndEl.style.color = 'var(--danger-color)';
                         subscriptionEndEl.textContent += ' (истекла)';
