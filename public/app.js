@@ -2346,6 +2346,7 @@ window.nextQuestion = nextQuestion;
 window.prevQuestion = prevQuestion;
 window.finishTest = finishTest;
 window.loadProfile = loadProfile;
+window.handleChangePassword = handleChangePassword;
 window.showNotification = showNotification;
 
 // Экспорт переменных состояния для доступа из inline скриптов
