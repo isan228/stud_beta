@@ -306,8 +306,24 @@ router.post('/webhook', async (req, res) => {
           // Обновляем подписку пользователя, если это платеж за подписку
           try {
             const user = await User.findByPk(transaction.userId);
-            if (user && registrationData?.subscription) {
-              const subscriptionType = registrationData.subscription.type || '1';
+            
+            // Определяем тип подписки: из registrationData или из полей транзакции
+            let subscriptionType = '1';
+            
+            if (registrationData?.subscription?.type) {
+              subscriptionType = registrationData.subscription.type;
+            } else if (transaction.fields?.subscriptionType) {
+              subscriptionType = transaction.fields.subscriptionType;
+            } else if (payload.fields?.subscriptionType) {
+              subscriptionType = payload.fields.subscriptionType;
+            }
+            
+            // Также проверяем paymentType - должен быть subscription или registration
+            const paymentType = transaction.fields?.paymentType || 
+                               payload.fields?.paymentType || 
+                               (registrationData ? 'registration' : 'subscription');
+                               
+            if (user && (paymentType === 'subscription' || paymentType === 'registration')) {
               const subscriptionMonths = parseInt(subscriptionType) || 1;
               let subscriptionEndDate = new Date();
               
@@ -322,7 +338,7 @@ router.post('/webhook', async (req, res) => {
               
               user.subscriptionEndDate = subscriptionEndDate;
               await user.save();
-              console.log(`✅ Subscription updated for user ${user.id}: ${subscriptionEndDate.toISOString()}`);
+              console.log(`✅ Subscription updated for user ${user.id}: ${subscriptionEndDate.toISOString()} (+${subscriptionMonths} months)`);
             }
           } catch (error) {
             console.error('❌ Error updating subscription:', error);
@@ -635,6 +651,7 @@ router.post('/create', [
       customFields: {
         ...(userId && { userId: userId.toString() }),
         paymentType: paymentType || 'subscription',
+        subscriptionType: req.body.subscriptionType || '1',
         testMode: 'true' // Помечаем как тестовый платеж
       }
     });
@@ -647,6 +664,7 @@ router.post('/create', [
       status: 'PENDING',
       fields: {
         paymentType: paymentType || 'subscription',
+        subscriptionType: req.body.subscriptionType || '1',
         description: description || `Оплата: ${paymentType || 'subscription'}`,
         testMode: true
       }

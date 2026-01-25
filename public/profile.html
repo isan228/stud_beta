@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
@@ -7,11 +8,14 @@
     <title>Профиль - stud.kg</title>
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <nav class="navbar">
         <div class="container">
             <div class="nav-brand">
-                <a href="/"><h1>stud.kg</h1></a>
+                <a href="/">
+                    <h1>stud.kg</h1>
+                </a>
             </div>
             <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Меню">
                 <span></span>
@@ -31,7 +35,8 @@
                         <span class="theme-icon">🌙</span>
                     </button>
                     <a href="/login" class="btn btn-primary" id="loginBtn" style="display: none;">Войти</a>
-                    <a href="/register" class="btn btn-secondary" id="registerBtn" style="display: none;">Регистрация</a>
+                    <a href="/register" class="btn btn-secondary" id="registerBtn"
+                        style="display: none;">Регистрация</a>
                     <button class="btn btn-logout" id="logoutBtn">Выход</button>
                 </div>
             </div>
@@ -43,7 +48,7 @@
             <div class="page-header">
                 <h1>Личный кабинет</h1>
                 <p class="page-description">
-                    Отслеживайте свой прогресс, анализируйте результаты и поддерживайте мотивацию 
+                    Отслеживайте свой прогресс, анализируйте результаты и поддерживайте мотивацию
                     через систему стриков ежедневных занятий.
                 </p>
             </div>
@@ -54,8 +59,13 @@
                         <p><strong>Никнейм:</strong> <span id="userUsername">-</span></p>
                         <p><strong>Email:</strong> <span id="userEmail">-</span></p>
                         <p><strong>Дата регистрации:</strong> <span id="userCreatedAt">-</span></p>
-                        <p><strong>Баланс монеток:</strong> <span id="userCoins" style="color: var(--primary-color); font-weight: 600;">0</span> 🪙</p>
-                        <p><strong>Подписка действует до:</strong> <span id="userSubscriptionEnd" style="color: var(--primary-color); font-weight: 600;">-</span></p>
+                        <p><strong>Баланс монеток:</strong> <span id="userCoins"
+                                style="color: var(--primary-color); font-weight: 600;">0</span> 🪙</p>
+                        <p><strong>Подписка действует до:</strong> <span id="userSubscriptionEnd"
+                                style="color: var(--primary-color); font-weight: 600;">-</span> <button
+                                id="renewSubscriptionBtn" class="btn btn-sm btn-primary"
+                                style="display: none; margin-left: 10px; padding: 0.25rem 0.75rem; font-size: 0.8rem;"
+                                onclick="renewSubscription()">Продлить</button></p>
                     </div>
                 </div>
                 <div class="settings-card">
@@ -64,12 +74,16 @@
                         <div class="form-group">
                             <label for="referralLink">Ваша реферальная ссылка</label>
                             <div style="display: flex; gap: 0.5rem; align-items: center;">
-                                <input type="text" id="referralLink" readonly style="flex: 1; background: var(--bg-secondary); cursor: text;" value="">
-                                <button class="btn btn-secondary" id="copyReferralLink" style="min-width: auto; padding: 0.75rem 1rem;">Копировать</button>
+                                <input type="text" id="referralLink" readonly
+                                    style="flex: 1; background: var(--bg-secondary); cursor: text;" value="">
+                                <button class="btn btn-secondary" id="copyReferralLink"
+                                    style="min-width: auto; padding: 0.75rem 1rem;">Копировать</button>
                             </div>
-                            <small>Поделитесь этой ссылкой с друзьями. За каждого зарегистрированного друга вы получите 50 монеток, а ваш друг тоже получит 50 монеток при регистрации!</small>
+                            <small>Поделитесь этой ссылкой с друзьями. За каждого зарегистрированного друга вы получите
+                                50 монеток, а ваш друг тоже получит 50 монеток при регистрации!</small>
                         </div>
-                        <div style="margin-top: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: var(--radius); border-left: 4px solid var(--primary-color);">
+                        <div
+                            style="margin-top: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: var(--radius); border-left: 4px solid var(--primary-color);">
                             <p style="margin: 0; color: var(--text-secondary); font-size: 0.9rem;">
                                 <strong style="color: var(--text-color);">Как это работает:</strong><br>
                                 • Отправьте ссылку другу<br>
@@ -130,7 +144,8 @@
                             </div>
                             <div class="form-group">
                                 <label for="confirmNewPassword">Подтвердите новый пароль</label>
-                                <input type="password" id="confirmNewPassword" name="confirmNewPassword" required minlength="6">
+                                <input type="password" id="confirmNewPassword" name="confirmNewPassword" required
+                                    minlength="6">
                             </div>
                             <button type="submit" class="btn btn-primary">Изменить пароль</button>
                         </form>
@@ -152,7 +167,9 @@
             <h2 id="testAnalysisTitle">Разбор теста</h2>
             <div id="testAnalysisContent">
                 <div style="text-align: center; padding: 2rem;">
-                    <div class="spinner" style="border: 4px solid var(--bg-secondary); border-top: 4px solid var(--primary-color); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+                    <div class="spinner"
+                        style="border: 4px solid var(--bg-secondary); border-top: 4px solid var(--primary-color); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto;">
+                    </div>
                     <p style="margin-top: 1rem; color: var(--text-secondary);">Загрузка разбора...</p>
                 </div>
             </div>
@@ -161,9 +178,15 @@
 
     <style>
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
+
         .test-analysis-item {
             margin: 1.5rem 0;
             padding: 1.5rem;
@@ -171,34 +194,41 @@
             border: 1px solid var(--border-light);
             background: var(--bg-secondary);
         }
+
         .test-analysis-item.correct {
             border-left: 4px solid var(--success-color);
             background: linear-gradient(90deg, rgba(16, 185, 129, 0.05) 0%, var(--bg-secondary) 4%);
         }
+
         .test-analysis-item.incorrect {
             border-left: 4px solid var(--danger-color);
             background: linear-gradient(90deg, rgba(220, 38, 38, 0.05) 0%, var(--bg-secondary) 4%);
         }
+
         .test-analysis-question {
             font-weight: 600;
             font-size: 1.1rem;
             margin-bottom: 1rem;
             color: var(--text-color);
         }
+
         .test-analysis-answer {
             padding: 0.75rem 1rem;
             margin: 0.5rem 0;
             border-radius: var(--radius);
             background: var(--card-bg);
         }
+
         .test-analysis-answer.user-answer {
             border: 2px solid var(--danger-color);
             background: rgba(220, 38, 38, 0.1);
         }
+
         .test-analysis-answer.correct-answer {
             border: 2px solid var(--success-color);
             background: rgba(16, 185, 129, 0.1);
         }
+
         .test-analysis-label {
             font-size: 0.875rem;
             font-weight: 600;
@@ -227,14 +257,14 @@
         document.addEventListener('DOMContentLoaded', async () => {
             initTheme();
             setupEventListeners();
-            
+
             // Загружаем пользователя и проверяем авторизацию
             const token = localStorage.getItem('token');
             if (!token) {
                 window.location.href = '/login';
                 return;
             }
-            
+
             currentToken = token;
             if (typeof window.fetchUser === 'function') {
                 await window.fetchUser();
@@ -243,19 +273,19 @@
                 window.location.href = '/login';
                 return;
             }
-            
+
             if (!window.currentUser) {
                 window.location.href = '/login';
                 return;
             }
-            
+
             // Загружаем профиль после успешной авторизации
             if (typeof window.loadProfile === 'function') {
                 await window.loadProfile();
             } else {
                 console.error('loadProfile не найдена');
             }
-            
+
             // Обработчик формы изменения пароля
             const changePasswordForm = document.getElementById('changePasswordForm');
             if (changePasswordForm) {
@@ -264,5 +294,5 @@
         });
     </script>
 </body>
-</html>
 
+</html>

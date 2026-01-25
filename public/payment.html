@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,29 +15,29 @@
             border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        
+
         .payment-header {
             text-align: center;
             margin-bottom: 2rem;
         }
-        
+
         .payment-form {
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
         }
-        
+
         .form-group {
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
         }
-        
+
         .form-group label {
             font-weight: 600;
             color: var(--text-primary);
         }
-        
+
         .form-group input,
         .form-group select,
         .form-group textarea {
@@ -48,14 +49,14 @@
             color: var(--text-primary);
             transition: border-color 0.3s;
         }
-        
+
         .form-group input:focus,
         .form-group select:focus,
         .form-group textarea:focus {
             outline: none;
             border-color: var(--primary-color);
         }
-        
+
         .amount-display {
             font-size: 2rem;
             font-weight: bold;
@@ -65,19 +66,19 @@
             background: var(--bg-secondary);
             border-radius: 8px;
         }
-        
+
         .payment-info {
             background: var(--bg-secondary);
             padding: 1rem;
             border-radius: 8px;
             margin-bottom: 1rem;
         }
-        
+
         .payment-info p {
             margin: 0.5rem 0;
             color: var(--text-secondary);
         }
-        
+
         .btn-pay {
             padding: 1rem 2rem;
             font-size: 1.1rem;
@@ -89,18 +90,18 @@
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
         }
-        
+
         .btn-pay:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
-        
+
         .btn-pay:disabled {
             opacity: 0.6;
             cursor: not-allowed;
             transform: none;
         }
-        
+
         .test-mode-badge {
             display: inline-block;
             padding: 0.5rem 1rem;
@@ -111,26 +112,26 @@
             font-weight: 600;
             margin-bottom: 1rem;
         }
-        
+
         .status-message {
             padding: 1rem;
             border-radius: 8px;
             margin-top: 1rem;
             text-align: center;
         }
-        
+
         .status-message.success {
             background: #d4edda;
             color: #155724;
             border: 1px solid #c3e6cb;
         }
-        
+
         .status-message.error {
             background: #f8d7da;
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
-        
+
         .status-message.info {
             background: #d1ecf1;
             color: #0c5460;
@@ -138,11 +139,14 @@
         }
     </style>
 </head>
+
 <body>
     <nav class="navbar">
         <div class="container">
             <div class="nav-brand">
-                <a href="/"><h1>STUD.kg</h1></a>
+                <a href="/">
+                    <h1>STUD.kg</h1>
+                </a>
             </div>
             <div class="nav-menu">
                 <a href="/" class="nav-link">Главная</a>
@@ -167,25 +171,13 @@
             <form id="paymentForm" class="payment-form">
                 <div class="form-group">
                     <label for="amount">Сумма оплаты (сом)</label>
-                    <input 
-                        type="number" 
-                        id="amount" 
-                        name="amount" 
-                        min="1" 
-                        step="0.01" 
-                        value="100" 
-                        required
-                    >
+                    <input type="number" id="amount" name="amount" min="1" step="0.01" value="100" required>
                 </div>
 
                 <div class="form-group">
                     <label for="description">Описание платежа</label>
-                    <textarea 
-                        id="description" 
-                        name="description" 
-                        rows="3" 
-                        placeholder="Оплата за подписку на платформу stud.kg"
-                    ></textarea>
+                    <textarea id="description" name="description" rows="3"
+                        placeholder="Оплата за подписку на платформу stud.kg"></textarea>
                 </div>
 
                 <div class="form-group">
@@ -228,20 +220,45 @@
         // Обновление отображения суммы
         const amountInput = document.getElementById('amount');
         const amountDisplay = document.getElementById('amountDisplay');
-        
-        amountInput.addEventListener('input', function() {
+
+        amountInput.addEventListener('input', function () {
             const amount = parseFloat(this.value) || 0;
             amountDisplay.textContent = `${amount.toFixed(2)} сом`;
         });
+
+        // Заполнение формы из URL параметров
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlAmount = urlParams.get('amount');
+        const urlPaymentType = urlParams.get('paymentType');
+        const urlDescription = urlParams.get('description');
+
+        if (urlAmount) {
+            amountInput.value = urlAmount;
+            amountDisplay.textContent = `${parseFloat(urlAmount).toFixed(2)} сом`;
+        }
+
+        if (urlPaymentType) {
+            const paymentTypeSelect = document.getElementById('paymentType');
+            if (paymentTypeSelect) {
+                paymentTypeSelect.value = urlPaymentType;
+            }
+        }
+
+        if (urlDescription) {
+            const descriptionInput = document.getElementById('description');
+            if (descriptionInput) {
+                descriptionInput.value = urlDescription;
+            }
+        }
 
         // Обработка формы оплаты
         const paymentForm = document.getElementById('paymentForm');
         const payButton = document.getElementById('payButton');
         const statusMessage = document.getElementById('statusMessage');
 
-        paymentForm.addEventListener('submit', async function(e) {
+        paymentForm.addEventListener('submit', async function (e) {
             e.preventDefault();
-            
+
             const amount = parseFloat(amountInput.value);
             const description = document.getElementById('description').value;
             const paymentType = document.getElementById('paymentType').value;
@@ -272,8 +289,10 @@
                         amount,
                         description: description || `Оплата: ${paymentType}`,
                         paymentType,
+                        subscriptionType: '1', // По умолчанию 1 месяц
                         fields: {
                             paymentType,
+                            subscriptionType: '1',
                             description: description || `Оплата: ${paymentType}`
                         }
                     })
@@ -285,7 +304,7 @@
                 if (response.ok) {
                     if (data.success && data.paymentUrl) {
                         showMessage('Платеж создан! Перенаправление на страницу оплаты...', 'success');
-                        
+
                         // Редирект на страницу оплаты Finik
                         setTimeout(() => {
                             window.location.href = data.paymentUrl;
@@ -311,7 +330,7 @@
             statusMessage.textContent = message;
             statusMessage.className = `status-message ${type}`;
             statusMessage.style.display = 'block';
-            
+
             setTimeout(() => {
                 statusMessage.style.display = 'none';
             }, 5000);
@@ -328,5 +347,5 @@
         });
     </script>
 </body>
-</html>
 
+</html>
