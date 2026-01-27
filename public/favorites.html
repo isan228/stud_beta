@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
@@ -7,11 +8,14 @@
     <title>Избранное - STUD.kg</title>
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <nav class="navbar">
         <div class="container">
             <div class="nav-brand">
-                <a href="/"><h1>STUD.kg</h1></a>
+                <a href="/">
+                    <h1>STUD.kg</h1>
+                </a>
             </div>
             <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Меню">
                 <span></span>
@@ -31,7 +35,8 @@
                         <span class="theme-icon">🌙</span>
                     </button>
                     <a href="/login" class="btn btn-primary" id="loginBtn" style="display: none;">Войти</a>
-                    <a href="/register" class="btn btn-secondary" id="registerBtn" style="display: none;">Регистрация</a>
+                    <a href="/register" class="btn btn-secondary" id="registerBtn"
+                        style="display: none;">Регистрация</a>
                     <button class="btn btn-logout" id="logoutBtn">Выход</button>
                 </div>
             </div>
@@ -43,7 +48,7 @@
             <div class="page-header">
                 <h1>Избранные вопросы</h1>
                 <p class="page-description">
-                    Здесь собраны все вопросы, которые вы добавили в избранное. 
+                    Здесь собраны все вопросы, которые вы добавили в избранное.
                     Используйте их для повторения сложных тем или создайте персональный тест.
                 </p>
             </div>
@@ -64,7 +69,7 @@
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2024 STUD.kg. Все права защищены.</p>
+                <p>&copy; 2026 STUD.kg. Все права защищены.</p>
             </div>
         </div>
     </footer>
@@ -75,7 +80,7 @@
         document.addEventListener('DOMContentLoaded', async () => {
             initTheme();
             setupEventListeners();
-            
+
             // Загружаем пользователя и ждем завершения
             const token = localStorage.getItem('token');
             if (token) {
@@ -107,5 +112,5 @@
         });
     </script>
 </body>
-</html>
 
+</html>

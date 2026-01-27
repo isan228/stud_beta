@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
@@ -7,11 +8,14 @@
     <title>Тесты - stud.kg</title>
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <nav class="navbar">
         <div class="container">
             <div class="nav-brand">
-                <a href="/"><h1>stud.kg</h1></a>
+                <a href="/">
+                    <h1>stud.kg</h1>
+                </a>
             </div>
             <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Меню">
                 <span></span>
@@ -43,27 +47,23 @@
             <div class="page-header">
                 <h1>Выберите предмет</h1>
                 <p class="page-description">
-                    Выберите интересующий вас предмет для начала подготовки. 
+                    Выберите интересующий вас предмет для начала подготовки.
                     Каждый предмет содержит множество тестов различной сложности.
                 </p>
             </div>
-            
+
             <!-- Поиск по предметам -->
             <div class="search-container">
                 <div class="search-wrapper">
                     <span class="search-icon">🔍</span>
-                    <input 
-                        type="text" 
-                        id="subjectSearch" 
-                        class="search-input" 
-                        placeholder="Поиск по предметам..."
-                        autocomplete="off"
-                    >
-                    <button id="clearSearch" class="clear-search-btn" style="display: none;" aria-label="Очистить поиск">✕</button>
+                    <input type="text" id="subjectSearch" class="search-input" placeholder="Поиск по предметам..."
+                        autocomplete="off">
+                    <button id="clearSearch" class="clear-search-btn" style="display: none;"
+                        aria-label="Очистить поиск">✕</button>
                 </div>
                 <div id="searchResultsCount" class="search-results-count" style="display: none;"></div>
             </div>
-            
+
             <div id="subjectsList" class="subjects-grid">
                 <div style="text-align: center; padding: 3rem; width: 100%; grid-column: 1 / -1;">
                     <div class="loading" style="margin: 0 auto;"></div>
@@ -80,9 +80,12 @@
                     <h3>stud.kg</h3>
                     <p>Платформа для подготовки к экзаменам</p>
                     <div class="footer-social">
-                        <a href="https://wa.me/996XXXXXXXXX" target="_blank" rel="noopener noreferrer" class="footer-social-link" aria-label="WhatsApp">💬</a>
-                        <a href="https://t.me/stud_kg" target="_blank" rel="noopener noreferrer" class="footer-social-link" aria-label="Telegram">✈️</a>
-                        <a href="https://instagram.com/stud.kg" target="_blank" rel="noopener noreferrer" class="footer-social-link" aria-label="Instagram">📷</a>
+                        <a href="https://wa.me/996XXXXXXXXX" target="_blank" rel="noopener noreferrer"
+                            class="footer-social-link" aria-label="WhatsApp">💬</a>
+                        <a href="https://t.me/stud_kg" target="_blank" rel="noopener noreferrer"
+                            class="footer-social-link" aria-label="Telegram">✈️</a>
+                        <a href="https://instagram.com/stud.kg" target="_blank" rel="noopener noreferrer"
+                            class="footer-social-link" aria-label="Instagram">📷</a>
                     </div>
                 </div>
                 <div class="footer-section">
@@ -96,7 +99,7 @@
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2024 stud.kg. Все права защищены.</p>
+                <p>&copy; 2026 stud.kg. Все права защищены.</p>
             </div>
         </div>
     </footer>
@@ -109,12 +112,14 @@
             <span class="modal-close" id="registerModalClose">&times;</span>
             <h2>Регистрация требуется</h2>
             <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">
-                Для доступа к тестам необходимо зарегистрироваться. 
+                Для доступа к тестам необходимо зарегистрироваться.
                 Создайте аккаунт, чтобы начать подготовку к экзаменам.
             </p>
             <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
-                <a href="/register" class="btn btn-primary" style="flex: 1; min-width: 150px; text-align: center;">Зарегистрироваться</a>
-                <a href="/login" class="btn btn-secondary" style="flex: 1; min-width: 150px; text-align: center;">Войти</a>
+                <a href="/register" class="btn btn-primary"
+                    style="flex: 1; min-width: 150px; text-align: center;">Зарегистрироваться</a>
+                <a href="/login" class="btn btn-secondary"
+                    style="flex: 1; min-width: 150px; text-align: center;">Войти</a>
             </div>
         </div>
     </div>
@@ -125,7 +130,7 @@
             window.initTheme();
             const userLoaded = await window.loadUser();
             window.setupEventListeners();
-            
+
             // Загружаем предметы (бесплатные тесты доступны без авторизации)
             console.log('Загрузка предметов. currentUser:', window.currentUser, 'userLoaded:', userLoaded);
             if (typeof window.loadSubjects === 'function') {
@@ -133,11 +138,11 @@
             } else {
                 console.error('loadSubjects не найдена');
             }
-            
+
             // Настройка поиска по предметам
             const searchInput = document.getElementById('subjectSearch');
             const clearBtn = document.getElementById('clearSearch');
-            
+
             if (searchInput) {
                 // Поиск при вводе текста
                 let searchTimeout;
@@ -149,7 +154,7 @@
                         }
                     }, 300); // Задержка 300мс для оптимизации
                 });
-                
+
                 // Поиск при нажатии Enter
                 searchInput.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') {
@@ -160,7 +165,7 @@
                     }
                 });
             }
-            
+
             // Кнопка очистки поиска
             if (clearBtn) {
                 clearBtn.addEventListener('click', () => {
@@ -176,5 +181,5 @@
         });
     </script>
 </body>
-</html>
 
+</html>
