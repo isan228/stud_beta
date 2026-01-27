@@ -2385,12 +2385,67 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
     }
 
-    function proceedToPayment() {
+    async function proceedToPayment() {
         const paymentType = 'subscription';
-        const description = `Продление подписки на ${selectedPlan.months} ${getMonthDeclension(selectedPlan.months)}`;
+        // Формируем описание: "Продление подписки: 1 месяц"
+        const description = `Продление подписки: ${selectedPlan.months} ${getMonthDeclension(selectedPlan.months)}`;
         const subscriptionType = selectedPlan.months.toString();
 
-        window.location.href = `/payment.html?amount=${selectedPlan.price}&paymentType=${paymentType}&description=${description}&subscriptionType=${subscriptionType}`;
+        // Показываем индикатор загрузки
+        const payBtn = document.querySelector('#renewalModal .btn-primary');
+        const originalText = payBtn.textContent;
+        payBtn.disabled = true;
+        payBtn.textContent = 'Создание платежа...';
+
+        try {
+            // Получаем токен из localStorage
+            const token = localStorage.getItem('token');
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            } else {
+                // Если токена нет, пробуем глобальную переменную или перенаправляем на логин
+                if (typeof currentToken !== 'undefined' && currentToken) {
+                    headers['Authorization'] = `Bearer ${currentToken}`;
+                } else {
+                    console.error('No auth token found');
+                    showNotification('Ошибка авторизации. Пожалуйста, войдите в систему.', 'error');
+                    setTimeout(() => window.location.href = '/login', 2000);
+                    return;
+                }
+            }
+
+            // Отправляем запрос на создание платежа
+            const response = await fetch('/api/payments/create', {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify({
+                    amount: selectedPlan.price,
+                    description: description,
+                    paymentType: paymentType,
+                    subscriptionType: subscriptionType
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success && data.paymentUrl) {
+                // Успешно, перенаправляем на страницу оплаты Finik
+                window.location.href = data.paymentUrl;
+            } else {
+                console.error('Payment creation failed:', data);
+                showNotification(data.error || data.message || 'Ошибка создания платежа', 'error');
+                payBtn.disabled = false;
+                payBtn.textContent = originalText;
+            }
+        } catch (error) {
+            console.error('Error proceeding to payment:', error);
+            showNotification('Ошибка соединения с сервером', 'error');
+            payBtn.disabled = false;
+            payBtn.textContent = originalText;
+        }
     }
 
     function getMonthDeclension(months) {
