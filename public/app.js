@@ -2364,7 +2364,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
     }
 
-    let selectedPlan = { months: 1, price: 100 };
+    let selectedPlan = { months: 1, price: 150 };
 
     function selectPlan(card) {
         // Убираем выделение со всех карточек
