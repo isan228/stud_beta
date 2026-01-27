@@ -189,6 +189,8 @@
                     </select>
                 </div>
 
+                <input type="hidden" id="subscriptionType" name="subscriptionType" value="1">
+
                 <div class="amount-display" id="amountDisplay">
                     100 сом
                 </div>
@@ -220,6 +222,7 @@
         // Обновление отображения суммы
         const amountInput = document.getElementById('amount');
         const amountDisplay = document.getElementById('amountDisplay');
+        const subscriptionTypeInput = document.getElementById('subscriptionType');
 
         amountInput.addEventListener('input', function () {
             const amount = parseFloat(this.value) || 0;
@@ -231,6 +234,7 @@
         const urlAmount = urlParams.get('amount');
         const urlPaymentType = urlParams.get('paymentType');
         const urlDescription = urlParams.get('description');
+        const urlSubscriptionType = urlParams.get('subscriptionType');
 
         if (urlAmount) {
             amountInput.value = urlAmount;
@@ -251,6 +255,12 @@
             }
         }
 
+        if (urlSubscriptionType) {
+            if (subscriptionTypeInput) {
+                subscriptionTypeInput.value = urlSubscriptionType;
+            }
+        }
+
         // Обработка формы оплаты
         const paymentForm = document.getElementById('paymentForm');
         const payButton = document.getElementById('payButton');
@@ -262,6 +272,7 @@
             const amount = parseFloat(amountInput.value);
             const description = document.getElementById('description').value;
             const paymentType = document.getElementById('paymentType').value;
+            const subscriptionType = subscriptionTypeInput ? subscriptionTypeInput.value : '1';
 
             if (amount <= 0) {
                 showMessage('Введите корректную сумму', 'error');
@@ -289,10 +300,10 @@
                         amount,
                         description: description || `Оплата: ${paymentType}`,
                         paymentType,
-                        subscriptionType: '1', // По умолчанию 1 месяц
+                        subscriptionType: subscriptionType,
                         fields: {
                             paymentType,
-                            subscriptionType: '1',
+                            subscriptionType: subscriptionType,
                             description: description || `Оплата: ${paymentType}`
                         }
                     })
