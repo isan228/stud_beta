@@ -2347,14 +2347,61 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     // Продление подписки
     function renewSubscription() {
-        // Перенаправляем на страницу оплаты с параметрами
-        // amount=100 (цена за месяц)
-        // paymentType=subscription
-        // description=Продление подписки
-        window.location.href = '/payment?amount=100&paymentType=subscription&description=Продление подписки&subscriptionType=1';
+        const modal = document.getElementById('renewalModal');
+        if (modal) {
+            modal.style.display = 'block';
+
+            // Обработчик закрытия
+            const closeBtn = document.getElementById('renewalModalClose');
+            if (closeBtn) {
+                closeBtn.onclick = () => modal.style.display = 'none';
+            }
+
+            // Закрытие по клику вне
+            window.onclick = (e) => {
+                if (e.target === modal) modal.style.display = 'none';
+            };
+        }
+    }
+
+    let selectedPlan = { months: 1, price: 100 };
+
+    function selectPlan(card) {
+        // Убираем выделение со всех карточек
+        document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'));
+        // Выделяем текущую
+        card.classList.add('selected');
+
+        // Обновляем данные
+        selectedPlan = {
+            months: parseInt(card.dataset.months),
+            price: parseInt(card.dataset.price)
+        };
+
+        // Обновляем итоговую цену
+        const totalEl = document.getElementById('totalPrice');
+        if (totalEl) {
+            totalEl.textContent = `${selectedPlan.price} сом`;
+        }
+    }
+
+    function proceedToPayment() {
+        const paymentType = 'subscription';
+        const description = `Продление подписки на ${selectedPlan.months} ${getMonthDeclension(selectedPlan.months)}`;
+        const subscriptionType = selectedPlan.months.toString();
+
+        window.location.href = `/payment.html?amount=${selectedPlan.price}&paymentType=${paymentType}&description=${description}&subscriptionType=${subscriptionType}`;
+    }
+
+    function getMonthDeclension(months) {
+        if (months === 1) return 'месяц';
+        if (months >= 2 && months <= 4) return 'месяца';
+        return 'месяцев';
     }
 
     // Глобальные функции для onclick
+    window.selectPlan = selectPlan;
+    window.proceedToPayment = proceedToPayment;
     // Экспорт функций для использования в HTML
     window.loadUser = loadUser;
     window.fetchUser = fetchUser;

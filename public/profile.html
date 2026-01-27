@@ -160,6 +160,56 @@
         </div>
     </main>
 
+    <!-- Модальное окно продления подписки -->
+    <div id="renewalModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="close" id="renewalModalClose">&times;</span>
+            <h2 style="margin-bottom: 1.5rem; text-align: center;">Продление подписки</h2>
+
+            <div class="subscription-plans">
+                <div class="plan-card selected" data-months="1" data-price="100" onclick="selectPlan(this)">
+                    <div class="plan-header">
+                        <span class="plan-name">1 Месяц</span>
+                        <span class="plan-price">100 сом</span>
+                    </div>
+                </div>
+
+                <div class="plan-card" data-months="3" data-price="270" onclick="selectPlan(this)">
+                    <div class="plan-header">
+                        <span class="plan-name">3 Месяца</span>
+                        <span class="plan-price">270 сом</span>
+                    </div>
+                    <div class="plan-badge">-10%</div>
+                </div>
+
+                <div class="plan-card" data-months="6" data-price="500" onclick="selectPlan(this)">
+                    <div class="plan-header">
+                        <span class="plan-name">6 Месяцев</span>
+                        <span class="plan-price">500 сом</span>
+                    </div>
+                    <div class="plan-badge">-17%</div>
+                </div>
+
+                <div class="plan-card" data-months="12" data-price="900" onclick="selectPlan(this)">
+                    <div class="plan-header">
+                        <span class="plan-name">12 Месяцев</span>
+                        <span class="plan-price">900 сом</span>
+                    </div>
+                    <div class="plan-badge">-25%</div>
+                </div>
+            </div>
+
+            <div class="total-section"
+                style="margin: 2rem 0; padding-top: 1rem; border-top: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 1.1rem; color: var(--text-secondary);">Итого к оплате:</span>
+                <span id="totalPrice" style="font-size: 1.5rem; font-weight: 700; color: var(--primary-color);">100
+                    сом</span>
+            </div>
+
+            <button class="btn btn-primary btn-block btn-large" onclick="proceedToPayment()">Перейти к оплате</button>
+        </div>
+    </div>
+
     <!-- Модальное окно разбора теста -->
     <div id="testAnalysisModal" class="modal" style="display: none;">
         <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
