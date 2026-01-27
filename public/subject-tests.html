@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
@@ -7,11 +8,14 @@
     <title>Тесты по предмету - stud.kg</title>
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <nav class="navbar">
         <div class="container">
             <div class="nav-brand">
-                <a href="/"><h1>stud.kg</h1></a>
+                <a href="/">
+                    <h1>stud.kg</h1>
+                </a>
             </div>
             <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Меню">
                 <span></span>
@@ -68,9 +72,10 @@
     <div id="notification" class="notification"></div>
     <script src="app.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            initTheme();
-            loadUser();
+        <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+                initTheme();
+            await loadUser();
             setupEventListeners();
             const urlParams = new URLSearchParams(window.location.search);
             const subjectId = urlParams.get('id');
@@ -83,6 +88,7 @@
             }
         });
     </script>
+    </script>
 </body>
-</html>
 
+</html>
