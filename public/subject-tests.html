@@ -72,9 +72,8 @@
     <div id="notification" class="notification"></div>
     <script src="app.js"></script>
     <script>
-        <script>
         document.addEventListener('DOMContentLoaded', async () => {
-                initTheme();
+            initTheme();
             await loadUser();
             setupEventListeners();
             const urlParams = new URLSearchParams(window.location.search);
@@ -87,7 +86,6 @@
                 window.location.href = '/tests';
             }
         });
-    </script>
     </script>
 </body>
 
