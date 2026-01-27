@@ -424,6 +424,8 @@ router.post('/webhook', async (req, res) => {
 
       // Обработка успешного платежа (для новых транзакций)
       if (transaction.status === 'SUCCEEDED') {
+        let isSubscriptionProcessed = false;
+
         // Ищем registrationData в разных местах
         let registrationData = registrationDataFromFields;
 
@@ -469,7 +471,7 @@ router.post('/webhook', async (req, res) => {
               console.log(`✅ Subscription end date set for user ${newUser.id}: ${subscriptionEndDate.toISOString()}`);
 
               // Помечаем, что подписка уже обновлена, чтобы не обновлять второй раз ниже
-              transaction.subscriptionUpdated = true;
+              isSubscriptionProcessed = true;
             }
           } catch (error) {
             // ...
@@ -478,7 +480,9 @@ router.post('/webhook', async (req, res) => {
 
         // ... (logging for no registration data) ...
 
-        if (transaction.userId && !transaction.subscriptionUpdated) {
+        // ... (logging for no registration data) ...
+
+        if (transaction.userId && !isSubscriptionProcessed) {
           // Обновляем подписку пользователя, если это платеж за подписку (и она еще не была обновлена выше)
           // ... (existing subscription update logic) ...
         }
