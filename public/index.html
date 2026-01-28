@@ -205,6 +205,11 @@
             initTheme();
             await loadUser();
             setupEventListeners();
+            
+            // Загружаем тесты для главной страницы
+            if (typeof loadHomepageTests === 'function') {
+                loadHomepageTests();
+            }
 
             // Обработчик для кнопки "Перейти к тестам"
             const goToTestsBtn = document.getElementById('goToTestsBtn');
