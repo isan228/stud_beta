@@ -789,6 +789,51 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
     }
 
+    // Загрузка тестов для главной страницы
+    async function loadHomepageTests() {
+        const container = document.getElementById('latestTestsList');
+        const section = document.getElementById('latestTests');
+        
+        if (!container || !section) return;
+
+        try {
+            let url = `${API_URL}/tests/latest`;
+            
+            // Проверяем подписку
+            const hasSubscription = currentUser && currentUser.subscriptionEndDate && new Date(currentUser.subscriptionEndDate) > new Date();
+            
+            // Если нет подписки, запрашиваем только бесплатные
+            if (!currentUser || !hasSubscription) {
+                url += '?free=true';
+            }
+
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Failed to fetch tests');
+            
+            const tests = await response.json();
+
+            if (tests.length > 0) {
+                container.innerHTML = tests.map((test, index) => {
+                    const testName = encodeURIComponent(test.name);
+                    const isFree = test.isFree || false;
+                    return `
+                    <div class="test-card card-animate" style="animation-delay: ${index * 0.1}s;" onclick="window.location.href='/test-settings?id=${test.id}&name=${testName}&questions=${test.Questions?.length || 0}'">
+                        <h3>${test.name} ${isFree ? '<span style="background: #10b981; color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">БЕСПЛАТНО</span>' : ''}</h3>
+                        <p><strong>Вопросов:</strong> ${test.Questions?.length || 0}</p>
+                        ${test.description ? `<p style="margin-top: 0.5rem; font-size: 0.9rem;">${test.description}</p>` : ''}
+                    </div>
+                `;
+                }).join('');
+                section.style.display = 'block';
+            } else {
+                section.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки тестов на главной:', error);
+            section.style.display = 'none';
+        }
+    }
+
     let currentTestId = null;
     let currentTestQuestionCount = 0;
 
