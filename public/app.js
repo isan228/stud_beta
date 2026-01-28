@@ -731,9 +731,12 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         currentSubjectDescription = subjectDescription;
 
         try {
-            // Если пользователь не авторизован, загружаем только бесплатные тесты
+            // Если пользователь не авторизован или нет активной подписки, загружаем только бесплатные тесты
             let url = `${API_URL}/tests/subjects/${subjectId}/tests`;
-            if (!currentUser) {
+            
+            const hasSubscription = currentUser && currentUser.subscriptionEndDate && new Date(currentUser.subscriptionEndDate) > new Date();
+            
+            if (!currentUser || !hasSubscription) {
                 url = `${API_URL}/tests/subjects/${subjectId}/tests/free`;
             }
 
@@ -748,7 +751,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             const descEl = document.getElementById('subjectDescription');
             if (descEl) {
                 if (!currentUser) {
-                    descEl.textContent = 'Бесплатные тесты доступны без регистрации. Выберите тест для прохождения.';
+                    descEl.textContent = 'Бесплатные тесты доступны без регистрации. Войдите или зарегистрируйтесь для полного доступа.';
+                } else if (!hasSubscription) {
+                     descEl.textContent = 'У вас нет активной подписки. Вам доступны только бесплатные тесты. Оформите подписку для доступа ко всем материалам.';
                 } else {
                     descEl.textContent = subjectDescription || `Выберите тест для прохождения. Каждый тест можно настроить под свои потребности.`;
                 }
@@ -758,7 +763,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             if (container) {
                 if (tests.length === 0) {
                     if (!currentUser) {
-                        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 3rem;">Бесплатные тесты по данному предмету пока не добавлены. <a href="/register" style="color: var(--primary-color);">Зарегистрируйтесь</a> для доступа ко всем тестам.</p>';
+                        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 3rem;">Бесплатные тесты по данному предмету пока не добавлены. <a href="/register" style="color: var(--primary-color);">Зарегистрируйтесь</a> и оформите подписку для доступа ко всем тестам.</p>';
+                    } else if (!hasSubscription) {
+                        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 3rem;">Бесплатные тесты по данному предмету пока не добавлены. <a href="/profile" style="color: var(--primary-color);">Оформите подписку</a> для доступа к платным тестам.</p>';
                     } else {
                         container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 3rem;">Тесты по данному предмету пока не добавлены</p>';
                     }
