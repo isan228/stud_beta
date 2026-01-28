@@ -3,6 +3,34 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const { Test, Question, Answer, Subject, Favorite } = require('../models');
 
+// Получить последние тесты (для главной страницы)
+router.get('/latest', async (req, res) => {
+  try {
+    const isFreeOnly = req.query.free === 'true';
+    const whereClause = {};
+    
+    if (isFreeOnly) {
+      whereClause.isFree = true;
+    }
+
+    const tests = await Test.findAll({
+      where: whereClause,
+      limit: 6,
+      order: [['createdAt', 'DESC']],
+      include: [{
+        model: Question,
+        as: 'Questions',
+        attributes: ['id']
+      }]
+    });
+
+    res.json(tests);
+  } catch (error) {
+    console.error('Ошибка получения последних тестов:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 // Получить все предметы
 router.get('/subjects', async (req, res) => {
   try {
