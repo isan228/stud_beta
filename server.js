@@ -105,6 +105,7 @@ const pages = {
   '/about': 'about.html',
   '/favorites': 'favorites.html',
   '/profile': 'profile.html',
+  '/rating': 'rating.html',
   '/contact': 'contact.html',
   '/login': 'login.html',
   '/register': 'register.html',

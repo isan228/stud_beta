@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const { UserStats, TestResult, Test, Subject } = require('../models');
+const { UserStats, TestResult, Test, Subject, User } = require('../models');
 const { Op } = require('sequelize');
 
 // Получить статистику пользователя
@@ -109,6 +109,37 @@ router.post('/stats/test-result', auth, async (req, res) => {
     res.json({ message: 'Результат сохранен', result });
   } catch (error) {
     console.error('Ошибка сохранения результата:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Рейтинг: кто больше всего правильно сдаёт тесты (по количеству правильных ответов)
+router.get('/leaderboard', async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit, 10) || 100, 200);
+    const rows = await UserStats.findAll({
+      include: [{
+        model: User,
+        attributes: ['id', 'username'],
+        required: true
+      }],
+      order: [['correctAnswers', 'DESC']],
+      limit
+    });
+    const leaderboard = rows.map((row, index) => ({
+      rank: index + 1,
+      userId: row.User?.id,
+      username: row.User?.username || '—',
+      correctAnswers: row.correctAnswers || 0,
+      totalQuestionsAnswered: row.totalQuestionsAnswered || 0,
+      totalTestsCompleted: row.totalTestsCompleted || 0,
+      accuracy: row.totalQuestionsAnswered > 0
+        ? Math.round((row.correctAnswers / row.totalQuestionsAnswered) * 100)
+        : 0
+    }));
+    res.json({ leaderboard });
+  } catch (error) {
+    console.error('Ошибка получения рейтинга:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
