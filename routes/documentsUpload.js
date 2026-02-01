@@ -18,10 +18,11 @@ const storage = multer.diskStorage({
     cb(null, DOC_DIR);
   },
   filename: (req, file, cb) => {
-    const type = req.body.documentType === 'privacy' ? 'privacy' : 'offer';
+    // Отличительные имена: публичная оферта и политика конфиденциальности не дублируются
+    const baseName = req.body.documentType === 'privacy' ? 'politika_konfidencialnosti' : 'publichnaya_oferta';
     const ext = path.extname(file.originalname) || '.pdf';
     const safeExt = ['.pdf', '.doc', '.docx'].includes(ext.toLowerCase()) ? ext : '.pdf';
-    cb(null, type + safeExt);
+    cb(null, baseName + safeExt);
   }
 });
 
