@@ -1235,8 +1235,8 @@ async function loadDocumentsSettings() {
 
 async function uploadDocumentFile(type, file, urlInput) {
     const formData = new FormData();
-    formData.append('document', file);
-    formData.append('documentType', type);
+    const fieldName = type === 'privacy' ? 'documentPrivacy' : 'documentOffer';
+    formData.append(fieldName, file);
     try {
         const response = await fetch(`${ADMIN_API_URL}/upload-document`, {
             method: 'POST',

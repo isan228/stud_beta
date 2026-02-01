@@ -18,8 +18,8 @@ const storage = multer.diskStorage({
     cb(null, DOC_DIR);
   },
   filename: (req, file, cb) => {
-    // Отличительные имена: публичная оферта и политика конфиденциальности не дублируются
-    const baseName = req.body.documentType === 'privacy' ? 'politika_konfidencialnosti' : 'publichnaya_oferta';
+    // Тип по имени поля — req.body при multipart часто ещё пустой, поэтому не используем documentType
+    const baseName = file.fieldname === 'documentPrivacy' ? 'politika_konfidencialnosti' : 'publichnaya_oferta';
     const ext = path.extname(file.originalname) || '.pdf';
     const safeExt = ['.pdf', '.doc', '.docx'].includes(ext.toLowerCase()) ? ext : '.pdf';
     cb(null, baseName + safeExt);
@@ -40,17 +40,24 @@ const upload = multer({
   }
 });
 
-router.post('/upload-document', adminAuth, upload.single('document'), async (req, res) => {
+router.post('/upload-document', adminAuth, upload.fields([
+  { name: 'documentOffer', maxCount: 1 },
+  { name: 'documentPrivacy', maxCount: 1 }
+]), async (req, res) => {
   try {
-    if (!req.file) {
+    const fileOffer = req.files?.documentOffer?.[0];
+    const filePrivacy = req.files?.documentPrivacy?.[0];
+    if (!fileOffer && !filePrivacy) {
       return res.status(400).json({ error: 'Файл не выбран' });
     }
-    const type = req.body.documentType;
-    if (!type || !['offer', 'privacy'].includes(type)) {
-      return res.status(400).json({ error: 'Укажите тип документа: offer или privacy' });
+    if (fileOffer && filePrivacy) {
+      return res.status(400).json({ error: 'Загрузите только один документ за раз' });
     }
-    const relativePath = '/documents/' + req.file.filename;
-    const key = type === 'privacy' ? DOC_KEYS.privacyPolicyUrl : DOC_KEYS.publicOfferUrl;
+
+    const file = fileOffer || filePrivacy;
+    const key = filePrivacy ? DOC_KEYS.privacyPolicyUrl : DOC_KEYS.publicOfferUrl;
+    const relativePath = '/documents/' + file.filename;
+
     let row = await Setting.findOne({ where: { key } });
     if (row) {
       row.value = relativePath;
