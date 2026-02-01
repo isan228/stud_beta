@@ -91,6 +91,7 @@ try {
   console.warn('⚠️  Роут загрузки PDF не загружен:', error.message);
   console.warn('   Загрузка PDF будет недоступна. Используйте ручной ввод вопросов.');
 }
+app.use('/api/admin', require('./routes/documentsUpload'));
 
 // Маршруты для страниц (ДО статических файлов!)
 const pages = {

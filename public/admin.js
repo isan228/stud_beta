@@ -1190,6 +1190,30 @@ function setupAdminEventListeners() {
     if (saveDocsBtn) {
         saveDocsBtn.addEventListener('click', saveDocumentsSettings);
     }
+
+    const uploadOfferBtn = document.getElementById('uploadOfferBtn');
+    const docPublicOfferFile = document.getElementById('docPublicOfferFile');
+    if (uploadOfferBtn && docPublicOfferFile) {
+        uploadOfferBtn.addEventListener('click', () => docPublicOfferFile.click());
+        docPublicOfferFile.addEventListener('change', () => {
+            if (docPublicOfferFile.files && docPublicOfferFile.files[0]) {
+                uploadDocumentFile('offer', docPublicOfferFile.files[0], document.getElementById('docPublicOfferUrl'));
+                docPublicOfferFile.value = '';
+            }
+        });
+    }
+
+    const uploadPrivacyBtn = document.getElementById('uploadPrivacyBtn');
+    const docPrivacyPolicyFile = document.getElementById('docPrivacyPolicyFile');
+    if (uploadPrivacyBtn && docPrivacyPolicyFile) {
+        uploadPrivacyBtn.addEventListener('click', () => docPrivacyPolicyFile.click());
+        docPrivacyPolicyFile.addEventListener('change', () => {
+            if (docPrivacyPolicyFile.files && docPrivacyPolicyFile.files[0]) {
+                uploadDocumentFile('privacy', docPrivacyPolicyFile.files[0], document.getElementById('docPrivacyPolicyUrl'));
+                docPrivacyPolicyFile.value = '';
+            }
+        });
+    }
 }
 
 // Загрузка и сохранение настроек документов (оферта, политика)
@@ -1206,6 +1230,29 @@ async function loadDocumentsSettings() {
         if (privacyInput) privacyInput.value = data.privacyPolicyUrl || '';
     } catch (error) {
         console.error('Ошибка загрузки настроек документов:', error);
+    }
+}
+
+async function uploadDocumentFile(type, file, urlInput) {
+    const formData = new FormData();
+    formData.append('document', file);
+    formData.append('documentType', type);
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/upload-document`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` },
+            body: formData
+        });
+        const result = await response.json().catch(() => ({}));
+        if (response.ok && result.url) {
+            if (urlInput) urlInput.value = result.url;
+            showNotification(result.message || 'Документ загружен', 'success');
+        } else {
+            showNotification(result.error || 'Ошибка загрузки', 'error');
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки документа:', error);
+        showNotification('Ошибка соединения с сервером', 'error');
     }
 }
 
