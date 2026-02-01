@@ -80,6 +80,7 @@ app.use('/api/tests', require('./routes/tests'));
 app.use('/api', require('./routes/favorites'));
 app.use('/api', require('./routes/stats'));
 app.use('/api', require('./routes/contact'));
+app.use('/api/settings', require('./routes/settings'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/payments', require('./routes/payments'));
 

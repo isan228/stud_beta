@@ -3,7 +3,7 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const adminAuth = require('../middleware/adminAuth');
-const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, ContactMessage, sequelize } = require('../models');
+const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, ContactMessage, Setting, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { Sequelize } = require('sequelize');
 
@@ -659,6 +659,53 @@ router.get('/dashboard/contact-stats', adminAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Ошибка получения статистики сообщений:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+const DOC_KEYS = { publicOfferUrl: 'publicOfferUrl', privacyPolicyUrl: 'privacyPolicyUrl' };
+
+// Получить ссылки на документы (оферта, политика) для админки
+router.get('/settings/docs', adminAuth, async (req, res) => {
+  try {
+    const rows = await Setting.findAll({ where: { key: Object.values(DOC_KEYS) } });
+    const map = {};
+    rows.forEach(r => { map[r.key] = r.value || ''; });
+    res.json({
+      publicOfferUrl: map[DOC_KEYS.publicOfferUrl] || '',
+      privacyPolicyUrl: map[DOC_KEYS.privacyPolicyUrl] || ''
+    });
+  } catch (error) {
+    console.error('Ошибка получения настроек документов:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Сохранить ссылки на документы
+router.put('/settings/docs', adminAuth, [
+  body('publicOfferUrl').optional({ values: 'null' }).isString().trim(),
+  body('privacyPolicyUrl').optional({ values: 'null' }).isString().trim()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    const { publicOfferUrl = '', privacyPolicyUrl = '' } = req.body;
+    const upsert = async (key, value) => {
+      const row = await Setting.findOne({ where: { key } });
+      if (row) {
+        row.value = value || '';
+        await row.save();
+      } else {
+        await Setting.create({ key, value: value || '' });
+      }
+    };
+    await upsert(DOC_KEYS.publicOfferUrl, publicOfferUrl);
+    await upsert(DOC_KEYS.privacyPolicyUrl, privacyPolicyUrl);
+    res.json({ message: 'Ссылки на документы сохранены', publicOfferUrl, privacyPolicyUrl });
+  } catch (error) {
+    console.error('Ошибка сохранения настроек документов:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

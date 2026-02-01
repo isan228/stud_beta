@@ -1185,6 +1185,54 @@ function setupAdminEventListeners() {
             }
         });
     }
+
+    const saveDocsBtn = document.getElementById('saveDocsBtn');
+    if (saveDocsBtn) {
+        saveDocsBtn.addEventListener('click', saveDocumentsSettings);
+    }
+}
+
+// Загрузка и сохранение настроек документов (оферта, политика)
+async function loadDocumentsSettings() {
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/settings/docs`, {
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        const offerInput = document.getElementById('docPublicOfferUrl');
+        const privacyInput = document.getElementById('docPrivacyPolicyUrl');
+        if (offerInput) offerInput.value = data.publicOfferUrl || '';
+        if (privacyInput) privacyInput.value = data.privacyPolicyUrl || '';
+    } catch (error) {
+        console.error('Ошибка загрузки настроек документов:', error);
+    }
+}
+
+async function saveDocumentsSettings() {
+    const offerInput = document.getElementById('docPublicOfferUrl');
+    const privacyInput = document.getElementById('docPrivacyPolicyUrl');
+    const publicOfferUrl = offerInput ? offerInput.value.trim() : '';
+    const privacyPolicyUrl = privacyInput ? privacyInput.value.trim() : '';
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/settings/docs`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentAdminToken}`
+            },
+            body: JSON.stringify({ publicOfferUrl, privacyPolicyUrl })
+        });
+        if (response.ok) {
+            showNotification('Ссылки на документы сохранены', 'success');
+        } else {
+            const result = await response.json();
+            showNotification(result.error || 'Ошибка сохранения', 'error');
+        }
+    } catch (error) {
+        console.error('Ошибка сохранения настроек документов:', error);
+        showNotification('Ошибка соединения с сервером', 'error');
+    }
 }
 
 // Загрузка PDF
@@ -1307,6 +1355,9 @@ function switchTab(tabName) {
             break;
         case 'messages':
             loadMessages();
+            break;
+        case 'documents':
+            loadDocumentsSettings();
             break;
     }
 }

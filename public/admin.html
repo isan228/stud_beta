@@ -66,6 +66,7 @@
                     <button class="admin-tab" data-tab="tests">Тесты</button>
                     <button class="admin-tab" data-tab="questions">Вопросы</button>
                     <button class="admin-tab" data-tab="messages">Обратная связь</button>
+                    <button class="admin-tab" data-tab="documents">Документы</button>
                 </div>
 
                 <!-- Дашборд -->
@@ -203,6 +204,25 @@
                     </div>
                     <div id="messagesList" class="admin-list"></div>
                     <div id="messagesPagination" class="admin-pagination"></div>
+                </div>
+
+                <!-- Документы (оферта, политика конфиденциальности) -->
+                <div id="documentsTab" class="admin-tab-content">
+                    <div class="admin-section-header">
+                        <h2>Ссылки на документы</h2>
+                        <p class="page-description" style="margin-top: 0.5rem;">Укажите ссылки на файлы или страницы. Они будут отображаться в футере сайта и на странице регистрации.</p>
+                    </div>
+                    <div class="admin-documents-form" style="max-width: 600px; margin-top: 1.5rem;">
+                        <div class="form-group">
+                            <label for="docPublicOfferUrl">Ссылка на публичную оферту</label>
+                            <input type="text" id="docPublicOfferUrl" class="form-group input" placeholder="https://... или /documents/offer.pdf">
+                        </div>
+                        <div class="form-group">
+                            <label for="docPrivacyPolicyUrl">Ссылка на политику конфиденциальности</label>
+                            <input type="text" id="docPrivacyPolicyUrl" class="form-group input" placeholder="https://... или /documents/privacy.pdf">
+                        </div>
+                        <button type="button" class="btn btn-primary" id="saveDocsBtn">Сохранить ссылки</button>
+                    </div>
                 </div>
             </div>
         </div>

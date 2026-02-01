@@ -421,9 +421,27 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         await loadUser();
         setupEventListeners();
         initScrollAnimations();
+        initDocLinks();
 
         // Обработка текущего маршрута при загрузке для загрузки данных
         handleRoute(window.location.pathname);
+    }
+
+    // Подстановка ссылок на документы (оферта, политика) из настроек админки
+    async function initDocLinks() {
+        try {
+            const response = await fetch(`${API_URL}/settings/docs`);
+            if (!response.ok) return;
+            const data = await response.json();
+            document.querySelectorAll('[data-doc="privacy"]').forEach(el => {
+                el.href = (data.privacyPolicyUrl && data.privacyPolicyUrl.trim()) ? data.privacyPolicyUrl.trim() : '/contact';
+            });
+            document.querySelectorAll('[data-doc="offer"]').forEach(el => {
+                el.href = (data.publicOfferUrl && data.publicOfferUrl.trim()) ? data.publicOfferUrl.trim() : '/contact';
+            });
+        } catch (e) {
+            console.warn('Не удалось загрузить ссылки на документы:', e);
+        }
     }
 
     // Не инициализируем app.js на странице админки
@@ -798,6 +816,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
         try {
             let url = `${API_URL}/tests/latest`;
+        console.log('Fetching homepage tests from', url);
             
             // Проверяем подписку
             const hasSubscription = currentUser && currentUser.subscriptionEndDate && new Date(currentUser.subscriptionEndDate) > new Date();
@@ -813,6 +832,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             const tests = await response.json();
 
             if (tests.length > 0) {
+            console.log('Displaying', tests.length, 'tests on homepage');
                 container.innerHTML = tests.map((test, index) => {
                     const testName = encodeURIComponent(test.name);
                     const isFree = test.isFree || false;

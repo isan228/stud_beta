@@ -10,6 +10,7 @@ const UserStats = require('./UserStats');
 const Admin = require('./Admin');
 const ContactMessage = require('./ContactMessage');
 const Transaction = require('./Transaction');
+const Setting = require('./Setting');
 
 // Определение связей
 User.hasMany(TestResult, { foreignKey: 'userId', as: 'TestResults' });
@@ -53,6 +54,7 @@ module.exports = {
   UserStats,
   Admin,
   ContactMessage,
-  Transaction
+  Transaction,
+  Setting
 };
 
