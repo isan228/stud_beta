@@ -189,11 +189,20 @@
                 </div>
             </div>
 
+            <div class="coins-section" style="margin: 1rem 0; padding: 1rem; background: var(--bg-secondary); border-radius: 8px;">
+                <p style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: var(--text-secondary);">Монетки как скидка (1 монетка = 1 сом)</p>
+                <p style="margin: 0 0 0.5rem 0; font-weight: 600;">Доступно: <span id="renewalCoinsBalance">0</span> монет</p>
+                <label style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 0.9rem;">Использовать:</span>
+                    <input type="number" id="renewalCoinsToUse" min="0" value="0" style="width: 80px; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 8px;">
+                    <span style="font-size: 0.9rem;">монет</span>
+                </label>
+            </div>
+
             <div class="total-section"
                 style="margin: 2rem 0; padding-top: 1rem; border-top: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-size: 1.1rem; color: var(--text-secondary);">Итого к оплате:</span>
-                <span id="totalPrice" style="font-size: 1.5rem; font-weight: 700; color: var(--primary-color);">150
-                    сом</span>
+                <span style="font-size: 1.1rem; color: var(--text-secondary);">К оплате картой:</span>
+                <span id="totalPrice" style="font-size: 1.5rem; font-weight: 700; color: var(--primary-color);">150 сом</span>
             </div>
 
             <button class="btn btn-primary btn-block btn-large" onclick="proceedToPayment()">Перейти к оплате</button>

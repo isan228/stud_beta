@@ -344,6 +344,14 @@ router.post('/webhook', async (req, res) => {
               await user.save();
               console.log(`✅ Subscription updated for user ${user.id}: ${subscriptionEndDate.toISOString()} (+${subscriptionMonths} months)`);
             }
+
+            // Списываем монетки, использованные как скидка (курс 1:1)
+            const coinsToUse = transaction.fields?.coinsToUse || 0;
+            if (coinsToUse > 0 && user) {
+              user.coins = Math.max(0, (user.coins || 0) - coinsToUse);
+              await user.save();
+              console.log(`✅ Списано ${coinsToUse} монеток у пользователя ${user.id}. Остаток: ${user.coins}`);
+            }
           } catch (error) {
             console.error('❌ Error updating subscription:', error);
           }
@@ -553,7 +561,8 @@ router.get('/transactions/:id', auth, async (req, res) => {
  */
 router.post('/create', [
   body('amount').isFloat({ min: 0.01 }).withMessage('Сумма должна быть больше 0'),
-  body('description').optional().isString()
+  body('description').optional().isString(),
+  body('coinsToUse').optional().isInt({ min: 0 }).withMessage('Монетки должны быть неотрицательным числом')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -562,6 +571,7 @@ router.post('/create', [
     }
 
     const { amount, description, paymentType } = req.body;
+    let rawAmount = parseFloat(amount);
 
     // Получаем конфигурацию из .env
     const accountId = process.env.FINIK_ACCOUNT_ID;
@@ -578,31 +588,43 @@ router.post('/create', [
 
     // Получаем userId из токена (если есть) или null для тестирования
     let userId = null;
+    let user = null;
     try {
       const token = req.headers.authorization?.replace('Bearer ', '');
       if (token) {
         const jwt = require('jsonwebtoken');
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         userId = decoded.userId;
+        user = await User.findByPk(userId);
       }
     } catch (e) {
       // Игнорируем ошибки токена - работаем без авторизации для теста
       console.log('Тестовый режим: платеж без авторизации');
     }
 
+    // Монетки как скидка: курс 1 к 1 (1 монетка = 1 сом)
+    let coinsToUse = 0;
+    if (userId && user) {
+      const requestedCoins = Math.floor(parseInt(req.body.coinsToUse, 10) || 0);
+      const maxCoinsByBalance = user.coins || 0;
+      const maxCoinsByAmount = Math.max(0, Math.floor(rawAmount - 0.01)); // чтобы к оплате осталось >= 0.01
+      coinsToUse = Math.min(requestedCoins, maxCoinsByBalance, maxCoinsByAmount);
+    }
+    const amountToCharge = Math.max(0.01, rawAmount - coinsToUse);
+
     // Формируем redirect URL с параметрами
     const redirectUrlWithParams = new URL(redirectUrl);
     if (userId) {
       redirectUrlWithParams.searchParams.set('userId', userId);
     }
-    redirectUrlWithParams.searchParams.set('amount', amount);
+    redirectUrlWithParams.searchParams.set('amount', amountToCharge);
     if (description) {
       redirectUrlWithParams.searchParams.set('description', description);
     }
 
-    // Создаем платеж через Finik API
+    // Создаем платеж через Finik API (сумма к списанию с карты = amountToCharge)
     const paymentResult = await createPayment({
-      amount: amount,
+      amount: amountToCharge,
       redirectUrl: redirectUrlWithParams.toString(),
       accountId: accountId,
       merchantCategoryCode: merchantCategoryCode,
@@ -617,17 +639,19 @@ router.post('/create', [
       }
     });
 
-    // Сохраняем транзакцию в БД (со статусом PENDING)
+    // Сохраняем транзакцию в БД (amount = сумма к списанию с карты; originalAmount и coinsToUse в fields)
     const transaction = await Transaction.create({
-      userId: userId, // Может быть null для тестирования
+      userId: userId,
       finikTransactionId: paymentResult.paymentId,
-      amount: amount,
+      amount: amountToCharge,
       status: 'PENDING',
       fields: {
         paymentType: paymentType || 'subscription',
         subscriptionType: req.body.subscriptionType || '1',
         description: description || `Оплата: ${paymentType || 'subscription'}`,
-        testMode: true
+        testMode: true,
+        originalAmount: rawAmount,
+        coinsToUse: coinsToUse
       }
     });
 
@@ -636,7 +660,9 @@ router.post('/create', [
       success: paymentResult.success,
       paymentId: paymentResult.paymentId,
       paymentUrl: paymentResult.paymentUrl,
-      status: paymentResult.status
+      status: paymentResult.status,
+      coinsUsed: coinsToUse,
+      amountToCharge
     });
 
     if (!paymentResult.paymentUrl) {
@@ -650,7 +676,9 @@ router.post('/create', [
       paymentId: paymentResult.paymentId,
       paymentUrl: paymentResult.paymentUrl,
       transactionId: transaction.id,
-      amount: amount
+      amount: amountToCharge,
+      coinsUsed: coinsToUse,
+      originalAmount: rawAmount
     });
 
   } catch (error) {

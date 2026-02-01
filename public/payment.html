@@ -169,6 +169,16 @@
             </div>
 
             <form id="paymentForm" class="payment-form">
+                <div id="paymentCoinsSection" class="payment-info" style="display: none; margin-bottom: 1rem;">
+                    <p><strong>Монетки как скидка</strong> (1 монетка = 1 сом)</p>
+                    <p>Доступно: <span id="paymentCoinsBalance">0</span> монет</p>
+                    <label style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                        <span>Использовать:</span>
+                        <input type="number" id="paymentCoinsToUse" min="0" value="0" style="width: 80px; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 8px;">
+                        <span>монет</span>
+                    </label>
+                </div>
+
                 <div class="form-group">
                     <label for="amount">Сумма оплаты (сом)</label>
                     <input type="number" id="amount" name="amount" min="1" step="0.01" value="150" required>
@@ -192,7 +202,7 @@
                 <input type="hidden" id="subscriptionType" name="subscriptionType" value="1">
 
                 <div class="amount-display" id="amountDisplay">
-                    100 сом
+                    К оплате картой: <span id="amountDisplayValue">150</span> сом
                 </div>
 
                 <button type="submit" class="btn-pay" id="payButton">
@@ -219,15 +229,47 @@
         // Инициализация темы
         initTheme();
 
-        // Обновление отображения суммы
         const amountInput = document.getElementById('amount');
+        const amountDisplayValue = document.getElementById('amountDisplayValue');
         const amountDisplay = document.getElementById('amountDisplay');
         const subscriptionTypeInput = document.getElementById('subscriptionType');
+        const paymentCoinsSection = document.getElementById('paymentCoinsSection');
+        const paymentCoinsBalance = document.getElementById('paymentCoinsBalance');
+        const paymentCoinsToUse = document.getElementById('paymentCoinsToUse');
+
+        let userCoinsForPayment = 0;
+
+        function updatePaymentAmountDisplay() {
+            const amount = parseFloat(amountInput.value) || 0;
+            const coinsToUse = Math.min(parseInt(paymentCoinsToUse?.value, 10) || 0, userCoinsForPayment, Math.floor(amount - 0.01));
+            const toPay = Math.max(0.01, amount - coinsToUse);
+            if (amountDisplayValue) amountDisplayValue.textContent = toPay.toFixed(2);
+        }
 
         amountInput.addEventListener('input', function () {
-            const amount = parseFloat(this.value) || 0;
-            amountDisplay.textContent = `${amount.toFixed(2)} сом`;
+            updatePaymentAmountDisplay();
         });
+        if (paymentCoinsToUse) {
+            paymentCoinsToUse.addEventListener('input', updatePaymentAmountDisplay);
+        }
+
+        // Загрузка монеток пользователя при наличии токена
+        (async function () {
+            const token = localStorage.getItem('token');
+            if (token) {
+                try {
+                    const res = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+                    if (res.ok) {
+                        const data = await res.json();
+                        userCoinsForPayment = data.user?.coins || 0;
+                        if (paymentCoinsBalance) paymentCoinsBalance.textContent = userCoinsForPayment;
+                        if (paymentCoinsSection) paymentCoinsSection.style.display = 'block';
+                        if (paymentCoinsToUse) paymentCoinsToUse.max = userCoinsForPayment;
+                    }
+                } catch (e) { console.warn(e); }
+            }
+            updatePaymentAmountDisplay();
+        })();
 
         // Заполнение формы из URL параметров
         const urlParams = new URLSearchParams(window.location.search);
@@ -238,7 +280,7 @@
 
         if (urlAmount) {
             amountInput.value = urlAmount;
-            amountDisplay.textContent = `${parseFloat(urlAmount).toFixed(2)} сом`;
+            updatePaymentAmountDisplay();
         }
 
         if (urlPaymentType) {
@@ -273,17 +315,19 @@
             const description = document.getElementById('description').value;
             const paymentType = document.getElementById('paymentType').value;
             const subscriptionType = subscriptionTypeInput ? subscriptionTypeInput.value : '1';
+            const coinsToUse = Math.min(
+                parseInt(paymentCoinsToUse?.value, 10) || 0,
+                userCoinsForPayment,
+                Math.max(0, Math.floor(amount - 0.01))
+            );
 
             if (amount <= 0) {
                 showMessage('Введите корректную сумму', 'error');
                 return;
             }
 
-            // ТЕСТОВЫЙ РЕЖИМ: авторизация не обязательна
             const token = localStorage.getItem('token');
-            const headers = {
-                'Content-Type': 'application/json'
-            };
+            const headers = { 'Content-Type': 'application/json' };
             if (token) {
                 headers['Authorization'] = `Bearer ${token}`;
             }
@@ -292,7 +336,6 @@
             payButton.textContent = 'Обработка...';
 
             try {
-                // Создаем платеж (без обязательной авторизации для теста)
                 const response = await fetch('/api/payments/create', {
                     method: 'POST',
                     headers: headers,
@@ -301,11 +344,7 @@
                         description: description || `Оплата: ${paymentType}`,
                         paymentType,
                         subscriptionType: subscriptionType,
-                        fields: {
-                            paymentType,
-                            subscriptionType: subscriptionType,
-                            description: description || `Оплата: ${paymentType}`
-                        }
+                        coinsToUse: coinsToUse
                     })
                 });
 

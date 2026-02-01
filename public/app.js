@@ -2423,13 +2423,22 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         if (modal) {
             modal.style.display = 'block';
 
-            // Обработчик закрытия
+            const coinsBalanceEl = document.getElementById('renewalCoinsBalance');
+            const coinsToUseInput = document.getElementById('renewalCoinsToUse');
+            const userCoins = (currentUser && (currentUser.coins !== undefined)) ? currentUser.coins : 0;
+            if (coinsBalanceEl) coinsBalanceEl.textContent = userCoins;
+            if (coinsToUseInput) {
+                coinsToUseInput.max = Math.min(selectedPlan.price, userCoins);
+                coinsToUseInput.value = Math.min(parseInt(coinsToUseInput.value, 10) || 0, selectedPlan.price, userCoins);
+                coinsToUseInput.addEventListener('input', updateRenewalTotal);
+            }
+            updateRenewalTotal();
+
             const closeBtn = document.getElementById('renewalModalClose');
             if (closeBtn) {
                 closeBtn.onclick = () => modal.style.display = 'none';
             }
 
-            // Закрытие по клику вне
             window.onclick = (e) => {
                 if (e.target === modal) modal.style.display = 'none';
             };
@@ -2438,23 +2447,35 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     let selectedPlan = { months: 1, price: 150 };
 
+    function updateRenewalTotal() {
+        const coinsToUseInput = document.getElementById('renewalCoinsToUse');
+        const totalEl = document.getElementById('totalPrice');
+        if (!totalEl) return;
+        const coinsToUse = Math.min(
+            parseInt(coinsToUseInput?.value, 10) || 0,
+            selectedPlan.price,
+            (currentUser && (currentUser.coins !== undefined)) ? currentUser.coins : 0
+        );
+        const toPay = Math.max(0, selectedPlan.price - coinsToUse);
+        totalEl.textContent = toPay + ' сом';
+    }
+
     function selectPlan(card) {
-        // Убираем выделение со всех карточек
         document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'));
-        // Выделяем текущую
         card.classList.add('selected');
 
-        // Обновляем данные
         selectedPlan = {
             months: parseInt(card.dataset.months),
             price: parseInt(card.dataset.price)
         };
 
-        // Обновляем итоговую цену
-        const totalEl = document.getElementById('totalPrice');
-        if (totalEl) {
-            totalEl.textContent = `${selectedPlan.price} сом`;
+        const coinsToUseInput = document.getElementById('renewalCoinsToUse');
+        const userCoins = (currentUser && (currentUser.coins !== undefined)) ? currentUser.coins : 0;
+        if (coinsToUseInput) {
+            coinsToUseInput.max = Math.min(selectedPlan.price, userCoins);
+            coinsToUseInput.value = Math.min(parseInt(coinsToUseInput.value, 10) || 0, selectedPlan.price, userCoins);
         }
+        updateRenewalTotal();
     }
 
     async function proceedToPayment() {
@@ -2489,7 +2510,13 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 }
             }
 
-            // Отправляем запрос на создание платежа
+            const coinsToUseInput = document.getElementById('renewalCoinsToUse');
+            const coinsToUse = Math.min(
+                parseInt(coinsToUseInput?.value, 10) || 0,
+                selectedPlan.price,
+                (currentUser && (currentUser.coins !== undefined)) ? currentUser.coins : 0
+            );
+
             const response = await fetch('/api/payments/create', {
                 method: 'POST',
                 headers: headers,
@@ -2497,7 +2524,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                     amount: selectedPlan.price,
                     description: description,
                     paymentType: paymentType,
-                    subscriptionType: subscriptionType
+                    subscriptionType: subscriptionType,
+                    coinsToUse: coinsToUse
                 })
             });
 
