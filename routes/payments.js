@@ -240,9 +240,9 @@ router.post('/webhook', async (req, res) => {
 
               // Привязываем транзакцию к пользователю
               transaction.userId = newUser.id;
-
-              // Помечаем, что подписка уже обновлена (при регистрации), чтобы не обновлять второй раз ниже
-              transaction.subscriptionUpdated = true;
+              // Подписка будет установлена ниже (одним разом); помечаем в fields, чтобы общий блок не добавлял месяцы повторно
+              if (!transaction.fields) transaction.fields = {};
+              transaction.fields.subscriptionAlreadyApplied = true;
 
               await transaction.save();
 
@@ -327,7 +327,10 @@ router.post('/webhook', async (req, res) => {
               payload.fields?.paymentType ||
               (registrationData ? 'registration' : 'subscription');
 
-            if (user && (paymentType === 'subscription' || paymentType === 'registration')) {
+            // Не добавляем подписку повторно, если уже применили при создании пользователя (регистрация)
+            if (transaction.fields?.subscriptionAlreadyApplied) {
+              console.log(`ℹ️ Subscription already applied for user ${transaction.userId} (registration), skipping duplicate update`);
+            } else if (user && (paymentType === 'subscription' || paymentType === 'registration')) {
               const subscriptionMonths = parseInt(subscriptionType) || 1;
               let subscriptionEndDate = new Date();
 
