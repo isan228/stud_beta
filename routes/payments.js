@@ -240,10 +240,8 @@ router.post('/webhook', async (req, res) => {
 
               // Привязываем транзакцию к пользователю
               transaction.userId = newUser.id;
-              // Подписка будет установлена ниже (одним разом); помечаем в fields, чтобы общий блок не добавлял месяцы повторно
-              if (!transaction.fields) transaction.fields = {};
-              transaction.fields.subscriptionAlreadyApplied = true;
-
+              // Помечаем в fields (новый объект, чтобы Sequelize сохранил JSONB), чтобы общий блок и повторные webhook не добавляли месяцы
+              transaction.fields = Object.assign({}, transaction.fields || {}, { subscriptionAlreadyApplied: true });
               await transaction.save();
 
               console.log(`✅ Transaction ${transaction.id} linked to new user ${newUser.id}`);
@@ -327,9 +325,13 @@ router.post('/webhook', async (req, res) => {
               payload.fields?.paymentType ||
               (registrationData ? 'registration' : 'subscription');
 
-            // Не добавляем подписку повторно, если уже применили при создании пользователя (регистрация)
-            if (transaction.fields?.subscriptionAlreadyApplied) {
-              console.log(`ℹ️ Subscription already applied for user ${transaction.userId} (registration), skipping duplicate update`);
+            // При регистрации подписка уже выставлена выше (новый или существующий пользователь) — не дублируем. Также пропускаем при повторном webhook.
+            if (registrationData || transaction.fields?.subscriptionAlreadyApplied) {
+              if (registrationData) {
+                console.log(`ℹ️ Registration payment: subscription already set above for user ${transaction.userId}, skipping duplicate`);
+              } else {
+                console.log(`ℹ️ Subscription already applied for user ${transaction.userId}, skipping duplicate update`);
+              }
             } else if (user && (paymentType === 'subscription' || paymentType === 'registration')) {
               const subscriptionMonths = parseInt(subscriptionType) || 1;
               let subscriptionEndDate = new Date();
