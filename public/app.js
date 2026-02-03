@@ -2445,7 +2445,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
     }
 
-    let selectedPlan = { months: 1, price: 150 };
+    let selectedPlan = { months: 1, price: 1 };
 
     function updateRenewalTotal() {
         const coinsToUseInput = document.getElementById('renewalCoinsToUse');
