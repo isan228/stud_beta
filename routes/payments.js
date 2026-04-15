@@ -65,6 +65,17 @@ router.post('/webhook', async (req, res) => {
 
     // Ищем существующую транзакцию по transactionId или id
     const finikTransactionId = payload.transactionId || payload.id;
+    if (!finikTransactionId) {
+      console.error('❌ Webhook payload missing transaction identifier', {
+        hasTransactionId: !!payload.transactionId,
+        hasId: !!payload.id,
+        payloadKeys: Object.keys(payload || {})
+      });
+      return res.status(400).json({
+        error: 'Invalid webhook payload: transaction identifier is required'
+      });
+    }
+
     let transaction = await Transaction.findOne({
       where: { finikTransactionId }
     });

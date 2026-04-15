@@ -1,117 +1,166 @@
-# Инструкция по деплою stud.kg на сервер
+# Рабочая инструкция деплоя на VPS (Ubuntu)
 
-## Требования
+Инструкция протестирована под стек проекта: `Node.js + Express + PostgreSQL + PM2 + Nginx`.
+Ниже порядок, который обычно "встает с нуля" без скрытых шагов.
 
-- Node.js (версия 16 или выше)
-- PostgreSQL (версия 12 или выше)
-- PM2 (для управления процессом)
-- Nginx (опционально, для reverse proxy)
+## 0) Что должно быть заранее
 
-## Шаги деплоя
+- VPS с Ubuntu 22.04/24.04
+- Домен, который уже смотрит на IP сервера (A-запись)
+- Доступ по SSH с sudo-правами
 
-### 1. Подключение к серверу
+---
 
-```bash
-ssh user@your-server-ip
-```
-
-### 2. Установка зависимостей
+## 1) Подключение и базовые пакеты
 
 ```bash
-# Перейдите в директорию проекта
-cd /path/to/stud_beta
-
-# Установите зависимости
-npm install --production
+ssh <user>@<server_ip>
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y git curl nginx postgresql postgresql-contrib ufw
 ```
 
-### 3. Настройка переменных окружения
+Открой порты:
 
 ```bash
-# Создайте файл .env на основе env.example
-cp env.example .env
-
-# Отредактируйте .env файл
-nano .env
+sudo ufw allow OpenSSH
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw --force enable
+sudo ufw status
 ```
 
-Заполните следующие переменные:
-```env
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=stud_kg
-DB_USER=your_db_user
-DB_PASSWORD=your_db_password
-JWT_SECRET=your_very_secure_jwt_secret_key_here
-PORT=3000
-NODE_ENV=production
-```
+---
 
-**Важно:** 
-- `JWT_SECRET` должен быть длинным случайным строковым значением
-- `DB_PASSWORD` должен быть надежным паролем
-
-### 4. Настройка базы данных PostgreSQL
+## 2) Установка Node.js LTS и PM2
 
 ```bash
-# Войдите в PostgreSQL
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+node -v
+npm -v
+
+sudo npm install -g pm2
+pm2 -v
+```
+
+---
+
+## 3) Клонирование проекта
+
+```bash
+cd /var/www
+sudo mkdir -p stud_beta
+sudo chown -R $USER:$USER /var/www/stud_beta
+git clone <URL_твоего_репозитория> /var/www/stud_beta
+cd /var/www/stud_beta
+```
+
+---
+
+## 4) Настройка PostgreSQL (БД + пользователь)
+
+```bash
 sudo -u postgres psql
+```
 
-# Создайте базу данных
+Внутри `psql`:
+
+```sql
 CREATE DATABASE stud_kg;
-
-# Создайте пользователя
-CREATE USER your_db_user WITH PASSWORD 'your_db_password';
-
-# Дайте права пользователю
-GRANT ALL PRIVILEGES ON DATABASE stud_kg TO your_db_user;
-
-# Выйдите из PostgreSQL
+CREATE USER stud_user WITH PASSWORD 'StrongPasswordHere';
+GRANT ALL PRIVILEGES ON DATABASE stud_kg TO stud_user;
+\c stud_kg
+GRANT ALL ON SCHEMA public TO stud_user;
 \q
 ```
 
-### 5. Инициализация базы данных
+Проверь подключение:
 
 ```bash
-# Запустите скрипт инициализации
+PGPASSWORD='StrongPasswordHere' psql -h 127.0.0.1 -U stud_user -d stud_kg -c "SELECT 1;"
+```
+
+---
+
+## 5) `.env` (критичный шаг)
+
+В этом проекте шаблон называется **`env.example`** (без точки в начале).
+
+```bash
+cd /var/www/stud_beta
+cp env.example .env
+nano .env
+```
+
+Минимум для запуска:
+
+```env
+PORT=3000
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_NAME=stud_kg
+DB_USER=stud_user
+DB_PASSWORD=StrongPasswordHere
+JWT_SECRET=long_random_secret_64_chars_minimum
+NODE_ENV=production
+
+FINIK_ENV=prod
+FINIK_API_KEY=your_api_key_from_finik
+FINIK_ACCOUNT_ID=your_account_id
+FINIK_MERCHANT_CATEGORY_CODE=0742
+FINIK_NAME_EN=stud.kg Payment
+FINIK_WEBHOOK_URL=https://your-domain.com/api/payments/webhook
+FINIK_REDIRECT_URL=https://your-domain.com/payment/success
+```
+
+Если платежи пока не настраиваешь, оставь `FINIK_*`, но эндпоинты оплаты будут возвращать ошибки конфигурации.
+
+---
+
+## 6) Установка зависимостей и инициализация БД
+
+```bash
+cd /var/www/stud_beta
+npm install --production
 npm run init-db
 ```
 
-### 6. Создание администратора
+Создай админа:
 
 ```bash
-# Создайте первого администратора
 npm run create-admin
-
-# Или с кастомными данными
-npm run create-admin admin admin@stud.kg secure_password_123
 ```
 
-### 7. Установка PM2 (процесс-менеджер)
+---
+
+## 7) Запуск через PM2
 
 ```bash
-# Установите PM2 глобально
-npm install -g pm2
-
-# Запустите приложение через PM2
+cd /var/www/stud_beta
 pm2 start server.js --name stud-kg
-
-# Сохраните конфигурацию PM2
 pm2 save
-
-# Настройте автозапуск при перезагрузке сервера
-pm2 startup
+pm2 startup systemd -u $USER --hp $HOME
 ```
 
-### 8. Настройка Nginx (опционально, но рекомендуется)
+Команду, которую выведет `pm2 startup`, выполни один раз через `sudo`.
 
-Создайте конфигурационный файл Nginx:
+Проверка:
+
+```bash
+pm2 status
+pm2 logs stud-kg --lines 100 --nostream
+curl -I http://127.0.0.1:3000
+```
+
+---
+
+## 8) Nginx reverse proxy
 
 ```bash
 sudo nano /etc/nginx/sites-available/stud-kg
 ```
 
-Добавьте следующую конфигурацию:
+Вставь:
 
 ```nginx
 server {
@@ -119,161 +168,93 @@ server {
     server_name your-domain.com www.your-domain.com;
 
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
+        proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
     }
 }
 ```
 
-Активируйте конфигурацию:
+Активируй сайт:
 
 ```bash
-# Создайте символическую ссылку
-sudo ln -s /etc/nginx/sites-available/stud-kg /etc/nginx/sites-enabled/
-
-# Проверьте конфигурацию
+sudo ln -sf /etc/nginx/sites-available/stud-kg /etc/nginx/sites-enabled/stud-kg
 sudo nginx -t
-
-# Перезагрузите Nginx
-sudo systemctl reload nginx
+sudo systemctl restart nginx
 ```
 
-### 9. Настройка SSL с Let's Encrypt (опционально, но рекомендуется)
+---
+
+## 9) SSL (Let's Encrypt)
 
 ```bash
-# Установите Certbot
-sudo apt-get update
-sudo apt-get install certbot python3-certbot-nginx
-
-# Получите SSL сертификат
+sudo apt install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d your-domain.com -d www.your-domain.com
-
-# Certbot автоматически обновит конфигурацию Nginx
+sudo certbot renew --dry-run
 ```
 
-### 10. Настройка файрвола
+После этого сайт должен открываться по `https://`.
+
+---
+
+## 10) Как обновлять проект без простоя
 
 ```bash
-# Разрешите HTTP и HTTPS
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-
-# Если используете прямое подключение к Node.js (без Nginx)
-sudo ufw allow 3000/tcp
-```
-
-## Полезные команды PM2
-
-```bash
-# Просмотр статуса
-pm2 status
-
-# Просмотр логов
-pm2 logs stud-kg
-
-# Перезапуск приложения
-pm2 restart stud-kg
-
-# Остановка приложения
-pm2 stop stud-kg
-
-# Удаление из PM2
-pm2 delete stud-kg
-
-# Мониторинг
-pm2 monit
-```
-
-## Обновление приложения
-
-```bash
-# Перейдите в директорию проекта
-cd /path/to/stud_beta
-
-# Получите последние изменения из Git
+cd /var/www/stud_beta
 git pull origin main
-
-# Установите новые зависимости (если есть)
 npm install --production
-
-# Перезапустите приложение
 pm2 restart stud-kg
+pm2 logs stud-kg --lines 100 --nostream
 ```
 
-## Проверка работы
+---
 
-1. Откройте браузер и перейдите на `http://your-server-ip:3000` или `http://your-domain.com`
-2. Проверьте регистрацию и вход
-3. Проверьте админ-панель: `http://your-domain.com/admin`
+## Быстрая диагностика, если "не работает"
 
-## Решение проблем
-
-### Приложение не запускается
-
+1. Приложение живо?
 ```bash
-# Проверьте логи
-pm2 logs stud-kg
-
-# Проверьте, что база данных запущена
-sudo systemctl status postgresql
-
-# Проверьте переменные окружения
-cat .env
+pm2 status
+pm2 logs stud-kg --lines 200 --nostream
 ```
 
-### Ошибки подключения к базе данных
-
-- Убедитесь, что PostgreSQL запущен: `sudo systemctl status postgresql`
-- Проверьте правильность данных в `.env`
-- Убедитесь, что пользователь БД имеет права доступа
-
-### Порт уже занят
-
+2. Node слушает порт?
 ```bash
-# Проверьте, что использует порт 3000
-sudo lsof -i :3000
-
-# Или измените PORT в .env файле
+ss -tulpen | grep 3000
+curl -I http://127.0.0.1:3000
 ```
 
-## Безопасность
-
-1. **Никогда не коммитьте `.env` файл в Git**
-2. **Используйте сильные пароли для базы данных и JWT_SECRET**
-3. **Настройте файрвол для ограничения доступа**
-4. **Используйте HTTPS для защиты данных**
-5. **Регулярно обновляйте зависимости**: `npm audit fix`
-
-## Резервное копирование
-
-Рекомендуется настроить автоматическое резервное копирование базы данных:
-
+3. Nginx корректен?
 ```bash
-# Создайте скрипт резервного копирования
-nano /path/to/backup.sh
+sudo nginx -t
+sudo systemctl status nginx --no-pager -l
 ```
 
+4. БД доступна?
 ```bash
-#!/bin/bash
-BACKUP_DIR="/path/to/backups"
-DATE=$(date +%Y%m%d_%H%M%S)
-pg_dump -U your_db_user stud_kg > "$BACKUP_DIR/stud_kg_$DATE.sql"
+sudo systemctl status postgresql --no-pager -l
+PGPASSWORD='<db_password>' psql -h 127.0.0.1 -U <db_user> -d stud_kg -c "SELECT NOW();"
 ```
 
+5. DNS/SSL в порядке?
 ```bash
-# Сделайте скрипт исполняемым
-chmod +x /path/to/backup.sh
-
-# Добавьте в crontab для автоматического резервного копирования
-crontab -e
-# Добавьте строку (каждый день в 2:00)
-0 2 * * * /path/to/backup.sh
+dig +short your-domain.com
+sudo certbot certificates
 ```
+
+---
+
+## Частые причины падения именно у этого проекта
+
+- Неправильный файл шаблона env (`env.example`, не `.env.example`)
+- Неверные `DB_*` в `.env`
+- Не выполнен `npm run init-db`
+- PM2 запущен, но не перезапущен после `git pull`
+- `FINIK_ACCOUNT_ID`/другие `FINIK_*` не заполнены, а тестируешь оплату
+- Домен не указывает на сервер, поэтому Certbot не выпускает сертификат
 

@@ -3,7 +3,7 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const adminAuth = require('../middleware/adminAuth');
-const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, ContactMessage, Setting, sequelize } = require('../models');
+const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, ContactMessage, Setting, UserDeviceAlert, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { Sequelize } = require('sequelize');
 
@@ -135,6 +135,59 @@ router.get('/dashboard/stats', adminAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Ошибка получения статистики:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Уведомления о входе пользователей с новых устройств
+router.get('/device-alerts', adminAuth, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 20;
+    const offset = (page - 1) * limit;
+    const unreadOnly = req.query.unreadOnly === 'true';
+
+    const where = unreadOnly ? { isRead: false } : {};
+
+    const { count, rows } = await UserDeviceAlert.findAndCountAll({
+      where,
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset
+    });
+
+    const unreadCount = await UserDeviceAlert.count({ where: { isRead: false } });
+
+    res.json({
+      alerts: rows,
+      unreadCount,
+      pagination: {
+        total: count,
+        page,
+        limit,
+        totalPages: Math.ceil(count / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Ошибка получения уведомлений о новых устройствах:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Пометить уведомление о новом устройстве как прочитанное
+router.put('/device-alerts/:id/read', adminAuth, async (req, res) => {
+  try {
+    const alert = await UserDeviceAlert.findByPk(req.params.id);
+    if (!alert) {
+      return res.status(404).json({ error: 'Уведомление не найдено' });
+    }
+
+    alert.isRead = true;
+    await alert.save();
+
+    res.json({ message: 'Уведомление отмечено как прочитанное' });
+  } catch (error) {
+    console.error('Ошибка обновления уведомления о новом устройстве:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

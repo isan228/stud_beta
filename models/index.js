@@ -11,6 +11,7 @@ const Admin = require('./Admin');
 const ContactMessage = require('./ContactMessage');
 const Transaction = require('./Transaction');
 const Setting = require('./Setting');
+const UserDeviceAlert = require('./UserDeviceAlert');
 
 // Определение связей
 User.hasMany(TestResult, { foreignKey: 'userId', as: 'TestResults' });
@@ -42,6 +43,10 @@ Favorite.belongsTo(User, { foreignKey: 'userId', as: 'User' });
 User.hasMany(Transaction, { foreignKey: 'userId', as: 'Transactions' });
 Transaction.belongsTo(User, { foreignKey: 'userId', as: 'User' });
 
+// Связи для уведомлений о входе с нового устройства
+User.hasMany(UserDeviceAlert, { foreignKey: 'userId', as: 'DeviceAlerts' });
+UserDeviceAlert.belongsTo(User, { foreignKey: 'userId', as: 'User' });
+
 module.exports = {
   sequelize,
   User,
@@ -55,6 +60,7 @@ module.exports = {
   Admin,
   ContactMessage,
   Transaction,
-  Setting
+  Setting,
+  UserDeviceAlert
 };
 

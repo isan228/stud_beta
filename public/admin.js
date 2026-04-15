@@ -294,6 +294,9 @@ async function loadDashboard() {
             console.error('Ошибка загрузки последних сообщений:', error);
         }
 
+        // Загружаем уведомления о входах с новых устройств
+        await loadDeviceAlerts();
+
         // Последние пользователи
         const recentUsersList = document.getElementById('recentUsersList');
         if (data.recentUsers && data.recentUsers.length > 0) {
@@ -341,6 +344,87 @@ async function loadDashboard() {
     } catch (error) {
         console.error('Ошибка загрузки дашборда:', error);
         showNotification('Ошибка загрузки дашборда', 'error');
+    }
+}
+
+// Загрузка уведомлений о входах с новых устройств
+async function loadDeviceAlerts() {
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/device-alerts?limit=10`, {
+            headers: {
+                'Authorization': `Bearer ${currentAdminToken}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Ошибка загрузки уведомлений о новых устройствах');
+        }
+
+        const data = await response.json();
+        const alerts = data.alerts || [];
+        const unreadCount = data.unreadCount || 0;
+
+        const statNewDevices = document.getElementById('statNewDevices');
+        if (statNewDevices) {
+            statNewDevices.textContent = unreadCount;
+        }
+
+        const deviceAlertsList = document.getElementById('deviceAlertsList');
+        if (!deviceAlertsList) return;
+
+        if (!alerts.length) {
+            deviceAlertsList.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1rem;">Новых входов с других устройств нет</p>';
+            return;
+        }
+
+        deviceAlertsList.innerHTML = alerts.map(alert => {
+            const createdAt = new Date(alert.createdAt);
+            const shortUa = (alert.userAgent || '').length > 90
+                ? `${alert.userAgent.slice(0, 90)}...`
+                : (alert.userAgent || 'unknown');
+            return `
+                <div class="admin-list-item" style="${alert.isRead ? 'opacity: 0.75;' : 'border-left: 4px solid var(--primary-color);'}">
+                    <div style="flex: 1;">
+                        <strong>${alert.username}</strong>
+                        <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0.25rem 0 0;">${alert.email}</p>
+                        <p style="color: var(--text-secondary); font-size: 0.8rem; margin: 0.25rem 0 0;">IP: ${alert.ipAddress || 'unknown'}</p>
+                        <p style="color: var(--text-secondary); font-size: 0.8rem; margin: 0.25rem 0 0;">${shortUa}</p>
+                    </div>
+                    <div style="text-align: right; min-width: 170px;">
+                        <span style="display: block; color: var(--text-muted); font-size: 0.8rem; margin-bottom: 0.5rem;">
+                            ${createdAt.toLocaleString('ru-RU')}
+                        </span>
+                        ${alert.isRead
+                            ? '<span style="font-size: 0.75rem; color: var(--text-muted);">Прочитано</span>'
+                            : `<button class="btn btn-secondary btn-sm" onclick="markDeviceAlertRead(${alert.id})">Отметить прочитанным</button>`
+                        }
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('Ошибка загрузки уведомлений о новых устройствах:', error);
+    }
+}
+
+// Отметить уведомление о новом устройстве как прочитанное
+async function markDeviceAlertRead(alertId) {
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/device-alerts/${alertId}/read`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${currentAdminToken}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Ошибка обновления уведомления');
+        }
+
+        await loadDeviceAlerts();
+    } catch (error) {
+        console.error('Ошибка обновления уведомления:', error);
+        showNotification('Не удалось отметить уведомление', 'error');
     }
 }
 
@@ -1658,6 +1742,7 @@ window.addAnswer = addAnswer;
 window.loadMessages = loadMessages;
 window.viewMessage = viewMessage;
 window.deleteMessage = deleteMessage;
+window.markDeviceAlertRead = markDeviceAlertRead;
 
 // Загрузка заявок на регистрацию
 

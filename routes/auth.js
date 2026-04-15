@@ -2,8 +2,18 @@ const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const { Op } = require('sequelize');
-const { User, UserStats } = require('../models');
+const { User, UserStats, UserDeviceAlert } = require('../models');
+
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) {
+    const first = String(forwarded).split(',')[0].trim();
+    if (first) return first;
+  }
+  return req.headers['x-real-ip'] || req.ip || null;
+}
 
 // Регистрация
 router.post('/register', [
@@ -115,6 +125,51 @@ router.post('/login', [
     
     // Пользователи со статусом 'pending' или 'approved' могут входить
     // (для обратной совместимости со старыми пользователями)
+
+    // Уведомление для админа: вход пользователя с нового устройства
+    // Админов не затрагивает, так как они логинятся через отдельный /api/admin/login
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    const deviceSignature = crypto
+      .createHash('sha256')
+      .update(userAgent.toLowerCase())
+      .digest('hex');
+    const ipAddress = getClientIp(req);
+
+    const knownDeviceCount = await UserDeviceAlert.count({ where: { userId: user.id } });
+    const existingDeviceAlert = await UserDeviceAlert.findOne({
+      where: {
+        userId: user.id,
+        deviceSignature
+      }
+    });
+
+    // Не создаем уведомление для самого первого устройства пользователя.
+    // Создаем только если найден новый deviceSignature.
+    if (!existingDeviceAlert && knownDeviceCount > 0) {
+      await UserDeviceAlert.create({
+        userId: user.id,
+        username: user.username,
+        email: user.email,
+        ipAddress,
+        userAgent,
+        deviceSignature,
+        isRead: false
+      });
+    } else if (!existingDeviceAlert && knownDeviceCount === 0) {
+      // Регистрируем первое устройство без тревоги для админа.
+      await UserDeviceAlert.create({
+        userId: user.id,
+        username: user.username,
+        email: user.email,
+        ipAddress,
+        userAgent,
+        deviceSignature,
+        isRead: true
+      });
+    } else if (existingDeviceAlert && ipAddress && existingDeviceAlert.ipAddress !== ipAddress) {
+      existingDeviceAlert.ipAddress = ipAddress;
+      await existingDeviceAlert.save();
+    }
 
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 
