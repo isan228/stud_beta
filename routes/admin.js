@@ -236,6 +236,31 @@ router.get('/users', adminAuth, async (req, res) => {
   }
 });
 
+// Сброс пароля пользователя администратором
+router.put('/users/:id/password', adminAuth, [
+  body('newPassword').isLength({ min: 6 }).withMessage('Новый пароль должен быть минимум 6 символов')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const user = await User.findByPk(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+
+    user.password = req.body.newPassword;
+    await user.save();
+
+    res.json({ message: 'Пароль пользователя успешно обновлен' });
+  } catch (error) {
+    console.error('Ошибка сброса пароля пользователя:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 
 // Удалить пользователя
 router.delete('/users/:id', adminAuth, async (req, res) => {

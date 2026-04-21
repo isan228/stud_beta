@@ -406,6 +406,26 @@
         </div>
     </div>
 
+    <div id="resetPasswordModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 520px;">
+            <span class="modal-close">&times;</span>
+            <h2>Смена пароля пользователя</h2>
+            <form id="resetPasswordForm">
+                <input type="hidden" id="resetPasswordUserId">
+                <div class="form-group">
+                    <label for="resetPasswordUsername">Пользователь</label>
+                    <input type="text" id="resetPasswordUsername" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="resetPasswordNew">Новый пароль</label>
+                    <input type="password" id="resetPasswordNew" minlength="6" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Сохранить пароль</button>
+                <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
+            </form>
+        </div>
+    </div>
+
     <div id="notification" class="notification"></div>
     <script src="admin.js"></script>
     <!-- app.js не нужен на странице админки, чтобы избежать конфликтов -->
