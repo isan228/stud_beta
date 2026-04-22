@@ -114,15 +114,15 @@
             <div class="container">
                 <div class="stats-row">
                     <div class="stat-box animate-on-scroll">
-                        <div class="stat-number">500+</div>
+                        <div class="stat-number" id="homeStatQuestions">0</div>
                         <div class="stat-text">Вопросов в базе</div>
                     </div>
                     <div class="stat-box animate-on-scroll">
-                        <div class="stat-number">15+</div>
+                        <div class="stat-number" id="homeStatSubjects">0</div>
                         <div class="stat-text">Предметов</div>
                     </div>
                     <div class="stat-box animate-on-scroll">
-                        <div class="stat-number">100+</div>
+                        <div class="stat-number" id="homeStatTests">0</div>
                         <div class="stat-text">Тестов</div>
                     </div>
                     <div class="stat-box animate-on-scroll">
@@ -211,6 +211,9 @@
             // Загружаем тесты для главной страницы
             if (typeof loadHomepageTests === 'function') {
                 loadHomepageTests();
+            }
+            if (typeof loadHomepageStats === 'function') {
+                loadHomepageStats();
             }
 
             // Обработчик для кнопки "Перейти к тестам"

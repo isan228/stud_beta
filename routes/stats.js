@@ -1,8 +1,28 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const { UserStats, TestResult, Test, Subject, User } = require('../models');
+const { UserStats, TestResult, Test, Subject, User, Question } = require('../models');
 const { Op } = require('sequelize');
+
+// Публичная статистика платформы для главной страницы
+router.get('/platform', async (req, res) => {
+  try {
+    const [questionsCount, subjectsCount, testsCount] = await Promise.all([
+      Question.count(),
+      Subject.count(),
+      Test.count()
+    ]);
+
+    res.json({
+      questionsCount,
+      subjectsCount,
+      testsCount
+    });
+  } catch (error) {
+    console.error('Ошибка получения публичной статистики платформы:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
 
 // Получить статистику пользователя
 router.get('/stats', auth, async (req, res) => {

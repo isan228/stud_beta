@@ -854,6 +854,33 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
     }
 
+    // Динамическая статистика для главной страницы
+    async function loadHomepageStats() {
+        const statQuestions = document.getElementById('homeStatQuestions');
+        const statSubjects = document.getElementById('homeStatSubjects');
+        const statTests = document.getElementById('homeStatTests');
+
+        if (!statQuestions || !statSubjects || !statTests) return;
+
+        try {
+            const response = await fetch(`${API_URL}/platform`);
+            if (!response.ok) {
+                throw new Error('Ошибка загрузки статистики платформы');
+            }
+
+            const data = await response.json();
+            statQuestions.textContent = `${data.questionsCount || 0}+`;
+            statSubjects.textContent = `${data.subjectsCount || 0}+`;
+            statTests.textContent = `${data.testsCount || 0}+`;
+        } catch (error) {
+            console.error('Ошибка загрузки статистики главной страницы:', error);
+            // Фолбэк при ошибке API
+            statQuestions.textContent = '0+';
+            statSubjects.textContent = '0+';
+            statTests.textContent = '0+';
+        }
+    }
+
     let currentTestId = null;
     let currentTestQuestionCount = 0;
 
@@ -2526,6 +2553,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     window.loadSubjectTests = loadSubjectTests;
     window.loadTestSettings = loadTestSettings;
     window.loadSubjects = loadSubjects;
+    window.loadHomepageTests = loadHomepageTests;
+    window.loadHomepageStats = loadHomepageStats;
     window.startFavoriteTest = startFavoriteTest;
     window.filterSubjects = filterSubjects;
     window.navigateTo = navigateTo;
