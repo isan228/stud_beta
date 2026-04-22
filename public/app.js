@@ -2539,6 +2539,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     window.prevQuestion = prevQuestion;
     window.finishTest = finishTest;
     window.loadProfile = loadProfile;
+    window.loadNews = loadNews;
     window.handleChangePassword = handleChangePassword;
     window.showNotification = showNotification;
     window.renewSubscription = renewSubscription;
