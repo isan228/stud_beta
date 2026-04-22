@@ -65,6 +65,7 @@
                     <button class="admin-tab" data-tab="subjects">Предметы</button>
                     <button class="admin-tab" data-tab="tests">Тесты</button>
                     <button class="admin-tab" data-tab="questions">Вопросы</button>
+                    <button class="admin-tab" data-tab="news">Новости</button>
                     <button class="admin-tab" data-tab="messages">Обратная связь</button>
                     <button class="admin-tab" data-tab="documents">Документы</button>
                 </div>
@@ -197,6 +198,15 @@
                         </div>
                     </div>
                     <div id="questionsList" class="admin-list"></div>
+                </div>
+
+                <!-- Новости -->
+                <div id="newsTab" class="admin-tab-content">
+                    <div class="admin-section-header">
+                        <h2>Управление новостями</h2>
+                        <button class="btn btn-primary" id="addNewsBtn">+ Добавить новость</button>
+                    </div>
+                    <div id="newsAdminList" class="admin-list"></div>
                 </div>
 
                 <!-- Обратная связь -->
@@ -355,6 +365,44 @@
                     <label>Ответы</label>
                     <div id="answersList"></div>
                     <button type="button" class="btn btn-secondary" id="addAnswerBtn">+ Добавить ответ</button>
+                </div>
+                <button type="submit" class="btn btn-primary">Сохранить</button>
+                <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="newsModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 800px;">
+            <span class="modal-close">&times;</span>
+            <h2 id="newsModalTitle">Добавить новость</h2>
+            <form id="newsForm">
+                <input type="hidden" id="newsId">
+                <div class="form-group">
+                    <label for="newsTitle">Заголовок</label>
+                    <input type="text" id="newsTitle" required>
+                </div>
+                <div class="form-group">
+                    <label for="newsCategory">Категория</label>
+                    <input type="text" id="newsCategory" placeholder="Обновления">
+                </div>
+                <div class="form-group">
+                    <label for="newsIcon">Иконка (emoji)</label>
+                    <input type="text" id="newsIcon" placeholder="📰" maxlength="20">
+                </div>
+                <div class="form-group">
+                    <label for="newsPublishedAt">Дата публикации (опционально)</label>
+                    <input type="datetime-local" id="newsPublishedAt">
+                </div>
+                <div class="form-group checkbox-group">
+                    <label>
+                        <input type="checkbox" id="newsIsPublished" checked>
+                        <span>Опубликовано</span>
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="newsContent">Текст новости</label>
+                    <textarea id="newsContent" rows="6" required></textarea>
                 </div>
                 <button type="submit" class="btn btn-primary">Сохранить</button>
                 <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>

@@ -812,6 +812,88 @@ async function deleteQuestion(questionId) {
     }
 }
 
+function toDateTimeLocalValue(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const offset = date.getTimezoneOffset();
+    const localDate = new Date(date.getTime() - (offset * 60000));
+    return localDate.toISOString().slice(0, 16);
+}
+
+// Загрузка новостей в админке
+async function loadNewsAdmin() {
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/news`, {
+            headers: {
+                'Authorization': `Bearer ${currentAdminToken}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Ошибка загрузки новостей');
+        }
+
+        const news = await response.json();
+        const newsList = document.getElementById('newsAdminList');
+
+        if (news && news.length > 0) {
+            newsList.innerHTML = news.map(item => {
+                const date = item.publishedAt || item.createdAt;
+                return `
+                    <div class="admin-list-item">
+                        <div style="flex: 1;">
+                            <h4>${item.icon || '📰'} ${item.title}</h4>
+                            <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
+                                Категория: ${item.category || 'Обновления'} | ${item.isPublished ? 'Опубликовано' : 'Черновик'} | 
+                                ${date ? new Date(date).toLocaleString('ru-RU') : 'Без даты'}
+                            </p>
+                            <p style="color: var(--text-muted); margin-top: 0.5rem;">
+                                ${item.content}
+                            </p>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn btn-primary btn-sm" onclick="editNews(${item.id})">Редактировать</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteNews(${item.id})">Удалить</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            newsList.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 2rem;">Новостей пока нет</p>';
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки новостей:', error);
+        showNotification('Ошибка загрузки новостей', 'error');
+    }
+}
+
+// Удаление новости
+async function deleteNews(newsId) {
+    if (!confirm('Вы уверены, что хотите удалить эту новость?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/news/${newsId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${currentAdminToken}`
+            }
+        });
+
+        if (response.ok) {
+            showNotification('Новость удалена', 'success');
+            loadNewsAdmin();
+        } else {
+            const result = await response.json();
+            showNotification(result.error || 'Ошибка удаления', 'error');
+        }
+    } catch (error) {
+        console.error('Ошибка удаления новости:', error);
+        showNotification('Ошибка удаления новости', 'error');
+    }
+}
+
 // Редактирование предмета
 async function editSubject(subjectId) {
     try {
@@ -901,6 +983,34 @@ async function editQuestion(questionId) {
     } catch (error) {
         console.error('Ошибка загрузки вопроса:', error);
         showNotification('Ошибка загрузки вопроса', 'error');
+    }
+}
+
+// Редактирование новости
+async function editNews(newsId) {
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/news`, {
+            headers: {
+                'Authorization': `Bearer ${currentAdminToken}`
+            }
+        });
+        const news = await response.json();
+        const item = news.find(n => n.id === newsId);
+
+        if (item) {
+            document.getElementById('newsId').value = item.id;
+            document.getElementById('newsTitle').value = item.title || '';
+            document.getElementById('newsCategory').value = item.category || 'Обновления';
+            document.getElementById('newsIcon').value = item.icon || '📰';
+            document.getElementById('newsPublishedAt').value = toDateTimeLocalValue(item.publishedAt);
+            document.getElementById('newsIsPublished').checked = item.isPublished !== false;
+            document.getElementById('newsContent').value = item.content || '';
+            document.getElementById('newsModalTitle').textContent = 'Редактировать новость';
+            document.getElementById('newsModal').style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки новости:', error);
+        showNotification('Ошибка загрузки новости', 'error');
     }
 }
 
@@ -1044,6 +1154,60 @@ async function saveQuestion(e) {
     } catch (error) {
         console.error('Ошибка сохранения вопроса:', error);
         showNotification('Ошибка сохранения вопроса', 'error');
+    }
+}
+
+// Сохранение новости
+async function saveNews(e) {
+    e.preventDefault();
+
+    const id = document.getElementById('newsId').value;
+    const title = document.getElementById('newsTitle').value.trim();
+    const category = document.getElementById('newsCategory').value.trim() || 'Обновления';
+    const icon = document.getElementById('newsIcon').value.trim() || '📰';
+    const publishedAtValue = document.getElementById('newsPublishedAt').value;
+    const isPublished = document.getElementById('newsIsPublished').checked;
+    const content = document.getElementById('newsContent').value.trim();
+
+    if (!title || !content) {
+        showNotification('Заполните заголовок и текст новости', 'error');
+        return;
+    }
+
+    try {
+        const url = id ? `${ADMIN_API_URL}/news/${id}` : `${ADMIN_API_URL}/news`;
+        const method = id ? 'PUT' : 'POST';
+        const payload = {
+            title,
+            content,
+            category,
+            icon,
+            isPublished,
+            publishedAt: publishedAtValue ? new Date(publishedAtValue).toISOString() : null
+        };
+
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentAdminToken}`
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+            showNotification(id ? 'Новость обновлена' : 'Новость создана', 'success');
+            document.getElementById('newsModal').style.display = 'none';
+            document.getElementById('newsForm').reset();
+            document.getElementById('newsIsPublished').checked = true;
+            loadNewsAdmin();
+        } else {
+            const result = await response.json();
+            showNotification(result.error || 'Ошибка сохранения', 'error');
+        }
+    } catch (error) {
+        console.error('Ошибка сохранения новости:', error);
+        showNotification('Ошибка сохранения новости', 'error');
     }
 }
 
@@ -1222,6 +1386,21 @@ function setupAdminEventListeners() {
         });
     }
 
+    const addNewsBtn = document.getElementById('addNewsBtn');
+    if (addNewsBtn) {
+        addNewsBtn.addEventListener('click', () => {
+            document.getElementById('newsId').value = '';
+            document.getElementById('newsTitle').value = '';
+            document.getElementById('newsCategory').value = 'Обновления';
+            document.getElementById('newsIcon').value = '📰';
+            document.getElementById('newsPublishedAt').value = '';
+            document.getElementById('newsIsPublished').checked = true;
+            document.getElementById('newsContent').value = '';
+            document.getElementById('newsModalTitle').textContent = 'Добавить новость';
+            document.getElementById('newsModal').style.display = 'block';
+        });
+    }
+
     // Формы
     const subjectForm = document.getElementById('subjectForm');
     if (subjectForm) {
@@ -1236,6 +1415,11 @@ function setupAdminEventListeners() {
     const questionForm = document.getElementById('questionForm');
     if (questionForm) {
         questionForm.addEventListener('submit', saveQuestion);
+    }
+
+    const newsForm = document.getElementById('newsForm');
+    if (newsForm) {
+        newsForm.addEventListener('submit', saveNews);
     }
 
     // pdfUploadForm уже обработан выше, не дублируем
@@ -1558,6 +1742,9 @@ function switchTab(tabName) {
             loadTestsForFilters();
             renderQuestionsSelectPrompt();
             break;
+        case 'news':
+            loadNewsAdmin();
+            break;
         case 'messages':
             loadMessages();
             break;
@@ -1813,11 +2000,13 @@ window.deleteQuestion = deleteQuestion;
 window.editSubject = editSubject;
 window.editTest = editTest;
 window.editQuestion = editQuestion;
+window.editNews = editNews;
 window.loadUsers = loadUsers;
 window.addAnswer = addAnswer;
 window.loadMessages = loadMessages;
 window.viewMessage = viewMessage;
 window.deleteMessage = deleteMessage;
+window.deleteNews = deleteNews;
 window.markDeviceAlertRead = markDeviceAlertRead;
 
 // Загрузка заявок на регистрацию

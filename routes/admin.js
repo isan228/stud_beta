@@ -3,7 +3,7 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const adminAuth = require('../middleware/adminAuth');
-const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, ContactMessage, Setting, UserDeviceAlert, sequelize } = require('../models');
+const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, ContactMessage, Setting, UserDeviceAlert, News, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { Sequelize } = require('sequelize');
 
@@ -575,6 +575,115 @@ router.delete('/questions/:id', adminAuth, async (req, res) => {
     res.json({ message: 'Вопрос удален' });
   } catch (error) {
     console.error('Ошибка удаления вопроса:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Управление новостями
+router.get('/news', adminAuth, async (req, res) => {
+  try {
+    const news = await News.findAll({
+      order: [['createdAt', 'DESC']]
+    });
+    res.json(news);
+  } catch (error) {
+    console.error('Ошибка получения новостей:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.post('/news', adminAuth, [
+  body('title').trim().notEmpty().withMessage('Заголовок обязателен'),
+  body('content').trim().notEmpty().withMessage('Текст новости обязателен'),
+  body('category').optional().isString().trim(),
+  body('icon').optional().isString().trim(),
+  body('isPublished').optional().isBoolean().withMessage('isPublished должен быть boolean'),
+  body('publishedAt').optional({ values: 'null' }).isISO8601().withMessage('Некорректная дата публикации')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const {
+      title,
+      content,
+      category = 'Обновления',
+      icon = '📰',
+      isPublished = true,
+      publishedAt = null
+    } = req.body;
+
+    const news = await News.create({
+      title,
+      content,
+      category: category || 'Обновления',
+      icon: icon || '📰',
+      isPublished: Boolean(isPublished),
+      publishedAt: publishedAt || null
+    });
+
+    res.status(201).json(news);
+  } catch (error) {
+    console.error('Ошибка создания новости:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.put('/news/:id', adminAuth, [
+  body('title').trim().notEmpty().withMessage('Заголовок обязателен'),
+  body('content').trim().notEmpty().withMessage('Текст новости обязателен'),
+  body('category').optional().isString().trim(),
+  body('icon').optional().isString().trim(),
+  body('isPublished').optional().isBoolean().withMessage('isPublished должен быть boolean'),
+  body('publishedAt').optional({ values: 'null' }).isISO8601().withMessage('Некорректная дата публикации')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const news = await News.findByPk(req.params.id);
+    if (!news) {
+      return res.status(404).json({ error: 'Новость не найдена' });
+    }
+
+    const {
+      title,
+      content,
+      category = 'Обновления',
+      icon = '📰',
+      isPublished = true,
+      publishedAt = null
+    } = req.body;
+
+    news.title = title;
+    news.content = content;
+    news.category = category || 'Обновления';
+    news.icon = icon || '📰';
+    news.isPublished = Boolean(isPublished);
+    news.publishedAt = publishedAt || null;
+    await news.save();
+
+    res.json(news);
+  } catch (error) {
+    console.error('Ошибка обновления новости:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.delete('/news/:id', adminAuth, async (req, res) => {
+  try {
+    const news = await News.findByPk(req.params.id);
+    if (!news) {
+      return res.status(404).json({ error: 'Новость не найдена' });
+    }
+    await news.destroy();
+    res.json({ message: 'Новость удалена' });
+  } catch (error) {
+    console.error('Ошибка удаления новости:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

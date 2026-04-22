@@ -2308,70 +2308,30 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
 
     // Новости
-    function loadNews() {
+    async function loadNews() {
         const newsList = document.getElementById('newsList');
+        if (!newsList) return;
 
-        // Примерные новости (в реальном приложении можно загружать с сервера)
-        const news = [
-            {
-                id: 1,
-                title: 'Новые тесты по математике',
-                date: '2024-01-15',
-                category: 'Обновления',
-                content: 'Добавлены новые тесты по алгебре и геометрии. Теперь доступно более 50 вопросов для подготовки к экзаменам.',
-                image: '📐'
-            },
-            {
-                id: 2,
-                title: 'Улучшения в системе статистики',
-                date: '2024-01-10',
-                category: 'Улучшения',
-                content: 'Обновлена страница статистики. Теперь вы можете видеть более детальную информацию о своем прогрессе и достижениях.',
-                image: '📊'
-            },
-            {
-                id: 3,
-                title: 'Новая функция: Тест из избранного',
-                date: '2024-01-05',
-                category: 'Новое',
-                content: 'Теперь вы можете создавать персональные тесты из сохраненных вопросов. Это поможет вам лучше подготовиться к экзаменам.',
-                image: '⭐'
-            },
-            {
-                id: 4,
-                title: 'Добавлены тесты по физике',
-                date: '2023-12-28',
-                category: 'Обновления',
-                content: 'Расширена база тестов по физике. Добавлены вопросы по механике, термодинамике и электромагнетизму.',
-                image: '⚡'
-            },
-            {
-                id: 5,
-                title: 'Темная тема теперь доступна',
-                date: '2023-12-20',
-                category: 'Улучшения',
-                content: 'Добавлена возможность переключения между светлой и темной темой для более комфортной работы в любое время суток.',
-                image: '🌓'
-            },
-            {
-                id: 6,
-                title: 'Мобильная версия улучшена',
-                date: '2023-12-15',
-                category: 'Улучшения',
-                content: 'Оптимизирована мобильная версия сайта. Теперь удобнее проходить тесты на смартфонах и планшетах.',
-                image: '📱'
+        try {
+            const response = await fetch(`${API_URL}/news`);
+            if (!response.ok) {
+                throw new Error('Ошибка загрузки новостей');
             }
-        ];
 
-        if (newsList) {
+            const news = await response.json();
+            if (!news || news.length === 0) {
+                newsList.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 2rem;">Пока нет опубликованных новостей</p>';
+                return;
+            }
+
             newsList.innerHTML = news.map((item, index) => {
-                const date = new Date(item.date);
+                const date = new Date(item.publishedAt || item.createdAt);
                 return `
                 <article class="news-card" style="animation-delay: ${index * 0.15}s;">
                     <div class="news-card-header">
-                        <div class="news-icon">${item.image}</div>
+                        <div class="news-icon">${item.icon || '📰'}</div>
                         <div class="news-meta">
-                            <span class="news-category">${item.category}</span>
+                            <span class="news-category">${item.category || 'Обновления'}</span>
                             <span class="news-date">${date.toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                         </div>
                     </div>
@@ -2380,9 +2340,10 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 </article>
             `;
             }).join('');
+        } catch (error) {
+            console.error('Ошибка загрузки новостей:', error);
+            newsList.innerHTML = '<p style="color: var(--error-color); text-align: center; padding: 2rem;">Не удалось загрузить новости</p>';
         }
-
-        // Страница уже показана через роутинг
     }
 
     // Обратная связь

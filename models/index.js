@@ -12,6 +12,7 @@ const ContactMessage = require('./ContactMessage');
 const Transaction = require('./Transaction');
 const Setting = require('./Setting');
 const UserDeviceAlert = require('./UserDeviceAlert');
+const News = require('./News');
 
 // Определение связей
 User.hasMany(TestResult, { foreignKey: 'userId', as: 'TestResults' });
@@ -61,6 +62,7 @@ module.exports = {
   ContactMessage,
   Transaction,
   Setting,
-  UserDeviceAlert
+  UserDeviceAlert,
+  News
 };
 
