@@ -590,10 +590,22 @@ async function loadTests() {
     }
 }
 
+function renderQuestionsSelectPrompt() {
+    const questionsList = document.getElementById('questionsList');
+    if (questionsList) {
+        questionsList.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 2rem;">Выберите тест, чтобы увидеть вопросы</p>';
+    }
+}
+
 // Загрузка вопросов
 async function loadQuestions() {
     try {
         const testId = document.getElementById('questionsTestFilter')?.value || '';
+        if (!testId) {
+            renderQuestionsSelectPrompt();
+            return;
+        }
+
         const url = `${ADMIN_API_URL}/questions${testId ? `?testId=${testId}` : ''}`;
         const response = await fetch(url, {
             headers: {
@@ -1543,8 +1555,8 @@ function switchTab(tabName) {
             loadSubjectsForFilters();
             break;
         case 'questions':
-            loadQuestions();
             loadTestsForFilters();
+            renderQuestionsSelectPrompt();
             break;
         case 'messages':
             loadMessages();
@@ -1587,8 +1599,9 @@ async function loadTestsForFilters() {
         
         const questionsFilter = document.getElementById('questionsTestFilter');
         if (questionsFilter) {
-            questionsFilter.innerHTML = '<option value="">Все тесты</option>' + 
+            questionsFilter.innerHTML = '<option value="">Выберите тест</option>' + 
                 tests.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+            questionsFilter.value = '';
         }
     } catch (error) {
         console.error('Ошибка загрузки тестов для фильтра:', error);
