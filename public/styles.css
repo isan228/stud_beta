@@ -3638,6 +3638,12 @@ html[data-theme="dark"] .navbar {
     text-align: center;
 }
 
+.social-icon-large svg {
+    width: 48px;
+    height: 48px;
+    fill: currentColor;
+}
+
 .social-link-about h3 {
     font-size: 1.25rem;
     margin-bottom: 0.5rem;
