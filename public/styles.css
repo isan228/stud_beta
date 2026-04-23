@@ -4019,6 +4019,131 @@ html[data-theme="dark"] .navbar {
     }
 }
 
+/* Page-specific adaptive fixes */
+@media (max-width: 768px) {
+    /* Profile page */
+    #renewSubscriptionBtn {
+        margin-left: 0 !important;
+        margin-top: 0.5rem;
+        display: inline-flex;
+    }
+
+    #referralLink {
+        min-width: 0;
+    }
+
+    #copyReferralLink {
+        padding: 0.625rem 0.875rem !important;
+        white-space: nowrap;
+    }
+
+    #renewalModal .coins-section label {
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    #renewalCoinsToUse {
+        width: 96px !important;
+    }
+
+    #renewalModal .total-section {
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    #testAnalysisModal .modal-content {
+        max-width: calc(100% - 16px) !important;
+        max-height: 88vh !important;
+        margin: 6vh auto;
+    }
+
+    /* Payment page */
+    #paymentCoinsSection label {
+        align-items: center;
+    }
+
+    #paymentCoinsToUse {
+        width: 96px !important;
+    }
+
+    /* Test result page */
+    .result-card > div[style*="display: flex"] {
+        gap: 0.625rem !important;
+    }
+
+    .result-card > div[style*="display: flex"] .btn,
+    .result-card > div[style*="display: flex"] a.btn {
+        min-width: 0;
+    }
+
+    #testAnalysisContent > div[style*="margin-bottom: 2rem"] {
+        padding: 1rem !important;
+        margin-bottom: 1rem !important;
+    }
+
+    #testAnalysisContent div[style*="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr))"] {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 0.625rem !important;
+    }
+
+    /* Admin page */
+    .admin-section-header > div[style*="display: flex"] {
+        width: 100%;
+    }
+
+    .admin-section-header > div[style*="display: flex"] .form-group.input,
+    .admin-section-header > div[style*="display: flex"] input,
+    .admin-section-header > div[style*="display: flex"] select {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+
+    .admin-documents-form {
+        max-width: 100% !important;
+    }
+
+    .admin-documents-form .form-group > div[style*="display: flex"] {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+
+    .admin-documents-form input[style*="min-width: 200px"] {
+        min-width: 0 !important;
+        width: 100%;
+    }
+
+    #messageModal .modal-content > div[style*="display: flex"] {
+        flex-wrap: wrap;
+    }
+
+    #messageModal .modal-content > div[style*="display: flex"] .btn {
+        flex: 1 1 calc(50% - 0.5rem);
+        min-width: 0;
+    }
+}
+
+@media (max-width: 480px) {
+    #paymentCoinsSection label,
+    #renewalModal .coins-section label {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.35rem !important;
+    }
+
+    #paymentCoinsToUse,
+    #renewalCoinsToUse {
+        width: 100% !important;
+    }
+
+    #testAnalysisContent div[style*="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr))"] {
+        grid-template-columns: 1fr !important;
+    }
+
+    #messageModal .modal-content > div[style*="display: flex"] .btn {
+        flex: 1 1 100%;
+    }
+}
+
 .social-link.telegram:hover {
     color: #0088cc;
     border-color: #0088cc;
