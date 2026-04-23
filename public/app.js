@@ -1102,7 +1102,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             nextBtn.style.display = currentQuestionIndex < currentQuestions.length - 1 ? 'block' : 'none';
         }
         if (finishBtn) {
-            finishBtn.style.display = currentQuestionIndex === currentQuestions.length - 1 ? 'block' : 'none';
+            // Кнопка досрочного завершения доступна на любом вопросе
+            finishBtn.style.display = currentQuestions.length > 0 ? 'block' : 'none';
         }
     }
 
@@ -1146,6 +1147,27 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
 
         const timeSpent = Math.floor((Date.now() - testStartTime) / 1000);
+        const answeredQuestions = currentQuestions.filter(question => {
+            const answerId = currentAnswers[question.id];
+            return answerId !== undefined && answerId !== null && answerId !== '';
+        });
+        const isEarlyFinish = answeredQuestions.length < currentQuestions.length;
+
+        if (answeredQuestions.length === 0) {
+            showNotification('Сначала ответьте хотя бы на один вопрос', 'error');
+            return;
+        }
+
+        if (isEarlyFinish) {
+            const confirmed = window.confirm(
+                `Вы ответили на ${answeredQuestions.length} из ${currentQuestions.length} вопросов. Завершить тест досрочно?`
+            );
+            if (!confirmed) {
+                return;
+            }
+        }
+
+        const questionsForResult = isEarlyFinish ? answeredQuestions : currentQuestions;
 
         try {
             let result;
@@ -1157,6 +1179,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             console.error('currentTestId defined:', currentTestId !== null && currentTestId !== undefined);
             console.error('hasUser:', !!currentUser);
             console.error('currentQuestions.length:', currentQuestions.length);
+            console.error('questionsForResult.length:', questionsForResult.length);
             console.error('currentAnswers:', Object.keys(currentAnswers).length);
 
             // Пробуем использовать window.currentTestId если currentTestId не установлен
@@ -1168,10 +1191,10 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             // Если это тест из избранного, проверяем локально
             if (!currentTestId) {
                 console.error('⚠️ currentTestId is null/undefined - using local check');
-                result = checkFavoriteTestAnswers();
+                result = checkFavoriteTestAnswers(questionsForResult);
             } else {
                 console.error('✅ currentTestId exists - sending request to server');
-                const questionIds = currentQuestions.map(q => q.id);
+                const questionIds = questionsForResult.map(q => q.id);
                 console.error('Request URL:', `${API_URL}/tests/tests/${currentTestId}/check`);
                 console.error('Request body:', { answers: currentAnswers, questionIds });
 
@@ -1216,11 +1239,12 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             }
 
             // Загружаем полные вопросы с правильными ответами для разбора
-            let fullQuestions = currentQuestions;
+            let fullQuestions = questionsForResult;
             console.log('🔍 Начало finishTest:', {
                 currentTestId,
                 hasUser: !!currentUser,
                 currentQuestionsCount: currentQuestions.length,
+                questionsForResultCount: questionsForResult.length,
                 firstQuestionHasAnswers: currentQuestions[0]?.Answers?.length || 0,
                 firstQuestionId: currentQuestions[0]?.id
             });
@@ -1293,7 +1317,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                             questionsMap[q.id] = q;
                         });
                         // Обновляем вопросы с правильными ответами
-                        fullQuestions = currentQuestions.map(q => {
+                        fullQuestions = questionsForResult.map(q => {
                             const fullQ = questionsMap[q.id];
                             if (fullQ && fullQ.Answers) {
                                 const answersWithCorrect = fullQ.Answers.map(a => {
@@ -1522,11 +1546,11 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
     }
 
-    function checkFavoriteTestAnswers() {
+    function checkFavoriteTestAnswers(questions = currentQuestions) {
         let correctCount = 0;
         const results = {};
 
-        currentQuestions.forEach(question => {
+        questions.forEach(question => {
             const userAnswerId = currentAnswers[question.id];
             // Улучшенная нормализация isCorrect
             const correctAnswer = question.Answers.find(a => {
@@ -1555,8 +1579,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
         return {
             score: correctCount,
-            total: currentQuestions.length,
-            percentage: Math.round((correctCount / currentQuestions.length) * 100),
+            total: questions.length,
+            percentage: questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0,
             results
         };
     }
