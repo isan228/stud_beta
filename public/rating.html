@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="styles.css">
     <style>
         .rating-page { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
+        .rating-table-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .rating-table { width: 100%; border-collapse: collapse; background: var(--card-bg); border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
         .rating-table th, .rating-table td { padding: 0.875rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); }
         .rating-table th { background: var(--bg-secondary); font-weight: 600; color: var(--text-primary); }
@@ -19,6 +20,21 @@
         .rating-rank.top3 { color: #b45309; }
         .rating-loading, .rating-empty { text-align: center; padding: 3rem; color: var(--text-secondary); }
         .rating-empty { font-size: 1.1rem; }
+        @media (max-width: 768px) {
+            .rating-page { padding: 1.25rem 0.5rem; }
+            .rating-table { min-width: 640px; font-size: 0.92rem; }
+            .rating-table th, .rating-table td { padding: 0.65rem 0.75rem; }
+        }
+        @media (max-width: 480px) {
+            .rating-table th:nth-child(4),
+            .rating-table td:nth-child(4),
+            .rating-table th:nth-child(5),
+            .rating-table td:nth-child(5) {
+                display: none;
+            }
+            .rating-table { min-width: 0; width: 100%; font-size: 0.88rem; }
+            .rating-table th, .rating-table td { padding: 0.6rem 0.5rem; }
+        }
     </style>
 </head>
 <body>
@@ -53,7 +69,7 @@
             </div>
             <div id="ratingContent">
                 <div class="rating-loading" id="ratingLoading">Загрузка рейтинга...</div>
-                <div id="ratingTableWrap" style="display: none;"></div>
+                <div id="ratingTableWrap" class="rating-table-wrap" style="display: none;"></div>
                 <div class="rating-empty" id="ratingEmpty" style="display: none;">Пока нет данных для рейтинга. Проходите тесты!</div>
             </div>
         </div>
