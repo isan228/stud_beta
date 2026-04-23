@@ -3932,6 +3932,93 @@ html[data-theme="dark"] .navbar {
     border-color: #25D366;
 }
 
+/* Global responsive hardening */
+@media (max-width: 768px) {
+    .container {
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+
+    .main-content {
+        padding-top: 1rem;
+    }
+
+    .page-header {
+        margin-bottom: 1.5rem;
+    }
+
+    .modal-content {
+        margin: 12% auto;
+        width: calc(100% - 20px);
+    }
+
+    .test-header > div[style*="display: flex"] {
+        width: 100%;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 0.5rem !important;
+    }
+
+    #favoriteContainer {
+        margin-left: auto;
+    }
+
+    .main-content a[style*="min-width: 150px"] {
+        min-width: 0 !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .modal-content {
+        margin: 10% auto;
+        padding: 1rem;
+        width: calc(100% - 16px);
+    }
+
+    .notification {
+        left: 12px;
+        right: 12px;
+        top: 72px;
+        max-width: none;
+        transform: translateY(-20px) scale(0.96);
+    }
+
+    .test-actions {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .test-actions .btn {
+        width: 100%;
+        min-width: 0;
+        white-space: normal;
+    }
+
+    .stats-card,
+    .settings-card,
+    .user-info-card,
+    .recent-results,
+    .about-card,
+    .contact-card,
+    .auth-container,
+    .test-settings {
+        padding: 1rem;
+    }
+
+    .modal-content > div[style*="display: flex"] {
+        gap: 0.5rem !important;
+    }
+
+    .main-content a[style*="min-width: 150px"] {
+        width: 100%;
+    }
+}
+
 .social-link.telegram:hover {
     color: #0088cc;
     border-color: #0088cc;
