@@ -3644,6 +3644,12 @@ html[data-theme="dark"] .navbar {
     fill: currentColor;
 }
 
+.social-icon-large img {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+}
+
 .social-link-about h3 {
     font-size: 1.25rem;
     margin-bottom: 0.5rem;
@@ -3894,6 +3900,12 @@ html[data-theme="dark"] .navbar {
     fill: currentColor;
 }
 
+.social-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
 /* Specific Social Colors */
 .social-link.whatsapp:hover {
     color: #25D366;
@@ -3940,6 +3952,12 @@ html[data-theme="dark"] .navbar {
     width: 20px;
     height: 20px;
     fill: currentColor;
+}
+
+.footer-social-link img {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
 }
 
 
