@@ -77,6 +77,26 @@ input, textarea, select {
     font-size: 16px; /* Предотвращает зум на iOS */
 }
 
+.account-warning {
+    margin: 1rem 0 1.5rem;
+    padding: 1rem 1.25rem;
+    border-radius: var(--radius);
+    border-left: 4px solid var(--danger-color);
+    background: color-mix(in srgb, var(--danger-color) 10%, var(--bg-secondary));
+}
+
+.account-warning-title {
+    margin: 0 0 0.5rem;
+    font-weight: 700;
+    color: var(--danger-color);
+}
+
+.account-warning-text {
+    margin: 0;
+    color: var(--text-color);
+    line-height: 1.5;
+}
+
 /* Улучшение скролла на мобильных */
 @media (max-width: 768px) {
     input, textarea, select {
