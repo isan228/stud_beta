@@ -361,7 +361,9 @@ async function loadDeviceAlerts(limit = 10) {
         }
 
         const data = await response.json();
-        const alerts = data.alerts || [];
+        const alerts = (data.alerts || []).slice().sort((a, b) => {
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
         const unreadCount = data.unreadCount || 0;
 
         const statNewDevices = document.getElementById('statNewDevices');
