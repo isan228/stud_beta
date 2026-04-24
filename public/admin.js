@@ -348,6 +348,55 @@ async function loadDashboard() {
 }
 
 // Загрузка уведомлений о входах с новых устройств
+let currentDeviceAlerts = [];
+
+function renderDeviceAlerts() {
+    const deviceAlertsList = document.getElementById('deviceAlertsList');
+    if (!deviceAlertsList) return;
+
+    const dateFilter = document.getElementById('deviceAlertsDateFilter')?.value || '';
+    const filteredAlerts = dateFilter
+        ? currentDeviceAlerts.filter(alert => {
+            const alertDate = new Date(alert.createdAt);
+            if (Number.isNaN(alertDate.getTime())) return false;
+            return alertDate.toISOString().slice(0, 10) === dateFilter;
+        })
+        : currentDeviceAlerts;
+
+    if (!filteredAlerts.length) {
+        deviceAlertsList.innerHTML = dateFilter
+            ? '<p style="color: var(--text-muted); text-align: center; padding: 1rem;">За выбранную дату входов нет</p>'
+            : '<p style="color: var(--text-muted); text-align: center; padding: 1rem;">Новых входов с других устройств нет</p>';
+        return;
+    }
+
+    deviceAlertsList.innerHTML = filteredAlerts.map(alert => {
+        const createdAt = new Date(alert.createdAt);
+        const shortUa = (alert.userAgent || '').length > 90
+            ? `${alert.userAgent.slice(0, 90)}...`
+            : (alert.userAgent || 'unknown');
+        return `
+            <div class="admin-list-item" style="${alert.isRead ? 'opacity: 0.75;' : 'border-left: 4px solid var(--primary-color);'}">
+                <div style="flex: 1;">
+                    <strong>${alert.username}</strong>
+                    <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0.25rem 0 0;">${alert.email}</p>
+                    <p style="color: var(--text-secondary); font-size: 0.8rem; margin: 0.25rem 0 0;">IP: ${alert.ipAddress || 'unknown'}</p>
+                    <p style="color: var(--text-secondary); font-size: 0.8rem; margin: 0.25rem 0 0;">${shortUa}</p>
+                </div>
+                <div style="text-align: right; min-width: 170px;">
+                    <span style="display: block; color: var(--text-muted); font-size: 0.8rem; margin-bottom: 0.5rem;">
+                        ${createdAt.toLocaleString('ru-RU')}
+                    </span>
+                    ${alert.isRead
+                        ? '<span style="font-size: 0.75rem; color: var(--text-muted);">Прочитано</span>'
+                        : `<button class="btn btn-secondary btn-sm" onclick="markDeviceAlertRead(${alert.id})">Отметить прочитанным</button>`
+                    }
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
 async function loadDeviceAlerts(limit = 10) {
     try {
         const response = await fetch(`${ADMIN_API_URL}/device-alerts?limit=${limit}`, {
@@ -365,45 +414,14 @@ async function loadDeviceAlerts(limit = 10) {
             return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         });
         const unreadCount = data.unreadCount || 0;
+        currentDeviceAlerts = alerts;
 
         const statNewDevices = document.getElementById('statNewDevices');
         if (statNewDevices) {
             statNewDevices.textContent = unreadCount;
         }
 
-        const deviceAlertsList = document.getElementById('deviceAlertsList');
-        if (!deviceAlertsList) return;
-
-        if (!alerts.length) {
-            deviceAlertsList.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1rem;">Новых входов с других устройств нет</p>';
-            return;
-        }
-
-        deviceAlertsList.innerHTML = alerts.map(alert => {
-            const createdAt = new Date(alert.createdAt);
-            const shortUa = (alert.userAgent || '').length > 90
-                ? `${alert.userAgent.slice(0, 90)}...`
-                : (alert.userAgent || 'unknown');
-            return `
-                <div class="admin-list-item" style="${alert.isRead ? 'opacity: 0.75;' : 'border-left: 4px solid var(--primary-color);'}">
-                    <div style="flex: 1;">
-                        <strong>${alert.username}</strong>
-                        <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0.25rem 0 0;">${alert.email}</p>
-                        <p style="color: var(--text-secondary); font-size: 0.8rem; margin: 0.25rem 0 0;">IP: ${alert.ipAddress || 'unknown'}</p>
-                        <p style="color: var(--text-secondary); font-size: 0.8rem; margin: 0.25rem 0 0;">${shortUa}</p>
-                    </div>
-                    <div style="text-align: right; min-width: 170px;">
-                        <span style="display: block; color: var(--text-muted); font-size: 0.8rem; margin-bottom: 0.5rem;">
-                            ${createdAt.toLocaleString('ru-RU')}
-                        </span>
-                        ${alert.isRead
-                            ? '<span style="font-size: 0.75rem; color: var(--text-muted);">Прочитано</span>'
-                            : `<button class="btn btn-secondary btn-sm" onclick="markDeviceAlertRead(${alert.id})">Отметить прочитанным</button>`
-                        }
-                    </div>
-                </div>
-            `;
-        }).join('');
+        renderDeviceAlerts();
     } catch (error) {
         console.error('Ошибка загрузки уведомлений о новых устройствах:', error);
     }
@@ -1483,6 +1501,21 @@ function setupAdminEventListeners() {
             searchTimeout = setTimeout(() => {
                 loadMessages(1);
             }, 500);
+        });
+    }
+
+    const deviceAlertsDateFilter = document.getElementById('deviceAlertsDateFilter');
+    if (deviceAlertsDateFilter) {
+        deviceAlertsDateFilter.addEventListener('change', renderDeviceAlerts);
+    }
+
+    const clearDeviceAlertsDateFilter = document.getElementById('clearDeviceAlertsDateFilter');
+    if (clearDeviceAlertsDateFilter) {
+        clearDeviceAlertsDateFilter.addEventListener('click', () => {
+            if (deviceAlertsDateFilter) {
+                deviceAlertsDateFilter.value = '';
+            }
+            renderDeviceAlerts();
         });
     }
 
