@@ -355,7 +355,9 @@ function renderDeviceAlerts() {
     if (!deviceAlertsList) return;
 
     const dateFilter = document.getElementById('deviceAlertsDateFilter')?.value || '';
-    const filteredAlerts = dateFilter
+    const loginSearch = (document.getElementById('deviceAlertsLoginSearch')?.value || '').trim().toLowerCase();
+
+    let filteredAlerts = dateFilter
         ? currentDeviceAlerts.filter(alert => {
             const alertDate = new Date(alert.createdAt);
             if (Number.isNaN(alertDate.getTime())) return false;
@@ -363,10 +365,19 @@ function renderDeviceAlerts() {
         })
         : currentDeviceAlerts;
 
+    if (loginSearch) {
+        filteredAlerts = filteredAlerts.filter(alert => {
+            const username = String(alert.username || '').toLowerCase();
+            return username.includes(loginSearch);
+        });
+    }
+
     if (!filteredAlerts.length) {
-        deviceAlertsList.innerHTML = dateFilter
-            ? '<p style="color: var(--text-muted); text-align: center; padding: 1rem;">За выбранную дату входов нет</p>'
-            : '<p style="color: var(--text-muted); text-align: center; padding: 1rem;">Новых входов с других устройств нет</p>';
+        if (dateFilter || loginSearch) {
+            deviceAlertsList.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1rem;">По выбранным фильтрам входов не найдено</p>';
+        } else {
+            deviceAlertsList.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1rem;">Новых входов с других устройств нет</p>';
+        }
         return;
     }
 
@@ -1509,11 +1520,25 @@ function setupAdminEventListeners() {
         deviceAlertsDateFilter.addEventListener('change', renderDeviceAlerts);
     }
 
+    const deviceAlertsLoginSearch = document.getElementById('deviceAlertsLoginSearch');
+    if (deviceAlertsLoginSearch) {
+        let deviceLoginSearchTimeout;
+        deviceAlertsLoginSearch.addEventListener('input', () => {
+            clearTimeout(deviceLoginSearchTimeout);
+            deviceLoginSearchTimeout = setTimeout(() => {
+                renderDeviceAlerts();
+            }, 250);
+        });
+    }
+
     const clearDeviceAlertsDateFilter = document.getElementById('clearDeviceAlertsDateFilter');
     if (clearDeviceAlertsDateFilter) {
         clearDeviceAlertsDateFilter.addEventListener('click', () => {
             if (deviceAlertsDateFilter) {
                 deviceAlertsDateFilter.value = '';
+            }
+            if (deviceAlertsLoginSearch) {
+                deviceAlertsLoginSearch.value = '';
             }
             renderDeviceAlerts();
         });
