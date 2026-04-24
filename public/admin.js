@@ -348,9 +348,9 @@ async function loadDashboard() {
 }
 
 // Загрузка уведомлений о входах с новых устройств
-async function loadDeviceAlerts() {
+async function loadDeviceAlerts(limit = 10) {
     try {
-        const response = await fetch(`${ADMIN_API_URL}/device-alerts?limit=10`, {
+        const response = await fetch(`${ADMIN_API_URL}/device-alerts?limit=${limit}`, {
             headers: {
                 'Authorization': `Bearer ${currentAdminToken}`
             }
@@ -421,7 +421,9 @@ async function markDeviceAlertRead(alertId) {
             throw new Error('Ошибка обновления уведомления');
         }
 
-        await loadDeviceAlerts();
+        const devicesTab = document.getElementById('devicesTab');
+        const isDevicesTabActive = devicesTab && devicesTab.classList.contains('active');
+        await loadDeviceAlerts(isDevicesTabActive ? 1000 : 10);
     } catch (error) {
         console.error('Ошибка обновления уведомления:', error);
         showNotification('Не удалось отметить уведомление', 'error');
@@ -1730,6 +1732,9 @@ function switchTab(tabName) {
             // Загружаем фильтры для тестов и вопросов
             loadSubjectsForFilters();
             loadTestsForFilters();
+            break;
+        case 'devices':
+            loadDeviceAlerts(1000);
             break;
         case 'subjects':
             loadSubjects();
