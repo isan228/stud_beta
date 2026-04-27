@@ -270,6 +270,12 @@ router.delete('/users/:id', adminAuth, async (req, res) => {
       return res.status(404).json({ error: 'Пользователь не найден' });
     }
 
+    // Сбрасываем foreign key referredBy у других пользователей, чтобы избежать ошибки ConstraintError
+    await User.update(
+      { referredBy: null },
+      { where: { referredBy: user.id } }
+    );
+
     await user.destroy();
     res.json({ message: 'Пользователь удален' });
   } catch (error) {
