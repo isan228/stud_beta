@@ -739,6 +739,26 @@ router.post('/create-registration', [
 
     const { amount, description, paymentType, registrationData } = req.body;
 
+    // Проверка существующих пользователей со схожими никнеймами или почтами (на этапе до создания оплаты)
+    const normalizedEmail = registrationData.email.trim();
+    const normalizedUsername = registrationData.username.trim();
+
+    const existingUser = await User.findOne({
+      where: {
+        [require('sequelize').Op.or]: [
+          { email: { [require('sequelize').Op.iLike]: normalizedEmail } },
+          { username: { [require('sequelize').Op.iLike]: normalizedUsername } }
+        ]
+      }
+    });
+
+    if (existingUser) {
+      if (existingUser.email.toLowerCase() === normalizedEmail.toLowerCase()) {
+        return res.status(400).json({ error: 'Пользователь с такой почтой (или очень похожей) уже существует' });
+      }
+      return res.status(400).json({ error: 'Пользователь с таким никнеймом (или очень похожим) уже существует' });
+    }
+
     // Обработка реферального кода (без скидки, только для начисления монет)
     let finalAmount = parseFloat(amount);
     let referralCode = null;

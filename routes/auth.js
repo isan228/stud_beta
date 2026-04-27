@@ -37,15 +37,24 @@ router.post('/register', [
 
     const { username, email, password, referralCode } = req.body;
 
-    // Проверка существующего пользователя
+    // Проверка существующих пользователей со схожими никнеймами или почтами (без учета регистра)
+    const normalizedEmail = email.trim();
+    const normalizedUsername = username.trim();
+
     const existingUser = await User.findOne({
       where: {
-        [Op.or]: [{ email }, { username }]
+        [Op.or]: [
+          { email: { [Op.iLike]: normalizedEmail } },
+          { username: { [Op.iLike]: normalizedUsername } }
+        ]
       }
     });
 
     if (existingUser) {
-      return res.status(400).json({ error: 'Пользователь с таким email или никнеймом уже существует' });
+      if (existingUser.email.toLowerCase() === normalizedEmail.toLowerCase()) {
+        return res.status(400).json({ error: 'Пользователь с такой почтой (или очень похожей) уже существует' });
+      }
+      return res.status(400).json({ error: 'Пользователь с таким никнеймом (или очень похожим) уже существует' });
     }
 
     // Проверка и обработка реферального кода
