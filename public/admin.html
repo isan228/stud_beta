@@ -245,7 +245,13 @@
                         <h2>Чаты с пользователями</h2>
                     </div>
                     <div class="admin-chat-layout">
-                        <div id="adminChatsList" class="admin-list admin-chat-users"></div>
+                        <div>
+                            <div class="admin-chat-start">
+                                <input type="text" id="adminChatUserSearch" class="form-group input" placeholder="Найти пользователя по имени или email...">
+                                <button type="button" class="btn btn-secondary" id="adminStartChatBtn">Открыть чат</button>
+                            </div>
+                            <div id="adminChatsList" class="admin-list admin-chat-users"></div>
+                        </div>
                         <div class="admin-chat-panel">
                             <div id="adminChatHeader" class="admin-chat-header">Выберите чат слева</div>
                             <div id="adminChatMessages" class="admin-chat-messages"></div>

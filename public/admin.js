@@ -5,6 +5,9 @@ const ADMIN_API_URL = '/api/admin';
 let currentAdmin = null;
 let currentAdminToken = null;
 let currentChatUserId = null;
+let adminChatUsers = [];
+let adminChatsPollInterval = null;
+let adminChatMessagesPollInterval = null;
 
 // Функция уведомлений (если не определена в app.js)
 function showNotification(message, type = 'info') {
@@ -1600,6 +1603,7 @@ function setupAdminEventListeners() {
     if (adminChatForm) {
         adminChatForm.addEventListener('submit', handleAdminChatSubmit);
     }
+    setupAdminChatUserPicker();
 
     const uploadOfferBtn = document.getElementById('uploadOfferBtn');
     const docPublicOfferFile = document.getElementById('docPublicOfferFile');
@@ -1789,6 +1793,11 @@ function switchTab(tabName) {
     document.getElementById(`${tabName}Tab`).classList.add('active');
 
     // Загружаем данные для таба
+    if (tabName !== 'chats') {
+        stopAdminChatsPolling();
+        stopAdminChatMessagesPolling();
+    }
+
     switch(tabName) {
         case 'dashboard':
             loadDashboard();
@@ -1821,6 +1830,7 @@ function switchTab(tabName) {
             break;
         case 'chats':
             loadAdminChats();
+            startAdminChatsPolling();
             break;
         case 'documents':
             loadDocumentsSettings();
@@ -2079,6 +2089,7 @@ async function loadAdminChats() {
         if (!listEl) return;
 
         const chats = data.chats || [];
+        adminChatUsers = chats.map(chat => chat.user);
         if (!chats.length) {
             listEl.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1rem;">Чатов пока нет</p>';
             const headerEl = document.getElementById('adminChatHeader');
@@ -2148,6 +2159,7 @@ async function openAdminChat(userId) {
             headers: { 'Authorization': `Bearer ${currentAdminToken}` }
         });
         await loadAdminChats();
+        startAdminChatMessagesPolling();
     } catch (error) {
         console.error('Ошибка загрузки диалога:', error);
         showNotification('Ошибка загрузки диалога', 'error');
@@ -2187,6 +2199,83 @@ async function handleAdminChatSubmit(e) {
         console.error('Ошибка отправки сообщения админа:', error);
         showNotification(error.message || 'Ошибка отправки сообщения', 'error');
     }
+}
+
+function startAdminChatsPolling() {
+    stopAdminChatsPolling();
+    adminChatsPollInterval = setInterval(() => {
+        if (document.getElementById('chatsTab')?.classList.contains('active')) {
+            loadAdminChats();
+        }
+    }, 3000);
+}
+
+function stopAdminChatsPolling() {
+    if (adminChatsPollInterval) {
+        clearInterval(adminChatsPollInterval);
+        adminChatsPollInterval = null;
+    }
+}
+
+function startAdminChatMessagesPolling() {
+    stopAdminChatMessagesPolling();
+    adminChatMessagesPollInterval = setInterval(async () => {
+        if (!currentChatUserId) return;
+        if (!document.getElementById('chatsTab')?.classList.contains('active')) return;
+        await openAdminChat(currentChatUserId);
+    }, 3000);
+}
+
+function stopAdminChatMessagesPolling() {
+    if (adminChatMessagesPollInterval) {
+        clearInterval(adminChatMessagesPollInterval);
+        adminChatMessagesPollInterval = null;
+    }
+}
+
+function setupAdminChatUserPicker() {
+    const searchInput = document.getElementById('adminChatUserSearch');
+    const startBtn = document.getElementById('adminStartChatBtn');
+    if (!searchInput || !startBtn) return;
+
+    startBtn.addEventListener('click', async () => {
+        const query = (searchInput.value || '').trim().toLowerCase();
+        if (!query) {
+            showNotification('Введите имя или email пользователя', 'error');
+            return;
+        }
+
+        // Сначала ищем среди уже загруженных чатов
+        let user = adminChatUsers.find(u =>
+            String(u.username || '').toLowerCase().includes(query) ||
+            String(u.email || '').toLowerCase().includes(query)
+        );
+
+        // Если не нашли, подгружаем список пользователей из админского API
+        if (!user) {
+            try {
+                const response = await fetch(`${ADMIN_API_URL}/users?page=1&limit=1000&search=${encodeURIComponent(query)}`, {
+                    headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.users && data.users[0]) {
+                        user = data.users[0];
+                    }
+                }
+            } catch (error) {
+                console.error('Ошибка поиска пользователя для чата:', error);
+            }
+        }
+
+        if (!user) {
+            showNotification('Пользователь не найден', 'error');
+            return;
+        }
+
+        searchInput.value = '';
+        await openAdminChat(user.id);
+    });
 }
 
 // Экспорт функций для использования в HTML

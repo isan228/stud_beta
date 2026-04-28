@@ -576,7 +576,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 await loadUserChatMessages();
                 await markAdminMessagesAsRead();
             }
-        }, 10000);
+        }, 3000);
     }
 
     function stopChatPolling() {

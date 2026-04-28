@@ -148,9 +148,9 @@ router.get('/chats', adminAuth, async (req, res) => {
         model: ChatMessage,
         as: 'ChatMessages',
         attributes: ['id', 'text', 'isAdmin', 'isRead', 'createdAt'],
-        required: true
+        required: false
       }],
-      order: [['id', 'DESC']]
+      order: [['username', 'ASC']]
     });
 
     const chats = users
@@ -167,7 +167,8 @@ router.get('/chats', adminAuth, async (req, res) => {
       .sort((a, b) => {
         const aDate = a.lastMessage ? new Date(a.lastMessage.createdAt).getTime() : 0;
         const bDate = b.lastMessage ? new Date(b.lastMessage.createdAt).getTime() : 0;
-        return bDate - aDate;
+        if (aDate !== bDate) return bDate - aDate;
+        return String(a.user.username || '').localeCompare(String(b.user.username || ''), 'ru');
       });
 
     res.json({ chats });

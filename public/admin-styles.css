@@ -338,6 +338,16 @@
 .admin-chat-users {
     max-height: 70vh;
     overflow-y: auto;
+    margin-top: 0.75rem;
+}
+
+.admin-chat-start {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.admin-chat-start input {
+    flex: 1;
 }
 
 .admin-chat-user {
