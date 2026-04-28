@@ -140,177 +140,206 @@
         
         .subscription-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 1.5rem;
             margin-top: 2rem;
         }
         
         .subscription-card {
-            border: 2px solid var(--border-color);
-            border-radius: 16px;
-            padding: 2rem;
-            text-align: center;
+            border: 1px solid rgba(77, 163, 255, 0.25);
+            border-radius: 18px;
+            padding: 1.25rem;
             cursor: pointer;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            background: var(--card-bg);
+            background: linear-gradient(180deg, #0e2a5a, #081a38);
             position: relative;
             overflow: hidden;
+            color: #fff;
         }
         
         .subscription-card::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, var(--primary-color), var(--primary-light));
-            transform: scaleX(0);
-            transition: transform 0.3s ease;
-        }
-        
-        .subscription-card:hover:not(.disabled)::before {
-            transform: scaleX(1);
+            inset: 0;
+            border-radius: 18px;
+            border: 1px solid transparent;
+            background: linear-gradient(130deg, rgba(77, 163, 255, 0.45), rgba(47, 107, 255, 0.05)) border-box;
+            -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
         }
         
         .subscription-card:hover:not(.disabled) {
-            border-color: var(--primary-color);
-            transform: translateY(-8px);
-            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+            transform: translateY(-6px);
+            box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35);
         }
         
         .subscription-card.selected {
-            border-color: var(--primary-color);
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-            color: white;
-            transform: translateY(-8px);
-            box-shadow: 0 12px 24px rgba(37, 99, 235, 0.3);
-        }
-        
-        .subscription-card.selected::before {
-            transform: scaleX(1);
-            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(77, 163, 255, 0.6);
+            box-shadow: 0 0 0 2px rgba(77, 163, 255, 0.45), 0 14px 30px rgba(0, 0, 0, 0.4);
+            transform: translateY(-6px);
         }
         
         .subscription-card.selected * {
-            color: white;
+            color: inherit;
         }
         
         .subscription-card.disabled {
-            opacity: 0.5;
+            opacity: 0.72;
             cursor: not-allowed;
-            position: relative;
+            filter: grayscale(0.25);
+        }
+
+        .subscription-card.disabled .subscription-cta {
+            opacity: 0.65;
         }
         
         .subscription-card.disabled::after {
             content: 'В разработке';
             position: absolute;
-            top: 1rem;
-            right: 1rem;
-            background: var(--warning-color);
+            top: 12px;
+            right: 12px;
+            background: #ff4d4d;
             color: white;
-            padding: 0.5rem 1rem;
+            padding: 6px 12px;
             border-radius: 20px;
             font-size: 0.75rem;
             font-weight: 600;
-            box-shadow: 0 2px 8px rgba(217, 119, 6, 0.3);
+            box-shadow: 0 2px 8px rgba(255, 77, 77, 0.3);
         }
         
         .subscription-badge {
             position: absolute;
-            top: 1rem;
-            left: 1rem;
-            background: rgba(255, 255, 255, 0.2);
-            padding: 0.25rem 0.75rem;
-            border-radius: 12px;
-            font-size: 0.75rem;
+            top: 12px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 12px;
+            pointer-events: none;
+        }
+
+        .subscription-badge-left,
+        .subscription-badge-right {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
             font-weight: 600;
-            backdrop-filter: blur(10px);
+            color: #fff;
         }
-        
-        .subscription-card.selected .subscription-badge {
-            background: rgba(255, 255, 255, 0.3);
+
+        .subscription-badge-left {
+            background: #2f6bff;
         }
-        
+
+        .subscription-badge-right {
+            background: #ff4d4d;
+        }
+
         .subscription-title {
-            font-size: 1.5rem;
+            font-size: 1.6rem;
             font-weight: 700;
-            margin-bottom: 1rem;
-            margin-top: 0.5rem;
+            margin: 2.1rem 0 0.6rem;
+            text-align: center;
         }
-        
+
         .subscription-price {
-            font-size: 2.5rem;
+            text-align: center;
+            margin: 0.3rem 0 0.4rem;
+        }
+
+        .subscription-price-old {
+            text-decoration: line-through;
+            color: #a8b2c8;
+            margin-right: 8px;
+            font-size: 1rem;
+        }
+
+        .subscription-price-new {
+            font-size: 2rem;
+            color: #4da3ff;
             font-weight: 800;
-            color: var(--primary-color);
-            margin: 1rem 0;
-            line-height: 1;
         }
-        
-        .subscription-card.selected .subscription-price {
-            color: white;
-        }
-        
+
         .subscription-period {
-            font-size: 0.875rem;
-            color: var(--text-muted);
-            margin-bottom: 1rem;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #cfd8ea;
+            margin-bottom: 0.8rem;
         }
-        
-        .subscription-card.selected .subscription-period {
-            color: rgba(255, 255, 255, 0.9);
+
+        .subscription-cta {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(90deg, #2f6bff, #4da3ff);
+            color: #fff;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            font-size: 0.95rem;
         }
         
         .subscription-description {
-            font-size: 0.9375rem;
-            color: var(--text-secondary);
-            line-height: 1.6;
-            margin-top: 1rem;
-        }
-        
-        .subscription-card.selected .subscription-description {
-            color: rgba(255, 255, 255, 0.95);
+            text-align: center;
+            color: #c6d4f0;
+            font-size: 0.88rem;
+            line-height: 1.5;
         }
         
         .subscription-features {
-            margin-top: 1.5rem;
+            margin-top: 1rem;
             text-align: left;
-            padding-top: 1.5rem;
-            border-top: 1px solid var(--border-color);
-        }
-        
-        .subscription-card.selected .subscription-features {
-            border-top-color: rgba(255, 255, 255, 0.2);
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
         }
         
         .subscription-features ul {
             list-style: none;
             padding: 0;
-            margin: 0;
+            margin: 0 0 0.65rem;
         }
         
         .subscription-features li {
-            padding: 0.5rem 0;
-            color: var(--text-secondary);
-            font-size: 0.875rem;
+            padding: 0.35rem 0;
+            color: #b6ffcc;
+            font-size: 0.86rem;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.45rem;
         }
-        
-        .subscription-card.selected .subscription-features li {
-            color: rgba(255, 255, 255, 0.95);
+
+        .subscription-features.locked li {
+            color: #8ea0bd;
         }
         
         .subscription-features li::before {
-            content: '✓';
-            color: var(--success-color);
-            font-weight: bold;
-            font-size: 1.2rem;
+            content: '✔';
+            color: #9ef0bd;
+            font-size: 0.92rem;
         }
-        
-        .subscription-card.selected .subscription-features li::before {
-            color: white;
+
+        .subscription-features.locked li::before {
+            content: '🔒';
+            color: #9aa7c0;
+            font-size: 0.88rem;
+        }
+
+        .subscription-note {
+            margin-top: 0.9rem;
+            padding: 0.75rem;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.06);
+            text-align: center;
+            color: #dbe6ff;
+            font-size: 0.82rem;
+            line-height: 1.45;
+        }
+
+        .subscription-note span {
+            color: #9fb2d2;
         }
         
         /* Форма данных */
@@ -586,13 +615,13 @@
             <div class="registration-step active" id="subscriptionStep">
                 <div class="subscription-selection">
                     <div class="subscription-grid">
-                        <div class="subscription-card" data-subscription="1" data-amount="150">
-                            <div class="subscription-badge">Популярный</div>
+                        <div class="subscription-card selected" data-subscription="1" data-amount="250">
                             <div class="subscription-title">1 месяц</div>
-                            <div class="subscription-price">150 <span style="font-size: 1.5rem;">сом</span></div>
+                            <div class="subscription-price"><span class="subscription-price-new">250 сом</span></div>
                             <div class="subscription-period">Полный доступ на 1 месяц</div>
+                            <button type="button" class="subscription-cta">Оформить на 1 месяц</button>
                             <div class="subscription-description">
-                                Идеально для начала подготовки
+                                Все текущие услуги платформы
                             </div>
                             <div class="subscription-features">
                                 <ul>
@@ -603,28 +632,13 @@
                                 </ul>
                             </div>
                         </div>
-                        <div class="subscription-card disabled" data-subscription="2" data-amount="900">
-                            <div class="subscription-title">2 месяца</div>
-                            <div class="subscription-price" style="display: none;"></div>
-                            <div class="subscription-period">Полный доступ на 2 месяца</div>
-                            <div class="subscription-description">
-                                Экономия 100 сом
-                            </div>
-                            <div class="subscription-features">
-                                <ul>
-                                    <li>Неограниченный доступ к тестам</li>
-                                    <li>Все предметы</li>
-                                    <li>Статистика и прогресс</li>
-                                    <li>Система избранного</li>
-                                </ul>
-                            </div>
-                        </div>
-                        <div class="subscription-card disabled" data-subscription="3" data-amount="1200">
+                        <div class="subscription-card" data-subscription="3" data-amount="600">
                             <div class="subscription-title">3 месяца</div>
-                            <div class="subscription-price" style="display: none;"></div>
+                            <div class="subscription-price"><span class="subscription-price-old">750 сом</span><span class="subscription-price-new">600 сом</span></div>
                             <div class="subscription-period">Полный доступ на 3 месяца</div>
+                            <button type="button" class="subscription-cta">Взять со скидкой</button>
                             <div class="subscription-description">
-                                Максимальная экономия
+                                Все текущие услуги платформы
                             </div>
                             <div class="subscription-features">
                                 <ul>
@@ -633,12 +647,47 @@
                                     <li>Статистика и прогресс</li>
                                     <li>Система избранного</li>
                                 </ul>
+                            </div>
+                        </div>
+                        <div class="subscription-card" data-subscription="12" data-amount="1200">
+                            <div class="subscription-badge">
+                                <span class="subscription-badge-left">Популярный ★</span>
+                                <span class="subscription-badge-right">⏰ Ограничено</span>
+                            </div>
+                            <div class="subscription-title">1 год</div>
+                            <div class="subscription-price"><span class="subscription-price-old">3000 сом</span><span class="subscription-price-new">1200 сом</span></div>
+                            <div class="subscription-period">Полный доступ на 12 месяцев</div>
+                            <button type="button" class="subscription-cta">🏷 Годовой доступ со скидкой</button>
+                            <div class="subscription-description">
+                                Максимальная выгода: 100 сом/месяц
+                            </div>
+                            <div class="subscription-features">
+                                <ul>
+                                    <li>Неограниченный доступ к тестам</li>
+                                    <li>Все предметы</li>
+                                    <li>Статистика и прогресс</li>
+                                    <li>Система избранного</li>
+                                </ul>
+                            </div>
+                            <div class="subscription-features locked">
+                                <ul>
+                                    <li>Лабораторная диагностика (скоро)</li>
+                                    <li>ЭКГ, рентген, КТ/МРТ, УЗИ (скоро)</li>
+                                    <li>Визуальные квизы (скоро)</li>
+                                    <li>USMLE-тесты (скоро)</li>
+                                    <li>Игры и баттлы (скоро)</li>
+                                </ul>
+                            </div>
+                            <div class="subscription-note">
+                                🎁 Покупая сейчас, ты фиксируешь цену.<br>
+                                <span>Когда функции выйдут — цена вырастет.</span>
                             </div>
                         </div>
                         <div class="subscription-card disabled" data-subscription="group" data-amount="2000">
                             <div class="subscription-title">Групповая</div>
-                            <div class="subscription-price" style="display: none;"></div>
+                            <div class="subscription-price"><span class="subscription-price-new">В разработке</span></div>
                             <div class="subscription-period">Для групп от 5 человек</div>
+                            <button type="button" class="subscription-cta">Скоро доступно</button>
                             <div class="subscription-description">
                                 Специальные условия для групп
                             </div>
@@ -727,6 +776,14 @@
         let selectedSubscription = null;
         let registrationData = null;
         let referralCode = null;
+
+        function getSubscriptionLabel(type) {
+            if (type === '1') return '1 месяц';
+            if (type === '3') return '3 месяца';
+            if (type === '12') return '1 год';
+            if (type === 'group') return 'групповой тариф';
+            return `${type} мес.`;
+        }
         
         document.addEventListener('DOMContentLoaded', () => {
             initTheme();
@@ -750,6 +807,13 @@
         function setupRegistrationSteps() {
             // Выбор подписки
             const subscriptionCards = document.querySelectorAll('.subscription-card');
+            const defaultCard = document.querySelector('.subscription-card.selected:not(.disabled)');
+            if (defaultCard) {
+                selectedSubscription = {
+                    type: defaultCard.dataset.subscription,
+                    amount: parseFloat(defaultCard.dataset.amount)
+                };
+            }
             
             subscriptionCards.forEach(card => {
                 card.addEventListener('click', function() {
@@ -867,7 +931,7 @@
                         },
                         body: JSON.stringify({
                             amount: selectedSubscription.amount,
-                            description: `Регистрация: подписка на ${selectedSubscription.type === '1' ? '1 месяц' : selectedSubscription.type + ' месяца'}`,
+                            description: `Регистрация: подписка на ${getSubscriptionLabel(selectedSubscription.type)}`,
                             paymentType: 'registration',
                             registrationData: {
                                 username: data.username,

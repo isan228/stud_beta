@@ -2636,7 +2636,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
     }
 
-    let selectedPlan = { months: 1, price: 150 };
+    let selectedPlan = { months: 1, price: 250 };
 
     function updateRenewalTotal() {
         const coinsToUseInput = document.getElementById('renewalCoinsToUse');
@@ -2652,6 +2652,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     }
 
     function selectPlan(card) {
+        if (card.classList.contains('disabled')) return;
         document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'));
         card.classList.add('selected');
 
@@ -2671,8 +2672,10 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     async function proceedToPayment() {
         const paymentType = 'subscription';
-        // Формируем описание: "Продление подписки: 1 месяц"
-        const description = `Продление подписки: ${selectedPlan.months} ${getMonthDeclension(selectedPlan.months)}`;
+        const planLabel = selectedPlan.months === 12
+            ? '1 год'
+            : `${selectedPlan.months} ${getMonthDeclension(selectedPlan.months)}`;
+        const description = `Продление подписки: ${planLabel}`;
         const subscriptionType = selectedPlan.months.toString();
 
         // Показываем индикатор загрузки
