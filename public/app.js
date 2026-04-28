@@ -15,6 +15,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     let currentQuestionIndex = 0;
     let testTimer = null;
     let testStartTime = null;
+    let chatPollInterval = null;
+    let isChatOpen = false;
 
     // Инициализация (вызывается на каждой странице отдельно)
 
@@ -119,6 +121,24 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             if (logoutBtn) logoutBtn.style.display = 'none';
             if (profileLink) profileLink.style.display = 'none';
             if (favoritesLink) favoritesLink.style.display = 'none';
+        }
+
+        ensureUserChatVisibility();
+    }
+
+    function ensureUserChatVisibility() {
+        const chatButton = document.getElementById('userChatToggle');
+        if (!chatButton) return;
+        chatButton.style.display = currentUser ? 'flex' : 'none';
+
+        if (!currentUser) {
+            const chatWindow = document.getElementById('userChatWindow');
+            if (chatWindow) chatWindow.style.display = 'none';
+            stopChatPolling();
+            isChatOpen = false;
+        } else {
+            startChatPolling();
+            updateChatUnreadBadge();
         }
     }
 
@@ -409,6 +429,162 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
     }
 
+    function initUserChatWidget() {
+        if (document.getElementById('userChatToggle')) return;
+
+        const chatToggle = document.createElement('button');
+        chatToggle.id = 'userChatToggle';
+        chatToggle.className = 'user-chat-toggle';
+        chatToggle.innerHTML = '💬<span id="userChatBadge" class="user-chat-badge" style="display:none;">0</span>';
+        chatToggle.setAttribute('type', 'button');
+        chatToggle.setAttribute('aria-label', 'Открыть чат с админом');
+        chatToggle.style.display = 'none';
+
+        const chatWindow = document.createElement('div');
+        chatWindow.id = 'userChatWindow';
+        chatWindow.className = 'user-chat-window';
+        chatWindow.style.display = 'none';
+        chatWindow.innerHTML = `
+            <div class="user-chat-header">
+                <span>Чат с администратором</span>
+                <button type="button" id="closeUserChatBtn" class="user-chat-close">✕</button>
+            </div>
+            <div id="userChatMessages" class="user-chat-messages"></div>
+            <form id="userChatForm" class="user-chat-form">
+                <textarea id="userChatInput" rows="2" placeholder="Напишите сообщение..." required></textarea>
+                <button type="submit" class="btn btn-primary">Отправить</button>
+            </form>
+        `;
+
+        document.body.appendChild(chatToggle);
+        document.body.appendChild(chatWindow);
+
+        chatToggle.addEventListener('click', async () => {
+            isChatOpen = !isChatOpen;
+            chatWindow.style.display = isChatOpen ? 'flex' : 'none';
+            if (isChatOpen) {
+                await loadUserChatMessages();
+                await markAdminMessagesAsRead();
+                await updateChatUnreadBadge();
+            }
+        });
+
+        const closeBtn = document.getElementById('closeUserChatBtn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                isChatOpen = false;
+                chatWindow.style.display = 'none';
+            });
+        }
+
+        const chatForm = document.getElementById('userChatForm');
+        if (chatForm) {
+            chatForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const input = document.getElementById('userChatInput');
+                if (!input) return;
+                const text = input.value.trim();
+                if (!text) return;
+
+                try {
+                    const response = await fetch(`${API_URL}/chat/messages`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${currentToken}`
+                        },
+                        body: JSON.stringify({ text })
+                    });
+                    if (!response.ok) {
+                        const result = await response.json().catch(() => ({}));
+                        throw new Error(result.error || 'Ошибка отправки сообщения');
+                    }
+
+                    input.value = '';
+                    await loadUserChatMessages();
+                } catch (error) {
+                    console.error('Ошибка отправки сообщения в чат:', error);
+                    showNotification(error.message || 'Ошибка отправки сообщения', 'error');
+                }
+            });
+        }
+    }
+
+    async function loadUserChatMessages() {
+        if (!currentUser || !currentToken) return;
+        const messagesEl = document.getElementById('userChatMessages');
+        if (!messagesEl) return;
+
+        try {
+            const response = await fetch(`${API_URL}/chat/messages`, {
+                headers: { 'Authorization': `Bearer ${currentToken}` }
+            });
+            if (!response.ok) {
+                throw new Error('Ошибка загрузки чата');
+            }
+
+            const data = await response.json();
+            const messages = data.messages || [];
+            messagesEl.innerHTML = messages.map(msg => `
+                <div class="user-chat-bubble ${msg.isAdmin ? 'admin' : 'user'}">
+                    ${msg.text}
+                    <div class="user-chat-time">${new Date(msg.createdAt).toLocaleString('ru-RU')}</div>
+                </div>
+            `).join('');
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        } catch (error) {
+            console.error('Ошибка загрузки сообщений чата:', error);
+        }
+    }
+
+    async function updateChatUnreadBadge() {
+        const badge = document.getElementById('userChatBadge');
+        if (!badge || !currentUser || !currentToken) return;
+
+        try {
+            const response = await fetch(`${API_URL}/chat/unread-count`, {
+                headers: { 'Authorization': `Bearer ${currentToken}` }
+            });
+            if (!response.ok) return;
+            const data = await response.json();
+            const count = data.unreadCount || 0;
+            badge.textContent = String(count);
+            badge.style.display = count > 0 ? 'inline-flex' : 'none';
+        } catch (error) {
+            console.error('Ошибка получения счетчика непрочитанных сообщений:', error);
+        }
+    }
+
+    async function markAdminMessagesAsRead() {
+        if (!currentUser || !currentToken) return;
+        try {
+            await fetch(`${API_URL}/chat/read`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${currentToken}` }
+            });
+        } catch (error) {
+            console.error('Ошибка пометки сообщений как прочитанных:', error);
+        }
+    }
+
+    function startChatPolling() {
+        if (chatPollInterval) return;
+        chatPollInterval = setInterval(async () => {
+            if (!currentUser || !currentToken) return;
+            await updateChatUnreadBadge();
+            if (isChatOpen) {
+                await loadUserChatMessages();
+                await markAdminMessagesAsRead();
+            }
+        }, 10000);
+    }
+
+    function stopChatPolling() {
+        if (!chatPollInterval) return;
+        clearInterval(chatPollInterval);
+        chatPollInterval = null;
+    }
+
     // Инициализация на всех страницах
     async function init() {
         // Полностью пропускаем инициализацию на странице админки
@@ -420,6 +596,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         initTheme();
         await loadUser();
         setupEventListeners();
+        initUserChatWidget();
+        ensureUserChatVisibility();
         initScrollAnimations();
         initDocLinks();
 
@@ -591,6 +769,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     function logout() {
         currentUser = null;
         currentToken = null;
+        stopChatPolling();
         localStorage.removeItem('token');
         showNotification('Вы вышли из системы', 'success');
         window.location.href = '/';

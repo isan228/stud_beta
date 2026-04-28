@@ -4,6 +4,7 @@ const ADMIN_API_URL = '/api/admin';
 // Состояние админки
 let currentAdmin = null;
 let currentAdminToken = null;
+let currentChatUserId = null;
 
 // Функция уведомлений (если не определена в app.js)
 function showNotification(message, type = 'info') {
@@ -1595,6 +1596,11 @@ function setupAdminEventListeners() {
         resetPasswordForm.addEventListener('submit', handleResetPassword);
     }
 
+    const adminChatForm = document.getElementById('adminChatForm');
+    if (adminChatForm) {
+        adminChatForm.addEventListener('submit', handleAdminChatSubmit);
+    }
+
     const uploadOfferBtn = document.getElementById('uploadOfferBtn');
     const docPublicOfferFile = document.getElementById('docPublicOfferFile');
     if (uploadOfferBtn && docPublicOfferFile) {
@@ -1812,6 +1818,9 @@ function switchTab(tabName) {
             break;
         case 'messages':
             loadMessages();
+            break;
+        case 'chats':
+            loadAdminChats();
             break;
         case 'documents':
             loadDocumentsSettings();
@@ -2056,6 +2065,130 @@ async function deleteMessage(messageId) {
     }
 }
 
+async function loadAdminChats() {
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/chats`, {
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+        });
+        if (!response.ok) {
+            throw new Error('Ошибка загрузки чатов');
+        }
+
+        const data = await response.json();
+        const listEl = document.getElementById('adminChatsList');
+        if (!listEl) return;
+
+        const chats = data.chats || [];
+        if (!chats.length) {
+            listEl.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1rem;">Чатов пока нет</p>';
+            const headerEl = document.getElementById('adminChatHeader');
+            const messagesEl = document.getElementById('adminChatMessages');
+            if (headerEl) headerEl.textContent = 'Выберите чат слева';
+            if (messagesEl) messagesEl.innerHTML = '';
+            currentChatUserId = null;
+            return;
+        }
+
+        listEl.innerHTML = chats.map(chat => {
+            const preview = chat.lastMessage?.text || 'Нет сообщений';
+            const unread = chat.unreadCount || 0;
+            const activeClass = currentChatUserId === chat.user.id ? 'active' : '';
+            return `
+                <div class="admin-list-item admin-chat-user ${activeClass}" onclick="openAdminChat(${chat.user.id})">
+                    <div>
+                        <strong>${chat.user.username}</strong>
+                        <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.2rem;">${chat.user.email}</p>
+                        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.3rem; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${preview}</p>
+                    </div>
+                    ${unread > 0 ? `<span style="background: var(--danger-color); color: white; border-radius: 999px; padding: 0.15rem 0.5rem; font-size: 0.75rem; font-weight: 600;">${unread}</span>` : ''}
+                </div>
+            `;
+        }).join('');
+
+        if (!currentChatUserId && chats[0]) {
+            await openAdminChat(chats[0].user.id);
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки чатов:', error);
+        showNotification('Ошибка загрузки чатов', 'error');
+    }
+}
+
+async function openAdminChat(userId) {
+    currentChatUserId = userId;
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/chats/${userId}/messages`, {
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+        });
+        if (!response.ok) {
+            throw new Error('Ошибка загрузки диалога');
+        }
+
+        const data = await response.json();
+        const headerEl = document.getElementById('adminChatHeader');
+        const messagesEl = document.getElementById('adminChatMessages');
+        if (!messagesEl) return;
+
+        if (headerEl) {
+            headerEl.textContent = `Чат: ${data.user.username} (${data.user.email})`;
+        }
+
+        messagesEl.innerHTML = (data.messages || []).map(msg => `
+            <div class="admin-chat-bubble ${msg.isAdmin ? 'admin' : 'user'}">
+                ${msg.text}
+                <div style="margin-top: 0.3rem; font-size: 0.72rem; opacity: 0.75;">
+                    ${new Date(msg.createdAt).toLocaleString('ru-RU')}
+                </div>
+            </div>
+        `).join('');
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+
+        await fetch(`${ADMIN_API_URL}/chats/${userId}/read`, {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+        });
+        await loadAdminChats();
+    } catch (error) {
+        console.error('Ошибка загрузки диалога:', error);
+        showNotification('Ошибка загрузки диалога', 'error');
+    }
+}
+
+async function handleAdminChatSubmit(e) {
+    e.preventDefault();
+    if (!currentChatUserId) {
+        showNotification('Сначала выберите чат', 'error');
+        return;
+    }
+
+    const input = document.getElementById('adminChatInput');
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) return;
+
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/chats/${currentChatUserId}/messages`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentAdminToken}`
+            },
+            body: JSON.stringify({ text })
+        });
+
+        if (!response.ok) {
+            const result = await response.json().catch(() => ({}));
+            throw new Error(result.error || 'Ошибка отправки сообщения');
+        }
+
+        input.value = '';
+        await openAdminChat(currentChatUserId);
+    } catch (error) {
+        console.error('Ошибка отправки сообщения админа:', error);
+        showNotification(error.message || 'Ошибка отправки сообщения', 'error');
+    }
+}
+
 // Экспорт функций для использования в HTML
 window.deleteUser = deleteUser;
 window.openResetPasswordModal = openResetPasswordModal;
@@ -2073,6 +2206,7 @@ window.viewMessage = viewMessage;
 window.deleteMessage = deleteMessage;
 window.deleteNews = deleteNews;
 window.markDeviceAlertRead = markDeviceAlertRead;
+window.openAdminChat = openAdminChat;
 
 // Загрузка заявок на регистрацию
 

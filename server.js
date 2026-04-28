@@ -84,6 +84,7 @@ app.use('/api/settings', require('./routes/settings'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/news', require('./routes/news'));
 app.use('/api/payments', require('./routes/payments'));
+app.use('/api/chat', require('./routes/chat'));
 
 // Загрузка PDF - опционально (может не работать на некоторых версиях Node.js)
 try {

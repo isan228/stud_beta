@@ -68,6 +68,7 @@
                     <button class="admin-tab" data-tab="questions">Вопросы</button>
                     <button class="admin-tab" data-tab="news">Новости</button>
                     <button class="admin-tab" data-tab="messages">Обратная связь</button>
+                    <button class="admin-tab" data-tab="chats">Чаты</button>
                     <button class="admin-tab" data-tab="documents">Документы</button>
                 </div>
 
@@ -236,6 +237,24 @@
                     </div>
                     <div id="messagesList" class="admin-list"></div>
                     <div id="messagesPagination" class="admin-pagination"></div>
+                </div>
+
+                <!-- Чаты пользователей -->
+                <div id="chatsTab" class="admin-tab-content">
+                    <div class="admin-section-header">
+                        <h2>Чаты с пользователями</h2>
+                    </div>
+                    <div class="admin-chat-layout">
+                        <div id="adminChatsList" class="admin-list admin-chat-users"></div>
+                        <div class="admin-chat-panel">
+                            <div id="adminChatHeader" class="admin-chat-header">Выберите чат слева</div>
+                            <div id="adminChatMessages" class="admin-chat-messages"></div>
+                            <form id="adminChatForm" class="admin-chat-form">
+                                <textarea id="adminChatInput" rows="2" placeholder="Введите ответ пользователю..." required></textarea>
+                                <button type="submit" class="btn btn-primary">Отправить</button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Документы (оферта, политика конфиденциальности) -->

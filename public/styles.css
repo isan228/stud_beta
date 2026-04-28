@@ -4247,3 +4247,120 @@ html[data-theme="dark"] .navbar {
     border-bottom-left-radius: var(--radius);
     font-weight: 600;
 }
+
+.user-chat-toggle {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    width: 56px;
+    height: 56px;
+    border: none;
+    border-radius: 50%;
+    background: var(--primary-color);
+    color: #fff;
+    font-size: 22px;
+    cursor: pointer;
+    z-index: 1900;
+    box-shadow: var(--shadow-lg);
+    align-items: center;
+    justify-content: center;
+}
+
+.user-chat-badge {
+    position: absolute;
+    top: -6px;
+    right: -4px;
+    min-width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    background: var(--danger-color);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    align-items: center;
+    justify-content: center;
+    padding: 0 5px;
+}
+
+.user-chat-window {
+    position: fixed;
+    right: 20px;
+    bottom: 88px;
+    width: 340px;
+    max-width: calc(100vw - 24px);
+    height: 460px;
+    max-height: calc(100vh - 120px);
+    background: var(--card-bg);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    z-index: 1900;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.user-chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-light);
+    font-weight: 600;
+}
+
+.user-chat-close {
+    border: none;
+    background: transparent;
+    color: var(--text-color);
+    font-size: 18px;
+    cursor: pointer;
+}
+
+.user-chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.user-chat-bubble {
+    max-width: 82%;
+    padding: 0.55rem 0.75rem;
+    border-radius: 0.7rem;
+    font-size: 0.92rem;
+    line-height: 1.35;
+}
+
+.user-chat-bubble.user {
+    align-self: flex-end;
+    background: var(--primary-color);
+    color: #fff;
+}
+
+.user-chat-bubble.admin {
+    align-self: flex-start;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+}
+
+.user-chat-time {
+    margin-top: 0.3rem;
+    font-size: 0.72rem;
+    opacity: 0.75;
+}
+
+.user-chat-form {
+    border-top: 1px solid var(--border-light);
+    padding: 0.75rem;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.user-chat-form textarea {
+    flex: 1;
+    resize: none;
+    min-height: 42px;
+}

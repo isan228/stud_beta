@@ -3,7 +3,7 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const adminAuth = require('../middleware/adminAuth');
-const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, ContactMessage, Setting, UserDeviceAlert, News, sequelize } = require('../models');
+const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { Sequelize } = require('sequelize');
 
@@ -135,6 +135,120 @@ router.get('/dashboard/stats', adminAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Ошибка получения статистики:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Список чатов пользователей для админа
+router.get('/chats', adminAuth, async (req, res) => {
+  try {
+    const users = await User.findAll({
+      attributes: ['id', 'username', 'email'],
+      include: [{
+        model: ChatMessage,
+        as: 'ChatMessages',
+        attributes: ['id', 'text', 'isAdmin', 'isRead', 'createdAt'],
+        required: true
+      }],
+      order: [['id', 'DESC']]
+    });
+
+    const chats = users
+      .map(user => {
+        const messages = (user.ChatMessages || []).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        const lastMessage = messages[messages.length - 1] || null;
+        const unreadCount = messages.filter(m => !m.isAdmin && !m.isRead).length;
+        return {
+          user: { id: user.id, username: user.username, email: user.email },
+          lastMessage,
+          unreadCount
+        };
+      })
+      .sort((a, b) => {
+        const aDate = a.lastMessage ? new Date(a.lastMessage.createdAt).getTime() : 0;
+        const bDate = b.lastMessage ? new Date(b.lastMessage.createdAt).getTime() : 0;
+        return bDate - aDate;
+      });
+
+    res.json({ chats });
+  } catch (error) {
+    console.error('Ошибка получения списка чатов:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Сообщения конкретного чата
+router.get('/chats/:userId/messages', adminAuth, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId, 10);
+    const user = await User.findByPk(userId, { attributes: ['id', 'username', 'email'] });
+    if (!user) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+
+    const messages = await ChatMessage.findAll({
+      where: { userId },
+      order: [['createdAt', 'ASC']]
+    });
+
+    res.json({ user, messages });
+  } catch (error) {
+    console.error('Ошибка получения сообщений чата:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Ответ админа пользователю
+router.post('/chats/:userId/messages', adminAuth, [
+  body('text')
+    .trim()
+    .isLength({ min: 1, max: 4000 })
+    .withMessage('Сообщение должно быть от 1 до 4000 символов')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const userId = parseInt(req.params.userId, 10);
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+
+    const message = await ChatMessage.create({
+      userId,
+      isAdmin: true,
+      text: req.body.text.trim(),
+      isRead: false
+    });
+
+    res.status(201).json({ message });
+  } catch (error) {
+    console.error('Ошибка отправки сообщения админа:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Пометить сообщения пользователя как прочитанные админом
+router.put('/chats/:userId/read', adminAuth, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId, 10);
+    const [updated] = await ChatMessage.update(
+      { isRead: true },
+      {
+        where: {
+          userId,
+          isAdmin: false,
+          isRead: false
+        }
+      }
+    );
+
+    res.json({ updated });
+  } catch (error) {
+    console.error('Ошибка пометки сообщений пользователя как прочитанных:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
