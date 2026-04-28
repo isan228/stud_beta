@@ -143,6 +143,7 @@
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 1.5rem;
             margin-top: 2rem;
+            align-items: stretch;
         }
         
         .subscription-card {
@@ -155,6 +156,12 @@
             position: relative;
             overflow: hidden;
             color: #fff;
+            min-height: 620px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            gap: 0.6rem;
         }
         
         .subscription-card::before {
@@ -576,6 +583,26 @@
             .page-header h1 {
                 font-size: 2rem;
             }
+
+            .subscription-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .subscription-card {
+                min-height: 0;
+                padding: 1rem;
+                border-radius: 16px;
+            }
+
+            .subscription-title {
+                margin-top: 1.8rem;
+                font-size: 1.35rem;
+            }
+
+            .subscription-price-new {
+                font-size: 1.8rem;
+            }
         }
     </style>
 </head>
@@ -619,7 +646,7 @@
                             <div class="subscription-title">1 месяц</div>
                             <div class="subscription-price"><span class="subscription-price-new">250 сом</span></div>
                             <div class="subscription-period">Полный доступ на 1 месяц</div>
-                            <button type="button" class="subscription-cta">Оформить на 1 месяц</button>
+                            <button type="button" class="subscription-cta">🚀 Старт на 1 месяц</button>
                             <div class="subscription-description">
                                 Все текущие услуги платформы
                             </div>
@@ -636,7 +663,7 @@
                             <div class="subscription-title">3 месяца</div>
                             <div class="subscription-price"><span class="subscription-price-old">750 сом</span><span class="subscription-price-new">600 сом</span></div>
                             <div class="subscription-period">Полный доступ на 3 месяца</div>
-                            <button type="button" class="subscription-cta">Взять со скидкой</button>
+                            <button type="button" class="subscription-cta">🔥 Выбрать на 3 месяца</button>
                             <div class="subscription-description">
                                 Все текущие услуги платформы
                             </div>
@@ -687,7 +714,7 @@
                             <div class="subscription-title">Групповая</div>
                             <div class="subscription-price"><span class="subscription-price-new">В разработке</span></div>
                             <div class="subscription-period">Для групп от 5 человек</div>
-                            <button type="button" class="subscription-cta">Скоро доступно</button>
+                            <button type="button" class="subscription-cta">👥 Тариф для группы скоро</button>
                             <div class="subscription-description">
                                 Специальные условия для групп
                             </div>
