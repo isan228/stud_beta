@@ -901,6 +901,7 @@ html[data-theme="dark"] .navbar {
 
 .form-group input[type="number"] {
     -moz-appearance: textfield;
+    appearance: textfield;
 }
 
 .form-group input[type="number"]::-webkit-outer-spin-button,
@@ -1097,6 +1098,17 @@ html[data-theme="dark"] .navbar {
     font-weight: 600;
     margin-bottom: 1.5rem;
     color: var(--text-color);
+}
+
+#testMode {
+    font-weight: 600;
+    border: 2px solid var(--primary-color);
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(16, 185, 129, 0.06) 100%);
+}
+
+#standardModeSettings,
+#timerSettingsSection {
+    transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .settings-actions {
@@ -1362,12 +1374,40 @@ html[data-theme="dark"] .navbar {
 
 .answer-item.correct {
     border-color: var(--success-color);
-    background-color: rgba(16, 185, 129, 0.1);
+    background: linear-gradient(90deg, rgba(16, 185, 129, 0.18) 0%, rgba(16, 185, 129, 0.08) 100%);
+    box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.2);
 }
 
 .answer-item.incorrect {
     border-color: var(--danger-color);
-    background-color: rgba(239, 68, 68, 0.1);
+    background: linear-gradient(90deg, rgba(239, 68, 68, 0.16) 0%, rgba(239, 68, 68, 0.08) 100%);
+    box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.2);
+}
+
+.answer-item.correct,
+.answer-item.incorrect {
+    cursor: default;
+    transform: none !important;
+}
+
+.answer-item.correct::after,
+.answer-item.incorrect::after {
+    position: absolute;
+    right: 0.9rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.answer-item.correct::after {
+    content: '✓';
+    color: var(--success-color);
+}
+
+.answer-item.incorrect::after {
+    content: '✕';
+    color: var(--danger-color);
 }
 
 .test-actions {
