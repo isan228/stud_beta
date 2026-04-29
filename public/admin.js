@@ -1599,6 +1599,15 @@ function setupAdminEventListeners() {
         resetPasswordForm.addEventListener('submit', handleResetPassword);
     }
 
+    const promoForm = document.getElementById('promoForm');
+    if (promoForm) {
+        promoForm.addEventListener('submit', savePromoCode);
+    }
+    const promoResetBtn = document.getElementById('promoResetBtn');
+    if (promoResetBtn) {
+        promoResetBtn.addEventListener('click', resetPromoForm);
+    }
+
     const adminChatForm = document.getElementById('adminChatForm');
     if (adminChatForm) {
         adminChatForm.addEventListener('submit', handleAdminChatSubmit);
@@ -1693,6 +1702,134 @@ async function saveDocumentsSettings() {
     } catch (error) {
         console.error('Ошибка сохранения настроек документов:', error);
         showNotification('Ошибка соединения с сервером', 'error');
+    }
+}
+
+function resetPromoForm() {
+    const promoId = document.getElementById('promoId');
+    const promoCode = document.getElementById('promoCode');
+    const promoDiscountPercent = document.getElementById('promoDiscountPercent');
+    const promoUsageLimit = document.getElementById('promoUsageLimit');
+    const promoExpiresAt = document.getElementById('promoExpiresAt');
+    const promoIsActive = document.getElementById('promoIsActive');
+    if (promoId) promoId.value = '';
+    if (promoCode) promoCode.value = '';
+    if (promoDiscountPercent) promoDiscountPercent.value = '';
+    if (promoUsageLimit) promoUsageLimit.value = '';
+    if (promoExpiresAt) promoExpiresAt.value = '';
+    if (promoIsActive) promoIsActive.checked = true;
+}
+
+async function loadPromoCodes() {
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/promo-codes`, {
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+        });
+        if (!response.ok) throw new Error('Ошибка загрузки промокодов');
+        const data = await response.json();
+        const list = document.getElementById('promoList');
+        if (!list) return;
+        const promoCodes = data.promoCodes || [];
+        if (!promoCodes.length) {
+            list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1rem;">Промокодов пока нет</p>';
+            return;
+        }
+        list.innerHTML = promoCodes.map(item => `
+            <div class="admin-list-item">
+                <div style="flex: 1;">
+                    <strong>${item.code}</strong>
+                    <p style="margin: 0.25rem 0; color: var(--text-secondary);">
+                        Скидка: ${item.discountPercent}% | Использовано: ${item.usedCount}${item.usageLimit ? `/${item.usageLimit}` : ''}
+                    </p>
+                    <p style="margin: 0; color: var(--text-muted); font-size: 0.875rem;">
+                        ${item.isActive ? 'Активен' : 'Выключен'}${item.expiresAt ? ` | До: ${new Date(item.expiresAt).toLocaleString('ru-RU')}` : ''}
+                    </p>
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-primary btn-sm" onclick="editPromoCode(${item.id})">Редактировать</button>
+                    <button class="btn btn-danger btn-sm" onclick="deletePromoCode(${item.id})">Удалить</button>
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Ошибка загрузки промокодов:', error);
+        showNotification('Ошибка загрузки промокодов', 'error');
+    }
+}
+
+async function editPromoCode(id) {
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/promo-codes`, {
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+        });
+        if (!response.ok) throw new Error('Ошибка загрузки промокодов');
+        const data = await response.json();
+        const item = (data.promoCodes || []).find(p => p.id === id);
+        if (!item) return;
+        document.getElementById('promoId').value = item.id;
+        document.getElementById('promoCode').value = item.code || '';
+        document.getElementById('promoDiscountPercent').value = item.discountPercent || '';
+        document.getElementById('promoUsageLimit').value = item.usageLimit || '';
+        document.getElementById('promoExpiresAt').value = toDateTimeLocalValue(item.expiresAt);
+        document.getElementById('promoIsActive').checked = item.isActive !== false;
+    } catch (error) {
+        console.error('Ошибка редактирования промокода:', error);
+        showNotification('Ошибка загрузки промокода', 'error');
+    }
+}
+
+async function deletePromoCode(id) {
+    if (!confirm('Удалить этот промокод?')) return;
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/promo-codes/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            showNotification(result.error || 'Ошибка удаления промокода', 'error');
+            return;
+        }
+        showNotification('Промокод удален', 'success');
+        await loadPromoCodes();
+    } catch (error) {
+        console.error('Ошибка удаления промокода:', error);
+        showNotification('Ошибка удаления промокода', 'error');
+    }
+}
+
+async function savePromoCode(e) {
+    e.preventDefault();
+    const promoId = document.getElementById('promoId')?.value || '';
+    const payload = {
+        code: document.getElementById('promoCode')?.value || '',
+        discountPercent: parseInt(document.getElementById('promoDiscountPercent')?.value || '0', 10),
+        usageLimit: document.getElementById('promoUsageLimit')?.value || null,
+        expiresAt: document.getElementById('promoExpiresAt')?.value ? new Date(document.getElementById('promoExpiresAt').value).toISOString() : null,
+        isActive: document.getElementById('promoIsActive')?.checked
+    };
+    const url = promoId ? `${ADMIN_API_URL}/promo-codes/${promoId}` : `${ADMIN_API_URL}/promo-codes`;
+    const method = promoId ? 'PUT' : 'POST';
+    try {
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentAdminToken}`
+            },
+            body: JSON.stringify(payload)
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            showNotification(result.error || 'Ошибка сохранения промокода', 'error');
+            return;
+        }
+        showNotification(promoId ? 'Промокод обновлен' : 'Промокод создан', 'success');
+        resetPromoForm();
+        await loadPromoCodes();
+    } catch (error) {
+        console.error('Ошибка сохранения промокода:', error);
+        showNotification('Ошибка сохранения промокода', 'error');
     }
 }
 
@@ -1834,6 +1971,9 @@ function switchTab(tabName) {
             break;
         case 'documents':
             loadDocumentsSettings();
+            break;
+        case 'promo':
+            loadPromoCodes();
             break;
     }
 }
@@ -2296,6 +2436,8 @@ window.deleteMessage = deleteMessage;
 window.deleteNews = deleteNews;
 window.markDeviceAlertRead = markDeviceAlertRead;
 window.openAdminChat = openAdminChat;
+window.editPromoCode = editPromoCode;
+window.deletePromoCode = deletePromoCode;
 
 // Загрузка заявок на регистрацию
 

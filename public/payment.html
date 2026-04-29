@@ -185,6 +185,15 @@
                 </div>
 
                 <div class="form-group">
+                    <label for="promoCode">Промокод</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="text" id="promoCode" name="promoCode" placeholder="Введите промокод">
+                        <button type="button" class="btn btn-secondary" id="applyPromoBtn">Применить</button>
+                    </div>
+                    <small id="promoStatusText" style="color: var(--text-secondary);"></small>
+                </div>
+
+                <div class="form-group">
                     <label for="description">Описание платежа</label>
                     <textarea id="description" name="description" rows="3"
                         placeholder="Оплата за подписку на платформу stud.kg"></textarea>
@@ -236,13 +245,20 @@
         const paymentCoinsSection = document.getElementById('paymentCoinsSection');
         const paymentCoinsBalance = document.getElementById('paymentCoinsBalance');
         const paymentCoinsToUse = document.getElementById('paymentCoinsToUse');
+        const promoCodeInput = document.getElementById('promoCode');
+        const applyPromoBtn = document.getElementById('applyPromoBtn');
+        const promoStatusText = document.getElementById('promoStatusText');
 
         let userCoinsForPayment = 0;
+        let appliedPromoCode = null;
+        let appliedPromoDiscountPercent = 0;
 
         function updatePaymentAmountDisplay() {
             const amount = parseFloat(amountInput.value) || 0;
-            const coinsToUse = Math.min(parseInt(paymentCoinsToUse?.value, 10) || 0, userCoinsForPayment, Math.floor(amount - 0.01));
-            const toPay = Math.max(0.01, amount - coinsToUse);
+            const promoDiscount = parseFloat(((amount * appliedPromoDiscountPercent) / 100).toFixed(2));
+            const amountAfterPromo = Math.max(0.01, amount - promoDiscount);
+            const coinsToUse = Math.min(parseInt(paymentCoinsToUse?.value, 10) || 0, userCoinsForPayment, Math.floor(amountAfterPromo - 0.01));
+            const toPay = Math.max(0.01, amountAfterPromo - coinsToUse);
             if (amountDisplayValue) amountDisplayValue.textContent = toPay.toFixed(2);
         }
 
@@ -251,6 +267,44 @@
         });
         if (paymentCoinsToUse) {
             paymentCoinsToUse.addEventListener('input', updatePaymentAmountDisplay);
+        }
+        if (promoCodeInput) {
+            promoCodeInput.addEventListener('input', () => {
+                appliedPromoCode = null;
+                appliedPromoDiscountPercent = 0;
+                if (promoStatusText) promoStatusText.textContent = '';
+                updatePaymentAmountDisplay();
+            });
+        }
+        if (applyPromoBtn) {
+            applyPromoBtn.addEventListener('click', async () => {
+                const promoCode = (promoCodeInput?.value || '').trim();
+                if (!promoCode) {
+                    if (promoStatusText) promoStatusText.textContent = 'Введите промокод';
+                    return;
+                }
+                try {
+                    const response = await fetch('/api/payments/validate-promo', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ promoCode })
+                    });
+                    const data = await response.json();
+                    if (!response.ok) {
+                        appliedPromoCode = null;
+                        appliedPromoDiscountPercent = 0;
+                        if (promoStatusText) promoStatusText.textContent = data.error || 'Промокод невалиден';
+                        updatePaymentAmountDisplay();
+                        return;
+                    }
+                    appliedPromoCode = data.promoCode;
+                    appliedPromoDiscountPercent = data.discountPercent || 0;
+                    if (promoStatusText) promoStatusText.textContent = `Промокод применен: -${appliedPromoDiscountPercent}%`;
+                    updatePaymentAmountDisplay();
+                } catch (error) {
+                    if (promoStatusText) promoStatusText.textContent = 'Ошибка проверки промокода';
+                }
+            });
         }
 
         // Загрузка монеток пользователя при наличии токена
@@ -318,7 +372,7 @@
             const coinsToUse = Math.min(
                 parseInt(paymentCoinsToUse?.value, 10) || 0,
                 userCoinsForPayment,
-                Math.max(0, Math.floor(amount - 0.01))
+                Math.max(0, Math.floor((Math.max(0.01, amount - parseFloat(((amount * appliedPromoDiscountPercent) / 100).toFixed(2)))) - 0.01))
             );
 
             if (amount <= 0) {
@@ -344,7 +398,8 @@
                         description: description || `Оплата: ${paymentType}`,
                         paymentType,
                         subscriptionType: subscriptionType,
-                        coinsToUse: coinsToUse
+                        coinsToUse: coinsToUse,
+                        promoCode: appliedPromoCode
                     })
                 });
 

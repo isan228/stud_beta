@@ -70,6 +70,7 @@
                     <button class="admin-tab" data-tab="messages">Обратная связь</button>
                     <button class="admin-tab" data-tab="chats">Чаты</button>
                     <button class="admin-tab" data-tab="documents">Документы</button>
+                    <button class="admin-tab" data-tab="promo">Промокоды</button>
                 </div>
 
                 <!-- Дашборд -->
@@ -290,6 +291,28 @@
                         </div>
                         <button type="button" class="btn btn-primary" id="saveDocsBtn">Сохранить ссылки</button>
                     </div>
+                </div>
+
+                <div id="promoTab" class="admin-tab-content">
+                    <div class="admin-section-header">
+                        <h2>Промокоды</h2>
+                    </div>
+                    <form id="promoForm" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
+                        <input type="hidden" id="promoId">
+                        <input type="text" id="promoCode" placeholder="Код (например, SPRING27)" required>
+                        <input type="number" id="promoDiscountPercent" min="1" max="100" placeholder="Скидка %" required>
+                        <input type="number" id="promoUsageLimit" min="1" placeholder="Лимит (опц.)">
+                        <input type="datetime-local" id="promoExpiresAt" placeholder="Действует до (опц.)">
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="promoIsActive" checked>
+                            <span>Активен</span>
+                        </label>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button type="submit" class="btn btn-primary">Сохранить</button>
+                            <button type="button" class="btn btn-secondary" id="promoResetBtn">Сброс</button>
+                        </div>
+                    </form>
+                    <div id="promoList" class="admin-list"></div>
                 </div>
             </div>
         </div>

@@ -752,6 +752,10 @@
                             <label for="regConfirmPassword">Подтвердите пароль</label>
                             <input type="password" id="regConfirmPassword" name="confirmPassword" required placeholder="Повторите пароль">
                         </div>
+                        <div class="form-group">
+                            <label for="regPromoCode">Промокод (если есть)</label>
+                            <input type="text" id="regPromoCode" name="promoCode" placeholder="Введите промокод">
+                        </div>
                         <div class="form-group checkbox-group">
                             <label for="dataConsent">
                                 <input type="checkbox" id="dataConsent" name="dataConsent" value="true" required style="pointer-events: auto; z-index: 10; position: relative;">
@@ -920,6 +924,7 @@
                     email: formData.get('email'),
                     password: formData.get('password'),
                     confirmPassword: formData.get('confirmPassword'),
+                    promoCode: formData.get('promoCode'),
                     dataConsent: document.getElementById('dataConsent').checked ? 'true' : 'false',
                     publicOffer: document.getElementById('publicOffer').checked ? 'true' : 'false',
                     subscription: selectedSubscription
@@ -960,6 +965,7 @@
                             amount: selectedSubscription.amount,
                             description: `Регистрация: подписка на ${getSubscriptionLabel(selectedSubscription.type)}`,
                             paymentType: 'registration',
+                            promoCode: data.promoCode,
                             registrationData: {
                                 username: data.username,
                                 email: data.email,

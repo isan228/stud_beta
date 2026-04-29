@@ -14,6 +14,7 @@ const Setting = require('./Setting');
 const UserDeviceAlert = require('./UserDeviceAlert');
 const News = require('./News');
 const ChatMessage = require('./ChatMessage');
+const PromoCode = require('./PromoCode');
 
 // Определение связей
 User.hasMany(TestResult, { foreignKey: 'userId', as: 'TestResults' });
@@ -69,6 +70,7 @@ module.exports = {
   Setting,
   UserDeviceAlert,
   News,
-  ChatMessage
+  ChatMessage,
+  PromoCode
 };
 

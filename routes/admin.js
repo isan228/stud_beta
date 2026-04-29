@@ -3,7 +3,7 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const adminAuth = require('../middleware/adminAuth');
-const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, sequelize } = require('../models');
+const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { Sequelize } = require('sequelize');
 
@@ -1014,6 +1014,123 @@ router.put('/settings/docs', adminAuth, [
     res.json({ message: 'Ссылки на документы сохранены', publicOfferUrl, privacyPolicyUrl });
   } catch (error) {
     console.error('Ошибка сохранения настроек документов:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Промокоды
+router.get('/promo-codes', adminAuth, async (req, res) => {
+  try {
+    const promoCodes = await PromoCode.findAll({
+      order: [['createdAt', 'DESC']]
+    });
+    res.json({ promoCodes });
+  } catch (error) {
+    console.error('Ошибка получения промокодов:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.post('/promo-codes', adminAuth, [
+  body('code').trim().isLength({ min: 3, max: 64 }).withMessage('Код должен быть от 3 до 64 символов'),
+  body('discountPercent').isInt({ min: 1, max: 100 }).withMessage('Скидка должна быть от 1 до 100%'),
+  body('usageLimit').optional({ values: 'null' }).isInt({ min: 1 }).withMessage('Лимит использований должен быть больше 0'),
+  body('expiresAt').optional({ values: 'null' }).isISO8601().withMessage('Некорректная дата окончания'),
+  body('isActive').optional().isBoolean().withMessage('isActive должен быть boolean')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const code = String(req.body.code || '').trim().toUpperCase();
+    const discountPercent = parseInt(req.body.discountPercent, 10);
+    const usageLimit = req.body.usageLimit === null || req.body.usageLimit === undefined || req.body.usageLimit === ''
+      ? null
+      : parseInt(req.body.usageLimit, 10);
+    const expiresAt = req.body.expiresAt ? new Date(req.body.expiresAt) : null;
+    const isActive = req.body.isActive === undefined ? true : Boolean(req.body.isActive);
+
+    const existing = await PromoCode.findOne({ where: { code } });
+    if (existing) {
+      return res.status(400).json({ error: 'Промокод с таким названием уже существует' });
+    }
+
+    const promoCode = await PromoCode.create({
+      code,
+      discountPercent,
+      usageLimit,
+      expiresAt,
+      isActive
+    });
+
+    res.status(201).json({ message: 'Промокод создан', promoCode });
+  } catch (error) {
+    console.error('Ошибка создания промокода:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.put('/promo-codes/:id', adminAuth, [
+  body('code').optional().trim().isLength({ min: 3, max: 64 }).withMessage('Код должен быть от 3 до 64 символов'),
+  body('discountPercent').optional().isInt({ min: 1, max: 100 }).withMessage('Скидка должна быть от 1 до 100%'),
+  body('usageLimit').optional({ values: 'null' }).isInt({ min: 1 }).withMessage('Лимит использований должен быть больше 0'),
+  body('expiresAt').optional({ values: 'null' }).isISO8601().withMessage('Некорректная дата окончания'),
+  body('isActive').optional().isBoolean().withMessage('isActive должен быть boolean')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const promoCode = await PromoCode.findByPk(req.params.id);
+    if (!promoCode) {
+      return res.status(404).json({ error: 'Промокод не найден' });
+    }
+
+    if (req.body.code !== undefined) {
+      const code = String(req.body.code || '').trim().toUpperCase();
+      const existing = await PromoCode.findOne({ where: { code } });
+      if (existing && existing.id !== promoCode.id) {
+        return res.status(400).json({ error: 'Промокод с таким названием уже существует' });
+      }
+      promoCode.code = code;
+    }
+    if (req.body.discountPercent !== undefined) {
+      promoCode.discountPercent = parseInt(req.body.discountPercent, 10);
+    }
+    if (req.body.usageLimit !== undefined) {
+      promoCode.usageLimit = req.body.usageLimit === null || req.body.usageLimit === ''
+        ? null
+        : parseInt(req.body.usageLimit, 10);
+    }
+    if (req.body.expiresAt !== undefined) {
+      promoCode.expiresAt = req.body.expiresAt ? new Date(req.body.expiresAt) : null;
+    }
+    if (req.body.isActive !== undefined) {
+      promoCode.isActive = Boolean(req.body.isActive);
+    }
+
+    await promoCode.save();
+    res.json({ message: 'Промокод обновлен', promoCode });
+  } catch (error) {
+    console.error('Ошибка обновления промокода:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.delete('/promo-codes/:id', adminAuth, async (req, res) => {
+  try {
+    const promoCode = await PromoCode.findByPk(req.params.id);
+    if (!promoCode) {
+      return res.status(404).json({ error: 'Промокод не найден' });
+    }
+    await promoCode.destroy();
+    res.json({ message: 'Промокод удален' });
+  } catch (error) {
+    console.error('Ошибка удаления промокода:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

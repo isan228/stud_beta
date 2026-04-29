@@ -2,9 +2,58 @@ const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
-const { Transaction, User } = require('../models');
+const { Transaction, User, PromoCode } = require('../models');
 const { validateFinikSignature } = require('../utils/finikValidator');
 const { createPayment } = require('../utils/finikClient');
+
+async function resolvePromoCode(rawCode) {
+  const promoCodeRaw = String(rawCode || '').trim();
+  if (!promoCodeRaw) {
+    return { promo: null, error: null };
+  }
+
+  const code = promoCodeRaw.toUpperCase();
+  const promo = await PromoCode.findOne({ where: { code } });
+  if (!promo) {
+    return { promo: null, error: 'Промокод не найден' };
+  }
+  if (!promo.isActive) {
+    return { promo: null, error: 'Промокод отключен' };
+  }
+  if (promo.expiresAt && new Date(promo.expiresAt) < new Date()) {
+    return { promo: null, error: 'Срок действия промокода истек' };
+  }
+  if (promo.usageLimit !== null && promo.usedCount >= promo.usageLimit) {
+    return { promo: null, error: 'Лимит использований промокода исчерпан' };
+  }
+
+  return { promo, error: null };
+}
+
+router.post('/validate-promo', [
+  body('promoCode').trim().isLength({ min: 3, max: 64 }).withMessage('Некорректный промокод')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { promo, error } = await resolvePromoCode(req.body.promoCode);
+    if (!promo) {
+      return res.status(400).json({ error });
+    }
+
+    return res.json({
+      valid: true,
+      promoCode: promo.code,
+      discountPercent: promo.discountPercent
+    });
+  } catch (error) {
+    console.error('Error validating promo code:', error);
+    return res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
 
 /**
  * Webhook для обработки callback от Finik
@@ -578,7 +627,8 @@ router.get('/transactions/:id', auth, async (req, res) => {
 router.post('/create', [
   body('amount').isFloat({ min: 0.01 }).withMessage('Сумма должна быть больше 0'),
   body('description').optional().isString(),
-  body('coinsToUse').optional().isInt({ min: 0 }).withMessage('Монетки должны быть неотрицательным числом')
+  body('coinsToUse').optional().isInt({ min: 0 }).withMessage('Монетки должны быть неотрицательным числом'),
+  body('promoCode').optional().isString().trim().isLength({ min: 3, max: 64 }).withMessage('Некорректный промокод')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -618,15 +668,29 @@ router.post('/create', [
       console.log('Тестовый режим: платеж без авторизации');
     }
 
+    // Промокод как процентная скидка
+    let promoCodeData = null;
+    let promoDiscountAmount = 0;
+    if (req.body.promoCode) {
+      const { promo, error } = await resolvePromoCode(req.body.promoCode);
+      if (!promo) {
+        return res.status(400).json({ error });
+      }
+      promoCodeData = promo;
+      promoDiscountAmount = parseFloat(((rawAmount * promo.discountPercent) / 100).toFixed(2));
+    }
+
+    const amountAfterPromo = Math.max(0.01, rawAmount - promoDiscountAmount);
+
     // Монетки как скидка: курс 1 к 1 (1 монетка = 1 сом)
     let coinsToUse = 0;
     if (userId && user) {
       const requestedCoins = Math.floor(parseInt(req.body.coinsToUse, 10) || 0);
       const maxCoinsByBalance = user.coins || 0;
-      const maxCoinsByAmount = Math.max(0, Math.floor(rawAmount - 0.01)); // чтобы к оплате осталось >= 0.01
+      const maxCoinsByAmount = Math.max(0, Math.floor(amountAfterPromo - 0.01)); // чтобы к оплате осталось >= 0.01
       coinsToUse = Math.min(requestedCoins, maxCoinsByBalance, maxCoinsByAmount);
     }
-    const amountToCharge = Math.max(0.01, rawAmount - coinsToUse);
+    const amountToCharge = Math.max(0.01, amountAfterPromo - coinsToUse);
 
     // Формируем redirect URL с параметрами
     const redirectUrlWithParams = new URL(redirectUrl);
@@ -651,7 +715,12 @@ router.post('/create', [
         ...(userId && { userId: userId.toString() }),
         paymentType: paymentType || 'subscription',
         subscriptionType: req.body.subscriptionType || '1',
-        testMode: 'true' // Помечаем как тестовый платеж
+        testMode: 'true', // Помечаем как тестовый платеж
+        ...(promoCodeData && {
+          promoCodeId: promoCodeData.id,
+          promoCode: promoCodeData.code,
+          promoDiscountPercent: promoCodeData.discountPercent
+        })
       }
     });
 
@@ -667,9 +736,18 @@ router.post('/create', [
         description: description || `Оплата: ${paymentType || 'subscription'}`,
         testMode: true,
         originalAmount: rawAmount,
-        coinsToUse: coinsToUse
+        coinsToUse: coinsToUse,
+        promoCodeId: promoCodeData?.id || null,
+        promoCode: promoCodeData?.code || null,
+        promoDiscountPercent: promoCodeData?.discountPercent || 0,
+        promoDiscountAmount: promoDiscountAmount
       }
     });
+
+    if (promoCodeData) {
+      promoCodeData.usedCount += 1;
+      await promoCodeData.save();
+    }
 
     console.log(`Payment created: ${paymentResult.paymentId} ${userId ? `for user ${userId}` : '(test mode, no user)'}`);
     console.log('📤 Payment result:', {
@@ -694,7 +772,10 @@ router.post('/create', [
       transactionId: transaction.id,
       amount: amountToCharge,
       coinsUsed: coinsToUse,
-      originalAmount: rawAmount
+      originalAmount: rawAmount,
+      promoCode: promoCodeData?.code || null,
+      promoDiscountPercent: promoCodeData?.discountPercent || 0,
+      promoDiscountAmount
     });
 
   } catch (error) {
@@ -726,6 +807,7 @@ router.post('/create', [
 router.post('/create-registration', [
   body('amount').isFloat({ min: 0.01 }).withMessage('Сумма должна быть больше 0'),
   body('description').optional().isString(),
+  body('promoCode').optional().isString().trim().isLength({ min: 3, max: 64 }).withMessage('Некорректный промокод'),
   body('registrationData').isObject().withMessage('Данные регистрации обязательны'),
   body('registrationData.username').trim().isLength({ min: 3, max: 50 }).withMessage('Никнейм должен быть от 3 до 50 символов'),
   body('registrationData.email').isEmail().withMessage('Некорректный email'),
@@ -763,6 +845,8 @@ router.post('/create-registration', [
     let finalAmount = parseFloat(amount);
     let referralCode = null;
     let referrerId = null;
+    let promoCodeData = null;
+    let promoDiscountAmount = 0;
 
     if (registrationData.referralCode) {
       referralCode = registrationData.referralCode.toUpperCase();
@@ -775,12 +859,23 @@ router.post('/create-registration', [
       }
     }
 
+    if (req.body.promoCode) {
+      const { promo, error } = await resolvePromoCode(req.body.promoCode);
+      if (!promo) {
+        return res.status(400).json({ error });
+      }
+      promoCodeData = promo;
+      promoDiscountAmount = parseFloat(((finalAmount * promo.discountPercent) / 100).toFixed(2));
+      finalAmount = Math.max(0.01, finalAmount - promoDiscountAmount);
+    }
+
     // Сохраняем registrationData в fields для обработки в webhook
     const registrationDataForFields = {
       ...registrationData,
       subscription: registrationData.subscription || {},
       referralCode: referralCode,
-      referrerId: referrerId
+      referrerId: referrerId,
+      promoCode: promoCodeData?.code || null
     };
 
     // Получаем конфигурацию из .env
@@ -819,7 +914,12 @@ router.post('/create-registration', [
       customFields: {
         registrationData: JSON.stringify(registrationDataForFields), // Сохраняем данные регистрации с реферальным кодом
         paymentType: paymentType || 'registration',
-        subscriptionType: registrationData.subscription?.type || '1'
+        subscriptionType: registrationData.subscription?.type || '1',
+        ...(promoCodeData && {
+          promoCodeId: promoCodeData.id,
+          promoCode: promoCodeData.code,
+          promoDiscountPercent: promoCodeData.discountPercent
+        })
       }
     });
 
@@ -828,7 +928,11 @@ router.post('/create-registration', [
     const transactionFields = {
       paymentType: paymentType || 'registration',
       registrationData: registrationDataForFields, // Сохраняем данные для создания аккаунта с реферальным кодом
-      subscriptionType: registrationData.subscription?.type || '1'
+      subscriptionType: registrationData.subscription?.type || '1',
+      promoCodeId: promoCodeData?.id || null,
+      promoCode: promoCodeData?.code || null,
+      promoDiscountPercent: promoCodeData?.discountPercent || 0,
+      promoDiscountAmount
     };
 
     const transaction = await Transaction.create({
@@ -838,6 +942,11 @@ router.post('/create-registration', [
       status: 'PENDING',
       fields: transactionFields
     });
+
+    if (promoCodeData) {
+      promoCodeData.usedCount += 1;
+      await promoCodeData.save();
+    }
 
     console.log(`📝 Registration payment created: ${paymentResult.paymentId}`);
     console.log('💾 Transaction saved with registrationData:', {
@@ -879,7 +988,11 @@ router.post('/create-registration', [
       paymentId: paymentResult.paymentId,
       paymentUrl: paymentResult.paymentUrl,
       transactionId: transaction.id,
-      amount: amount
+      amount: finalAmount,
+      originalAmount: parseFloat(amount),
+      promoCode: promoCodeData?.code || null,
+      promoDiscountPercent: promoCodeData?.discountPercent || 0,
+      promoDiscountAmount
     });
 
   } catch (error) {
