@@ -177,7 +177,7 @@ router.get('/tests/:testId', async (req, res) => {
 // Для бесплатных тестов авторизация не требуется
 router.post('/tests/:testId/questions', async (req, res) => {
   try {
-    const { questionCount, randomizeAnswers } = req.body;
+    const { questionCount, randomizeAnswers, instantFeedbackMode } = req.body;
     const test = await Test.findByPk(req.params.testId, {
       include: [{
         model: Question,
@@ -240,10 +240,16 @@ router.post('/tests/:testId/questions', async (req, res) => {
           testId: q.testId,
           createdAt: q.createdAt,
           updatedAt: q.updatedAt,
-          Answers: answers.map(a => ({
-            id: a.id,
-            text: a.text
-          }))
+          Answers: answers.map(a => {
+            const answerData = {
+              id: a.id,
+              text: a.text
+            };
+            if (instantFeedbackMode) {
+              answerData.isCorrect = Boolean(a.isCorrect);
+            }
+            return answerData;
+          })
         };
       });
     } else {
@@ -254,10 +260,16 @@ router.post('/tests/:testId/questions', async (req, res) => {
         testId: q.testId,
         createdAt: q.createdAt,
         updatedAt: q.updatedAt,
-        Answers: (q.Answers || []).map(a => ({
-          id: a.id,
-          text: a.text
-        }))
+        Answers: (q.Answers || []).map(a => {
+          const answerData = {
+            id: a.id,
+            text: a.text
+          };
+          if (instantFeedbackMode) {
+            answerData.isCorrect = Boolean(a.isCorrect);
+          }
+          return answerData;
+        })
       }));
     }
 

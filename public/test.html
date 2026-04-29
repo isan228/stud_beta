@@ -90,6 +90,8 @@
                         window.currentAnswers = data.answers || {};
                         window.currentQuestionIndex = data.questionIndex || 0;
                         window.testStartTime = data.startTime || Date.now();
+                        window.instantFeedbackMode = !!data.instantFeedbackMode;
+                        window.instantFeedbackLockedQuestions = data.instantFeedbackLockedQuestions || {};
                     }
                     
                     console.log(`Загружен тест: ${data.questions.length} вопросов, индекс: ${data.questionIndex}`);

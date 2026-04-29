@@ -13,6 +13,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     let currentQuestions = [];
     let currentAnswers = {};
     let currentQuestionIndex = 0;
+    let instantFeedbackMode = false;
+    let instantFeedbackLockedQuestions = {};
     let testTimer = null;
     let testStartTime = null;
     let chatPollInterval = null;
@@ -349,6 +351,23 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                     timerGroup.style.display = e.target.checked ? 'block' : 'none';
                 }
             });
+        }
+
+        const testModeSelect = document.getElementById('testMode');
+        if (testModeSelect) {
+            const applyTestMode = (mode) => {
+                const isInstantMode = mode === 'instant';
+                const standardModeSettings = document.getElementById('standardModeSettings');
+                const timerSettingsSection = document.getElementById('timerSettingsSection');
+                if (standardModeSettings) {
+                    standardModeSettings.style.display = isInstantMode ? 'none' : 'block';
+                }
+                if (timerSettingsSection) {
+                    timerSettingsSection.style.display = isInstantMode ? 'none' : 'block';
+                }
+            };
+            applyTestMode(testModeSelect.value);
+            testModeSelect.addEventListener('change', (e) => applyTestMode(e.target.value));
         }
 
         const startFavoriteTestBtn = document.getElementById('startFavoriteTest');
@@ -1098,10 +1117,12 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             return;
         }
 
-        const questionCount = parseInt(document.getElementById('questionCount').value) || 10;
-        const randomizeAnswers = document.getElementById('randomizeAnswers').checked;
-        const useTimer = document.getElementById('useTimer').checked;
-        const timerMinutes = parseInt(document.getElementById('timerMinutes').value) || 30;
+        const selectedTestMode = document.getElementById('testMode')?.value || 'standard';
+        const instantMode = selectedTestMode === 'instant';
+        const questionCount = instantMode ? null : (parseInt(document.getElementById('questionCount').value) || 10);
+        const randomizeAnswers = document.getElementById('randomizeAnswers')?.checked || false;
+        const useTimer = instantMode ? false : (document.getElementById('useTimer')?.checked || false);
+        const timerMinutes = parseInt(document.getElementById('timerMinutes')?.value || '30') || 30;
 
         try {
             const headers = {
@@ -1116,7 +1137,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             const response = await fetch(`${API_URL}/tests/tests/${currentTestId}/questions`, {
                 method: 'POST',
                 headers: headers,
-                body: JSON.stringify({ questionCount, randomizeAnswers })
+                body: JSON.stringify({ questionCount, randomizeAnswers, instantFeedbackMode: instantMode })
             });
 
             if (!response.ok) {
@@ -1134,6 +1155,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             console.log(`Загружено вопросов: ${currentQuestions.length}`);
             currentAnswers = {};
             currentQuestionIndex = 0;
+            instantFeedbackMode = instantMode;
+            instantFeedbackLockedQuestions = {};
             testStartTime = Date.now();
 
             // Сохраняем данные теста в sessionStorage для загрузки на странице теста
@@ -1143,7 +1166,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 answers: currentAnswers,
                 questionIndex: currentQuestionIndex,
                 startTime: testStartTime,
-                timer: useTimer ? timerMinutes * 60 : null
+                timer: useTimer ? timerMinutes * 60 : null,
+                instantFeedbackMode: instantMode,
+                instantFeedbackLockedQuestions
             }));
 
             // Переходим на страницу теста
@@ -1269,6 +1294,19 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             document.querySelector(`[data-answer-id="${selectedAnswerId}"]`)?.classList.add('selected');
         }
 
+        if (instantFeedbackMode && instantFeedbackLockedQuestions[question.id]) {
+            const correctAnswer = (question.Answers || []).find(a => a.isCorrect === true);
+            document.querySelectorAll('.answer-item').forEach(item => {
+                const answerId = parseInt(item.getAttribute('data-answer-id'), 10);
+                if (correctAnswer && answerId === correctAnswer.id) {
+                    item.classList.add('correct');
+                }
+                if (selectedAnswerId && answerId === parseInt(selectedAnswerId, 10) && (!correctAnswer || answerId !== correctAnswer.id)) {
+                    item.classList.add('incorrect');
+                }
+            });
+        }
+
         // Кнопки навигации
         const prevBtn = document.getElementById('prevQuestion');
         const nextBtn = document.getElementById('nextQuestion');
@@ -1288,6 +1326,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     function selectAnswer(answerId) {
         const question = currentQuestions[currentQuestionIndex];
+        if (instantFeedbackMode && instantFeedbackLockedQuestions[question.id]) {
+            return;
+        }
         currentAnswers[question.id] = answerId;
 
         // Обновляем визуальное выделение
@@ -1295,6 +1336,20 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             item.classList.remove('selected');
         });
         document.querySelector(`[data-answer-id="${answerId}"]`)?.classList.add('selected');
+
+        if (instantFeedbackMode) {
+            const correctAnswer = (question.Answers || []).find(a => a.isCorrect === true);
+            document.querySelectorAll('.answer-item').forEach(item => {
+                const currentAnswerId = parseInt(item.getAttribute('data-answer-id'), 10);
+                item.classList.remove('correct', 'incorrect');
+                if (correctAnswer && currentAnswerId === correctAnswer.id) {
+                    item.classList.add('correct');
+                } else if (currentAnswerId === parseInt(answerId, 10) && (!correctAnswer || currentAnswerId !== correctAnswer.id)) {
+                    item.classList.add('incorrect');
+                }
+            });
+            instantFeedbackLockedQuestions[question.id] = true;
+        }
     }
 
     function nextQuestion() {
@@ -2008,6 +2063,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
             currentAnswers = {};
             currentQuestionIndex = 0;
+            instantFeedbackMode = false;
+            instantFeedbackLockedQuestions = {};
             testStartTime = Date.now();
             currentTestId = null; // Специальный тест из избранного
 
@@ -2018,7 +2075,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 answers: currentAnswers,
                 questionIndex: currentQuestionIndex,
                 startTime: testStartTime,
-                timer: null
+                timer: null,
+                instantFeedbackMode: false,
+                instantFeedbackLockedQuestions
             }));
 
             // Переходим на страницу теста
@@ -3052,6 +3111,18 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     Object.defineProperty(window, 'currentQuestionIndex', {
         get: () => currentQuestionIndex,
         set: (value) => { currentQuestionIndex = value; },
+        configurable: true
+    });
+
+    Object.defineProperty(window, 'instantFeedbackMode', {
+        get: () => instantFeedbackMode,
+        set: (value) => { instantFeedbackMode = Boolean(value); },
+        configurable: true
+    });
+
+    Object.defineProperty(window, 'instantFeedbackLockedQuestions', {
+        get: () => instantFeedbackLockedQuestions,
+        set: (value) => { instantFeedbackLockedQuestions = value || {}; },
         configurable: true
     });
 
