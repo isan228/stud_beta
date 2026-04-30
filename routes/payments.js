@@ -628,7 +628,7 @@ router.post('/create', [
   body('amount').isFloat({ min: 0.01 }).withMessage('Сумма должна быть больше 0'),
   body('description').optional().isString(),
   body('coinsToUse').optional().isInt({ min: 0 }).withMessage('Монетки должны быть неотрицательным числом'),
-  body('promoCode').optional().isString().trim().isLength({ min: 3, max: 64 }).withMessage('Некорректный промокод')
+  body('promoCode').optional({ checkFalsy: true }).isString().trim().isLength({ min: 3, max: 64 }).withMessage('Некорректный промокод')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -807,7 +807,7 @@ router.post('/create', [
 router.post('/create-registration', [
   body('amount').isFloat({ min: 0.01 }).withMessage('Сумма должна быть больше 0'),
   body('description').optional().isString(),
-  body('promoCode').optional().isString().trim().isLength({ min: 3, max: 64 }).withMessage('Некорректный промокод'),
+  body('promoCode').optional({ checkFalsy: true }).isString().trim().isLength({ min: 3, max: 64 }).withMessage('Некорректный промокод'),
   body('registrationData').isObject().withMessage('Данные регистрации обязательны'),
   body('registrationData.username').trim().isLength({ min: 3, max: 50 }).withMessage('Никнейм должен быть от 3 до 50 символов'),
   body('registrationData.email').isEmail().withMessage('Некорректный email'),
