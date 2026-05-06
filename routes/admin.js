@@ -376,24 +376,35 @@ router.put('/users/:id/password', adminAuth, [
   }
 });
 
-// Обновить количество монет пользователя
-router.put('/users/:id/coins', adminAuth, [
-  body('coins')
-    .isInt({ min: 0 })
-    .withMessage('Количество монет должно быть целым числом не меньше 0')
-], async (req, res) => {
+// Обновить количество монет пользователя (дельта или абсолютное значение)
+router.put('/users/:id/coins', adminAuth, async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
     const user = await User.findByPk(req.params.id);
     if (!user) {
       return res.status(404).json({ error: 'Пользователь не найден' });
     }
 
-    user.coins = parseInt(req.body.coins, 10);
+    const hasDelta = req.body.coinsDelta !== undefined && req.body.coinsDelta !== null && req.body.coinsDelta !== '';
+    const hasAbsolute = req.body.coins !== undefined && req.body.coins !== null && req.body.coins !== '';
+
+    if (!hasDelta && !hasAbsolute) {
+      return res.status(400).json({ error: 'Передайте coinsDelta (добавить/списать) или coins (установить)' });
+    }
+
+    if (hasDelta) {
+      const coinsDelta = parseInt(req.body.coinsDelta, 10);
+      if (!Number.isInteger(coinsDelta)) {
+        return res.status(400).json({ error: 'coinsDelta должен быть целым числом' });
+      }
+      user.coins = Math.max(0, (user.coins || 0) + coinsDelta);
+    } else {
+      const coins = parseInt(req.body.coins, 10);
+      if (!Number.isInteger(coins) || coins < 0) {
+        return res.status(400).json({ error: 'Количество монет должно быть целым числом не меньше 0' });
+      }
+      user.coins = coins;
+    }
+
     await user.save();
 
     res.json({

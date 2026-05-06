@@ -775,29 +775,31 @@ function openUpdateCoinsModal(userId, username, coins) {
     const modal = document.getElementById('updateCoinsModal');
     const userIdInput = document.getElementById('updateCoinsUserId');
     const usernameInput = document.getElementById('updateCoinsUsername');
+    const currentCoinsInput = document.getElementById('updateCoinsCurrent');
     const coinsInput = document.getElementById('updateCoinsValue');
 
-    if (!modal || !userIdInput || !usernameInput || !coinsInput) return;
+    if (!modal || !userIdInput || !usernameInput || !coinsInput || !currentCoinsInput) return;
 
     userIdInput.value = String(userId);
     usernameInput.value = username || '';
-    coinsInput.value = Number.isFinite(Number(coins)) ? String(coins) : '0';
+    currentCoinsInput.value = Number.isFinite(Number(coins)) ? String(coins) : '0';
+    coinsInput.value = '0';
     modal.style.display = 'block';
 }
 
 async function handleUpdateCoins(e) {
     e.preventDefault();
     const userId = document.getElementById('updateCoinsUserId')?.value;
-    const coinsRaw = document.getElementById('updateCoinsValue')?.value ?? '';
-    const coins = parseInt(coinsRaw, 10);
+    const coinsDeltaRaw = document.getElementById('updateCoinsValue')?.value ?? '';
+    const coinsDelta = parseInt(coinsDeltaRaw, 10);
 
     if (!userId) {
         showNotification('Не выбран пользователь', 'error');
         return;
     }
 
-    if (!Number.isInteger(coins) || coins < 0) {
-        showNotification('Введите корректное количество монет (0 и больше)', 'error');
+    if (!Number.isInteger(coinsDelta)) {
+        showNotification('Введите целое число (можно с минусом)', 'error');
         return;
     }
 
@@ -808,7 +810,7 @@ async function handleUpdateCoins(e) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${currentAdminToken}`
             },
-            body: JSON.stringify({ coins })
+            body: JSON.stringify({ coinsDelta })
         });
 
         const result = await response.json().catch(() => ({}));
