@@ -30,16 +30,25 @@ async function resolvePromoCode(rawCode) {
   return { promo, error: null };
 }
 
-async function applyPromoUsageOnSuccess(transaction) {
+async function applyPromoUsageOnSuccess(transaction, payload = null) {
   const fields = transaction?.fields || {};
-  const promoCodeId = fields.promoCodeId;
-  if (!promoCodeId || fields.promoUsageApplied) {
+  if (fields.promoUsageApplied) {
     return;
   }
 
-  const promo = await PromoCode.findByPk(promoCodeId);
+  const promoCodeId = fields.promoCodeId || payload?.fields?.promoCodeId || payload?.data?.promoCodeId;
+  const promoCode = fields.promoCode || payload?.fields?.promoCode || payload?.data?.promoCode;
+
+  let promo = null;
+  if (promoCodeId) {
+    promo = await PromoCode.findByPk(promoCodeId);
+  }
+  if (!promo && promoCode) {
+    promo = await PromoCode.findOne({ where: { code: String(promoCode).toUpperCase() } });
+  }
+
   if (!promo) {
-    console.warn(`⚠️ Promo code not found for transaction ${transaction.id}: ${promoCodeId}`);
+    console.warn(`⚠️ Promo code not found for transaction ${transaction.id}`);
     return;
   }
 
@@ -161,8 +170,8 @@ router.post('/webhook', async (req, res) => {
       transaction.receiptNumber = payload.receiptNumber || transaction.receiptNumber;
       transaction.transactionDate = payload.transactionDate || transaction.transactionDate;
       transaction.transactionType = payload.transactionType || transaction.transactionType;
-      transaction.fields = payload.fields || transaction.fields;
-      transaction.data = payload.data || transaction.data;
+      transaction.fields = Object.assign({}, transaction.fields || {}, payload.fields || {});
+      transaction.data = Object.assign({}, transaction.data || {}, payload.data || {});
       transaction.rawPayload = payload;
 
       await transaction.save();
@@ -171,7 +180,7 @@ router.post('/webhook', async (req, res) => {
 
       // Обработка успешного платежа
       if (transaction.status === 'SUCCEEDED') {
-        await applyPromoUsageOnSuccess(transaction);
+        await applyPromoUsageOnSuccess(transaction, payload);
 
         // Если это платеж за регистрацию и есть данные регистрации
         // Проверяем registrationData в разных местах: transaction.fields, payload.fields, payload.data
@@ -520,7 +529,7 @@ router.post('/webhook', async (req, res) => {
 
       // Обработка успешного платежа (для новых транзакций)
       if (transaction.status === 'SUCCEEDED') {
-        await applyPromoUsageOnSuccess(transaction);
+        await applyPromoUsageOnSuccess(transaction, payload);
 
         let isSubscriptionProcessed = false;
 
