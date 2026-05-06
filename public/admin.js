@@ -960,6 +960,18 @@ async function editSubject(subjectId) {
 // Редактирование теста
 async function editTest(testId) {
     try {
+        const subjectsResponse = await fetch(`${ADMIN_API_URL}/subjects`, {
+            headers: {
+                'Authorization': `Bearer ${currentAdminToken}`
+            }
+        });
+        const subjects = subjectsResponse.ok ? await subjectsResponse.json() : [];
+        const subjectSelect = document.getElementById('testSubjectId');
+        if (subjectSelect) {
+            subjectSelect.innerHTML = '<option value="">Выберите предмет</option>' +
+                subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        }
+
         const response = await fetch(`${ADMIN_API_URL}/tests`, {
             headers: {
                 'Authorization': `Bearer ${currentAdminToken}`
