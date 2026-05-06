@@ -30,6 +30,27 @@ async function resolvePromoCode(rawCode) {
   return { promo, error: null };
 }
 
+async function applyPromoUsageOnSuccess(transaction) {
+  const fields = transaction?.fields || {};
+  const promoCodeId = fields.promoCodeId;
+  if (!promoCodeId || fields.promoUsageApplied) {
+    return;
+  }
+
+  const promo = await PromoCode.findByPk(promoCodeId);
+  if (!promo) {
+    console.warn(`⚠️ Promo code not found for transaction ${transaction.id}: ${promoCodeId}`);
+    return;
+  }
+
+  promo.usedCount = (promo.usedCount || 0) + 1;
+  await promo.save();
+
+  transaction.fields = Object.assign({}, fields, { promoUsageApplied: true });
+  await transaction.save();
+  console.log(`✅ Promo code usage applied for transaction ${transaction.id}: ${promo.code}`);
+}
+
 router.post('/validate-promo', [
   body('promoCode').trim().isLength({ min: 3, max: 64 }).withMessage('Некорректный промокод')
 ], async (req, res) => {
@@ -150,6 +171,8 @@ router.post('/webhook', async (req, res) => {
 
       // Обработка успешного платежа
       if (transaction.status === 'SUCCEEDED') {
+        await applyPromoUsageOnSuccess(transaction);
+
         // Если это платеж за регистрацию и есть данные регистрации
         // Проверяем registrationData в разных местах: transaction.fields, payload.fields, payload.data
         let registrationData = null;
@@ -497,6 +520,8 @@ router.post('/webhook', async (req, res) => {
 
       // Обработка успешного платежа (для новых транзакций)
       if (transaction.status === 'SUCCEEDED') {
+        await applyPromoUsageOnSuccess(transaction);
+
         let isSubscriptionProcessed = false;
 
         // Ищем registrationData в разных местах
@@ -744,11 +769,6 @@ router.post('/create', [
       }
     });
 
-    if (promoCodeData) {
-      promoCodeData.usedCount += 1;
-      await promoCodeData.save();
-    }
-
     console.log(`Payment created: ${paymentResult.paymentId} ${userId ? `for user ${userId}` : '(test mode, no user)'}`);
     console.log('📤 Payment result:', {
       success: paymentResult.success,
@@ -946,11 +966,6 @@ router.post('/create-registration', [
       status: 'PENDING',
       fields: transactionFields
     });
-
-    if (promoCodeData) {
-      promoCodeData.usedCount += 1;
-      await promoCodeData.save();
-    }
 
     console.log(`📝 Registration payment created: ${paymentResult.paymentId}`);
     console.log('💾 Transaction saved with registrationData:', {
