@@ -859,6 +859,10 @@ router.post('/create-registration', [
       }
     }
 
+    if (referralCode && req.body.promoCode) {
+      return res.status(400).json({ error: 'Вы уже перешли по бонусной ссылке' });
+    }
+
     if (req.body.promoCode) {
       const { promo, error } = await resolvePromoCode(req.body.promoCode);
       if (!promo) {

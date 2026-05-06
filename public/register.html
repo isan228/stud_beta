@@ -755,6 +755,9 @@
                         <div class="form-group">
                             <label for="regPromoCode">Промокод (если есть)</label>
                             <input type="text" id="regPromoCode" name="promoCode" placeholder="Введите промокод">
+                            <small id="regPromoCodeHint" style="display: none; color: var(--text-muted); margin-top: 0.4rem;">
+                                Вы уже перешли по бонусной ссылке
+                            </small>
                         </div>
                         <div class="form-group checkbox-group">
                             <label for="dataConsent">
@@ -808,6 +811,27 @@
         let registrationData = null;
         let referralCode = null;
 
+        function applyReferralPromoLock() {
+            const promoInput = document.getElementById('regPromoCode');
+            const promoHint = document.getElementById('regPromoCodeHint');
+            if (!promoInput) return;
+
+            if (referralCode) {
+                promoInput.value = '';
+                promoInput.disabled = true;
+                promoInput.placeholder = 'Вы уже перешли по бонусной ссылке';
+                if (promoHint) {
+                    promoHint.style.display = 'block';
+                }
+            } else {
+                promoInput.disabled = false;
+                promoInput.placeholder = 'Введите промокод';
+                if (promoHint) {
+                    promoHint.style.display = 'none';
+                }
+            }
+        }
+
         function getSubscriptionLabel(type) {
             if (type === '1') return '1 месяц';
             if (type === '3') return '3 месяца';
@@ -831,6 +855,8 @@
                     showNotification(`🎉 При регистрации вы получите 50 монет! Код: ${referralCode}`, 'success');
                 }, 500);
             }
+
+            applyReferralPromoLock();
             
             setupRegistrationSteps();
         });
@@ -924,7 +950,7 @@
                     email: formData.get('email'),
                     password: formData.get('password'),
                     confirmPassword: formData.get('confirmPassword'),
-                    promoCode: formData.get('promoCode'),
+                    promoCode: referralCode ? '' : (formData.get('promoCode') || ''),
                     dataConsent: document.getElementById('dataConsent').checked ? 'true' : 'false',
                     publicOffer: document.getElementById('publicOffer').checked ? 'true' : 'false',
                     subscription: selectedSubscription
