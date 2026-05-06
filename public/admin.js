@@ -516,6 +516,7 @@ async function loadUsers(page = 1) {
                                     <td>${accuracy}%</td>
                                     <td>${date.toLocaleDateString('ru-RU')}</td>
                                     <td>
+                                        <button class="btn btn-primary btn-sm" onclick="openUpdateCoinsModal(${user.id}, '${String(user.username).replace(/'/g, "\\'")}', ${user.coins || 0})">Изменить монеты</button>
                                         <button class="btn btn-secondary btn-sm" onclick="openResetPasswordModal(${user.id}, '${String(user.username).replace(/'/g, "\\'")}')">Сменить пароль</button>
                                         <button class="btn btn-danger btn-sm" onclick="deleteUser(${user.id})">Удалить</button>
                                     </td>
@@ -767,6 +768,64 @@ async function handleResetPassword(e) {
     } catch (error) {
         console.error('Ошибка смены пароля:', error);
         showNotification('Ошибка смены пароля', 'error');
+    }
+}
+
+function openUpdateCoinsModal(userId, username, coins) {
+    const modal = document.getElementById('updateCoinsModal');
+    const userIdInput = document.getElementById('updateCoinsUserId');
+    const usernameInput = document.getElementById('updateCoinsUsername');
+    const coinsInput = document.getElementById('updateCoinsValue');
+
+    if (!modal || !userIdInput || !usernameInput || !coinsInput) return;
+
+    userIdInput.value = String(userId);
+    usernameInput.value = username || '';
+    coinsInput.value = Number.isFinite(Number(coins)) ? String(coins) : '0';
+    modal.style.display = 'block';
+}
+
+async function handleUpdateCoins(e) {
+    e.preventDefault();
+    const userId = document.getElementById('updateCoinsUserId')?.value;
+    const coinsRaw = document.getElementById('updateCoinsValue')?.value ?? '';
+    const coins = parseInt(coinsRaw, 10);
+
+    if (!userId) {
+        showNotification('Не выбран пользователь', 'error');
+        return;
+    }
+
+    if (!Number.isInteger(coins) || coins < 0) {
+        showNotification('Введите корректное количество монет (0 и больше)', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/users/${userId}/coins`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentAdminToken}`
+            },
+            body: JSON.stringify({ coins })
+        });
+
+        const result = await response.json().catch(() => ({}));
+
+        if (response.ok) {
+            showNotification(result.message || 'Монеты обновлены', 'success');
+            const modal = document.getElementById('updateCoinsModal');
+            const form = document.getElementById('updateCoinsForm');
+            if (form) form.reset();
+            if (modal) modal.style.display = 'none';
+            loadUsers(currentUsersPage);
+        } else {
+            showNotification(result.error || 'Ошибка обновления монет', 'error');
+        }
+    } catch (error) {
+        console.error('Ошибка обновления монет:', error);
+        showNotification('Ошибка обновления монет', 'error');
     }
 }
 
@@ -1612,6 +1671,10 @@ function setupAdminEventListeners() {
     if (resetPasswordForm) {
         resetPasswordForm.addEventListener('submit', handleResetPassword);
     }
+    const updateCoinsForm = document.getElementById('updateCoinsForm');
+    if (updateCoinsForm) {
+        updateCoinsForm.addEventListener('submit', handleUpdateCoins);
+    }
 
     const promoForm = document.getElementById('promoForm');
     if (promoForm) {
@@ -2435,6 +2498,7 @@ function setupAdminChatUserPicker() {
 // Экспорт функций для использования в HTML
 window.deleteUser = deleteUser;
 window.openResetPasswordModal = openResetPasswordModal;
+window.openUpdateCoinsModal = openUpdateCoinsModal;
 window.deleteSubject = deleteSubject;
 window.deleteTest = deleteTest;
 window.deleteQuestion = deleteQuestion;

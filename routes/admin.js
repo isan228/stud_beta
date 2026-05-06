@@ -376,6 +376,39 @@ router.put('/users/:id/password', adminAuth, [
   }
 });
 
+// Обновить количество монет пользователя
+router.put('/users/:id/coins', adminAuth, [
+  body('coins')
+    .isInt({ min: 0 })
+    .withMessage('Количество монет должно быть целым числом не меньше 0')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const user = await User.findByPk(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+
+    user.coins = parseInt(req.body.coins, 10);
+    await user.save();
+
+    res.json({
+      message: 'Количество монет обновлено',
+      user: {
+        id: user.id,
+        coins: user.coins
+      }
+    });
+  } catch (error) {
+    console.error('Ошибка обновления монет пользователя:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 
 // Удалить пользователя
 router.delete('/users/:id', adminAuth, async (req, res) => {

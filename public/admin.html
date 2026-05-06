@@ -532,6 +532,26 @@
         </div>
     </div>
 
+    <div id="updateCoinsModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 520px;">
+            <span class="modal-close">&times;</span>
+            <h2>Изменить количество монет</h2>
+            <form id="updateCoinsForm">
+                <input type="hidden" id="updateCoinsUserId">
+                <div class="form-group">
+                    <label for="updateCoinsUsername">Пользователь</label>
+                    <input type="text" id="updateCoinsUsername" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="updateCoinsValue">Количество монет</label>
+                    <input type="number" id="updateCoinsValue" min="0" step="1" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Сохранить</button>
+                <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
+            </form>
+        </div>
+    </div>
+
     <div id="notification" class="notification"></div>
     <script src="admin.js"></script>
     <!-- app.js не нужен на странице админки, чтобы избежать конфликтов -->
