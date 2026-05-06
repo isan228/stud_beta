@@ -492,6 +492,7 @@ async function loadUsers(page = 1) {
                             <th>ID</th>
                             <th>Никнейм</th>
                             <th>Email</th>
+                            <th>Бонусы</th>
                             <th>Тестов пройдено</th>
                             <th>Точность</th>
                             <th>Дата регистрации</th>
@@ -510,6 +511,7 @@ async function loadUsers(page = 1) {
                                     <td>${user.id}</td>
                                     <td>${user.username}</td>
                                     <td>${user.email}</td>
+                                    <td>${user.coins || 0}</td>
                                     <td>${stats.totalTestsCompleted || 0}</td>
                                     <td>${accuracy}%</td>
                                     <td>${date.toLocaleDateString('ru-RU')}</td>
