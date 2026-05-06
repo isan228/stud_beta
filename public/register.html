@@ -752,7 +752,7 @@
                             <label for="regConfirmPassword">Подтвердите пароль</label>
                             <input type="password" id="regConfirmPassword" name="confirmPassword" required placeholder="Повторите пароль">
                         </div>
-                        <div class="form-group">
+                        <div class="form-group" id="promoCodeGroup">
                             <label for="regPromoCode">Промокод (если есть)</label>
                             <input type="text" id="regPromoCode" name="promoCode" placeholder="Введите промокод">
                             <small id="regPromoCodeHint" style="display: none; color: var(--text-muted); margin-top: 0.4rem;">
@@ -812,11 +812,15 @@
         let referralCode = null;
 
         function applyReferralPromoLock() {
+            const promoGroup = document.getElementById('promoCodeGroup');
             const promoInput = document.getElementById('regPromoCode');
             const promoHint = document.getElementById('regPromoCodeHint');
             if (!promoInput) return;
 
             if (referralCode) {
+                if (promoGroup) {
+                    promoGroup.style.display = 'none';
+                }
                 promoInput.value = '';
                 promoInput.disabled = true;
                 promoInput.placeholder = 'Вы уже перешли по бонусной ссылке';
@@ -824,6 +828,9 @@
                     promoHint.style.display = 'block';
                 }
             } else {
+                if (promoGroup) {
+                    promoGroup.style.display = 'block';
+                }
                 promoInput.disabled = false;
                 promoInput.placeholder = 'Введите промокод';
                 if (promoHint) {
