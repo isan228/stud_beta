@@ -508,6 +508,12 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 const newMode = testModeInput.value === 'instant' ? 'standard' : 'instant';
                 applyModernMode(newMode);
             });
+            // Доп. страховка для сложных слоев/оверлеев
+            modeInstantBtn.addEventListener('pointerup', (e) => {
+                e.preventDefault();
+                const newMode = testModeInput.value === 'instant' ? 'standard' : 'instant';
+                applyModernMode(newMode);
+            });
         }
         if (useTimerCheckbox && timerToggleBtn) {
             const applyTimerState = () => {
