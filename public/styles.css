@@ -1295,6 +1295,11 @@ html[data-theme="dark"] .navbar {
     color: var(--primary-color);
 }
 
+.mode-toggle-btn.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .timer-box-modern {
     display: flex;
     align-items: center;

@@ -492,9 +492,26 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             const applyModernMode = (mode) => {
                 testModeInput.value = mode;
                 modeInstantBtn.classList.toggle('active', mode === 'instant');
+
+                // В режиме "Ответы сразу" принудительно отключаем таймер
+                if (useTimerCheckbox && timerToggleBtn) {
+                    if (mode === 'instant') {
+                        useTimerCheckbox.checked = false;
+                        timerToggleBtn.classList.remove('active');
+                        timerToggleBtn.disabled = true;
+                        timerToggleBtn.classList.add('disabled');
+                    } else {
+                        timerToggleBtn.disabled = false;
+                        timerToggleBtn.classList.remove('disabled');
+                    }
+                    const timerGroup = document.getElementById('timerGroup');
+                    if (timerGroup) timerGroup.style.display = useTimerCheckbox.checked ? 'flex' : 'none';
+                }
             };
             applyModernMode(testModeInput.value || 'standard');
-            modeInstantBtn.addEventListener('click', () => {
+            modeInstantBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 const newMode = testModeInput.value === 'instant' ? 'standard' : 'instant';
                 applyModernMode(newMode);
             });
