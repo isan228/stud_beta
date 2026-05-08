@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const { UserStats, TestResult, Test, Subject, User, Question } = require('../models');
-const { Op, fn, col } = require('sequelize');
+const { Op } = require('sequelize');
 const jwt = require('jsonwebtoken');
 
 // Публичная статистика платформы для главной страницы
@@ -162,41 +162,49 @@ router.get('/leaderboard', async (req, res) => {
           [Op.lt]: nextMonthStart
         }
       },
-      attributes: [
-        'userId',
-        [fn('SUM', col('score')), 'correctAnswers'],
-        [fn('SUM', col('totalQuestions')), 'totalQuestionsAnswered'],
-        [fn('COUNT', col('*')), 'totalTestsCompleted']
-      ],
+      attributes: ['id', 'userId', 'score', 'totalQuestions', 'createdAt'],
       include: [{
         model: User,
         attributes: ['id', 'username'],
         required: true
       }],
-      group: ['userId', 'User.id', 'User.username'],
-      order: [
-        [fn('SUM', col('score')), 'DESC'],
-        [fn('SUM', col('totalQuestions')), 'DESC'],
-        [fn('COUNT', col('*')), 'DESC']
-      ]
+      order: [['createdAt', 'DESC']]
+    });
+    const byUser = new Map();
+    rows.forEach((row) => {
+      const userId = row.User?.id || row.userId;
+      if (!userId) return;
+      const prev = byUser.get(userId) || {
+        userId,
+        username: row.User?.username || '—',
+        correctAnswers: 0,
+        totalQuestionsAnswered: 0,
+        totalTestsCompleted: 0
+      };
+      prev.correctAnswers += Number(row.score) || 0;
+      prev.totalQuestionsAnswered += Number(row.totalQuestions) || 0;
+      prev.totalTestsCompleted += 1;
+      byUser.set(userId, prev);
     });
 
-    const leaderboardAll = rows.map((row, index) => {
-      const correctAnswers = Number(row.get('correctAnswers')) || 0;
-      const totalQuestionsAnswered = Number(row.get('totalQuestionsAnswered')) || 0;
-      const totalTestsCompleted = Number(row.get('totalTestsCompleted')) || 0;
-      return {
+    const leaderboardAll = Array.from(byUser.values())
+      .sort((a, b) => {
+        if (b.correctAnswers !== a.correctAnswers) return b.correctAnswers - a.correctAnswers;
+        if (b.totalQuestionsAnswered !== a.totalQuestionsAnswered) return b.totalQuestionsAnswered - a.totalQuestionsAnswered;
+        if (b.totalTestsCompleted !== a.totalTestsCompleted) return b.totalTestsCompleted - a.totalTestsCompleted;
+        return String(a.username).localeCompare(String(b.username), 'ru');
+      })
+      .map((item, index) => ({
         rank: index + 1,
-        userId: row.User?.id,
-        username: row.User?.username || '—',
-        correctAnswers,
-        totalQuestionsAnswered,
-        totalTestsCompleted,
-        accuracy: totalQuestionsAnswered > 0
-          ? Math.round((correctAnswers / totalQuestionsAnswered) * 100)
+        userId: item.userId,
+        username: item.username,
+        correctAnswers: item.correctAnswers,
+        totalQuestionsAnswered: item.totalQuestionsAnswered,
+        totalTestsCompleted: item.totalTestsCompleted,
+        accuracy: item.totalQuestionsAnswered > 0
+          ? Math.round((item.correctAnswers / item.totalQuestionsAnswered) * 100)
           : 0
-      };
-    });
+      }));
 
     const leaderboard = leaderboardAll.slice(0, limit);
     const currentUserEntry = currentUserId
