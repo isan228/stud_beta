@@ -1276,7 +1276,7 @@ html[data-theme="dark"] .navbar {
     display: flex;
     gap: 0.6rem;
     flex-wrap: wrap;
-    margin-bottom: 0.7rem;
+    align-items: center;
 }
 
 .mode-toggle-btn {
@@ -1319,12 +1319,13 @@ html[data-theme="dark"] .navbar {
     border-radius: 12px;
     padding: 0.5rem 0.65rem;
     width: auto;
-    max-width: 360px;
+    max-width: 420px;
 }
 
 .timer-box-modern label {
     margin: 0;
     font-weight: 600;
+    white-space: nowrap;
 }
 
 .timer-box-modern input {
