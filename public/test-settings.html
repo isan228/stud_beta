@@ -53,44 +53,73 @@
                 </p>
             </div>
             <div class="test-settings">
-                <div class="settings-section">
-                    <h3>Параметры теста</h3>
-                    <div class="form-group">
-                        <label for="testMode">Режим прохождения</label>
-                        <select id="testMode">
-                            <option value="standard">Обычный режим</option>
-                            <option value="instant">Мгновенная проверка ответа</option>
-                        </select>
-                        <small>В режиме мгновенной проверки правильность ответа показывается сразу после нажатия</small>
-                    </div>
-                    <div id="standardModeSettings">
-                    <div class="form-group">
-                        <label for="questionCount">Количество вопросов</label>
-                        <input type="number" id="questionCount" min="1" value="10">
-                        <small>Выберите количество вопросов для прохождения (от 1 до доступного максимума)</small>
-                    </div>
-                    <div class="form-group checkbox-group">
-                        <label>
-                            <input type="checkbox" id="randomizeAnswers">
-                            <span>Случайный порядок ответов</span>
-                        </label>
-                        <small>Варианты ответов будут перемешаны для каждого вопроса</small>
-                    </div>
+                <input type="hidden" id="testMode" value="standard">
+                <input type="hidden" id="randomizeAnswers" value="false">
+                <div class="settings-section settings-section-modern">
+                    <h3 class="settings-title-modern">Количество вопросов</h3>
+                    <div class="settings-card-modern">
+                        <div class="settings-row-modern">
+                            <label for="questionCount">Сколько вопросов решать?</label>
+                            <span class="settings-badge-modern" id="questionCountMax">макс. 0</span>
+                        </div>
+                        <div class="settings-input-row-modern">
+                            <input type="number" id="questionCount" min="1" value="10">
+                            <small>от 1 до доступного максимума</small>
+                        </div>
                     </div>
                 </div>
-                <div class="settings-section" id="timerSettingsSection">
-                    <h3>Таймер</h3>
-                    <div class="form-group checkbox-group">
-                        <label>
-                            <input type="checkbox" id="useTimer">
-                            <span>Использовать таймер</span>
-                        </label>
-                        <small>Ограничьте время прохождения теста для более реалистичной подготовки</small>
+
+                <div class="settings-section settings-section-modern">
+                    <h3 class="settings-title-modern">Режим теста</h3>
+                    <div class="settings-toggles-modern">
+                        <button type="button" id="modeInstantBtn" class="mode-toggle-btn">
+                            Ответы сразу
+                        </button>
+                        <button type="button" id="timerToggleBtn" class="mode-toggle-btn active">
+                            Таймер
+                        </button>
                     </div>
-                    <div class="form-group" id="timerGroup" style="display: none;">
-                        <label for="timerMinutes">Время на прохождение (минуты)</label>
-                        <input type="number" id="timerMinutes" min="1" value="30">
-                        <small>Рекомендуемое время: 1 минута на вопрос</small>
+                    <input type="checkbox" id="useTimer" checked style="display: none;">
+                    <div class="form-group timer-box-modern" id="timerGroup">
+                        <label for="timerMinutes">Время на весь блок:</label>
+                        <input type="number" id="timerMinutes" min="1" value="60">
+                        <span>минут</span>
+                    </div>
+                </div>
+
+                <div class="settings-section settings-section-modern">
+                    <h3 class="settings-title-modern">Режим вопросов <span class="questions-total-modern" id="totalAvailableCount">всего доступно: 0</span></h3>
+                    <div class="question-modes-grid">
+                        <label class="question-mode-item">
+                            <input type="checkbox" id="modeAll">
+                            <span>Все</span>
+                            <em id="modeAllCount">0</em>
+                        </label>
+                        <label class="question-mode-item">
+                            <input type="checkbox" id="modeUnsolved" checked>
+                            <span>Нерешённые</span>
+                            <em id="modeUnsolvedCount">0</em>
+                        </label>
+                        <label class="question-mode-item">
+                            <input type="checkbox" id="modeSolved">
+                            <span>Решённые</span>
+                            <em id="modeSolvedCount">0</em>
+                        </label>
+                        <label class="question-mode-item">
+                            <input type="checkbox" id="modeIncorrect" checked>
+                            <span>Неправильные</span>
+                            <em id="modeIncorrectCount">0</em>
+                        </label>
+                        <label class="question-mode-item">
+                            <input type="checkbox" id="modeCorrect">
+                            <span>Правильные</span>
+                            <em id="modeCorrectCount">0</em>
+                        </label>
+                        <label class="question-mode-item">
+                            <input type="checkbox" id="modeFavorites">
+                            <span>Избранные</span>
+                            <em id="modeFavoritesCount">0</em>
+                        </label>
                     </div>
                 </div>
                 <div class="settings-actions">

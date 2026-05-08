@@ -19,6 +19,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     let testStartTime = null;
     let chatPollInterval = null;
     let isChatOpen = false;
+    let isSubscriptionAlertsOpen = false;
 
     // Инициализация (вызывается на каждой странице отдельно)
 
@@ -126,6 +127,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
 
         ensureUserChatVisibility();
+        ensureSubscriptionAlertVisibility();
     }
 
     function ensureUserChatVisibility() {
@@ -141,6 +143,119 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         } else {
             startChatPolling();
             updateChatUnreadBadge();
+        }
+    }
+
+    function buildSubscriptionAlerts() {
+        if (!currentUser || !currentUser.subscriptionEndDate) return [];
+        const endDate = new Date(currentUser.subscriptionEndDate);
+        if (Number.isNaN(endDate.getTime())) return [];
+
+        const now = new Date();
+        const msPerDay = 24 * 60 * 60 * 1000;
+        const daysLeft = Math.ceil((endDate.getTime() - now.getTime()) / msPerDay);
+
+        if (daysLeft < 0) {
+            return [{
+                level: 'danger',
+                title: 'Подписка закончилась',
+                text: 'Ваша подписка уже истекла. Продлите подписку, чтобы сохранить полный доступ к тестам.'
+            }];
+        }
+        if (daysLeft === 0) {
+            return [{
+                level: 'warning',
+                title: 'Подписка заканчивается сегодня',
+                text: 'Сегодня последний день действия подписки. Рекомендуем продлить ее заранее.'
+            }];
+        }
+        if (daysLeft <= 7) {
+            return [{
+                level: 'warning',
+                title: 'Подписка скоро закончится',
+                text: `До окончания подписки осталось ${daysLeft} дн. Продлите ее, чтобы не потерять доступ.`
+            }];
+        }
+        return [];
+    }
+
+    function ensureSubscriptionAlertVisibility() {
+        let bellButton = document.getElementById('subscriptionAlertToggle');
+        let alertPanel = document.getElementById('subscriptionAlertPanel');
+        const navActions = document.querySelector('.nav-actions');
+        const alerts = buildSubscriptionAlerts();
+
+        if (!navActions) return;
+
+        if (!bellButton) {
+            bellButton = document.createElement('button');
+            bellButton.id = 'subscriptionAlertToggle';
+            bellButton.className = 'subscription-alert-toggle';
+            bellButton.type = 'button';
+            bellButton.setAttribute('aria-label', 'Уведомления о подписке');
+            bellButton.innerHTML = '🔔<span id="subscriptionAlertBadge" class="subscription-alert-badge" style="display:none;">0</span>';
+            navActions.prepend(bellButton);
+
+            alertPanel = document.createElement('div');
+            alertPanel.id = 'subscriptionAlertPanel';
+            alertPanel.className = 'subscription-alert-panel';
+            alertPanel.style.display = 'none';
+            alertPanel.innerHTML = '<div id="subscriptionAlertList"></div>';
+            document.body.appendChild(alertPanel);
+
+            bellButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!alertPanel) return;
+
+                isSubscriptionAlertsOpen = !isSubscriptionAlertsOpen;
+                if (isSubscriptionAlertsOpen) {
+                    const rect = bellButton.getBoundingClientRect();
+                    alertPanel.style.top = `${Math.round(rect.bottom + window.scrollY + 10)}px`;
+                    alertPanel.style.left = `${Math.round(rect.right + window.scrollX - 320)}px`;
+                    alertPanel.style.display = 'block';
+                } else {
+                    alertPanel.style.display = 'none';
+                }
+            });
+
+            if (!document.subscriptionAlertsOutsideHandler) {
+                document.subscriptionAlertsOutsideHandler = (e) => {
+                    const panel = document.getElementById('subscriptionAlertPanel');
+                    const btn = document.getElementById('subscriptionAlertToggle');
+                    if (!panel || !btn) return;
+                    if (!panel.contains(e.target) && !btn.contains(e.target)) {
+                        panel.style.display = 'none';
+                        isSubscriptionAlertsOpen = false;
+                    }
+                };
+                document.addEventListener('click', document.subscriptionAlertsOutsideHandler);
+            }
+        }
+
+        const badge = document.getElementById('subscriptionAlertBadge');
+        const list = document.getElementById('subscriptionAlertList');
+        alertPanel = document.getElementById('subscriptionAlertPanel');
+
+        if (!currentUser || alerts.length === 0) {
+            bellButton.style.display = 'none';
+            if (alertPanel) alertPanel.style.display = 'none';
+            isSubscriptionAlertsOpen = false;
+            return;
+        }
+
+        bellButton.style.display = 'inline-flex';
+        if (badge) {
+            badge.textContent = String(alerts.length);
+            badge.style.display = 'flex';
+        }
+        if (list) {
+            list.innerHTML = alerts.map(alert => `
+                <div class="subscription-alert-item ${alert.level}">
+                    <h4>${alert.title}</h4>
+                    <p>${alert.text}</p>
+                </div>
+            `).join('');
         }
     }
 
@@ -365,26 +480,36 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             useTimerCheckbox.addEventListener('change', (e) => {
                 const timerGroup = document.getElementById('timerGroup');
                 if (timerGroup) {
-                    timerGroup.style.display = e.target.checked ? 'block' : 'none';
+                    timerGroup.style.display = e.target.checked ? 'flex' : 'none';
                 }
             });
         }
 
-        const testModeSelect = document.getElementById('testMode');
-        if (testModeSelect) {
-            const applyTestMode = (mode) => {
-                const isInstantMode = mode === 'instant';
-                const standardModeSettings = document.getElementById('standardModeSettings');
-                const timerSettingsSection = document.getElementById('timerSettingsSection');
-                if (standardModeSettings) {
-                    standardModeSettings.style.display = isInstantMode ? 'none' : 'block';
-                }
-                if (timerSettingsSection) {
-                    timerSettingsSection.style.display = isInstantMode ? 'none' : 'block';
-                }
+        const testModeInput = document.getElementById('testMode');
+        const modeInstantBtn = document.getElementById('modeInstantBtn');
+        const timerToggleBtn = document.getElementById('timerToggleBtn');
+        if (testModeInput && modeInstantBtn) {
+            const applyModernMode = (mode) => {
+                testModeInput.value = mode;
+                modeInstantBtn.classList.toggle('active', mode === 'instant');
             };
-            applyTestMode(testModeSelect.value);
-            testModeSelect.addEventListener('change', (e) => applyTestMode(e.target.value));
+            applyModernMode(testModeInput.value || 'standard');
+            modeInstantBtn.addEventListener('click', () => {
+                const newMode = testModeInput.value === 'instant' ? 'standard' : 'instant';
+                applyModernMode(newMode);
+            });
+        }
+        if (useTimerCheckbox && timerToggleBtn) {
+            const applyTimerState = () => {
+                timerToggleBtn.classList.toggle('active', !!useTimerCheckbox.checked);
+                const timerGroup = document.getElementById('timerGroup');
+                if (timerGroup) timerGroup.style.display = useTimerCheckbox.checked ? 'flex' : 'none';
+            };
+            applyTimerState();
+            timerToggleBtn.addEventListener('click', () => {
+                useTimerCheckbox.checked = !useTimerCheckbox.checked;
+                applyTimerState();
+            });
         }
 
         const startFavoriteTestBtn = document.getElementById('startFavoriteTest');
@@ -1113,6 +1238,23 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             questionCountInput.max = questionCount;
             questionCountInput.value = Math.min(10, questionCount);
         }
+
+        const maxBadge = document.getElementById('questionCountMax');
+        if (maxBadge) maxBadge.textContent = `макс. ${questionCount || 0}`;
+        const totalAvailableCount = document.getElementById('totalAvailableCount');
+        if (totalAvailableCount) totalAvailableCount.textContent = `всего доступно: ${questionCount || 0}`;
+        const modeAllCount = document.getElementById('modeAllCount');
+        if (modeAllCount) modeAllCount.textContent = String(questionCount || 0);
+        const modeUnsolvedCount = document.getElementById('modeUnsolvedCount');
+        if (modeUnsolvedCount) modeUnsolvedCount.textContent = String(questionCount || 0);
+        const modeSolvedCount = document.getElementById('modeSolvedCount');
+        if (modeSolvedCount) modeSolvedCount.textContent = '0';
+        const modeIncorrectCount = document.getElementById('modeIncorrectCount');
+        if (modeIncorrectCount) modeIncorrectCount.textContent = '0';
+        const modeCorrectCount = document.getElementById('modeCorrectCount');
+        if (modeCorrectCount) modeCorrectCount.textContent = '0';
+        const modeFavoritesCount = document.getElementById('modeFavoritesCount');
+        if (modeFavoritesCount) modeFavoritesCount.textContent = '0';
     }
 
     async function startTest() {

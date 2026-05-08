@@ -246,6 +246,84 @@ html[data-theme="dark"] .navbar {
     transform: scale(1.1);
 }
 
+.subscription-alert-toggle {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    color: var(--text-color);
+    font-size: 1.05rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+}
+
+.subscription-alert-toggle:hover {
+    background: var(--primary-color);
+    color: #fff;
+}
+
+.subscription-alert-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    background: var(--danger-color);
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+}
+
+.subscription-alert-panel {
+    position: absolute;
+    z-index: 1950;
+    width: 320px;
+    max-width: calc(100vw - 24px);
+    background: var(--card-bg);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    padding: 0.5rem;
+}
+
+.subscription-alert-item {
+    padding: 0.65rem 0.75rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-light);
+    background: var(--bg-secondary);
+}
+
+.subscription-alert-item h4 {
+    margin: 0 0 0.35rem 0;
+    font-size: 0.92rem;
+}
+
+.subscription-alert-item p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    line-height: 1.35;
+}
+
+.subscription-alert-item.warning {
+    border-color: rgba(245, 158, 11, 0.35);
+    background: rgba(245, 158, 11, 0.08);
+}
+
+.subscription-alert-item.danger {
+    border-color: rgba(220, 38, 38, 0.35);
+    background: rgba(220, 38, 38, 0.08);
+}
+
 /* Кнопки */
 .btn {
     padding: 0.75rem 1.5rem;
@@ -1137,6 +1215,135 @@ html[data-theme="dark"] .navbar {
     font-size: 0.875rem;
     color: var(--text-muted);
     line-height: 1.5;
+}
+
+.settings-section-modern {
+    border-bottom: 1px solid var(--border-light);
+    padding-bottom: 1.25rem;
+    margin-bottom: 1.25rem;
+}
+
+.settings-title-modern {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.9rem;
+}
+
+.settings-card-modern {
+    background: rgba(37, 99, 235, 0.09);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    padding: 0.9rem;
+}
+
+.settings-row-modern {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.6rem;
+}
+
+.settings-row-modern label {
+    font-weight: 600;
+}
+
+.settings-badge-modern {
+    font-size: 0.8rem;
+    color: var(--primary-color);
+    background: rgba(37, 99, 235, 0.14);
+    border-radius: 999px;
+    padding: 0.2rem 0.5rem;
+}
+
+.settings-input-row-modern {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.settings-input-row-modern input {
+    width: 86px;
+}
+
+.settings-input-row-modern small {
+    margin: 0;
+}
+
+.settings-toggles-modern {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.7rem;
+}
+
+.mode-toggle-btn {
+    border: 1px solid var(--border-light);
+    background: var(--bg-secondary);
+    color: var(--text-color);
+    padding: 0.5rem 0.9rem;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.mode-toggle-btn.active {
+    border-color: var(--primary-color);
+    background: rgba(37, 99, 235, 0.18);
+    color: var(--primary-color);
+}
+
+.timer-box-modern {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin: 0;
+    background: rgba(37, 99, 235, 0.09);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    padding: 0.8rem;
+}
+
+.timer-box-modern label {
+    margin: 0;
+    font-weight: 600;
+}
+
+.timer-box-modern input {
+    width: 88px;
+}
+
+.questions-total-modern {
+    color: var(--primary-color);
+}
+
+.question-modes-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+}
+
+.question-mode-item {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+    padding: 0.55rem 0.65rem;
+    background: var(--bg-secondary);
+    font-weight: 600;
+}
+
+.question-mode-item em {
+    margin-left: auto;
+    font-style: normal;
+    color: var(--primary-color);
+    font-size: 0.85rem;
+    background: rgba(37, 99, 235, 0.14);
+    border-radius: 999px;
+    padding: 0.1rem 0.4rem;
 }
 
 .checkbox-group small {
