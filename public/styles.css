@@ -1295,6 +1295,13 @@ html[data-theme="dark"] .navbar {
     color: var(--primary-color);
 }
 
+#modeInstantBtn.active {
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    color: #fff;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.28), 0 8px 18px rgba(37, 99, 235, 0.28);
+}
+
 .mode-toggle-btn.disabled {
     opacity: 0.5;
     cursor: not-allowed;
