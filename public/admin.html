@@ -205,7 +205,8 @@
                             <select id="questionsTestFilter" class="form-group input">
                                 <option value="">Выберите тест</option>
                             </select>
-                            <input type="text" id="questionsSearch" class="form-group input" placeholder="Поиск по тексту вопроса...">
+                            <input type="text" id="questionsSearch" list="questionsSearchSuggestions" class="form-group input" placeholder="Поиск по тексту вопроса...">
+                            <datalist id="questionsSearchSuggestions"></datalist>
                             <button class="btn btn-primary" id="addQuestionBtn">+ Добавить вопрос</button>
                             <button class="btn btn-secondary" id="uploadPdfBtn">📄 Загрузить из TXT</button>
                         </div>

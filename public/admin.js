@@ -662,6 +662,35 @@ function renderQuestionsSelectPrompt() {
     }
 }
 
+async function loadQuestionSearchSuggestions() {
+    try {
+        const testId = document.getElementById('questionsTestFilter')?.value || '';
+        const query = document.getElementById('questionsSearch')?.value || '';
+        const datalist = document.getElementById('questionsSearchSuggestions');
+        if (!datalist) return;
+
+        if (!testId) {
+            datalist.innerHTML = '';
+            return;
+        }
+
+        const url = `${ADMIN_API_URL}/questions/suggestions?testId=${encodeURIComponent(testId)}&query=${encodeURIComponent(query)}`;
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${currentAdminToken}`
+            }
+        });
+        if (!response.ok) {
+            return;
+        }
+        const data = await response.json();
+        const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
+        datalist.innerHTML = suggestions.map(text => `<option value="${String(text).replace(/"/g, '&quot;')}"></option>`).join('');
+    } catch (error) {
+        console.error('Ошибка загрузки подсказок поиска вопросов:', error);
+    }
+}
+
 // Загрузка вопросов
 async function loadQuestions() {
     try {
@@ -1597,6 +1626,7 @@ function setupAdminEventListeners() {
     const questionsTestFilter = document.getElementById('questionsTestFilter');
     if (questionsTestFilter) {
         questionsTestFilter.addEventListener('change', () => {
+            loadQuestionSearchSuggestions();
             loadQuestions();
         });
     }
@@ -1606,6 +1636,7 @@ function setupAdminEventListeners() {
         questionsSearch.addEventListener('input', () => {
             clearTimeout(questionsSearchTimeout);
             questionsSearchTimeout = setTimeout(() => {
+                loadQuestionSearchSuggestions();
                 loadQuestions();
             }, 400);
         });

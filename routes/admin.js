@@ -624,6 +624,39 @@ router.delete('/tests/:id', adminAuth, async (req, res) => {
 });
 
 // Управление вопросами
+router.get('/questions/suggestions', adminAuth, async (req, res) => {
+  try {
+    const testId = req.query.testId;
+    const query = String(req.query.query || '').trim();
+    if (!testId) {
+      return res.json({ suggestions: [] });
+    }
+
+    const where = { testId };
+    if (query) {
+      where.text = { [Op.iLike]: `%${query}%` };
+    }
+
+    const rows = await Question.findAll({
+      where,
+      attributes: ['text'],
+      order: [['createdAt', 'DESC']],
+      limit: 12
+    });
+
+    const unique = Array.from(new Set(
+      rows
+        .map(r => String(r.text || '').trim())
+        .filter(Boolean)
+    ));
+
+    res.json({ suggestions: unique });
+  } catch (error) {
+    console.error('Ошибка получения подсказок вопросов:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 router.get('/questions', adminAuth, async (req, res) => {
   try {
     const testId = req.query.testId;
