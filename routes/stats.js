@@ -165,6 +165,7 @@ router.get('/leaderboard', async (req, res) => {
       attributes: ['id', 'userId', 'score', 'totalQuestions', 'createdAt'],
       include: [{
         model: User,
+        as: 'User',
         attributes: ['id', 'username'],
         required: true
       }],
