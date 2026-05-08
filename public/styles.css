@@ -3677,11 +3677,6 @@ html[data-theme="dark"] .navbar {
     border-color: var(--primary-color);
 }
 
-.social-link-about.whatsapp:hover {
-    border-color: #25D366;
-    background: rgba(37, 211, 102, 0.05);
-}
-
 .social-link-about.telegram:hover {
     border-color: #0088cc;
     background: rgba(0, 136, 204, 0.05);
@@ -3964,12 +3959,6 @@ html[data-theme="dark"] .navbar {
     width: 90px;
     height: 90px;
     object-fit: contain;
-}
-
-/* Specific Social Colors */
-.social-link.whatsapp:hover {
-    color: #25D366;
-    border-color: #25D366;
 }
 
 /* Global responsive hardening */
