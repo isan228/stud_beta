@@ -905,10 +905,16 @@ router.get('/contact-messages', adminAuth, async (req, res) => {
     const offset = (page - 1) * limit;
     const status = req.query.status || '';
     const search = req.query.search || '';
+    const reportType = req.query.reportType || '';
 
     const where = {};
+    const andConditions = [];
     if (status) {
       where.status = status;
+    }
+    if (reportType === 'test_error') {
+      andConditions.push({ subject: 'bug' });
+      andConditions.push({ message: { [Op.iLike]: 'Отчет об ошибке в вопросе теста%' } });
     }
     if (search) {
       where[Op.or] = [
@@ -916,6 +922,9 @@ router.get('/contact-messages', adminAuth, async (req, res) => {
         { email: { [Op.iLike]: `%${search}%` } },
         { message: { [Op.iLike]: `%${search}%` } }
       ];
+    }
+    if (andConditions.length > 0) {
+      where[Op.and] = andConditions;
     }
 
     const { count, rows: messages } = await ContactMessage.findAndCountAll({
@@ -1002,12 +1011,27 @@ router.get('/dashboard/contact-stats', adminAuth, async (req, res) => {
     const newMessages = await ContactMessage.count({ where: { status: 'new' } });
     const readMessages = await ContactMessage.count({ where: { status: 'read' } });
     const repliedMessages = await ContactMessage.count({ where: { status: 'replied' } });
+    const testErrorReports = await ContactMessage.count({
+      where: {
+        subject: 'bug',
+        message: { [Op.iLike]: 'Отчет об ошибке в вопросе теста%' }
+      }
+    });
+    const newTestErrorReports = await ContactMessage.count({
+      where: {
+        status: 'new',
+        subject: 'bug',
+        message: { [Op.iLike]: 'Отчет об ошибке в вопросе теста%' }
+      }
+    });
 
     res.json({
       totalMessages,
       newMessages,
       readMessages,
-      repliedMessages
+      repliedMessages,
+      testErrorReports,
+      newTestErrorReports
     });
   } catch (error) {
     console.error('Ошибка получения статистики сообщений:', error);

@@ -224,7 +224,10 @@
                 <!-- Обратная связь -->
                 <div id="messagesTab" class="admin-tab-content">
                     <div class="admin-section-header">
-                        <h2>Сообщения обратной связи</h2>
+                        <h2>
+                            Сообщения обратной связи
+                            <span id="testErrorBadge" style="display: none; margin-left: 0.5rem; background: #dc2626; color: #fff; padding: 0.2rem 0.5rem; border-radius: 999px; font-size: 0.75rem; vertical-align: middle;"></span>
+                        </h2>
                         <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
                             <select id="messagesStatusFilter" class="form-group input">
                                 <option value="">Все статусы</option>
@@ -232,6 +235,10 @@
                                 <option value="read">Прочитанные</option>
                                 <option value="replied">Отвеченные</option>
                                 <option value="archived">Архив</option>
+                            </select>
+                            <select id="messagesTypeFilter" class="form-group input">
+                                <option value="">Все сообщения</option>
+                                <option value="test_error">Ошибки в вопросах теста</option>
                             </select>
                             <input type="text" id="messagesSearch" class="form-group input" placeholder="Поиск по имени, email или сообщению...">
                         </div>

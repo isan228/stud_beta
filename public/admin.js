@@ -8,6 +8,7 @@ let currentChatUserId = null;
 let adminChatUsers = [];
 let adminChatsPollInterval = null;
 let adminChatMessagesPollInterval = null;
+const TEST_ERROR_PREFIX = 'Отчет об ошибке в вопросе теста';
 
 // Функция уведомлений (если не определена в app.js)
 function showNotification(message, type = 'info') {
@@ -24,6 +25,24 @@ function showNotification(message, type = 'info') {
     setTimeout(() => {
         notification.style.display = 'none';
     }, 3000);
+}
+
+function isTestErrorMessage(message) {
+    return message && message.subject === 'bug' && String(message.message || '').startsWith(TEST_ERROR_PREFIX);
+}
+
+function getMessageSubjectLabel(message) {
+    if (isTestErrorMessage(message)) {
+        return 'Ошибка в вопросе теста';
+    }
+    const subjectLabels = {
+        question: 'Вопрос',
+        suggestion: 'Предложение',
+        feedback: 'Отзыв',
+        bug: 'Ошибка',
+        other: 'Другое'
+    };
+    return subjectLabels[message?.subject] || message?.subject || 'Сообщение';
 }
 
 // Функции для работы с темой
@@ -231,6 +250,18 @@ async function loadDashboard() {
             if (contactStatsResponse.ok) {
                 const contactStats = await contactStatsResponse.json();
                 document.getElementById('statNewMessages').textContent = contactStats.newMessages || 0;
+                const testErrorBadge = document.getElementById('testErrorBadge');
+                if (testErrorBadge) {
+                    const totalTestErrors = contactStats.testErrorReports || 0;
+                    const newTestErrors = contactStats.newTestErrorReports || 0;
+                    if (totalTestErrors > 0) {
+                        testErrorBadge.style.display = 'inline-block';
+                        testErrorBadge.textContent = `Ошибки в вопросах: ${totalTestErrors}${newTestErrors > 0 ? ` (новых: ${newTestErrors})` : ''}`;
+                    } else {
+                        testErrorBadge.style.display = 'none';
+                        testErrorBadge.textContent = '';
+                    }
+                }
             }
         } catch (error) {
             console.error('Ошибка загрузки статистики сообщений:', error);
@@ -249,13 +280,6 @@ async function loadDashboard() {
                 if (messagesData.messages && messagesData.messages.length > 0) {
                     recentMessagesList.innerHTML = messagesData.messages.map(msg => {
                         const date = new Date(msg.createdAt);
-                        const subjectLabels = {
-                            'question': 'Вопрос',
-                            'suggestion': 'Предложение',
-                            'feedback': 'Отзыв',
-                            'bug': 'Ошибка',
-                            'other': 'Другое'
-                        };
                         const statusLabels = {
                             'new': 'Новое',
                             'read': 'Прочитано',
@@ -273,8 +297,9 @@ async function loadDashboard() {
                                 <div>
                                     <strong>${msg.name}</strong>
                                     <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0.25rem 0 0;">
-                                        ${subjectLabels[msg.subject] || msg.subject} - ${msg.email}
+                                        ${getMessageSubjectLabel(msg)} - ${msg.email}
                                     </p>
+                                    ${isTestErrorMessage(msg) ? '<span style="display: inline-block; margin-top: 0.35rem; background: #dc2626; color: #fff; padding: 0.12rem 0.5rem; border-radius: 0.25rem; font-size: 0.7rem; font-weight: 600;">ОШИБКА В ВОПРОСЕ</span>' : ''}
                                     <p style="color: var(--text-secondary); font-size: 0.8rem; margin: 0.25rem 0 0; max-width: 500px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                                         ${msg.message}
                                     </p>
@@ -1582,6 +1607,12 @@ function setupAdminEventListeners() {
             loadMessages(1);
         });
     }
+    const messagesTypeFilter = document.getElementById('messagesTypeFilter');
+    if (messagesTypeFilter) {
+        messagesTypeFilter.addEventListener('change', () => {
+            loadMessages(1);
+        });
+    }
 
     const messagesSearch = document.getElementById('messagesSearch');
     if (messagesSearch) {
@@ -2105,8 +2136,9 @@ let currentMessageId = null;
 async function loadMessages(page = 1) {
     try {
         const status = document.getElementById('messagesStatusFilter')?.value || '';
+        const reportType = document.getElementById('messagesTypeFilter')?.value || '';
         const search = document.getElementById('messagesSearch')?.value || '';
-        const url = `${ADMIN_API_URL}/contact-messages?page=${page}&limit=20&status=${encodeURIComponent(status)}&search=${encodeURIComponent(search)}`;
+        const url = `${ADMIN_API_URL}/contact-messages?page=${page}&limit=20&status=${encodeURIComponent(status)}&reportType=${encodeURIComponent(reportType)}&search=${encodeURIComponent(search)}`;
         
         const response = await fetch(url, {
             headers: {
@@ -2123,13 +2155,6 @@ async function loadMessages(page = 1) {
 
         const messagesList = document.getElementById('messagesList');
         if (data.messages && data.messages.length > 0) {
-            const subjectLabels = {
-                'question': 'Вопрос',
-                'suggestion': 'Предложение',
-                'feedback': 'Отзыв',
-                'bug': 'Ошибка',
-                'other': 'Другое'
-            };
             const statusLabels = {
                 'new': 'Новое',
                 'read': 'Прочитано',
@@ -2146,15 +2171,17 @@ async function loadMessages(page = 1) {
             messagesList.innerHTML = data.messages.map(msg => {
                 const date = new Date(msg.createdAt);
                 const isNew = msg.status === 'new';
+                const isTestError = isTestErrorMessage(msg);
                 return `
                     <div class="admin-list-item ${isNew ? 'new-message' : ''}" onclick="viewMessage(${msg.id})" style="cursor: pointer; ${isNew ? 'border-left: 4px solid var(--primary-color);' : ''}">
                         <div style="flex: 1;">
                             <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
                                 <strong>${msg.name}</strong>
                                 ${isNew ? '<span style="background: var(--primary-color); color: white; padding: 0.125rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 600;">НОВОЕ</span>' : ''}
+                                ${isTestError ? '<span style="background: #dc2626; color: #fff; padding: 0.125rem 0.5rem; border-radius: 0.25rem; font-size: 0.72rem; font-weight: 600;">ОШИБКА В ВОПРОСЕ</span>' : ''}
                             </div>
                             <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0.25rem 0;">
-                                ${msg.email} • ${subjectLabels[msg.subject] || msg.subject}
+                                ${msg.email} • ${getMessageSubjectLabel(msg)}
                             </p>
                             <p style="color: var(--text-secondary); font-size: 0.875rem; margin: 0.5rem 0 0; max-width: 600px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
                                 ${msg.message}
@@ -2207,17 +2234,9 @@ async function viewMessage(messageId) {
         const message = await response.json();
         currentMessageId = message.id;
 
-        const subjectLabels = {
-            'question': 'Вопрос',
-            'suggestion': 'Предложение',
-            'feedback': 'Отзыв',
-            'bug': 'Ошибка',
-            'other': 'Другое'
-        };
-
         document.getElementById('messageModalName').textContent = message.name;
         document.getElementById('messageModalEmail').textContent = message.email;
-        document.getElementById('messageModalSubject').textContent = subjectLabels[message.subject] || message.subject;
+        document.getElementById('messageModalSubject').textContent = getMessageSubjectLabel(message);
         document.getElementById('messageModalMessage').textContent = message.message;
         document.getElementById('messageModalDate').textContent = new Date(message.createdAt).toLocaleString('ru-RU', {
             year: 'numeric',
