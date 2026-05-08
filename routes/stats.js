@@ -166,7 +166,7 @@ router.get('/leaderboard', async (req, res) => {
         'userId',
         [fn('SUM', col('score')), 'correctAnswers'],
         [fn('SUM', col('totalQuestions')), 'totalQuestionsAnswered'],
-        [fn('COUNT', col('TestResult.id')), 'totalTestsCompleted']
+        [fn('COUNT', col('*')), 'totalTestsCompleted']
       ],
       include: [{
         model: User,
@@ -177,7 +177,7 @@ router.get('/leaderboard', async (req, res) => {
       order: [
         [fn('SUM', col('score')), 'DESC'],
         [fn('SUM', col('totalQuestions')), 'DESC'],
-        [fn('COUNT', col('TestResult.id')), 'DESC']
+        [fn('COUNT', col('*')), 'DESC']
       ]
     });
 
