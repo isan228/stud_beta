@@ -1332,6 +1332,12 @@ html[data-theme="dark"] .navbar {
     align-items: center;
 }
 
+.question-help-wrapper {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
 .question-help-btn {
     width: 40px;
     height: 40px;
@@ -1354,6 +1360,13 @@ html[data-theme="dark"] .navbar {
     color: #fff;
     border-color: var(--primary-color);
     transform: translateY(-1px);
+}
+
+.question-help-text {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    line-height: 1.2;
+    max-width: 135px;
 }
 
 .answers-list {
