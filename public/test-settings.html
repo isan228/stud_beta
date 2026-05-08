@@ -71,20 +71,22 @@
 
                 <div class="settings-section settings-section-modern">
                     <h3 class="settings-title-modern">Режим теста</h3>
-                    <div class="settings-toggles-modern">
-                        <button type="button" id="modeInstantBtn" class="mode-toggle-btn" onclick="if(window.toggleInstantMode){window.toggleInstantMode();}">
-                            Ответы сразу
-                        </button>
-                        <button type="button" id="timerToggleBtn" class="mode-toggle-btn active">
-                            Таймер
-                        </button>
+                    <div class="settings-test-mode-layout">
+                        <div class="settings-toggles-modern">
+                            <button type="button" id="modeInstantBtn" class="mode-toggle-btn" onclick="if(window.toggleInstantMode){window.toggleInstantMode();}">
+                                Ответы сразу
+                            </button>
+                            <button type="button" id="timerToggleBtn" class="mode-toggle-btn active">
+                                Таймер
+                            </button>
+                        </div>
+                        <input type="checkbox" id="useTimer" checked style="display: none;">
                         <div class="form-group timer-box-modern" id="timerGroup">
                             <label for="timerMinutes">Время на весь блок:</label>
                             <input type="number" id="timerMinutes" min="1" value="60">
                             <span>минут</span>
                         </div>
                     </div>
-                    <input type="checkbox" id="useTimer" checked style="display: none;">
                 </div>
 
                 <div class="settings-section settings-section-modern">
