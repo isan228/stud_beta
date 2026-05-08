@@ -29,6 +29,7 @@
                     <div class="test-timer" id="testTimer" style="display: none;">
                         <span id="timerDisplay">30:00</span>
                     </div>
+                    <button class="btn btn-secondary" id="reportQuestionErrorBtn" type="button">Сообщить об ошибке</button>
                     <div id="favoriteContainer"></div>
                 </div>
             </div>
@@ -40,6 +41,35 @@
             </div>
         </div>
     </main>
+
+    <div id="questionErrorModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 680px;">
+            <span class="modal-close" id="questionErrorModalClose">&times;</span>
+            <h2>Сообщить об ошибке</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                Укажите, что именно не так в текущем вопросе. Сообщение будет отправлено администратору.
+            </p>
+            <form id="questionErrorForm">
+                <input type="hidden" id="errorQuestionId" name="questionId">
+                <input type="hidden" id="errorTestId" name="testId">
+                <input type="hidden" id="errorQuestionNumber" name="questionNumber">
+                <input type="hidden" id="errorQuestionText" name="questionText">
+                <div class="form-group">
+                    <label for="errorQuestionPreview">Текущий вопрос</label>
+                    <textarea id="errorQuestionPreview" rows="4" readonly></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="errorReason">Что не так?</label>
+                    <textarea id="errorReason" name="reason" rows="5" required
+                        placeholder="Например: неверный правильный ответ, опечатка, некорректная формулировка, дубли и т.д."></textarea>
+                </div>
+                <div style="display: flex; gap: 0.75rem; justify-content: flex-end; flex-wrap: wrap;">
+                    <button type="button" class="btn btn-secondary" id="cancelQuestionErrorBtn">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Отправить</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <div id="notification" class="notification"></div>
     <script src="app.js"></script>

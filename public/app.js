@@ -336,6 +336,23 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             finishTestBtn.addEventListener('click', finishTest);
         }
 
+        const reportQuestionErrorBtn = document.getElementById('reportQuestionErrorBtn');
+        if (reportQuestionErrorBtn) {
+            reportQuestionErrorBtn.addEventListener('click', openQuestionErrorModal);
+        }
+        const questionErrorForm = document.getElementById('questionErrorForm');
+        if (questionErrorForm) {
+            questionErrorForm.addEventListener('submit', handleQuestionErrorReport);
+        }
+        const questionErrorModalClose = document.getElementById('questionErrorModalClose');
+        if (questionErrorModalClose) {
+            questionErrorModalClose.addEventListener('click', closeQuestionErrorModal);
+        }
+        const cancelQuestionErrorBtn = document.getElementById('cancelQuestionErrorBtn');
+        if (cancelQuestionErrorBtn) {
+            cancelQuestionErrorBtn.addEventListener('click', closeQuestionErrorModal);
+        }
+
         const backToTestsAfterResultBtn = document.getElementById('backToTestsAfterResult');
         if (backToTestsAfterResultBtn) {
             backToTestsAfterResultBtn.addEventListener('click', () => {
@@ -1282,6 +1299,19 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             </div>
         </div>
     `;
+
+        const errorQuestionIdEl = document.getElementById('errorQuestionId');
+        const errorTestIdEl = document.getElementById('errorTestId');
+        const errorQuestionNumberEl = document.getElementById('errorQuestionNumber');
+        const errorQuestionTextEl = document.getElementById('errorQuestionText');
+        const errorQuestionPreviewEl = document.getElementById('errorQuestionPreview');
+        if (errorQuestionIdEl) errorQuestionIdEl.value = String(question.id);
+        if (errorTestIdEl) errorTestIdEl.value = String(currentTestId || window.currentTestId || question.testId || '');
+        if (errorQuestionNumberEl) errorQuestionNumberEl.value = String(currentQuestionIndex + 1);
+        if (errorQuestionTextEl) errorQuestionTextEl.value = question.text || '';
+        if (errorQuestionPreviewEl) {
+            errorQuestionPreviewEl.value = question.text || '';
+        }
 
         // Проверяем, в избранном ли вопрос
         if (currentUser) {
@@ -2663,6 +2693,83 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             }
         } catch (error) {
             console.error('Ошибка отправки сообщения:', error);
+            showNotification('Ошибка соединения. Попробуйте позже.', 'error');
+        }
+    }
+
+    function openQuestionErrorModal() {
+        const modal = document.getElementById('questionErrorModal');
+        const reason = document.getElementById('errorReason');
+        if (!modal) return;
+        modal.style.display = 'block';
+        if (reason) reason.focus();
+    }
+
+    function closeQuestionErrorModal() {
+        const modal = document.getElementById('questionErrorModal');
+        const reason = document.getElementById('errorReason');
+        if (!modal) return;
+        modal.style.display = 'none';
+        if (reason) reason.value = '';
+    }
+
+    async function handleQuestionErrorReport(e) {
+        e.preventDefault();
+        const question = currentQuestions[currentQuestionIndex];
+        if (!question) {
+            showNotification('Не удалось определить текущий вопрос', 'error');
+            return;
+        }
+
+        const reasonEl = document.getElementById('errorReason');
+        const reason = String(reasonEl?.value || '').trim();
+        if (reason.length < 5) {
+            showNotification('Опишите проблему подробнее (минимум 5 символов)', 'error');
+            return;
+        }
+
+        const payload = {
+            questionId: question.id,
+            testId: currentTestId || window.currentTestId || question.testId,
+            questionNumber: currentQuestionIndex + 1,
+            questionText: question.text || '',
+            reason
+        };
+
+        if (currentUser?.username) {
+            payload.guestName = currentUser.username;
+        }
+        if (currentUser?.email) {
+            payload.guestEmail = currentUser.email;
+        }
+
+        try {
+            const headers = { 'Content-Type': 'application/json' };
+            if (currentToken) {
+                headers.Authorization = `Bearer ${currentToken}`;
+            }
+
+            const response = await fetch(`${API_URL}/test-error-report`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                if (result.errors && Array.isArray(result.errors)) {
+                    const errorMessages = result.errors.map(err => err.msg || err.message).join(', ');
+                    showNotification(errorMessages, 'error');
+                } else {
+                    showNotification(result.error || 'Ошибка отправки отчета', 'error');
+                }
+                return;
+            }
+
+            showNotification('Отчет отправлен администратору. Спасибо!', 'success');
+            closeQuestionErrorModal();
+        } catch (error) {
+            console.error('Ошибка отправки отчета об ошибке вопроса:', error);
             showNotification('Ошибка соединения. Попробуйте позже.', 'error');
         }
     }
