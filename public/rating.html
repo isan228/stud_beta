@@ -20,6 +20,10 @@
         .rating-rank.top3 { color: #b45309; }
         .rating-loading, .rating-empty { text-align: center; padding: 3rem; color: var(--text-secondary); }
         .rating-empty { font-size: 1.1rem; }
+        .rating-period { margin-top: 0.5rem; color: var(--text-secondary); font-size: 0.95rem; }
+        .my-rank-card { margin-top: 1rem; padding: 0.75rem 1rem; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-secondary); }
+        .my-rank-title { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.35rem; }
+        .my-rank-value { font-weight: 700; color: var(--primary-color); }
         @media (max-width: 768px) {
             .rating-page { padding: 1.25rem 0.5rem; }
             .rating-table { min-width: 640px; font-size: 0.92rem; }
@@ -65,11 +69,13 @@
         <div class="rating-page">
             <div class="page-header" style="text-align: center; margin-bottom: 2rem;">
                 <h1>Рейтинг</h1>
-                <p class="page-description">Кто больше всего правильно сдаёт тесты — по количеству правильных ответов</p>
+                <p class="page-description">Топ-20 за текущий месяц по количеству правильных ответов</p>
+                <div class="rating-period" id="ratingPeriod"></div>
             </div>
             <div id="ratingContent">
                 <div class="rating-loading" id="ratingLoading">Загрузка рейтинга...</div>
                 <div id="ratingTableWrap" class="rating-table-wrap" style="display: none;"></div>
+                <div id="myRankCard" class="my-rank-card" style="display: none;"></div>
                 <div class="rating-empty" id="ratingEmpty" style="display: none;">Пока нет данных для рейтинга. Проходите тесты!</div>
             </div>
         </div>
@@ -90,14 +96,26 @@
             var loadingEl = document.getElementById('ratingLoading');
             var tableWrap = document.getElementById('ratingTableWrap');
             var emptyEl = document.getElementById('ratingEmpty');
+            var periodEl = document.getElementById('ratingPeriod');
+            var myRankCard = document.getElementById('myRankCard');
+            var token = localStorage.getItem('token');
+            var headers = token ? { 'Authorization': 'Bearer ' + token } : {};
 
-            fetch('/api/leaderboard?limit=100')
+            fetch('/api/leaderboard?limit=20', { headers: headers })
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
                     loadingEl.style.display = 'none';
                     var list = data.leaderboard || [];
+                    var myEntry = data.currentUserEntry || null;
+                    if (periodEl && data.period) {
+                        var parts = String(data.period).split('-');
+                        if (parts.length === 2) {
+                            periodEl.textContent = 'Период рейтинга: ' + parts[1] + '.' + parts[0] + ' (обновляется каждый месяц)';
+                        }
+                    }
                     if (list.length === 0) {
                         emptyEl.style.display = 'block';
+                        if (myRankCard) myRankCard.style.display = 'none';
                         return;
                     }
                     var html = '<table class="rating-table"><thead><tr><th>Место</th><th>Никнейм</th><th>Правильных ответов</th><th>Всего вопросов</th><th>Тестов</th><th>Точность %</th></tr></thead><tbody>';
@@ -108,11 +126,27 @@
                     html += '</tbody></table>';
                     tableWrap.innerHTML = html;
                     tableWrap.style.display = 'block';
+
+                    if (myRankCard) {
+                        if (myEntry) {
+                            myRankCard.innerHTML =
+                                '<div class="my-rank-title">Ваше место в рейтинге</div>' +
+                                '<div class="my-rank-value">#' + myEntry.rank + ' — ' + (myEntry.username || '—') + '</div>' +
+                                '<div style="margin-top:0.35rem;color:var(--text-secondary);font-size:0.9rem;">' +
+                                'Правильных: ' + myEntry.correctAnswers + ', вопросов: ' + myEntry.totalQuestionsAnswered +
+                                ', тестов: ' + myEntry.totalTestsCompleted + ', точность: ' + myEntry.accuracy + '%' +
+                                '</div>';
+                            myRankCard.style.display = 'block';
+                        } else {
+                            myRankCard.style.display = 'none';
+                        }
+                    }
                 })
                 .catch(function() {
                     loadingEl.style.display = 'none';
                     emptyEl.textContent = 'Не удалось загрузить рейтинг. Попробуйте позже.';
                     emptyEl.style.display = 'block';
+                    if (myRankCard) myRankCard.style.display = 'none';
                 });
         })();
     </script>

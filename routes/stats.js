@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const { UserStats, TestResult, Test, Subject, User, Question } = require('../models');
-const { Op } = require('sequelize');
+const { Op, fn, col } = require('sequelize');
+const jwt = require('jsonwebtoken');
 
 // Публичная статистика платформы для главной страницы
 router.get('/platform', async (req, res) => {
@@ -136,28 +137,80 @@ router.post('/stats/test-result', auth, async (req, res) => {
 // Рейтинг: кто больше всего правильно сдаёт тесты (по количеству правильных ответов)
 router.get('/leaderboard', async (req, res) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit, 10) || 100, 200);
-    const rows = await UserStats.findAll({
+    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    // Пробуем определить текущего пользователя по Bearer-токену (опционально)
+    let currentUserId = null;
+    const authHeader = req.header('Authorization');
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.replace('Bearer ', '') : null;
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        currentUserId = decoded?.userId || null;
+      } catch (e) {
+        currentUserId = null;
+      }
+    }
+
+    const rows = await TestResult.findAll({
+      where: {
+        createdAt: {
+          [Op.gte]: monthStart,
+          [Op.lt]: nextMonthStart
+        }
+      },
+      attributes: [
+        'userId',
+        [fn('SUM', col('score')), 'correctAnswers'],
+        [fn('SUM', col('totalQuestions')), 'totalQuestionsAnswered'],
+        [fn('COUNT', col('TestResult.id')), 'totalTestsCompleted']
+      ],
       include: [{
         model: User,
         attributes: ['id', 'username'],
         required: true
       }],
-      order: [['correctAnswers', 'DESC']],
-      limit
+      group: ['userId', 'User.id', 'User.username'],
+      order: [
+        [fn('SUM', col('score')), 'DESC'],
+        [fn('SUM', col('totalQuestions')), 'DESC'],
+        [fn('COUNT', col('TestResult.id')), 'DESC']
+      ]
     });
-    const leaderboard = rows.map((row, index) => ({
-      rank: index + 1,
-      userId: row.User?.id,
-      username: row.User?.username || '—',
-      correctAnswers: row.correctAnswers || 0,
-      totalQuestionsAnswered: row.totalQuestionsAnswered || 0,
-      totalTestsCompleted: row.totalTestsCompleted || 0,
-      accuracy: row.totalQuestionsAnswered > 0
-        ? Math.round((row.correctAnswers / row.totalQuestionsAnswered) * 100)
-        : 0
-    }));
-    res.json({ leaderboard });
+
+    const leaderboardAll = rows.map((row, index) => {
+      const correctAnswers = Number(row.get('correctAnswers')) || 0;
+      const totalQuestionsAnswered = Number(row.get('totalQuestionsAnswered')) || 0;
+      const totalTestsCompleted = Number(row.get('totalTestsCompleted')) || 0;
+      return {
+        rank: index + 1,
+        userId: row.User?.id,
+        username: row.User?.username || '—',
+        correctAnswers,
+        totalQuestionsAnswered,
+        totalTestsCompleted,
+        accuracy: totalQuestionsAnswered > 0
+          ? Math.round((correctAnswers / totalQuestionsAnswered) * 100)
+          : 0
+      };
+    });
+
+    const leaderboard = leaderboardAll.slice(0, limit);
+    const currentUserEntry = currentUserId
+      ? (leaderboardAll.find(item => Number(item.userId) === Number(currentUserId)) || null)
+      : null;
+
+    const period = `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, '0')}`;
+
+    res.json({
+      leaderboard,
+      currentUserEntry,
+      totalParticipants: leaderboardAll.length,
+      period
+    });
   } catch (error) {
     console.error('Ошибка получения рейтинга:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
