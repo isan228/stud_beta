@@ -91,34 +91,34 @@
 
                 <div class="settings-section settings-section-modern">
                     <h3 class="settings-title-modern">Режим вопросов <span class="questions-total-modern" id="totalAvailableCount">всего доступно: 0</span></h3>
-                    <div class="question-modes-grid">
+                    <div class="question-modes-grid" role="radiogroup" aria-label="Режим вопросов">
                         <label class="question-mode-item">
-                            <input type="checkbox" id="modeAll">
+                            <input type="radio" name="questionMode" id="modeAll" value="all">
                             <span>Все</span>
                             <em id="modeAllCount">0</em>
                         </label>
                         <label class="question-mode-item">
-                            <input type="checkbox" id="modeUnsolved" checked>
+                            <input type="radio" name="questionMode" id="modeUnsolved" value="unsolved" checked>
                             <span>Нерешённые</span>
                             <em id="modeUnsolvedCount">0</em>
                         </label>
                         <label class="question-mode-item">
-                            <input type="checkbox" id="modeSolved">
+                            <input type="radio" name="questionMode" id="modeSolved" value="solved">
                             <span>Решённые</span>
                             <em id="modeSolvedCount">0</em>
                         </label>
                         <label class="question-mode-item">
-                            <input type="checkbox" id="modeIncorrect" checked>
+                            <input type="radio" name="questionMode" id="modeIncorrect" value="incorrect">
                             <span>Неправильные</span>
                             <em id="modeIncorrectCount">0</em>
                         </label>
                         <label class="question-mode-item">
-                            <input type="checkbox" id="modeCorrect">
+                            <input type="radio" name="questionMode" id="modeCorrect" value="correct">
                             <span>Правильные</span>
                             <em id="modeCorrectCount">0</em>
                         </label>
                         <label class="question-mode-item">
-                            <input type="checkbox" id="modeFavorites">
+                            <input type="radio" name="questionMode" id="modeFavorites" value="favorites">
                             <span>Избранные</span>
                             <em id="modeFavoritesCount">0</em>
                         </label>

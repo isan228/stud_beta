@@ -1407,6 +1407,13 @@ html[data-theme="dark"] .navbar {
     padding: 0.55rem 0.65rem;
     background: var(--bg-secondary);
     font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.question-mode-item:has(input:checked) {
+    border-color: var(--primary-color);
+    background: rgba(37, 99, 235, 0.12);
 }
 
 .question-mode-item em {

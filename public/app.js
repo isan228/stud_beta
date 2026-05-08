@@ -1347,20 +1347,16 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const useTimer = instantMode ? false : (document.getElementById('useTimer')?.checked || false);
         const timerMinutes = parseInt(document.getElementById('timerMinutes')?.value || '30') || 30;
 
+        const modeRadio = document.querySelector('input[name="questionMode"]:checked');
+        const mode = modeRadio?.value || 'unsolved';
         const questionFilters = {
-            all: !!document.getElementById('modeAll')?.checked,
-            unsolved: !!document.getElementById('modeUnsolved')?.checked,
-            solved: !!document.getElementById('modeSolved')?.checked,
-            correct: !!document.getElementById('modeCorrect')?.checked,
-            incorrect: !!document.getElementById('modeIncorrect')?.checked,
-            favorites: !!document.getElementById('modeFavorites')?.checked
+            all: mode === 'all',
+            unsolved: mode === 'unsolved',
+            solved: mode === 'solved',
+            correct: mode === 'correct',
+            incorrect: mode === 'incorrect',
+            favorites: mode === 'favorites'
         };
-        const anyMode = questionFilters.all || questionFilters.unsolved || questionFilters.solved
-            || questionFilters.correct || questionFilters.incorrect || questionFilters.favorites;
-        if (!anyMode) {
-            showNotification('Выберите хотя бы один режим вопросов', 'error');
-            return;
-        }
 
         try {
             const headers = {
