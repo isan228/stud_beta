@@ -627,9 +627,13 @@ router.delete('/tests/:id', adminAuth, async (req, res) => {
 router.get('/questions', adminAuth, async (req, res) => {
   try {
     const testId = req.query.testId;
+    const search = String(req.query.search || '').trim();
     const where = {};
     if (testId) {
       where.testId = testId;
+    }
+    if (search) {
+      where.text = { [Op.iLike]: `%${search}%` };
     }
 
     const questions = await Question.findAll({

@@ -666,12 +666,13 @@ function renderQuestionsSelectPrompt() {
 async function loadQuestions() {
     try {
         const testId = document.getElementById('questionsTestFilter')?.value || '';
+        const search = document.getElementById('questionsSearch')?.value || '';
         if (!testId) {
             renderQuestionsSelectPrompt();
             return;
         }
 
-        const url = `${ADMIN_API_URL}/questions${testId ? `?testId=${testId}` : ''}`;
+        const url = `${ADMIN_API_URL}/questions?testId=${encodeURIComponent(testId)}&search=${encodeURIComponent(search)}`;
         const response = await fetch(url, {
             headers: {
                 'Authorization': `Bearer ${currentAdminToken}`
@@ -1597,6 +1598,16 @@ function setupAdminEventListeners() {
     if (questionsTestFilter) {
         questionsTestFilter.addEventListener('change', () => {
             loadQuestions();
+        });
+    }
+    const questionsSearch = document.getElementById('questionsSearch');
+    if (questionsSearch) {
+        let questionsSearchTimeout;
+        questionsSearch.addEventListener('input', () => {
+            clearTimeout(questionsSearchTimeout);
+            questionsSearchTimeout = setTimeout(() => {
+                loadQuestions();
+            }, 400);
         });
     }
 
