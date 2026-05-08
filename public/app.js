@@ -493,17 +493,10 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 testModeInput.value = mode;
                 modeInstantBtn.classList.toggle('active', mode === 'instant');
 
-                // В режиме "Ответы сразу" принудительно отключаем таймер
                 if (useTimerCheckbox && timerToggleBtn) {
-                    if (mode === 'instant') {
-                        useTimerCheckbox.checked = false;
-                        timerToggleBtn.classList.remove('active');
-                        timerToggleBtn.disabled = true;
-                        timerToggleBtn.classList.add('disabled');
-                    } else {
-                        timerToggleBtn.disabled = false;
-                        timerToggleBtn.classList.remove('disabled');
-                    }
+                    // В instant-режиме таймер отключаем, в standard — включаем по умолчанию
+                    useTimerCheckbox.checked = mode !== 'instant';
+                    timerToggleBtn.classList.toggle('active', !!useTimerCheckbox.checked);
                     const timerGroup = document.getElementById('timerGroup');
                     if (timerGroup) timerGroup.style.display = useTimerCheckbox.checked ? 'flex' : 'none';
                 }
@@ -523,8 +516,18 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 if (timerGroup) timerGroup.style.display = useTimerCheckbox.checked ? 'flex' : 'none';
             };
             applyTimerState();
-            timerToggleBtn.addEventListener('click', () => {
-                useTimerCheckbox.checked = !useTimerCheckbox.checked;
+            timerToggleBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                // Если сейчас включен instant, нажатие "Таймер" возвращает в standard
+                if (testModeInput && testModeInput.value === 'instant') {
+                    testModeInput.value = 'standard';
+                    if (modeInstantBtn) modeInstantBtn.classList.remove('active');
+                    useTimerCheckbox.checked = true;
+                } else {
+                    useTimerCheckbox.checked = !useTimerCheckbox.checked;
+                }
                 applyTimerState();
             });
         }
