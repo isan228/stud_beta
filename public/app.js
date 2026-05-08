@@ -311,7 +311,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             case 'test-settings':
                 const testId = params.get('id');
                 const testName = params.get('name');
-                const questionsCount = params.get('questions');
+                const questionsCount = parseInt(params.get('questions') || '0', 10) || 0;
                 if (testId && document.getElementById('testName')) {
                     loadTestSettings(testId, testName, questionsCount);
                 }
@@ -1249,36 +1249,76 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     let currentTestQuestionCount = 0;
 
     async function loadTestSettings(testId, testName, questionCount = 0) {
-        currentTestId = testId;
-        currentTestQuestionCount = questionCount;
+        currentTestId = parseInt(testId, 10);
+        let total = parseInt(questionCount, 10);
+        if (!Number.isFinite(total)) total = 0;
+
         const testNameEl = document.getElementById('testName');
         if (testNameEl) {
-            testNameEl.textContent = testName;
+            let displayName = testName || '';
+            try {
+                displayName = decodeURIComponent(displayName);
+            } catch (e) {
+                /* уже обычная строка */
+            }
+            testNameEl.textContent = displayName;
         }
 
-        // Устанавливаем максимальное количество вопросов
+        let unsolved = total;
+        let solved = 0;
+        let correct = 0;
+        let incorrect = 0;
+        let favorites = 0;
+
+        try {
+            const headers = {};
+            if (currentUser && currentToken) {
+                headers['Authorization'] = `Bearer ${currentToken}`;
+            }
+            const progressRes = await fetch(`${API_URL}/tests/tests/${testId}/progress`, { headers });
+            if (progressRes.ok) {
+                const p = await progressRes.json();
+                total = typeof p.totalQuestions === 'number' ? p.totalQuestions : total;
+                unsolved = p.unsolved ?? 0;
+                solved = p.solved ?? 0;
+                correct = p.correct ?? 0;
+                incorrect = p.incorrect ?? 0;
+                favorites = p.favorites ?? 0;
+            }
+        } catch (e) {
+            console.error('Ошибка загрузки прогресса по тесту:', e);
+        }
+
+        currentTestQuestionCount = total;
+
         const questionCountInput = document.getElementById('questionCount');
-        if (questionCountInput && questionCount > 0) {
-            questionCountInput.max = questionCount;
-            questionCountInput.value = Math.min(10, questionCount);
+        if (questionCountInput && total > 0) {
+            questionCountInput.max = total;
+            const prev = parseInt(questionCountInput.value, 10);
+            const fallback = Math.min(10, total);
+            if (!Number.isFinite(prev) || prev < 1) {
+                questionCountInput.value = fallback;
+            } else {
+                questionCountInput.value = Math.min(prev, total);
+            }
         }
 
         const maxBadge = document.getElementById('questionCountMax');
-        if (maxBadge) maxBadge.textContent = `макс. ${questionCount || 0}`;
+        if (maxBadge) maxBadge.textContent = `макс. ${total}`;
         const totalAvailableCount = document.getElementById('totalAvailableCount');
-        if (totalAvailableCount) totalAvailableCount.textContent = `всего доступно: ${questionCount || 0}`;
+        if (totalAvailableCount) totalAvailableCount.textContent = `всего доступно: ${total}`;
         const modeAllCount = document.getElementById('modeAllCount');
-        if (modeAllCount) modeAllCount.textContent = String(questionCount || 0);
+        if (modeAllCount) modeAllCount.textContent = String(total);
         const modeUnsolvedCount = document.getElementById('modeUnsolvedCount');
-        if (modeUnsolvedCount) modeUnsolvedCount.textContent = String(questionCount || 0);
+        if (modeUnsolvedCount) modeUnsolvedCount.textContent = String(unsolved);
         const modeSolvedCount = document.getElementById('modeSolvedCount');
-        if (modeSolvedCount) modeSolvedCount.textContent = '0';
+        if (modeSolvedCount) modeSolvedCount.textContent = String(solved);
         const modeIncorrectCount = document.getElementById('modeIncorrectCount');
-        if (modeIncorrectCount) modeIncorrectCount.textContent = '0';
+        if (modeIncorrectCount) modeIncorrectCount.textContent = String(incorrect);
         const modeCorrectCount = document.getElementById('modeCorrectCount');
-        if (modeCorrectCount) modeCorrectCount.textContent = '0';
+        if (modeCorrectCount) modeCorrectCount.textContent = String(correct);
         const modeFavoritesCount = document.getElementById('modeFavoritesCount');
-        if (modeFavoritesCount) modeFavoritesCount.textContent = '0';
+        if (modeFavoritesCount) modeFavoritesCount.textContent = String(favorites);
     }
 
     async function startTest() {
@@ -1307,6 +1347,21 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const useTimer = instantMode ? false : (document.getElementById('useTimer')?.checked || false);
         const timerMinutes = parseInt(document.getElementById('timerMinutes')?.value || '30') || 30;
 
+        const questionFilters = {
+            all: !!document.getElementById('modeAll')?.checked,
+            unsolved: !!document.getElementById('modeUnsolved')?.checked,
+            solved: !!document.getElementById('modeSolved')?.checked,
+            correct: !!document.getElementById('modeCorrect')?.checked,
+            incorrect: !!document.getElementById('modeIncorrect')?.checked,
+            favorites: !!document.getElementById('modeFavorites')?.checked
+        };
+        const anyMode = questionFilters.all || questionFilters.unsolved || questionFilters.solved
+            || questionFilters.correct || questionFilters.incorrect || questionFilters.favorites;
+        if (!anyMode) {
+            showNotification('Выберите хотя бы один режим вопросов', 'error');
+            return;
+        }
+
         try {
             const headers = {
                 'Content-Type': 'application/json'
@@ -1320,11 +1375,21 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             const response = await fetch(`${API_URL}/tests/tests/${currentTestId}/questions`, {
                 method: 'POST',
                 headers: headers,
-                body: JSON.stringify({ questionCount, randomizeAnswers, instantFeedbackMode: instantMode })
+                body: JSON.stringify({
+                    questionCount,
+                    randomizeAnswers,
+                    instantFeedbackMode: instantMode,
+                    questionFilters
+                })
             });
 
             if (!response.ok) {
-                throw new Error('Ошибка загрузки вопросов');
+                let errMsg = 'Ошибка загрузки вопросов';
+                try {
+                    const errBody = await response.json();
+                    if (errBody.error) errMsg = errBody.error;
+                } catch (e) { /* ignore */ }
+                throw new Error(errMsg);
             }
 
             currentQuestions = await response.json();
@@ -1358,7 +1423,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             window.location.href = '/test';
         } catch (error) {
             console.error('Ошибка начала теста:', error);
-            showNotification('Ошибка загрузки теста', 'error');
+            showNotification(error.message || 'Ошибка загрузки теста', 'error');
         }
     }
 

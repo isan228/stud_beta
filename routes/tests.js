@@ -1,7 +1,118 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const router = express.Router();
-const auth = require('../middleware/auth');
-const { Test, Question, Answer, Subject, Favorite } = require('../models');
+const { Test, Question, Answer, Subject, Favorite, TestResult, User } = require('../models');
+
+function tryGetUserIdFromRequest(req) {
+  const token = req.header('Authorization')?.replace('Bearer ', '');
+  if (!token) return null;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    return decoded.userId || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Последний известный исход по каждому вопросу (по всем попыткам по порядку времени). */
+async function getTestQuestionProgressState(testId, userId) {
+  const testIdNum = parseInt(testId, 10);
+  const questions = await Question.findAll({
+    where: { testId: testIdNum },
+    attributes: ['id'],
+    order: [['id', 'ASC']]
+  });
+  const allQuestionIds = questions.map(q => q.id);
+  const totalQuestions = allQuestionIds.length;
+  const lastOutcome = {};
+
+  if (userId) {
+    const rows = await TestResult.findAll({
+      where: { userId, testId: testIdNum },
+      attributes: ['results', 'createdAt'],
+      order: [['createdAt', 'ASC']]
+    });
+    for (const row of rows) {
+      const r = row.results;
+      if (!r || typeof r !== 'object') continue;
+      for (const [qid, data] of Object.entries(r)) {
+        const id = parseInt(qid, 10);
+        if (!Number.isFinite(id)) continue;
+        if (data && typeof data.correct === 'boolean') {
+          lastOutcome[id] = data.correct;
+        }
+      }
+    }
+  }
+
+  let favoriteIds = new Set();
+  if (userId) {
+    const favs = await Favorite.findAll({
+      where: { userId },
+      attributes: ['questionId'],
+      include: [{
+        model: Question,
+        as: 'Question',
+        attributes: ['id', 'testId'],
+        where: { testId: testIdNum },
+        required: true
+      }]
+    });
+    favoriteIds = new Set(favs.map(f => f.questionId));
+  }
+
+  const solvedIds = Object.keys(lastOutcome).map(Number);
+  const solved = solvedIds.length;
+  const correct = solvedIds.filter(id => lastOutcome[id] === true).length;
+  const incorrect = solvedIds.filter(id => lastOutcome[id] === false).length;
+  const unsolved = Math.max(0, totalQuestions - solved);
+
+  return {
+    totalQuestions,
+    allQuestionIds,
+    lastOutcome,
+    favoriteIds,
+    solved,
+    unsolved,
+    correct,
+    incorrect,
+    favorites: favoriteIds.size
+  };
+}
+
+function buildQuestionFilterPool(questionFilters, state) {
+  if (!questionFilters || typeof questionFilters !== 'object') {
+    return null;
+  }
+  const { all, unsolved, solved, correct, incorrect, favorites } = questionFilters;
+  const hasAny = all || unsolved || solved || correct || incorrect || favorites;
+  if (!hasAny) return null;
+
+  const { allQuestionIds, lastOutcome, favoriteIds } = state;
+  if (all) {
+    return new Set(allQuestionIds);
+  }
+  const pool = new Set();
+  const addIds = (ids) => {
+    ids.forEach((id) => pool.add(id));
+  };
+  if (unsolved) {
+    addIds(allQuestionIds.filter((id) => lastOutcome[id] === undefined));
+  }
+  if (solved) {
+    addIds(allQuestionIds.filter((id) => lastOutcome[id] !== undefined));
+  }
+  if (correct) {
+    addIds(allQuestionIds.filter((id) => lastOutcome[id] === true));
+  }
+  if (incorrect) {
+    addIds(allQuestionIds.filter((id) => lastOutcome[id] === false));
+  }
+  if (favorites) {
+    addIds([...favoriteIds]);
+  }
+  return pool;
+}
 
 // Получить последние тесты (для главной страницы)
 router.get('/latest', async (req, res) => {
@@ -86,6 +197,40 @@ router.get('/subjects/:subjectId/tests/free', async (req, res) => {
     res.json(tests);
   } catch (error) {
     console.error('Ошибка получения бесплатных тестов:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Счётчики режимов вопросов (и всего вопросов в тесте); с JWT — персональные, без — только totalQuestions
+router.get('/tests/:testId/progress', async (req, res) => {
+  try {
+    const testId = parseInt(req.params.testId, 10);
+    if (!Number.isFinite(testId)) {
+      return res.status(400).json({ error: 'Некорректный тест' });
+    }
+
+    const testExists = await Test.findByPk(testId, { attributes: ['id'] });
+    if (!testExists) {
+      return res.status(404).json({ error: 'Тест не найден' });
+    }
+
+    let userId = tryGetUserIdFromRequest(req);
+    if (userId) {
+      const user = await User.findByPk(userId, { attributes: ['id'] });
+      if (!user) userId = null;
+    }
+
+    const state = await getTestQuestionProgressState(testId, userId);
+    res.json({
+      totalQuestions: state.totalQuestions,
+      solved: state.solved,
+      unsolved: state.unsolved,
+      correct: state.correct,
+      incorrect: state.incorrect,
+      favorites: state.favorites
+    });
+  } catch (error) {
+    console.error('Ошибка прогресса по тесту:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
@@ -177,7 +322,7 @@ router.get('/tests/:testId', async (req, res) => {
 // Для бесплатных тестов авторизация не требуется
 router.post('/tests/:testId/questions', async (req, res) => {
   try {
-    const { questionCount, randomizeAnswers, instantFeedbackMode } = req.body;
+    const { questionCount, randomizeAnswers, instantFeedbackMode, questionFilters } = req.body;
     const test = await Test.findByPk(req.params.testId, {
       include: [{
         model: Question,
@@ -202,9 +347,7 @@ router.post('/tests/:testId/questions', async (req, res) => {
       }
       
       try {
-        const jwt = require('jsonwebtoken');
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const { User } = require('../models');
         const user = await User.findByPk(decoded.userId);
         
         if (!user) {
@@ -222,8 +365,28 @@ router.post('/tests/:testId/questions', async (req, res) => {
       }
     }
 
+    let filterUserId = tryGetUserIdFromRequest(req);
+    if (filterUserId) {
+      const filterUser = await User.findByPk(filterUserId, { attributes: ['id'] });
+      if (!filterUser) filterUserId = null;
+    }
+
     // Преобразуем в JSON сразу, чтобы избежать циклических ссылок
     let questions = test.Questions.map(q => q.toJSON());
+
+    if (questionFilters && typeof questionFilters === 'object') {
+      const hasAny = !!(questionFilters.all || questionFilters.unsolved || questionFilters.solved
+        || questionFilters.correct || questionFilters.incorrect || questionFilters.favorites);
+      if (!hasAny) {
+        return res.status(400).json({ error: 'Выберите хотя бы один режим вопросов' });
+      }
+      const state = await getTestQuestionProgressState(req.params.testId, filterUserId);
+      const pool = buildQuestionFilterPool(questionFilters, state);
+      if (pool.size === 0) {
+        return res.status(400).json({ error: 'Нет вопросов по выбранным режимам' });
+      }
+      questions = questions.filter((q) => pool.has(q.id));
+    }
 
     // Ограничение количества вопросов
     if (questionCount && questionCount < questions.length) {
