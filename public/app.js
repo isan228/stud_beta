@@ -501,12 +501,16 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                     if (timerGroup) timerGroup.style.display = useTimerCheckbox.checked ? 'flex' : 'none';
                 }
             };
+            const toggleInstantMode = () => {
+                const newMode = testModeInput.value === 'instant' ? 'standard' : 'instant';
+                applyModernMode(newMode);
+            };
+            window.toggleInstantMode = toggleInstantMode;
             applyModernMode(testModeInput.value || 'standard');
             modeInstantBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                const newMode = testModeInput.value === 'instant' ? 'standard' : 'instant';
-                applyModernMode(newMode);
+                toggleInstantMode();
             });
         }
         if (useTimerCheckbox && timerToggleBtn) {
