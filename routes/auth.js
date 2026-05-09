@@ -117,16 +117,19 @@ router.post('/login', [
     });
 
     if (!user) {
+      console.log('[auth/login] user_not_found', { isEmail, identifier: String(identifier).trim() });
       return res.status(401).json({ error: 'Неверный email/никнейм или пароль' });
     }
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
+      console.log('[auth/login] wrong_password', { userId: user.id, email: user.email });
       return res.status(401).json({ error: 'Неверный email/никнейм или пароль' });
     }
 
     // Проверка статуса пользователя (только для отклоненных)
     if (user.status === 'rejected') {
+      console.log('[auth/login] rejected', { userId: user.id, email: user.email, status: user.status });
       return res.status(403).json({ 
         error: 'Ваша регистрация была отклонена. Обратитесь к администратору.' 
       });
@@ -181,6 +184,8 @@ router.post('/login', [
     }
 
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+
+    console.log('[auth/login] ok', { userId: user.id, email: user.email, status: user.status });
 
     res.json({
       message: 'Вход выполнен успешно',
