@@ -6,6 +6,23 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     // API базовый URL
     const API_URL = '/api';
 
+    /**
+     * Читает тело ответа как JSON. Если пришёл HTML/текст (часто при 502 от nginx или обрыве CDN),
+     * не бросает SyntaxError — помечает отдельной ошибкой (иначе пользователь видит «Ошибка соединения»).
+     */
+    async function parseApiJsonResponse(response) {
+        const text = await response.text();
+        const trimmed = text.trim();
+        if (!trimmed) return {};
+        try {
+            return JSON.parse(trimmed);
+        } catch {
+            const err = new Error('NON_JSON_API_RESPONSE');
+            err.httpStatus = response.status;
+            throw err;
+        }
+    }
+
     // Состояние приложения
     let currentUser = null;
     let currentToken = null;
@@ -880,7 +897,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 body: JSON.stringify(data)
             });
 
-            const result = await response.json();
+            const result = await parseApiJsonResponse(response);
 
             if (response.ok) {
                 // Показываем сообщение об ожидании одобрения
@@ -902,7 +919,17 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             }
         } catch (error) {
             console.error('Ошибка регистрации:', error);
-            showNotification('Ошибка соединения', 'error');
+            if (error.message === 'NON_JSON_API_RESPONSE') {
+                showNotification(
+                    `Сервер вернул неожиданный ответ (${error.httpStatus}). Обновите страницу или попробуйте позже.`,
+                    'error'
+                );
+            } else {
+                showNotification(
+                    'Не удалось связаться с сервером. Проверьте сеть, отключите VPN, откройте сайт по https://',
+                    'error'
+                );
+            }
         }
     }
 
@@ -934,7 +961,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 body: JSON.stringify(loginData)
             });
 
-            const result = await response.json();
+            const result = await parseApiJsonResponse(response);
 
             if (response.ok) {
                 currentToken = result.token;
@@ -947,7 +974,17 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             }
         } catch (error) {
             console.error('Ошибка входа:', error);
-            showNotification('Ошибка соединения', 'error');
+            if (error.message === 'NON_JSON_API_RESPONSE') {
+                showNotification(
+                    `Сервер вернул неожиданный ответ (${error.httpStatus}). Обновите страницу или попробуйте позже.`,
+                    'error'
+                );
+            } else {
+                showNotification(
+                    'Не удалось связаться с сервером. Проверьте сеть, отключите VPN, откройте сайт по https://',
+                    'error'
+                );
+            }
         }
     }
 
