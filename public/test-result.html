@@ -27,7 +27,8 @@
                 <div class="result-percentage" id="resultPercentage">0%</div>
                 <div id="resultDetails"></div>
                 <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem;">
-                    <button class="btn btn-secondary" id="showAnalysisBtn" style="display: none;">📊 Разбор ошибок</button>
+                    <button type="button" class="btn btn-secondary" id="showAnalysisBtn" style="display: none;">📊 Разбор ошибок</button>
+                    <button type="button" class="btn btn-secondary" id="retakeTestBtn" style="display: none;">Перепройти тест</button>
                     <a href="/tests" class="btn btn-primary">Вернуться к тестам</a>
                 </div>
             </div>
@@ -95,6 +96,50 @@
     <script src="app.js"></script>
     <script>
         let currentResultData = null;
+
+        /** Те же вопросы и порядок, что в результатах; при совпадении с testData — тот же таймер и режим мгновенной обратной связи. */
+        function buildRetakeTestData(resultData) {
+            const questions = (resultData.questions || []).map(q => ({
+                ...q,
+                Answers: (q.Answers || []).map(a => ({
+                    id: a.id,
+                    text: a.text,
+                    isCorrect: a.isCorrect
+                }))
+            }));
+
+            let timer = null;
+            let instantFeedbackMode = false;
+            try {
+                const raw = sessionStorage.getItem('testData');
+                if (raw) {
+                    const td = JSON.parse(raw);
+                    const resultTestId = resultData.testId != null ? resultData.testId : null;
+                    const tdTestId = td.testId != null ? td.testId : null;
+                    const sameTest = resultTestId === tdTestId;
+                    const sameIds = td.questions &&
+                        td.questions.length === questions.length &&
+                        td.questions.every((q, i) => q.id === questions[i].id);
+                    if (sameTest && sameIds) {
+                        if (td.timer != null) timer = td.timer;
+                        instantFeedbackMode = !!td.instantFeedbackMode;
+                    }
+                }
+            } catch (e) {
+                /* ignore */
+            }
+
+            return {
+                testId: resultData.testId != null ? resultData.testId : null,
+                questions,
+                answers: {},
+                questionIndex: 0,
+                startTime: Date.now(),
+                timer,
+                instantFeedbackMode,
+                instantFeedbackLockedQuestions: {}
+            };
+        }
         
         document.addEventListener('DOMContentLoaded', async () => {
             initTheme();
@@ -151,6 +196,17 @@
                             showTestAnalysisFromSession(currentResultData);
                         });
                     }
+                }
+
+                const retakeBtn = document.getElementById('retakeTestBtn');
+                if (retakeBtn && currentResultData.questions && currentResultData.questions.length > 0) {
+                    retakeBtn.style.display = 'inline-block';
+                    retakeBtn.addEventListener('click', () => {
+                        if (!currentResultData.questions || currentResultData.questions.length === 0) return;
+                        const payload = buildRetakeTestData(currentResultData);
+                        sessionStorage.setItem('testData', JSON.stringify(payload));
+                        window.location.href = '/test';
+                    });
                 }
             } else {
                 window.location.href = '/tests';

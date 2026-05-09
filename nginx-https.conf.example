@@ -1,6 +1,11 @@
 # Пример конфигурации Nginx для HTTPS
 # Скопируйте этот файл в /etc/nginx/sites-available/stud-kg
 # и обновите домен и пути к сертификатам
+#
+# ВАЖНО (частые сбои входа с iPhone / Safari):
+# Не проксируйте все запросы с Connection: upgrade и Upgrade (как для WebSocket),
+# если приложение не использует WebSocket — иначе часть клиентов получает обрыв
+# или «ошибка соединения» на POST (например /api/auth/login). Этот пример без WS.
 
 server {
     listen 80;
@@ -35,10 +40,6 @@ server {
     location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
-        
-        # WebSocket поддержка
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
         
         # Заголовки
         proxy_set_header Host $host;
