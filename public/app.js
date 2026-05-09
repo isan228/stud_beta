@@ -1342,7 +1342,13 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
         const selectedTestMode = document.getElementById('testMode')?.value || 'standard';
         const instantMode = selectedTestMode === 'instant';
-        const questionCount = instantMode ? null : (parseInt(document.getElementById('questionCount').value) || 10);
+        let questionCount = parseInt(document.getElementById('questionCount')?.value || '10', 10);
+        if (!Number.isFinite(questionCount) || questionCount < 1) {
+            questionCount = 10;
+        }
+        if (currentTestQuestionCount > 0) {
+            questionCount = Math.min(questionCount, currentTestQuestionCount);
+        }
         const randomizeAnswers = document.getElementById('randomizeAnswers')?.checked || false;
         const useTimer = instantMode ? false : (document.getElementById('useTimer')?.checked || false);
         const timerMinutes = parseInt(document.getElementById('timerMinutes')?.value || '30') || 30;

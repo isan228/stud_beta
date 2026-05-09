@@ -388,9 +388,10 @@ router.post('/tests/:testId/questions', async (req, res) => {
       questions = questions.filter((q) => pool.has(q.id));
     }
 
-    // Ограничение количества вопросов
-    if (questionCount && questionCount < questions.length) {
-      questions = questions.sort(() => Math.random() - 0.5).slice(0, questionCount);
+    // Ограничение количества вопросов (лимит из настроек; раньше с клиента при «Ответы сразу» приходил null — тогда отдавались все вопросы)
+    const limit = typeof questionCount === 'number' ? questionCount : parseInt(String(questionCount ?? ''), 10);
+    if (Number.isFinite(limit) && limit > 0 && questions.length > limit) {
+      questions = questions.sort(() => Math.random() - 0.5).slice(0, limit);
     }
 
     // Случайный порядок ответов
