@@ -194,6 +194,8 @@ app.get('*', (req, res) => {
 
 // Подключение к БД и запуск сервера
 const PORT = process.env.PORT || 3000;
+// Для доступа с телефона по Wi‑Fi к dev-серверу на ПК: LISTEN_HOST=0.0.0.0 (иначе часто только localhost)
+const LISTEN_HOST = process.env.LISTEN_HOST || undefined;
 
 sequelize.authenticate()
   .then(() => {
@@ -202,9 +204,17 @@ sequelize.authenticate()
   })
   .then(() => {
     console.log('Модели синхронизированы');
-    app.listen(PORT, () => {
-      console.log(`Сервер запущен на порту ${PORT}`);
-    });
+    const onListen = () => {
+      console.log(`Сервер запущен на порту ${PORT}` + (LISTEN_HOST ? ` (bind: ${LISTEN_HOST})` : ''));
+      if (!LISTEN_HOST) {
+        console.log('Подсказка: с телефона в той же Wi‑Fi сети задайте LISTEN_HOST=0.0.0.0 и открывайте http://IP_ПК:' + PORT);
+      }
+    };
+    if (LISTEN_HOST) {
+      app.listen(PORT, LISTEN_HOST, onListen);
+    } else {
+      app.listen(PORT, onListen);
+    }
   })
   .catch(err => {
     console.error('Ошибка подключения к базе данных:', err);

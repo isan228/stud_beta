@@ -23,6 +23,19 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
     }
 
+    /** Короткая подсказка при сбое fetch (часто iPhone / Safari / DNS / SSL). */
+    function clientNetworkFailureMessage() {
+        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+        const probe = origin ? `${origin}/api/platform` : '/api/platform';
+        return (
+            'Сервер не отвечает. Откройте в Safari отдельной вкладкой: ' + probe +
+            ' — должен появиться JSON (числа). Если нет: сеть, DNS, сертификат или блокировка. ' +
+            'С ПК по Wi‑Fi: на телефоне нельзя использовать localhost — только IP компьютера или домен. ' +
+            'На iPhone: Настройки → Wi‑Fi → (i) у сети → отключите «Ограничить отслеживание IP»; ' +
+            'в Apple ID → iCloud → «Частная передача реле» не должна маскировать весь трафик.'
+        );
+    }
+
     // Состояние приложения
     let currentUser = null;
     let currentToken = null;
@@ -925,10 +938,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                     'error'
                 );
             } else {
-                showNotification(
-                    'Не удалось связаться с сервером. Проверьте сеть, отключите VPN, откройте сайт по https://',
-                    'error'
-                );
+                showNotification(clientNetworkFailureMessage(), 'error');
             }
         }
     }
@@ -980,10 +990,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                     'error'
                 );
             } else {
-                showNotification(
-                    'Не удалось связаться с сервером. Проверьте сеть, отключите VPN, откройте сайт по https://',
-                    'error'
-                );
+                showNotification(clientNetworkFailureMessage(), 'error');
             }
         }
     }
