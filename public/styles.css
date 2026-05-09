@@ -1798,6 +1798,14 @@ html[data-theme="dark"] .navbar {
     height: 200%;
     background: radial-gradient(circle, rgba(37, 99, 235, 0.1) 0%, transparent 70%);
     animation: rotate 20s linear infinite;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Кнопки и контент поверх декоративного слоя */
+.result-card-actions {
+    position: relative;
+    z-index: 1;
 }
 
 .result-card h2 {

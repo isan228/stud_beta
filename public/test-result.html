@@ -26,7 +26,7 @@
                 </div>
                 <div class="result-percentage" id="resultPercentage">0%</div>
                 <div id="resultDetails"></div>
-                <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem;">
+                <div class="result-card-actions" style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem;">
                     <button type="button" class="btn btn-secondary" id="showAnalysisBtn" style="display: none;">📊 Разбор ошибок</button>
                     <button type="button" class="btn btn-secondary" id="retakeTestBtn" style="display: none;">Перепройти тест</button>
                     <a href="/tests" class="btn btn-primary">Вернуться к тестам</a>
@@ -97,9 +97,30 @@
     <script>
         let currentResultData = null;
 
+        function normalizeTestId(id) {
+            return id == null ? null : id;
+        }
+
+        /** Вопросы для перепрохода: из результата или из сохранённого testData той же попытки. */
+        function getQuestionsForRetake(resultData) {
+            if (resultData.questions && resultData.questions.length > 0) {
+                return resultData.questions;
+            }
+            try {
+                const raw = sessionStorage.getItem('testData');
+                if (!raw) return [];
+                const td = JSON.parse(raw);
+                if (normalizeTestId(td.testId) !== normalizeTestId(resultData.testId)) return [];
+                return td.questions && td.questions.length > 0 ? td.questions : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
         /** Те же вопросы и порядок, что в результатах; при совпадении с testData — тот же таймер и режим мгновенной обратной связи. */
         function buildRetakeTestData(resultData) {
-            const questions = (resultData.questions || []).map(q => ({
+            const sourceQuestions = getQuestionsForRetake(resultData);
+            const questions = (sourceQuestions || []).map(q => ({
                 ...q,
                 Answers: (q.Answers || []).map(a => ({
                     id: a.id,
@@ -130,7 +151,7 @@
             }
 
             return {
-                testId: resultData.testId != null ? resultData.testId : null,
+                testId: normalizeTestId(resultData.testId),
                 questions,
                 answers: {},
                 questionIndex: 0,
@@ -199,10 +220,12 @@
                 }
 
                 const retakeBtn = document.getElementById('retakeTestBtn');
-                if (retakeBtn && currentResultData.questions && currentResultData.questions.length > 0) {
-                    retakeBtn.style.display = 'inline-block';
+                const canRetake = getQuestionsForRetake(currentResultData).length > 0;
+                if (retakeBtn && canRetake) {
+                    retakeBtn.style.display = '';
+                    retakeBtn.hidden = false;
                     retakeBtn.addEventListener('click', () => {
-                        if (!currentResultData.questions || currentResultData.questions.length === 0) return;
+                        if (getQuestionsForRetake(currentResultData).length === 0) return;
                         const payload = buildRetakeTestData(currentResultData);
                         sessionStorage.setItem('testData', JSON.stringify(payload));
                         window.location.href = '/test';
