@@ -525,52 +525,54 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const testModeInput = document.getElementById('testMode');
         const modeInstantBtn = document.getElementById('modeInstantBtn');
         const timerToggleBtn = document.getElementById('timerToggleBtn');
-        if (testModeInput && modeInstantBtn) {
-            const applyModernMode = (mode) => {
-                testModeInput.value = mode;
-                modeInstantBtn.classList.toggle('active', mode === 'instant');
-
-                if (useTimerCheckbox && timerToggleBtn) {
-                    // В instant-режиме таймер отключаем, в standard — включаем по умолчанию
-                    useTimerCheckbox.checked = mode !== 'instant';
-                    timerToggleBtn.classList.toggle('active', !!useTimerCheckbox.checked);
-                    const timerGroup = document.getElementById('timerGroup');
-                    if (timerGroup) timerGroup.style.display = useTimerCheckbox.checked ? 'flex' : 'none';
+        if (testModeInput && modeInstantBtn && useTimerCheckbox && timerToggleBtn) {
+            const applyTestModeUI = () => {
+                const mode = testModeInput.value === 'instant' ? 'instant' : 'standard';
+                const isInstant = mode === 'instant';
+                modeInstantBtn.classList.toggle('active', isInstant);
+                timerToggleBtn.classList.toggle('active', !isInstant && useTimerCheckbox.checked);
+                const timerGroup = document.getElementById('timerGroup');
+                if (timerGroup) {
+                    timerGroup.style.display = useTimerCheckbox.checked ? 'flex' : 'none';
                 }
             };
-            const toggleInstantMode = () => {
-                const newMode = testModeInput.value === 'instant' ? 'standard' : 'instant';
-                applyModernMode(newMode);
+
+            /** Режим теста: instant — без таймера; standard — таймер по чекбоксу useTimer. */
+            const setTestMode = (mode, options = {}) => {
+                const next = mode === 'instant' ? 'instant' : 'standard';
+                testModeInput.value = next;
+                if (next === 'instant') {
+                    useTimerCheckbox.checked = false;
+                } else if (options.timerOn !== undefined) {
+                    useTimerCheckbox.checked = !!options.timerOn;
+                } else if (!('preserveTimer' in options) || !options.preserveTimer) {
+                    useTimerCheckbox.checked = true;
+                }
+                applyTestModeUI();
             };
-            window.toggleInstantMode = toggleInstantMode;
-            applyModernMode(testModeInput.value || 'standard');
+
             modeInstantBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                toggleInstantMode();
+                if (testModeInput.value === 'instant') {
+                    setTestMode('standard', { timerOn: true });
+                } else {
+                    setTestMode('instant');
+                }
             });
-        }
-        if (useTimerCheckbox && timerToggleBtn) {
-            const applyTimerState = () => {
-                timerToggleBtn.classList.toggle('active', !!useTimerCheckbox.checked);
-                const timerGroup = document.getElementById('timerGroup');
-                if (timerGroup) timerGroup.style.display = useTimerCheckbox.checked ? 'flex' : 'none';
-            };
-            applyTimerState();
+
             timerToggleBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-
-                // Если сейчас включен instant, нажатие "Таймер" возвращает в standard
-                if (testModeInput && testModeInput.value === 'instant') {
-                    testModeInput.value = 'standard';
-                    if (modeInstantBtn) modeInstantBtn.classList.remove('active');
-                    useTimerCheckbox.checked = true;
-                } else {
-                    useTimerCheckbox.checked = !useTimerCheckbox.checked;
+                if (testModeInput.value === 'instant') {
+                    setTestMode('standard', { timerOn: true });
+                    return;
                 }
-                applyTimerState();
+                useTimerCheckbox.checked = !useTimerCheckbox.checked;
+                applyTestModeUI();
             });
+
+            setTestMode(testModeInput.value || 'standard', { preserveTimer: true });
         }
 
         const startFavoriteTestBtn = document.getElementById('startFavoriteTest');
