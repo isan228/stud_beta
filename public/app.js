@@ -664,7 +664,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         notifyFab.setAttribute('aria-label', 'Уведомления от администратора');
         notifyFab.setAttribute('aria-expanded', 'false');
         notifyFab.setAttribute('title', 'Уведомления');
-        notifyFab.innerHTML = '💬<span id="userChatNotifyFabBadge" class="user-chat-badge" style="display:none;">0</span>';
+        notifyFab.innerHTML = `<span class="user-chat-toggle-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span><span id="userChatNotifyFabBadge" class="user-chat-badge" style="display:none;">0</span>`;
         notifyFab.style.display = 'none';
 
         const chatToggle = document.createElement('button');
@@ -673,7 +673,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         chatToggle.type = 'button';
         chatToggle.setAttribute('aria-label', 'Открыть чат с администратором');
         chatToggle.setAttribute('title', 'Чат');
-        chatToggle.innerHTML = '💬';
+        chatToggle.innerHTML = `<span class="user-chat-toggle-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>`;
         chatToggle.style.display = 'none';
 
         const notifyPanel = document.createElement('div');

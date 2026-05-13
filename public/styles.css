@@ -4624,13 +4624,49 @@ html[data-theme="dark"] .navbar {
     border-radius: 50%;
     background: var(--primary-color);
     color: #fff;
-    font-size: 22px;
     cursor: pointer;
     z-index: 1900;
     box-shadow: var(--shadow-lg);
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: box-shadow 0.2s ease, filter 0.2s ease, transform 0.15s ease;
+}
+
+.user-chat-toggle:hover {
+    filter: brightness(1.06);
+    box-shadow: var(--shadow-xl);
+}
+
+.user-chat-toggle:active {
+    transform: scale(0.96);
+    filter: brightness(0.98);
+}
+
+.user-chat-toggle:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--primary-color) 55%, white);
+    outline-offset: 3px;
+}
+
+.user-chat-toggle-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    pointer-events: none;
+}
+
+.user-chat-toggle-icon svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    flex-shrink: 0;
+}
+
+.user-chat-toggle--notify .user-chat-toggle-icon {
+    width: 25px;
+    height: 25px;
 }
 
 .user-chat-toggle--notify {
