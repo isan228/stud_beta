@@ -4633,6 +4633,10 @@ html[data-theme="dark"] .navbar {
     justify-content: center;
 }
 
+.user-chat-toggle--notify {
+    bottom: 88px;
+}
+
 .user-chat-badge {
     position: absolute;
     top: -6px;
@@ -4653,37 +4657,47 @@ html[data-theme="dark"] .navbar {
 .user-chat-stack {
     position: fixed;
     right: 20px;
-    bottom: 88px;
+    bottom: 156px;
     z-index: 1900;
     width: 340px;
     max-width: calc(100vw - 24px);
-    height: min(540px, calc(100vh - 100px));
-    max-height: calc(100vh - 100px);
+    height: min(540px, calc(100vh - 168px));
+    max-height: calc(100vh - 168px);
     flex-direction: column;
     gap: 10px;
     align-items: stretch;
     box-sizing: border-box;
 }
 
-.user-chat-notify-dock {
-    flex: 0 0 auto;
+.user-chat-notify-popover {
+    position: fixed;
+    right: 20px;
+    bottom: 156px;
+    z-index: 1910;
+    width: 340px;
+    max-width: calc(100vw - 24px);
+    max-height: min(420px, calc(100vh - 168px));
+    background: var(--card-bg);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
-    width: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
 }
 
-.user-chat-notify-dock-title {
-    font-size: 0.68rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-secondary);
-    padding: 0 0.2rem;
+.user-chat-notify-popover-head {
+    flex-shrink: 0;
+    padding: 0.65rem 0.85rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-light);
 }
 
-.user-chat-notify-dock .user-chat-notify-card {
-    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.1);
+.user-chat-notify-popover .user-chat-notify-list {
+    flex: 1;
+    min-height: 0;
 }
 
 .user-chat-window {
@@ -4734,99 +4748,6 @@ html[data-theme="dark"] .navbar {
     font-size: 0.95rem;
 }
 
-.user-chat-block-heading {
-    font-size: 0.68rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-secondary);
-    margin: 0 0 0.4rem 0.2rem;
-}
-
-.user-chat-notify-card {
-    border-radius: 12px;
-    border: 1px solid var(--border-light);
-    background: var(--bg-secondary);
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
-    overflow: hidden;
-}
-
-.user-chat-notify-strip {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.65rem 0.85rem;
-    flex-shrink: 0;
-    background: linear-gradient(180deg, rgba(37, 99, 235, 0.12), rgba(37, 99, 235, 0.04));
-}
-
-.user-chat-notify-strip-hint {
-    flex: 1;
-    min-width: 0;
-    font-size: 0.78rem;
-    line-height: 1.35;
-    color: var(--text-secondary);
-}
-
-.user-chat-notify-main-btn {
-    position: relative;
-    flex-shrink: 0;
-    width: 52px;
-    height: 52px;
-    padding: 0;
-    border: 2px solid var(--primary-color);
-    border-radius: 14px;
-    background: var(--card-bg);
-    color: var(--primary-color);
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
-    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
-}
-
-.user-chat-notify-main-btn:hover {
-    background: rgba(37, 99, 235, 0.12);
-    transform: translateY(-1px);
-    box-shadow: 0 6px 18px rgba(37, 99, 235, 0.32);
-}
-
-.user-chat-notify-main-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 0;
-}
-
-.user-chat-notify-main-badge {
-    position: absolute;
-    top: -6px;
-    right: -6px;
-    min-width: 22px;
-    height: 22px;
-    border-radius: 999px;
-    background: var(--danger-color);
-    color: #fff;
-    font-size: 11px;
-    font-weight: 700;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 5px;
-    border: 2px solid var(--card-bg);
-}
-
-.user-chat-notify-panel {
-    flex-shrink: 0;
-    max-height: 200px;
-    background: var(--card-bg);
-    border-top: 1px solid var(--border-light);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
 .user-chat-messages {
     flex: 1;
     min-height: 0;
@@ -4839,7 +4760,6 @@ html[data-theme="dark"] .navbar {
 
 .user-chat-notify-list {
     overflow-y: auto;
-    max-height: 140px;
 }
 
 .user-chat-notify-empty {

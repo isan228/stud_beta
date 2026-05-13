@@ -165,16 +165,20 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     function ensureUserChatVisibility() {
         const chatButton = document.getElementById('userChatToggle');
-        if (!chatButton) return;
-        chatButton.style.display = currentUser ? 'flex' : 'none';
+        const notifyFab = document.getElementById('userChatNotifyFab');
+        if (chatButton) chatButton.style.display = currentUser ? 'flex' : 'none';
+        if (notifyFab) notifyFab.style.display = currentUser ? 'flex' : 'none';
 
         if (!currentUser) {
             const chatStack = document.getElementById('userChatStack');
+            const panel = document.getElementById('userChatNotifyPanel');
             if (chatStack) chatStack.style.display = 'none';
+            if (panel) panel.style.display = 'none';
             stopChatPolling();
             isChatOpen = false;
             isUserChatNotifyOpen = false;
-            setUserChatNotifyPanelOpen(false);
+            const nf = document.getElementById('userChatNotifyFab');
+            if (nf) nf.setAttribute('aria-expanded', 'false');
         } else {
             startChatPolling();
             updateChatUnreadBadge();
@@ -653,43 +657,41 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     function initUserChatWidget() {
         if (document.getElementById('userChatToggle')) return;
 
+        const notifyFab = document.createElement('button');
+        notifyFab.id = 'userChatNotifyFab';
+        notifyFab.className = 'user-chat-toggle user-chat-toggle--notify';
+        notifyFab.type = 'button';
+        notifyFab.setAttribute('aria-label', 'Уведомления от администратора');
+        notifyFab.setAttribute('aria-expanded', 'false');
+        notifyFab.setAttribute('title', 'Уведомления');
+        notifyFab.innerHTML = '💬<span id="userChatNotifyFabBadge" class="user-chat-badge" style="display:none;">0</span>';
+        notifyFab.style.display = 'none';
+
         const chatToggle = document.createElement('button');
         chatToggle.id = 'userChatToggle';
         chatToggle.className = 'user-chat-toggle';
-        chatToggle.innerHTML = '💬<span id="userChatBadge" class="user-chat-badge" style="display:none;">0</span>';
-        chatToggle.setAttribute('type', 'button');
-        chatToggle.setAttribute('aria-label', 'Открыть чат с админом');
+        chatToggle.type = 'button';
+        chatToggle.setAttribute('aria-label', 'Открыть чат с администратором');
+        chatToggle.setAttribute('title', 'Чат');
+        chatToggle.innerHTML = '💬';
         chatToggle.style.display = 'none';
+
+        const notifyPanel = document.createElement('div');
+        notifyPanel.id = 'userChatNotifyPanel';
+        notifyPanel.className = 'user-chat-notify-popover';
+        notifyPanel.style.display = 'none';
+        notifyPanel.setAttribute('role', 'region');
+        notifyPanel.setAttribute('aria-label', 'Уведомления');
+        notifyPanel.innerHTML = `
+            <div class="user-chat-notify-popover-head">Уведомления</div>
+            <div id="userChatNotifyList" class="user-chat-notify-list"></div>
+            <button type="button" id="userChatNotifyMarkRead" class="user-chat-notify-mark-read">Отметить все прочитанными</button>
+        `;
 
         const chatStack = document.createElement('div');
         chatStack.id = 'userChatStack';
         chatStack.className = 'user-chat-stack';
         chatStack.style.display = 'none';
-
-        const notifyDock = document.createElement('aside');
-        notifyDock.className = 'user-chat-notify-dock';
-        notifyDock.setAttribute('aria-label', 'Уведомления');
-        notifyDock.innerHTML = `
-            <div class="user-chat-notify-dock-title">Уведомления</div>
-            <div class="user-chat-notify-card">
-                <div class="user-chat-notify-strip">
-                    <button type="button" id="userChatNotifyToggle" class="user-chat-notify-main-btn" aria-label="Открыть список уведомлений от администратора" aria-expanded="false">
-                        <span class="user-chat-notify-main-icon" aria-hidden="true">
-                            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </span>
-                        <span id="userChatHeaderBadge" class="user-chat-notify-main-badge" style="display:none;">0</span>
-                    </button>
-                    <span class="user-chat-notify-strip-hint">Сообщения администратора — отдельно от чата ниже</span>
-                </div>
-                <div id="userChatNotifyPanel" class="user-chat-notify-panel" style="display:none;" role="region" aria-label="Список уведомлений">
-                    <div id="userChatNotifyList" class="user-chat-notify-list"></div>
-                    <button type="button" id="userChatNotifyMarkRead" class="user-chat-notify-mark-read">Отметить все прочитанными</button>
-                </div>
-            </div>
-        `;
 
         const chatWindow = document.createElement('div');
         chatWindow.id = 'userChatWindow';
@@ -708,13 +710,21 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             </form>
         `;
 
-        chatStack.appendChild(notifyDock);
         chatStack.appendChild(chatWindow);
 
         document.body.appendChild(chatToggle);
+        document.body.appendChild(notifyFab);
+        document.body.appendChild(notifyPanel);
         document.body.appendChild(chatStack);
 
-        chatToggle.addEventListener('click', async () => {
+        notifyFab.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setUserChatNotifyPanelOpen(!isUserChatNotifyOpen);
+        });
+
+        chatToggle.addEventListener('click', async (e) => {
+            e.stopPropagation();
             isChatOpen = !isChatOpen;
             chatStack.style.display = isChatOpen ? 'flex' : 'none';
             if (isChatOpen) {
@@ -734,15 +744,6 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             });
         }
 
-        const notifyToggle = document.getElementById('userChatNotifyToggle');
-        if (notifyToggle) {
-            notifyToggle.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setUserChatNotifyPanelOpen(!isUserChatNotifyOpen);
-            });
-        }
-
         const markReadBtn = document.getElementById('userChatNotifyMarkRead');
         if (markReadBtn) {
             markReadBtn.addEventListener('click', async (e) => {
@@ -758,9 +759,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         if (!document.userChatNotifyOutsideClickHandler) {
             document.userChatNotifyOutsideClickHandler = (e) => {
                 const panel = document.getElementById('userChatNotifyPanel');
-                const btn = document.getElementById('userChatNotifyToggle');
-                if (!panel || !btn || panel.style.display === 'none') return;
-                if (btn.contains(e.target) || panel.contains(e.target)) return;
+                const fab = document.getElementById('userChatNotifyFab');
+                if (!panel || !fab || panel.style.display === 'none') return;
+                if (fab.contains(e.target) || panel.contains(e.target)) return;
                 setUserChatNotifyPanelOpen(false);
             };
             document.addEventListener('click', document.userChatNotifyOutsideClickHandler);
@@ -870,9 +871,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                     await loadUserChatMessages();
                     await updateChatUnreadBadge();
                     const panel = document.getElementById('userChatNotifyPanel');
-                    const toggle = document.getElementById('userChatNotifyToggle');
+                    const fab = document.getElementById('userChatNotifyFab');
                     if (panel) panel.style.display = 'none';
-                    if (toggle) toggle.setAttribute('aria-expanded', 'false');
+                    if (fab) fab.setAttribute('aria-expanded', 'false');
                     isUserChatNotifyOpen = false;
                     const messagesEl = document.getElementById('userChatMessages');
                     if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -886,20 +887,19 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     function setUserChatNotifyPanelOpen(open) {
         const panel = document.getElementById('userChatNotifyPanel');
-        const toggle = document.getElementById('userChatNotifyToggle');
-        if (!panel || !toggle) return;
+        const fab = document.getElementById('userChatNotifyFab');
+        if (!panel || !fab) return;
         isUserChatNotifyOpen = open;
         panel.style.display = open ? 'block' : 'none';
-        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        fab.setAttribute('aria-expanded', open ? 'true' : 'false');
         if (open) {
             renderUserChatNotifyPanel();
         }
     }
 
     async function updateChatUnreadBadge() {
-        const badge = document.getElementById('userChatBadge');
-        const headerBadge = document.getElementById('userChatHeaderBadge');
-        if ((!badge && !headerBadge) || !currentUser || !currentToken) return;
+        const badge = document.getElementById('userChatNotifyFabBadge');
+        if (!badge || !currentUser || !currentToken) return;
 
         try {
             const response = await fetch(`${API_URL}/chat/unread-count`, {
@@ -909,15 +909,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             const data = await response.json();
             const count = data.unreadCount || 0;
             const show = count > 0 ? 'inline-flex' : 'none';
-            const text = String(count);
-            if (badge) {
-                badge.textContent = text;
-                badge.style.display = show;
-            }
-            if (headerBadge) {
-                headerBadge.textContent = text;
-                headerBadge.style.display = show;
-            }
+            badge.textContent = String(count);
+            badge.style.display = show;
         } catch (error) {
             console.error('Ошибка получения счетчика непрочитанных сообщений:', error);
         }
