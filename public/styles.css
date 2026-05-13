@@ -4684,15 +4684,44 @@ html[data-theme="dark"] .navbar {
     font-size: 0.95rem;
 }
 
-/* Отдельная полоса с колокольчиком над сообщениями */
+.user-chat-block-heading {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+    margin: 0 0 0.4rem 0.2rem;
+}
+
+/* Блок уведомлений — отдельно от области сообщений */
+.user-chat-notify-section {
+    flex-shrink: 0;
+    padding: 0.35rem 0.65rem 0.5rem;
+}
+
+.user-chat-notify-card {
+    border-radius: 12px;
+    border: 1px solid var(--border-light);
+    background: var(--bg-secondary);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+    overflow: hidden;
+}
+
 .user-chat-notify-strip {
     display: flex;
     align-items: center;
     gap: 0.75rem;
     padding: 0.65rem 0.85rem;
     flex-shrink: 0;
-    background: linear-gradient(180deg, rgba(37, 99, 235, 0.1), rgba(37, 99, 235, 0.03));
-    border-bottom: 1px solid var(--border-light);
+    background: linear-gradient(180deg, rgba(37, 99, 235, 0.12), rgba(37, 99, 235, 0.04));
+}
+
+.user-chat-notify-strip-hint {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    color: var(--text-secondary);
 }
 
 .user-chat-notify-main-btn {
@@ -4744,21 +4773,44 @@ html[data-theme="dark"] .navbar {
     border: 2px solid var(--card-bg);
 }
 
-.user-chat-notify-strip-label {
-    font-size: 0.92rem;
-    font-weight: 700;
-    color: var(--text-color);
-    letter-spacing: 0.02em;
-}
-
 .user-chat-notify-panel {
     flex-shrink: 0;
     max-height: 200px;
     background: var(--card-bg);
-    border-bottom: 1px solid var(--border-light);
+    border-top: 1px solid var(--border-light);
     display: flex;
     flex-direction: column;
     overflow: hidden;
+}
+
+.user-chat-messages-section {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 0 0.65rem 0.45rem;
+}
+
+.user-chat-messages-card {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border-radius: 12px;
+    border: 1px solid var(--border-light);
+    background: var(--card-bg);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+    overflow: hidden;
+}
+
+.user-chat-messages {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
 }
 
 .user-chat-notify-list {
@@ -4836,16 +4888,6 @@ html[data-theme="dark"] .navbar {
     color: var(--text-color);
     font-size: 18px;
     cursor: pointer;
-}
-
-.user-chat-messages {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding: 0.75rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.65rem;
 }
 
 .user-chat-bubble {
