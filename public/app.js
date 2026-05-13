@@ -50,6 +50,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     let chatPollInterval = null;
     let isChatOpen = false;
     let isSubscriptionAlertsOpen = false;
+    /** Защита от двойного вызова setupEventListeners (init в app.js + inline DOMContentLoaded на страницах). */
+    let appEventListenersAttached = false;
 
     // Инициализация (вызывается на каждой странице отдельно)
 
@@ -383,6 +385,11 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             return;
         }
 
+        if (appEventListenersAttached) {
+            return;
+        }
+        appEventListenersAttached = true;
+
         // Кнопки
         // Для кнопок login/register - если это ссылки, не перехватывать клики
         // Ссылки работают через стандартный href
@@ -595,13 +602,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const mobileMenuToggle = document.getElementById('mobileMenuToggle');
         const navMenu = document.getElementById('navMenu');
 
-        if (mobileMenuToggle && navMenu) {
-            // Проверяем, не инициализировано ли уже меню
-            if (mobileMenuToggle.dataset.initialized === 'true') {
-                return;
-            }
-
-            // Помечаем как инициализированное
+        if (mobileMenuToggle && navMenu && mobileMenuToggle.dataset.initialized !== 'true') {
             mobileMenuToggle.dataset.initialized = 'true';
 
             // Функция для переключения меню
