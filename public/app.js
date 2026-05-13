@@ -169,8 +169,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         chatButton.style.display = currentUser ? 'flex' : 'none';
 
         if (!currentUser) {
-            const chatWindow = document.getElementById('userChatWindow');
-            if (chatWindow) chatWindow.style.display = 'none';
+            const chatStack = document.getElementById('userChatStack');
+            if (chatStack) chatStack.style.display = 'none';
             stopChatPolling();
             isChatOpen = false;
             isUserChatNotifyOpen = false;
@@ -661,54 +661,62 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         chatToggle.setAttribute('aria-label', 'Открыть чат с админом');
         chatToggle.style.display = 'none';
 
+        const chatStack = document.createElement('div');
+        chatStack.id = 'userChatStack';
+        chatStack.className = 'user-chat-stack';
+        chatStack.style.display = 'none';
+
+        const notifyDock = document.createElement('aside');
+        notifyDock.className = 'user-chat-notify-dock';
+        notifyDock.setAttribute('aria-label', 'Уведомления');
+        notifyDock.innerHTML = `
+            <div class="user-chat-notify-dock-title">Уведомления</div>
+            <div class="user-chat-notify-card">
+                <div class="user-chat-notify-strip">
+                    <button type="button" id="userChatNotifyToggle" class="user-chat-notify-main-btn" aria-label="Открыть список уведомлений от администратора" aria-expanded="false">
+                        <span class="user-chat-notify-main-icon" aria-hidden="true">
+                            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </span>
+                        <span id="userChatHeaderBadge" class="user-chat-notify-main-badge" style="display:none;">0</span>
+                    </button>
+                    <span class="user-chat-notify-strip-hint">Сообщения администратора — отдельно от чата ниже</span>
+                </div>
+                <div id="userChatNotifyPanel" class="user-chat-notify-panel" style="display:none;" role="region" aria-label="Список уведомлений">
+                    <div id="userChatNotifyList" class="user-chat-notify-list"></div>
+                    <button type="button" id="userChatNotifyMarkRead" class="user-chat-notify-mark-read">Отметить все прочитанными</button>
+                </div>
+            </div>
+        `;
+
         const chatWindow = document.createElement('div');
         chatWindow.id = 'userChatWindow';
         chatWindow.className = 'user-chat-window';
-        chatWindow.style.display = 'none';
         chatWindow.innerHTML = `
             <div class="user-chat-header">
                 <span class="user-chat-title">Чат с администратором</span>
                 <button type="button" id="closeUserChatBtn" class="user-chat-close" aria-label="Закрыть чат">✕</button>
             </div>
-            <section class="user-chat-notify-section" aria-label="Уведомления">
-                <div class="user-chat-block-heading">Уведомления</div>
-                <div class="user-chat-notify-card">
-                    <div class="user-chat-notify-strip">
-                        <button type="button" id="userChatNotifyToggle" class="user-chat-notify-main-btn" aria-label="Открыть список уведомлений от администратора" aria-expanded="false">
-                            <span class="user-chat-notify-main-icon" aria-hidden="true">
-                                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                </svg>
-                            </span>
-                            <span id="userChatHeaderBadge" class="user-chat-notify-main-badge" style="display:none;">0</span>
-                        </button>
-                        <span class="user-chat-notify-strip-hint">Отдельно от переписки — ответы администратора</span>
-                    </div>
-                    <div id="userChatNotifyPanel" class="user-chat-notify-panel" style="display:none;" role="region" aria-label="Список уведомлений">
-                        <div id="userChatNotifyList" class="user-chat-notify-list"></div>
-                        <button type="button" id="userChatNotifyMarkRead" class="user-chat-notify-mark-read">Отметить все прочитанными</button>
-                    </div>
-                </div>
-            </section>
-            <section class="user-chat-messages-section" aria-label="Переписка">
-                <div class="user-chat-block-heading">Сообщения</div>
-                <div class="user-chat-messages-card">
-                    <div id="userChatMessages" class="user-chat-messages"></div>
-                </div>
-            </section>
+            <div class="user-chat-messages-card user-chat-messages-card--solo">
+                <div id="userChatMessages" class="user-chat-messages"></div>
+            </div>
             <form id="userChatForm" class="user-chat-form">
                 <textarea id="userChatInput" rows="2" placeholder="Напишите сообщение..." required></textarea>
                 <button type="submit" class="btn btn-primary">Отправить</button>
             </form>
         `;
 
+        chatStack.appendChild(notifyDock);
+        chatStack.appendChild(chatWindow);
+
         document.body.appendChild(chatToggle);
-        document.body.appendChild(chatWindow);
+        document.body.appendChild(chatStack);
 
         chatToggle.addEventListener('click', async () => {
             isChatOpen = !isChatOpen;
-            chatWindow.style.display = isChatOpen ? 'flex' : 'none';
+            chatStack.style.display = isChatOpen ? 'flex' : 'none';
             if (isChatOpen) {
                 setUserChatNotifyPanelOpen(false);
                 await loadUserChatMessages();
@@ -722,7 +730,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 await updateChatUnreadBadge();
                 isChatOpen = false;
                 setUserChatNotifyPanelOpen(false);
-                chatWindow.style.display = 'none';
+                chatStack.style.display = 'none';
             });
         }
 
