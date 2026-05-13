@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Оплата успешна - stud.kg</title>
+    <script>
+        (function () {
+            try {
+                var q = new URLSearchParams(window.location.search);
+                if (q.get('registration') !== 'true') {
+                    window.location.replace('/profile');
+                }
+            } catch (e) { /* остаёмся на странице */ }
+        })();
+    </script>
     <link rel="stylesheet" href="styles.css">
     <style>
         body {
@@ -381,48 +391,10 @@
                     if (loginResponse.ok) {
                         const result = await loginResponse.json();
                         localStorage.setItem('token', result.token);
-                        // Удаляем данные регистрации из обоих хранилищ
                         localStorage.removeItem('pendingRegistration');
                         sessionStorage.removeItem('pendingRegistration');
-                        
-                        console.log('✅ Account created and logged in successfully!', {
-                            userId: result.user?.id,
-                            email: result.user?.email,
-                            username: result.user?.username,
-                            token: result.token ? 'SET' : 'NOT SET'
-                        });
-                        
-                        // Обновляем сообщение - показываем что аккаунт создан
-                        if (successTitle) {
-                            successTitle.textContent = 'Аккаунт успешно создан!';
-                        }
-                        
-                        if (successMessage) {
-                            successMessage.innerHTML = `
-                                <div class="account-created-message">
-                                    <h3>✅ Ваш аккаунт создан и активирован!</h3>
-                                    <p>
-                                        Добро пожаловать, <span class="username">${result.user?.username || regData.username}</span>!
-                                    </p>
-                                    <p style="margin-top: 1rem; font-size: 0.95rem;">
-                                        Теперь вы можете начать использовать все возможности платформы.
-                                    </p>
-                                </div>
-                            `;
-                        }
-                        
-                        // Обновляем кнопки - показываем только кнопку "Войти"
-                        // Пользователь уже авторизован (токен сохранен), просто переходим на главную
-                        if (btnGroup) {
-                            btnGroup.innerHTML = '<a href="/" class="btn btn-primary">Войти</a>';
-                        }
-                        
-                        // Удаляем статус сообщение
-                        if (statusMessage) {
-                            statusMessage.style.display = 'none';
-                        }
-                        
-                        return; // Останавливаем проверку
+                        window.location.replace('/profile');
+                        return;
                     } else {
                         const errorData = await loginResponse.json().catch(() => ({}));
                         const status = loginResponse.status;
