@@ -668,14 +668,21 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         chatWindow.innerHTML = `
             <div class="user-chat-header">
                 <span class="user-chat-title">Чат с администратором</span>
-                <div class="user-chat-header-actions">
-                    <button type="button" id="userChatNotifyToggle" class="user-chat-notify-toggle" aria-label="Уведомления от администратора" aria-expanded="false">
-                        🔔<span id="userChatHeaderBadge" class="user-chat-header-badge" style="display:none;">0</span>
-                    </button>
-                    <button type="button" id="closeUserChatBtn" class="user-chat-close" aria-label="Закрыть чат">✕</button>
-                </div>
+                <button type="button" id="closeUserChatBtn" class="user-chat-close" aria-label="Закрыть чат">✕</button>
             </div>
-            <div id="userChatNotifyPanel" class="user-chat-notify-panel" style="display:none;" role="region" aria-label="Уведомления">
+            <div class="user-chat-notify-strip">
+                <button type="button" id="userChatNotifyToggle" class="user-chat-notify-main-btn" aria-label="Уведомления от администратора" aria-expanded="false">
+                    <span class="user-chat-notify-main-icon" aria-hidden="true">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </span>
+                    <span id="userChatHeaderBadge" class="user-chat-notify-main-badge" style="display:none;">0</span>
+                </button>
+                <span class="user-chat-notify-strip-label">Уведомления</span>
+            </div>
+            <div id="userChatNotifyPanel" class="user-chat-notify-panel" style="display:none;" role="region" aria-label="Список уведомлений">
                 <div id="userChatNotifyList" class="user-chat-notify-list"></div>
                 <button type="button" id="userChatNotifyMarkRead" class="user-chat-notify-mark-read">Отметить все прочитанными</button>
             </div>
