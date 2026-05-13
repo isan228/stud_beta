@@ -726,20 +726,15 @@ router.post('/create', [
     }
     const amountToCharge = Math.max(0.01, amountAfterPromo - coinsToUse);
 
-    // Формируем redirect URL с параметрами
-    const redirectUrlWithParams = new URL(redirectUrl);
-    if (userId) {
-      redirectUrlWithParams.searchParams.set('userId', userId);
-    }
-    redirectUrlWithParams.searchParams.set('amount', amountToCharge);
-    if (description) {
-      redirectUrlWithParams.searchParams.set('description', description);
-    }
+    // Чистый redirect без query: Finik дописывает ?paymentId=… и ломает URL, если уже есть параметры (?…?…)
+    const redirectUrlClean = new URL(redirectUrl);
+    redirectUrlClean.search = '';
+    const finikRedirectUrl = redirectUrlClean.toString();
 
     // Создаем платеж через Finik API (сумма к списанию с карты = amountToCharge)
     const paymentResult = await createPayment({
       amount: amountToCharge,
-      redirectUrl: redirectUrlWithParams.toString(),
+      redirectUrl: finikRedirectUrl,
       accountId: accountId,
       merchantCategoryCode: merchantCategoryCode,
       nameEn: nameEn,
@@ -924,21 +919,15 @@ router.post('/create-registration', [
       });
     }
 
-    // Формируем redirect URL с параметрами
-    const redirectUrlWithParams = new URL(redirectUrl);
-    redirectUrlWithParams.searchParams.set('registration', 'true');
-    redirectUrlWithParams.searchParams.set('amount', finalAmount);
-    if (description) {
-      redirectUrlWithParams.searchParams.set('description', description);
-    }
-    if (referralCode) {
-      redirectUrlWithParams.searchParams.set('referralCode', referralCode);
-    }
+    // Только путь без query: иначе Finik добавляет ?paymentId=… и получается двойной «?» в ссылке
+    const redirectUrlClean = new URL(redirectUrl);
+    redirectUrlClean.search = '';
+    const finikRedirectUrl = redirectUrlClean.toString();
 
     // Создаем платеж через Finik API
     const paymentResult = await createPayment({
       amount: finalAmount,
-      redirectUrl: redirectUrlWithParams.toString(),
+      redirectUrl: finikRedirectUrl,
       accountId: accountId,
       merchantCategoryCode: merchantCategoryCode,
       nameEn: nameEn,
@@ -1042,6 +1031,84 @@ router.post('/create-registration', [
     res.status(500).json({
       error: 'Ошибка сервера: ' + error.message
     });
+  }
+});
+
+/**
+ * После оплаты Finik ведёт на /payment/success?paymentId=…&status=…
+ * Для регистрации выдаём JWT один раз (без пароля в браузере), чтобы сразу открыть личный кабинет.
+ * GET /api/payments/session-by-payment-id?paymentId=<uuid>
+ */
+router.get('/session-by-payment-id', async (req, res) => {
+  try {
+    const paymentId = String(req.query.paymentId || '').trim();
+    if (!/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(paymentId)) {
+      return res.status(400).json({ error: 'Некорректный paymentId' });
+    }
+
+    const transaction = await Transaction.findOne({ where: { finikTransactionId: paymentId } });
+    if (!transaction) {
+      return res.status(404).json({ ready: false, error: 'Платеж не найден' });
+    }
+
+    if (transaction.status !== 'SUCCEEDED') {
+      return res.json({
+        ready: false,
+        status: transaction.status,
+        message: 'Платеж ещё не подтверждён'
+      });
+    }
+
+    const fields = transaction.fields || {};
+    const paymentType = fields.paymentType || '';
+
+    if (paymentType !== 'registration') {
+      return res.json({ ready: true, mode: 'subscription' });
+    }
+
+    if (!transaction.userId) {
+      return res.json({
+        ready: false,
+        status: transaction.status,
+        message: 'Аккаунт ещё создаётся, подождите'
+      });
+    }
+
+    if (fields.postPaymentAuthConsumed) {
+      return res.json({ ready: false, consumed: true, message: 'Сессия уже была выдана' });
+    }
+
+    const user = await User.findByPk(transaction.userId, {
+      attributes: ['id', 'username', 'email', 'status']
+    });
+    if (!user) {
+      return res.status(500).json({ error: 'Пользователь не найден' });
+    }
+
+    transaction.fields = {
+      ...fields,
+      postPaymentAuthConsumed: true,
+      postPaymentAuthConsumedAt: new Date().toISOString()
+    };
+    await transaction.save();
+
+    const jwt = require('jsonwebtoken');
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+
+    return res.json({
+      ready: true,
+      mode: 'registration',
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email
+      },
+      message: 'Вход выполнен успешно'
+    });
+  } catch (error) {
+    console.error('session-by-payment-id:', error);
+    return res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 

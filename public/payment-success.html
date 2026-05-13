@@ -7,10 +7,11 @@
     <script>
         (function () {
             try {
+                var href = window.location.href;
+                var hasPaymentId = /(?:\?|&)paymentId=[\da-f-]{8}-/i.test(href);
                 var q = new URLSearchParams(window.location.search);
-                if (q.get('registration') !== 'true') {
-                    window.location.replace('/profile');
-                }
+                if (q.get('registration') === 'true' || q.get('reg') === '1' || hasPaymentId) return;
+                window.location.replace('/profile');
             } catch (e) { /* остаёмся на странице */ }
         })();
     </script>
@@ -297,18 +298,71 @@
 
     <script src="app.js"></script>
     <script>
-        // Инициализация темы
         initTheme();
-        
-        // Получаем параметры из URL
+
+        function extractPaymentId() {
+            const q = new URLSearchParams(window.location.search);
+            const direct = q.get('paymentId');
+            if (direct) return direct.trim();
+            const m = String(window.location.href).match(/(?:\?|&)paymentId=([\da-f-]{8}-[\da-f-]{4}-[\da-f-]{4}-[\da-f-]{4}-[\da-f-]{12})/i);
+            return m ? m[1] : null;
+        }
+
         const urlParams = new URLSearchParams(window.location.search);
         const amount = urlParams.get('amount');
         const description = urlParams.get('description');
         const userId = urlParams.get('userId');
         const isRegistration = urlParams.get('registration') === 'true';
-        
-        // Если это регистрация, показываем специальное сообщение
-        if (isRegistration) {
+        const paymentIdFromUrl = extractPaymentId();
+
+        async function goToProfile() {
+            window.location.replace('/profile');
+        }
+
+        /** Возврат с Finik: получить JWT по paymentId (регистрация) или сразу в кабинет (подписка). */
+        async function tryFinishByPaymentId() {
+            if (!paymentIdFromUrl) return false;
+            const titleEl = document.querySelector('.success-title');
+            const msgEl = document.querySelector('.success-message');
+            if (titleEl) titleEl.textContent = 'Платёж принят';
+            if (msgEl) {
+                msgEl.innerHTML = '<p style="color: var(--text-secondary);">Открываем личный кабинет…</p>';
+            }
+            for (let attempt = 0; attempt < 45; attempt++) {
+                try {
+                    const r = await fetch('/api/payments/session-by-payment-id?paymentId=' + encodeURIComponent(paymentIdFromUrl));
+                    let data = {};
+                    try {
+                        data = await r.json();
+                    } catch (_) { /* empty */ }
+                    if (r.ok && data.token) {
+                        localStorage.setItem('token', data.token);
+                        localStorage.removeItem('pendingRegistration');
+                        sessionStorage.removeItem('pendingRegistration');
+                        goToProfile();
+                        return true;
+                    }
+                    if (r.ok && data.mode === 'subscription') {
+                        goToProfile();
+                        return true;
+                    }
+                    if (r.ok && data.consumed) {
+                        goToProfile();
+                        return true;
+                    }
+                } catch (e) {
+                    console.warn('session-by-payment-id', e);
+                }
+                await new Promise(function (resolve) { setTimeout(resolve, 1500); });
+            }
+            return false;
+        }
+
+        (async function () {
+            const finished = await tryFinishByPaymentId();
+            if (finished) return;
+
+            if (isRegistration) {
             const successTitle = document.querySelector('.success-title');
             const successMessage = document.querySelector('.success-message');
             const btnGroup = document.querySelector('.btn-group');
@@ -331,28 +385,24 @@
                 `;
             }
             
-            // Меняем кнопки - только одна кнопка "Войти"
             if (btnGroup) {
                 btnGroup.innerHTML = `
                     <a href="/login" class="btn btn-primary" id="loginBtn" style="display: none;">Войти</a>
                 `;
             }
             
-            // Проверяем создание аккаунта каждые 2 секунды
             let checkCount = 0;
-            const maxChecks = 30; // Максимум 60 секунд (30 проверок * 2 секунды)
+            const maxChecks = 30;
             const statusMessage = document.getElementById('statusMessage');
             
             const checkAccountCreation = async () => {
                 checkCount++;
                 console.log(`🔍 Checking account creation (attempt ${checkCount}/${maxChecks})...`);
                 
-                // Обновляем статус
                 if (statusMessage) {
                     statusMessage.textContent = `Проверка создания аккаунта... (${checkCount}/${maxChecks})`;
                 }
                 
-                // Пытаемся получить данные регистрации из localStorage или sessionStorage
                 let pendingRegistration = localStorage.getItem('pendingRegistration');
                 if (!pendingRegistration) {
                     pendingRegistration = sessionStorage.getItem('pendingRegistration');
@@ -376,7 +426,6 @@
                     const regData = JSON.parse(pendingRegistration);
                     console.log('📝 Attempting login with:', { email: regData.email });
                     
-                    // Пытаемся войти с этими данными
                     const loginResponse = await fetch('/api/auth/login', {
                         method: 'POST',
                         headers: {
@@ -400,14 +449,11 @@
                         const status = loginResponse.status;
                         console.log(`⏳ Account not ready yet (status: ${status})`, errorData);
                         
-                        // Если это 401 (неверные данные) или 404 (пользователь не найден), продолжаем проверку
                         if (status === 401 || status === 404) {
                             if (statusMessage) {
                                 statusMessage.textContent = `Ожидание создания аккаунта... (попытка ${checkCount}/${maxChecks})`;
                             }
-                            // Продолжаем проверку
                         } else if (status === 403) {
-                            // Пользователь существует, но не одобрен - это странно, но продолжаем
                             console.log('⚠️ User exists but not approved yet');
                             if (statusMessage) {
                                 statusMessage.textContent = `Ожидание активации аккаунта... (попытка ${checkCount}/${maxChecks})`;
@@ -426,11 +472,9 @@
                     }
                 }
                 
-                // Продолжаем проверку если не достигли лимита
                 if (checkCount < maxChecks) {
-                    setTimeout(checkAccountCreation, 2000); // Проверяем каждые 2 секунды
+                    setTimeout(checkAccountCreation, 2000);
                 } else {
-                    // После максимального количества попыток показываем сообщение
                     console.log('⏰ Max checks reached, showing manual login option');
                     if (statusMessage) {
                         statusMessage.innerHTML = `
@@ -444,37 +488,21 @@
                 }
             };
             
-            // Начинаем проверку сразу (webhook обычно приходит быстро, но может быть задержка)
             console.log('🚀 Starting account creation check...');
-            console.log('📋 URL params:', {
-                registration: isRegistration,
-                amount: amount,
-                description: description,
-                paymentId: urlParams.get('paymentId'),
-                status: urlParams.get('status')
-            });
-            
-            // Проверяем наличие данных регистрации сразу
-            const hasPendingReg = localStorage.getItem('pendingRegistration') || sessionStorage.getItem('pendingRegistration');
-            console.log('💾 Pending registration data:', hasPendingReg ? 'FOUND' : 'NOT FOUND');
-            
-            // Начинаем проверку сразу (не ждем 2 секунды)
             checkAccountCreation();
-        }
-        
-        // Отображаем детали платежа, если есть
+            }
+
         if (amount) {
             document.getElementById('paymentDetails').style.display = 'block';
             document.getElementById('paymentAmount').textContent = amount + ' сом';
             document.getElementById('paymentDescription').textContent = description || 'Оплата услуг';
         }
         
-        // Проверяем статус транзакции через API (если пользователь авторизован)
         const token = localStorage.getItem('token');
         if (token && userId) {
-            // Можно добавить проверку статуса транзакции через API
             // fetch(`/api/payments/transactions?userId=${userId}`)
         }
+        })();
     </script>
 </body>
 </html>
