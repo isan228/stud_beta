@@ -49,6 +49,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     let testStartTime = null;
     let chatPollInterval = null;
     let isChatOpen = false;
+    let isUserChatNotifyOpen = false;
     let isSubscriptionAlertsOpen = false;
     /** Защита от двойного вызова setupEventListeners (init в app.js + inline DOMContentLoaded на страницах). */
     let appEventListenersAttached = false;
@@ -172,6 +173,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             if (chatWindow) chatWindow.style.display = 'none';
             stopChatPolling();
             isChatOpen = false;
+            isUserChatNotifyOpen = false;
+            setUserChatNotifyPanelOpen(false);
         } else {
             startChatPolling();
             updateChatUnreadBadge();
@@ -664,8 +667,17 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         chatWindow.style.display = 'none';
         chatWindow.innerHTML = `
             <div class="user-chat-header">
-                <span>Чат с администратором</span>
-                <button type="button" id="closeUserChatBtn" class="user-chat-close">✕</button>
+                <span class="user-chat-title">Чат с администратором</span>
+                <div class="user-chat-header-actions">
+                    <button type="button" id="userChatNotifyToggle" class="user-chat-notify-toggle" aria-label="Уведомления от администратора" aria-expanded="false">
+                        🔔<span id="userChatHeaderBadge" class="user-chat-header-badge" style="display:none;">0</span>
+                    </button>
+                    <button type="button" id="closeUserChatBtn" class="user-chat-close" aria-label="Закрыть чат">✕</button>
+                </div>
+            </div>
+            <div id="userChatNotifyPanel" class="user-chat-notify-panel" style="display:none;" role="region" aria-label="Уведомления">
+                <div id="userChatNotifyList" class="user-chat-notify-list"></div>
+                <button type="button" id="userChatNotifyMarkRead" class="user-chat-notify-mark-read">Отметить все прочитанными</button>
             </div>
             <div id="userChatMessages" class="user-chat-messages"></div>
             <form id="userChatForm" class="user-chat-form">
@@ -681,18 +693,52 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             isChatOpen = !isChatOpen;
             chatWindow.style.display = isChatOpen ? 'flex' : 'none';
             if (isChatOpen) {
+                setUserChatNotifyPanelOpen(false);
                 await loadUserChatMessages();
-                await markAdminMessagesAsRead();
-                await updateChatUnreadBadge();
             }
         });
 
         const closeBtn = document.getElementById('closeUserChatBtn');
         if (closeBtn) {
-            closeBtn.addEventListener('click', () => {
+            closeBtn.addEventListener('click', async () => {
+                await markAdminMessagesAsRead();
+                await updateChatUnreadBadge();
                 isChatOpen = false;
+                setUserChatNotifyPanelOpen(false);
                 chatWindow.style.display = 'none';
             });
+        }
+
+        const notifyToggle = document.getElementById('userChatNotifyToggle');
+        if (notifyToggle) {
+            notifyToggle.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setUserChatNotifyPanelOpen(!isUserChatNotifyOpen);
+            });
+        }
+
+        const markReadBtn = document.getElementById('userChatNotifyMarkRead');
+        if (markReadBtn) {
+            markReadBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                await markAdminMessagesAsRead();
+                await loadUserChatMessages();
+                await updateChatUnreadBadge();
+                await renderUserChatNotifyPanel();
+            });
+        }
+
+        if (!document.userChatNotifyOutsideClickHandler) {
+            document.userChatNotifyOutsideClickHandler = (e) => {
+                const panel = document.getElementById('userChatNotifyPanel');
+                const btn = document.getElementById('userChatNotifyToggle');
+                if (!panel || !btn || panel.style.display === 'none') return;
+                if (btn.contains(e.target) || panel.contains(e.target)) return;
+                setUserChatNotifyPanelOpen(false);
+            };
+            document.addEventListener('click', document.userChatNotifyOutsideClickHandler);
         }
 
         const chatForm = document.getElementById('userChatForm');
@@ -728,21 +774,33 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
     }
 
+    function escapeChatHtml(text) {
+        return String(text || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    async function fetchUserChatMessagesList() {
+        if (!currentUser || !currentToken) return [];
+        const response = await fetch(`${API_URL}/chat/messages`, {
+            headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        if (!response.ok) {
+            throw new Error('Ошибка загрузки чата');
+        }
+        const data = await response.json();
+        return data.messages || [];
+    }
+
     async function loadUserChatMessages() {
         if (!currentUser || !currentToken) return;
         const messagesEl = document.getElementById('userChatMessages');
         if (!messagesEl) return;
 
         try {
-            const response = await fetch(`${API_URL}/chat/messages`, {
-                headers: { 'Authorization': `Bearer ${currentToken}` }
-            });
-            if (!response.ok) {
-                throw new Error('Ошибка загрузки чата');
-            }
-
-            const data = await response.json();
-            const messages = data.messages || [];
+            const messages = await fetchUserChatMessagesList();
             messagesEl.innerHTML = messages.map(msg => `
                 <div class="user-chat-bubble ${msg.isAdmin ? 'admin' : 'user'}">
                     ${msg.text}
@@ -755,9 +813,68 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
     }
 
+    async function renderUserChatNotifyPanel() {
+        const list = document.getElementById('userChatNotifyList');
+        if (!list || !currentUser || !currentToken) return;
+
+        try {
+            const messages = await fetchUserChatMessagesList();
+            const adminMsgs = messages.filter((m) => m.isAdmin).reverse();
+            const recent = adminMsgs.slice(0, 20);
+
+            if (recent.length === 0) {
+                list.innerHTML = '<p class="user-chat-notify-empty">Пока нет сообщений от администратора.</p>';
+                return;
+            }
+
+            list.innerHTML = recent.map((msg) => {
+                const preview = msg.text.length > 140 ? `${msg.text.slice(0, 137)}…` : msg.text;
+                const unread = !msg.isRead;
+                const time = new Date(msg.createdAt).toLocaleString('ru-RU');
+                return `
+                    <button type="button" class="user-chat-notify-item${unread ? ' unread' : ''}" data-msg-id="${msg.id}">
+                        <span class="user-chat-notify-preview">${escapeChatHtml(preview)}</span>
+                        <span class="user-chat-notify-time">${time}</span>
+                    </button>
+                `;
+            }).join('');
+
+            list.querySelectorAll('.user-chat-notify-item').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    await markAdminMessagesAsRead();
+                    await loadUserChatMessages();
+                    await updateChatUnreadBadge();
+                    const panel = document.getElementById('userChatNotifyPanel');
+                    const toggle = document.getElementById('userChatNotifyToggle');
+                    if (panel) panel.style.display = 'none';
+                    if (toggle) toggle.setAttribute('aria-expanded', 'false');
+                    isUserChatNotifyOpen = false;
+                    const messagesEl = document.getElementById('userChatMessages');
+                    if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
+                });
+            });
+        } catch (error) {
+            console.error('Ошибка загрузки уведомлений чата:', error);
+            list.innerHTML = '<p class="user-chat-notify-empty">Не удалось загрузить уведомления.</p>';
+        }
+    }
+
+    function setUserChatNotifyPanelOpen(open) {
+        const panel = document.getElementById('userChatNotifyPanel');
+        const toggle = document.getElementById('userChatNotifyToggle');
+        if (!panel || !toggle) return;
+        isUserChatNotifyOpen = open;
+        panel.style.display = open ? 'block' : 'none';
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) {
+            renderUserChatNotifyPanel();
+        }
+    }
+
     async function updateChatUnreadBadge() {
         const badge = document.getElementById('userChatBadge');
-        if (!badge || !currentUser || !currentToken) return;
+        const headerBadge = document.getElementById('userChatHeaderBadge');
+        if ((!badge && !headerBadge) || !currentUser || !currentToken) return;
 
         try {
             const response = await fetch(`${API_URL}/chat/unread-count`, {
@@ -766,8 +883,16 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             if (!response.ok) return;
             const data = await response.json();
             const count = data.unreadCount || 0;
-            badge.textContent = String(count);
-            badge.style.display = count > 0 ? 'inline-flex' : 'none';
+            const show = count > 0 ? 'inline-flex' : 'none';
+            const text = String(count);
+            if (badge) {
+                badge.textContent = text;
+                badge.style.display = show;
+            }
+            if (headerBadge) {
+                headerBadge.textContent = text;
+                headerBadge.style.display = show;
+            }
         } catch (error) {
             console.error('Ошибка получения счетчика непрочитанных сообщений:', error);
         }
@@ -792,7 +917,6 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             await updateChatUnreadBadge();
             if (isChatOpen) {
                 await loadUserChatMessages();
-                await markAdminMessagesAsRead();
             }
         }, 3000);
     }
