@@ -165,10 +165,11 @@ router.post('/login', [
         ipAddress,
         userAgent,
         deviceSignature,
-        isRead: false
+        isRead: false,
+        dismissedByUser: false
       });
     } else if (!existingDeviceAlert && knownDeviceCount === 0) {
-      // Регистрируем первое устройство без тревоги для админа.
+      // Регистрируем первое устройство без тревоги для админа и без колокольчика у пользователя.
       await UserDeviceAlert.create({
         userId: user.id,
         username: user.username,
@@ -176,7 +177,8 @@ router.post('/login', [
         ipAddress,
         userAgent,
         deviceSignature,
-        isRead: true
+        isRead: true,
+        dismissedByUser: true
       });
     } else if (existingDeviceAlert && ipAddress && existingDeviceAlert.ipAddress !== ipAddress) {
       existingDeviceAlert.ipAddress = ipAddress;
@@ -198,6 +200,49 @@ router.post('/login', [
     });
   } catch (error) {
     console.error('Ошибка входа:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Уведомления аккаунта: вход с нового устройства (для колокольчика в шапке, не путать с чатом)
+router.get('/account-alerts/device', require('../middleware/auth'), async (req, res) => {
+  try {
+    const rows = await UserDeviceAlert.findAll({
+      where: {
+        userId: req.user.id,
+        isRead: false,
+        [Op.or]: [
+          { dismissedByUser: false },
+          { dismissedByUser: null }
+        ]
+      },
+      attributes: ['id', 'ipAddress', 'userAgent', 'createdAt'],
+      order: [['createdAt', 'DESC']]
+    });
+    res.json({ deviceAlerts: rows.map((r) => r.toJSON()) });
+  } catch (error) {
+    console.error('Ошибка account-alerts/device:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.put('/account-alerts/device/:id/dismiss', require('../middleware/auth'), async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ error: 'Некорректный идентификатор' });
+    }
+    const alert = await UserDeviceAlert.findOne({
+      where: { id, userId: req.user.id }
+    });
+    if (!alert) {
+      return res.status(404).json({ error: 'Уведомление не найдено' });
+    }
+    alert.dismissedByUser = true;
+    await alert.save();
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Ошибка dismiss device alert:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

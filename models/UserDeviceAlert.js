@@ -35,11 +35,18 @@ const UserDeviceAlert = sequelize.define('UserDeviceAlert', {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
     allowNull: false
+  },
+  dismissedByUser: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    allowNull: false,
+    comment: 'Пользователь скрыл уведомление в колокольчике (не влияет на прочтение админом)'
   }
 }, {
   indexes: [
     { fields: ['userId'] },
     { fields: ['isRead'] },
+    { fields: ['dismissedByUser'] },
     { fields: ['createdAt'] }
   ]
 });

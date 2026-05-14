@@ -324,6 +324,27 @@ html[data-theme="dark"] .navbar {
     background: rgba(220, 38, 38, 0.08);
 }
 
+.subscription-alert-item.info {
+    border-color: rgba(59, 130, 246, 0.35);
+    background: rgba(59, 130, 246, 0.08);
+}
+
+.device-login-meta,
+.device-login-ua,
+.device-login-hint {
+    font-size: 0.85rem;
+    margin: 0.35rem 0 0;
+    color: var(--text-secondary);
+}
+
+.device-login-hint {
+    margin-bottom: 0.5rem;
+}
+
+.device-login-dismiss {
+    margin-top: 0.35rem;
+}
+
 /* Кнопки */
 .btn {
     padding: 0.75rem 1.5rem;
@@ -4693,12 +4714,12 @@ html[data-theme="dark"] .navbar {
 .user-chat-stack {
     position: fixed;
     right: 20px;
-    bottom: 156px;
+    bottom: 88px;
     z-index: 1900;
     width: 340px;
     max-width: calc(100vw - 24px);
-    height: min(540px, calc(100vh - 168px));
-    max-height: calc(100vh - 168px);
+    height: min(540px, calc(100vh - 100px));
+    max-height: calc(100vh - 100px);
     flex-direction: column;
     gap: 10px;
     align-items: stretch;

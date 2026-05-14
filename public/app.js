@@ -36,6 +36,14 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         );
     }
 
+    function escapeHtmlStr(text) {
+        return String(text || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
     // Состояние приложения
     let currentUser = null;
     let currentToken = null;
@@ -49,7 +57,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     let testStartTime = null;
     let chatPollInterval = null;
     let isChatOpen = false;
-    let isUserChatNotifyOpen = false;
+    let pendingDeviceAlerts = [];
     let isSubscriptionAlertsOpen = false;
     /** Защита от двойного вызова setupEventListeners (init в app.js + inline DOMContentLoaded на страницах). */
     let appEventListenersAttached = false;
@@ -119,21 +127,26 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             if (response.ok) {
                 const data = await response.json();
                 currentUser = data.user;
+                await refreshAccountSecurityAlerts();
                 updateUI();
                 console.log('Пользователь загружен:', currentUser);
                 return true; // Успешная загрузка
             } else {
+                pendingDeviceAlerts = [];
                 // Токен невалидный
                 if (response.status === 401) {
                     currentUser = null;
                     currentToken = null;
                     localStorage.removeItem('token');
                 }
+                updateUI();
                 return false;
             }
         } catch (error) {
             console.error('Ошибка загрузки пользователя:', error);
             currentUser = null;
+            pendingDeviceAlerts = [];
+            updateUI();
             return false;
         }
     }
@@ -165,20 +178,13 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     function ensureUserChatVisibility() {
         const chatButton = document.getElementById('userChatToggle');
-        const notifyFab = document.getElementById('userChatNotifyFab');
         if (chatButton) chatButton.style.display = currentUser ? 'flex' : 'none';
-        if (notifyFab) notifyFab.style.display = currentUser ? 'flex' : 'none';
 
         if (!currentUser) {
             const chatStack = document.getElementById('userChatStack');
-            const panel = document.getElementById('userChatNotifyPanel');
             if (chatStack) chatStack.style.display = 'none';
-            if (panel) panel.style.display = 'none';
             stopChatPolling();
             isChatOpen = false;
-            isUserChatNotifyOpen = false;
-            const nf = document.getElementById('userChatNotifyFab');
-            if (nf) nf.setAttribute('aria-expanded', 'false');
         } else {
             startChatPolling();
             updateChatUnreadBadge();
@@ -218,11 +224,52 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         return [];
     }
 
+    function shortenUserAgent(ua) {
+        const s = String(ua || 'неизвестно').trim();
+        if (s.length <= 80) return s;
+        return `${s.slice(0, 77)}…`;
+    }
+
+    async function refreshAccountSecurityAlerts() {
+        if (!currentToken || !currentUser) {
+            pendingDeviceAlerts = [];
+            ensureSubscriptionAlertVisibility();
+            return;
+        }
+        try {
+            const response = await fetch(`${API_URL}/auth/account-alerts/device`, {
+                headers: { Authorization: `Bearer ${currentToken}` }
+            });
+            if (!response.ok) throw new Error('alerts');
+            const data = await response.json();
+            pendingDeviceAlerts = Array.isArray(data.deviceAlerts) ? data.deviceAlerts : [];
+        } catch {
+            pendingDeviceAlerts = [];
+        }
+        ensureSubscriptionAlertVisibility();
+    }
+
+    async function dismissDeviceAlert(alertId) {
+        if (!currentToken) return;
+        try {
+            const response = await fetch(`${API_URL}/auth/account-alerts/device/${encodeURIComponent(alertId)}/dismiss`, {
+                method: 'PUT',
+                headers: { Authorization: `Bearer ${currentToken}` }
+            });
+            if (!response.ok) return;
+            await refreshAccountSecurityAlerts();
+        } catch (e) {
+            console.error('dismissDeviceAlert', e);
+        }
+    }
+
     function ensureSubscriptionAlertVisibility() {
         let bellButton = document.getElementById('subscriptionAlertToggle');
         let alertPanel = document.getElementById('subscriptionAlertPanel');
         const navActions = document.querySelector('.nav-actions');
-        const alerts = buildSubscriptionAlerts();
+        const subAlerts = buildSubscriptionAlerts();
+        const deviceAlerts = pendingDeviceAlerts || [];
+        const totalCount = subAlerts.length + deviceAlerts.length;
 
         if (!navActions) return;
 
@@ -231,7 +278,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             bellButton.id = 'subscriptionAlertToggle';
             bellButton.className = 'subscription-alert-toggle';
             bellButton.type = 'button';
-            bellButton.setAttribute('aria-label', 'Уведомления о подписке');
+            bellButton.setAttribute('aria-label', 'Уведомления: подписка и безопасность');
             bellButton.innerHTML = '🔔<span id="subscriptionAlertBadge" class="subscription-alert-badge" style="display:none;">0</span>';
             navActions.prepend(bellButton);
 
@@ -242,19 +289,22 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             alertPanel.innerHTML = '<div id="subscriptionAlertList"></div>';
             document.body.appendChild(alertPanel);
 
-            bellButton.addEventListener('click', (e) => {
+            bellButton.addEventListener('click', async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (!alertPanel) return;
+                await refreshAccountSecurityAlerts();
+                const panel = document.getElementById('subscriptionAlertPanel');
+                const btn = document.getElementById('subscriptionAlertToggle');
+                if (!panel || !btn) return;
 
                 isSubscriptionAlertsOpen = !isSubscriptionAlertsOpen;
                 if (isSubscriptionAlertsOpen) {
-                    const rect = bellButton.getBoundingClientRect();
-                    alertPanel.style.top = `${Math.round(rect.bottom + window.scrollY + 10)}px`;
-                    alertPanel.style.left = `${Math.round(rect.right + window.scrollX - 320)}px`;
-                    alertPanel.style.display = 'block';
+                    const rect = btn.getBoundingClientRect();
+                    panel.style.top = `${Math.round(rect.bottom + window.scrollY + 10)}px`;
+                    panel.style.left = `${Math.round(rect.right + window.scrollX - 320)}px`;
+                    panel.style.display = 'block';
                 } else {
-                    alertPanel.style.display = 'none';
+                    panel.style.display = 'none';
                 }
             });
 
@@ -276,7 +326,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const list = document.getElementById('subscriptionAlertList');
         alertPanel = document.getElementById('subscriptionAlertPanel');
 
-        if (!currentUser || alerts.length === 0) {
+        if (!currentUser || totalCount === 0) {
             bellButton.style.display = 'none';
             if (alertPanel) alertPanel.style.display = 'none';
             isSubscriptionAlertsOpen = false;
@@ -285,16 +335,38 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
         bellButton.style.display = 'inline-flex';
         if (badge) {
-            badge.textContent = String(alerts.length);
+            badge.textContent = String(totalCount);
             badge.style.display = 'flex';
         }
         if (list) {
-            list.innerHTML = alerts.map(alert => `
+            const subHtml = subAlerts.map(alert => `
                 <div class="subscription-alert-item ${alert.level}">
                     <h4>${alert.title}</h4>
                     <p>${alert.text}</p>
                 </div>
             `).join('');
+            const devHtml = deviceAlerts.map((a) => {
+                const when = a.createdAt ? new Date(a.createdAt).toLocaleString('ru-RU') : '';
+                const ip = a.ipAddress || '—';
+                return `
+                <div class="subscription-alert-item info device-login-alert" data-device-alert-id="${a.id}">
+                    <h4>Вход с нового устройства</h4>
+                    <p class="device-login-meta">${when} · IP: ${escapeHtmlStr(ip)}</p>
+                    <p class="device-login-ua">${escapeHtmlStr(shortenUserAgent(a.userAgent))}</p>
+                    <p class="device-login-hint">Если это были не вы, смените пароль в профиле.</p>
+                    <button type="button" class="btn btn-secondary btn-sm device-login-dismiss" data-dismiss-id="${a.id}">Скрыть</button>
+                </div>`;
+            }).join('');
+            list.innerHTML = subHtml + devHtml;
+            list.querySelectorAll('.device-login-dismiss').forEach((btn) => {
+                btn.addEventListener('click', async (ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    const id = btn.getAttribute('data-dismiss-id');
+                    if (!id) return;
+                    await dismissDeviceAlert(id);
+                });
+            });
         }
     }
 
@@ -657,36 +729,14 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     function initUserChatWidget() {
         if (document.getElementById('userChatToggle')) return;
 
-        const notifyFab = document.createElement('button');
-        notifyFab.id = 'userChatNotifyFab';
-        notifyFab.className = 'user-chat-toggle user-chat-toggle--notify';
-        notifyFab.type = 'button';
-        notifyFab.setAttribute('aria-label', 'Уведомления от администратора');
-        notifyFab.setAttribute('aria-expanded', 'false');
-        notifyFab.setAttribute('title', 'Уведомления');
-        notifyFab.innerHTML = `<span class="user-chat-toggle-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span><span id="userChatNotifyFabBadge" class="user-chat-badge" style="display:none;">0</span>`;
-        notifyFab.style.display = 'none';
-
         const chatToggle = document.createElement('button');
         chatToggle.id = 'userChatToggle';
         chatToggle.className = 'user-chat-toggle';
         chatToggle.type = 'button';
-        chatToggle.setAttribute('aria-label', 'Открыть чат с администратором');
+        chatToggle.setAttribute('aria-label', 'Чат с администратором');
         chatToggle.setAttribute('title', 'Чат');
-        chatToggle.innerHTML = `<span class="user-chat-toggle-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>`;
+        chatToggle.innerHTML = `<span class="user-chat-toggle-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span><span id="userChatUnreadBadge" class="user-chat-badge" style="display:none;">0</span>`;
         chatToggle.style.display = 'none';
-
-        const notifyPanel = document.createElement('div');
-        notifyPanel.id = 'userChatNotifyPanel';
-        notifyPanel.className = 'user-chat-notify-popover';
-        notifyPanel.style.display = 'none';
-        notifyPanel.setAttribute('role', 'region');
-        notifyPanel.setAttribute('aria-label', 'Уведомления');
-        notifyPanel.innerHTML = `
-            <div class="user-chat-notify-popover-head">Уведомления</div>
-            <div id="userChatNotifyList" class="user-chat-notify-list"></div>
-            <button type="button" id="userChatNotifyMarkRead" class="user-chat-notify-mark-read">Отметить все прочитанными</button>
-        `;
 
         const chatStack = document.createElement('div');
         chatStack.id = 'userChatStack';
@@ -713,22 +763,13 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         chatStack.appendChild(chatWindow);
 
         document.body.appendChild(chatToggle);
-        document.body.appendChild(notifyFab);
-        document.body.appendChild(notifyPanel);
         document.body.appendChild(chatStack);
-
-        notifyFab.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setUserChatNotifyPanelOpen(!isUserChatNotifyOpen);
-        });
 
         chatToggle.addEventListener('click', async (e) => {
             e.stopPropagation();
             isChatOpen = !isChatOpen;
             chatStack.style.display = isChatOpen ? 'flex' : 'none';
             if (isChatOpen) {
-                setUserChatNotifyPanelOpen(false);
                 await loadUserChatMessages();
             }
         });
@@ -739,32 +780,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 await markAdminMessagesAsRead();
                 await updateChatUnreadBadge();
                 isChatOpen = false;
-                setUserChatNotifyPanelOpen(false);
                 chatStack.style.display = 'none';
             });
-        }
-
-        const markReadBtn = document.getElementById('userChatNotifyMarkRead');
-        if (markReadBtn) {
-            markReadBtn.addEventListener('click', async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                await markAdminMessagesAsRead();
-                await loadUserChatMessages();
-                await updateChatUnreadBadge();
-                await renderUserChatNotifyPanel();
-            });
-        }
-
-        if (!document.userChatNotifyOutsideClickHandler) {
-            document.userChatNotifyOutsideClickHandler = (e) => {
-                const panel = document.getElementById('userChatNotifyPanel');
-                const fab = document.getElementById('userChatNotifyFab');
-                if (!panel || !fab || panel.style.display === 'none') return;
-                if (fab.contains(e.target) || panel.contains(e.target)) return;
-                setUserChatNotifyPanelOpen(false);
-            };
-            document.addEventListener('click', document.userChatNotifyOutsideClickHandler);
         }
 
         const chatForm = document.getElementById('userChatForm');
@@ -801,11 +818,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     }
 
     function escapeChatHtml(text) {
-        return String(text || '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
+        return escapeHtmlStr(text);
     }
 
     async function fetchUserChatMessagesList() {
@@ -839,66 +852,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
     }
 
-    async function renderUserChatNotifyPanel() {
-        const list = document.getElementById('userChatNotifyList');
-        if (!list || !currentUser || !currentToken) return;
-
-        try {
-            const messages = await fetchUserChatMessagesList();
-            const adminMsgs = messages.filter((m) => m.isAdmin).reverse();
-            const recent = adminMsgs.slice(0, 20);
-
-            if (recent.length === 0) {
-                list.innerHTML = '<p class="user-chat-notify-empty">Пока нет сообщений от администратора.</p>';
-                return;
-            }
-
-            list.innerHTML = recent.map((msg) => {
-                const preview = msg.text.length > 140 ? `${msg.text.slice(0, 137)}…` : msg.text;
-                const unread = !msg.isRead;
-                const time = new Date(msg.createdAt).toLocaleString('ru-RU');
-                return `
-                    <button type="button" class="user-chat-notify-item${unread ? ' unread' : ''}" data-msg-id="${msg.id}">
-                        <span class="user-chat-notify-preview">${escapeChatHtml(preview)}</span>
-                        <span class="user-chat-notify-time">${time}</span>
-                    </button>
-                `;
-            }).join('');
-
-            list.querySelectorAll('.user-chat-notify-item').forEach((btn) => {
-                btn.addEventListener('click', async () => {
-                    await markAdminMessagesAsRead();
-                    await loadUserChatMessages();
-                    await updateChatUnreadBadge();
-                    const panel = document.getElementById('userChatNotifyPanel');
-                    const fab = document.getElementById('userChatNotifyFab');
-                    if (panel) panel.style.display = 'none';
-                    if (fab) fab.setAttribute('aria-expanded', 'false');
-                    isUserChatNotifyOpen = false;
-                    const messagesEl = document.getElementById('userChatMessages');
-                    if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
-                });
-            });
-        } catch (error) {
-            console.error('Ошибка загрузки уведомлений чата:', error);
-            list.innerHTML = '<p class="user-chat-notify-empty">Не удалось загрузить уведомления.</p>';
-        }
-    }
-
-    function setUserChatNotifyPanelOpen(open) {
-        const panel = document.getElementById('userChatNotifyPanel');
-        const fab = document.getElementById('userChatNotifyFab');
-        if (!panel || !fab) return;
-        isUserChatNotifyOpen = open;
-        panel.style.display = open ? 'block' : 'none';
-        fab.setAttribute('aria-expanded', open ? 'true' : 'false');
-        if (open) {
-            renderUserChatNotifyPanel();
-        }
-    }
-
     async function updateChatUnreadBadge() {
-        const badge = document.getElementById('userChatNotifyFabBadge');
+        const badge = document.getElementById('userChatUnreadBadge');
         if (!badge || !currentUser || !currentToken) return;
 
         try {
@@ -911,6 +866,10 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             const show = count > 0 ? 'inline-flex' : 'none';
             badge.textContent = String(count);
             badge.style.display = show;
+            const chatBtn = document.getElementById('userChatToggle');
+            if (chatBtn) {
+                chatBtn.setAttribute('aria-label', count > 0 ? `Чат, непрочитано: ${count}` : 'Чат с администратором');
+            }
         } catch (error) {
             console.error('Ошибка получения счетчика непрочитанных сообщений:', error);
         }
@@ -932,6 +891,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         if (chatPollInterval) return;
         chatPollInterval = setInterval(async () => {
             if (!currentUser || !currentToken) return;
+            await refreshAccountSecurityAlerts();
             await updateChatUnreadBadge();
             if (isChatOpen) {
                 await loadUserChatMessages();
@@ -1143,6 +1103,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     function logout() {
         currentUser = null;
         currentToken = null;
+        pendingDeviceAlerts = [];
         stopChatPolling();
         localStorage.removeItem('token');
         showNotification('Вы вышли из системы', 'success');
