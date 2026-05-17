@@ -1111,21 +1111,48 @@ async function editTest(testId) {
     }
 }
 
+async function populateQuestionTestSelect(selectedTestId) {
+    const select = document.getElementById('questionTestId');
+    if (!select) return;
+
+    const response = await fetch(`${ADMIN_API_URL}/tests`, {
+        headers: {
+            'Authorization': `Bearer ${currentAdminToken}`
+        }
+    });
+    if (!response.ok) {
+        throw new Error('Ошибка загрузки тестов');
+    }
+    const tests = await response.json();
+    select.innerHTML = '<option value="">Выберите тест</option>' +
+        tests.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+
+    if (selectedTestId != null && selectedTestId !== '') {
+        select.value = String(selectedTestId);
+    }
+}
+
 // Редактирование вопроса
 async function editQuestion(questionId) {
     try {
-        const response = await fetch(`${ADMIN_API_URL}/questions?testId=`, {
+        const testFilter = document.getElementById('questionsTestFilter')?.value || '';
+        const query = testFilter ? `?testId=${encodeURIComponent(testFilter)}` : '';
+        const response = await fetch(`${ADMIN_API_URL}/questions${query}`, {
             headers: {
                 'Authorization': `Bearer ${currentAdminToken}`
             }
         });
+        if (!response.ok) {
+            throw new Error('Ошибка загрузки вопроса');
+        }
         const questions = await response.json();
         const question = questions.find(q => q.id === questionId);
 
         if (question) {
+            await populateQuestionTestSelect(question.testId ?? question.Test?.id);
+
             document.getElementById('questionId').value = question.id;
             document.getElementById('questionText').value = question.text;
-            document.getElementById('questionTestId').value = question.testId;
             
             // Заполняем ответы
             const answersList = document.getElementById('answersList');
@@ -1146,6 +1173,8 @@ async function editQuestion(questionId) {
             
             document.getElementById('questionModalTitle').textContent = 'Редактировать вопрос';
             document.getElementById('questionModal').style.display = 'block';
+        } else {
+            showNotification('Вопрос не найден', 'error');
         }
     } catch (error) {
         console.error('Ошибка загрузки вопроса:', error);
@@ -1528,19 +1557,12 @@ function setupAdminEventListeners() {
     const addQuestionBtn = document.getElementById('addQuestionBtn');
     if (addQuestionBtn) {
         addQuestionBtn.addEventListener('click', async () => {
-            // Загружаем тесты для выбора
             try {
-                const response = await fetch(`${ADMIN_API_URL}/tests`, {
-                    headers: {
-                        'Authorization': `Bearer ${currentAdminToken}`
-                    }
-                });
-                const tests = await response.json();
-                const select = document.getElementById('questionTestId');
-                select.innerHTML = '<option value="">Выберите тест</option>' + 
-                    tests.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+                const presetTestId = document.getElementById('questionsTestFilter')?.value || '';
+                await populateQuestionTestSelect(presetTestId || undefined);
             } catch (error) {
                 console.error('Ошибка загрузки тестов:', error);
+                showNotification('Ошибка загрузки списка тестов', 'error');
             }
 
             document.getElementById('questionId').value = '';
