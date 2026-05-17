@@ -265,6 +265,46 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
     }
 
+    function closeSubscriptionAlertPanel() {
+        const panel = document.getElementById('subscriptionAlertPanel');
+        if (panel) {
+            panel.style.display = 'none';
+            panel.setAttribute('aria-hidden', 'true');
+        }
+        isSubscriptionAlertsOpen = false;
+    }
+
+    function positionSubscriptionAlertPanel() {
+        const panel = document.getElementById('subscriptionAlertPanel');
+        const dock = document.getElementById('userChatFabDock');
+        if (!panel || !dock) return;
+
+        const dockRect = dock.getBoundingClientRect();
+        const gap = 12;
+        const bottomOffset = Math.max(gap, Math.round(window.innerHeight - dockRect.top + gap));
+
+        panel.style.top = 'auto';
+        panel.style.left = 'auto';
+        panel.style.right = `${Math.max(12, Math.round(window.innerWidth - dockRect.right))}px`;
+        panel.style.bottom = `${bottomOffset}px`;
+    }
+
+    function openSubscriptionAlertPanel() {
+        const panel = document.getElementById('subscriptionAlertPanel');
+        if (!panel) return;
+
+        if (isChatOpen) {
+            isChatOpen = false;
+            const chatStack = document.getElementById('userChatStack');
+            if (chatStack) chatStack.style.display = 'none';
+        }
+
+        positionSubscriptionAlertPanel();
+        panel.style.display = 'flex';
+        panel.setAttribute('aria-hidden', 'false');
+        isSubscriptionAlertsOpen = true;
+    }
+
     function ensureSubscriptionAlertVisibility() {
         let bellButton = document.getElementById('subscriptionAlertToggle');
         let alertPanel = document.getElementById('subscriptionAlertPanel');
@@ -291,25 +331,35 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             alertPanel.id = 'subscriptionAlertPanel';
             alertPanel.className = 'subscription-alert-panel';
             alertPanel.style.display = 'none';
-            alertPanel.innerHTML = '<div id="subscriptionAlertList"></div>';
+            alertPanel.setAttribute('role', 'dialog');
+            alertPanel.setAttribute('aria-label', 'Уведомления');
+            alertPanel.setAttribute('aria-hidden', 'true');
+            alertPanel.innerHTML = `
+                <div class="subscription-alert-panel-head">
+                    <span>Уведомления</span>
+                    <button type="button" class="subscription-alert-panel-close" aria-label="Закрыть">✕</button>
+                </div>
+                <div id="subscriptionAlertList" class="subscription-alert-panel-list"></div>
+            `;
             document.body.appendChild(alertPanel);
+
+            const closePanelBtn = alertPanel.querySelector('.subscription-alert-panel-close');
+            if (closePanelBtn) {
+                closePanelBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    closeSubscriptionAlertPanel();
+                });
+            }
 
             bellButton.addEventListener('click', async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 await refreshAccountSecurityAlerts();
-                const panel = document.getElementById('subscriptionAlertPanel');
-                const btn = document.getElementById('subscriptionAlertToggle');
-                if (!panel || !btn) return;
-
-                isSubscriptionAlertsOpen = !isSubscriptionAlertsOpen;
                 if (isSubscriptionAlertsOpen) {
-                    const rect = btn.getBoundingClientRect();
-                    panel.style.top = `${Math.round(rect.bottom + window.scrollY + 10)}px`;
-                    panel.style.left = `${Math.round(rect.right + window.scrollX - 320)}px`;
-                    panel.style.display = 'block';
+                    closeSubscriptionAlertPanel();
                 } else {
-                    panel.style.display = 'none';
+                    openSubscriptionAlertPanel();
                 }
             });
 
@@ -317,13 +367,30 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 document.subscriptionAlertsOutsideHandler = (e) => {
                     const panel = document.getElementById('subscriptionAlertPanel');
                     const btn = document.getElementById('subscriptionAlertToggle');
+                    const dock = document.getElementById('userChatFabDock');
                     if (!panel || !btn) return;
-                    if (!panel.contains(e.target) && !btn.contains(e.target)) {
-                        panel.style.display = 'none';
-                        isSubscriptionAlertsOpen = false;
+                    if (panel.contains(e.target) || btn.contains(e.target) || dock?.contains(e.target)) {
+                        return;
                     }
+                    closeSubscriptionAlertPanel();
                 };
                 document.addEventListener('click', document.subscriptionAlertsOutsideHandler);
+            }
+
+            if (!document.subscriptionAlertsResizeHandler) {
+                document.subscriptionAlertsResizeHandler = () => {
+                    if (isSubscriptionAlertsOpen) positionSubscriptionAlertPanel();
+                };
+                window.addEventListener('resize', document.subscriptionAlertsResizeHandler);
+            }
+
+            if (!document.subscriptionAlertsEscapeHandler) {
+                document.subscriptionAlertsEscapeHandler = (e) => {
+                    if (e.key === 'Escape' && isSubscriptionAlertsOpen) {
+                        closeSubscriptionAlertPanel();
+                    }
+                };
+                document.addEventListener('keydown', document.subscriptionAlertsEscapeHandler);
             }
         }
 
@@ -333,8 +400,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
         if (!currentUser || totalCount === 0) {
             bellButton.style.display = 'none';
-            if (alertPanel) alertPanel.style.display = 'none';
-            isSubscriptionAlertsOpen = false;
+            closeSubscriptionAlertPanel();
             return;
         }
 
@@ -772,6 +838,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
         chatToggle.addEventListener('click', async (e) => {
             e.stopPropagation();
+            if (isSubscriptionAlertsOpen) {
+                closeSubscriptionAlertPanel();
+            }
             isChatOpen = !isChatOpen;
             chatStack.style.display = isChatOpen ? 'flex' : 'none';
             if (isChatOpen) {

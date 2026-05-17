@@ -284,15 +284,70 @@ html[data-theme="dark"] .navbar {
 }
 
 .subscription-alert-panel {
-    position: absolute;
-    z-index: 1950;
-    width: 320px;
+    position: fixed;
+    z-index: 1910;
+    right: 20px;
+    bottom: 88px;
+    width: 340px;
     max-width: calc(100vw - 24px);
+    max-height: min(420px, calc(100vh - 120px));
     background: var(--card-bg);
     border: 1px solid var(--border-light);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-xl);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    box-sizing: border-box;
+    animation: user-fab-popover-in 0.22s ease;
+}
+
+@keyframes user-fab-popover-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.subscription-alert-panel-head {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.subscription-alert-panel-close {
+    border: none;
+    background: transparent;
+    color: var(--text-color);
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0.2rem 0.35rem;
+    border-radius: var(--radius);
+}
+
+.subscription-alert-panel-close:hover {
+    background: var(--bg-secondary);
+}
+
+.subscription-alert-panel-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
     padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
 }
 
 .subscription-alert-item {
@@ -4730,8 +4785,11 @@ html[data-theme="dark"] .navbar {
 }
 
 .user-chat-fab-dock .subscription-alert-toggle {
+    width: 56px;
+    height: 56px;
     background: var(--primary-color);
     color: #fff;
+    font-size: inherit;
 }
 
 .user-chat-badge {
