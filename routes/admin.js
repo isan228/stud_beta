@@ -936,7 +936,11 @@ router.post('/questions', adminAuth, [
 
 // Обновить вопрос
 router.put('/questions/:id', adminAuth, [
-  body('text').trim().notEmpty().withMessage('Текст вопроса обязателен')
+  body('text').trim().notEmpty().withMessage('Текст вопроса обязателен'),
+  body('testId').optional().isInt().withMessage('ID теста должен быть числом'),
+  body('answers').isArray({ min: 2 }).withMessage('Должно быть минимум 2 ответа'),
+  body('answers.*.text').trim().notEmpty().withMessage('Текст ответа обязателен'),
+  body('answers.*.isCorrect').isBoolean().withMessage('isCorrect должен быть boolean')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -949,11 +953,64 @@ router.put('/questions/:id', adminAuth, [
       return res.status(404).json({ error: 'Вопрос не найден' });
     }
 
-    const { text } = req.body;
+    const { text, testId, answers } = req.body;
+
+    const hasCorrectAnswer = answers.some(a => a.isCorrect);
+    if (!hasCorrectAnswer) {
+      return res.status(400).json({ error: 'Должен быть хотя бы один правильный ответ' });
+    }
+
     question.text = text;
+    if (testId !== undefined && testId !== null) {
+      question.testId = testId;
+    }
     await question.save();
 
-    res.json(question);
+    const existingAnswers = await Answer.findAll({ where: { questionId: question.id } });
+    const submittedIds = new Set(
+      answers
+        .filter(a => a.id !== undefined && a.id !== null && a.id !== '')
+        .map(a => Number(a.id))
+    );
+
+    for (const existing of existingAnswers) {
+      if (!submittedIds.has(existing.id)) {
+        await existing.destroy();
+      }
+    }
+
+    for (const answer of answers) {
+      const answerId = answer.id !== undefined && answer.id !== null && answer.id !== ''
+        ? Number(answer.id)
+        : null;
+
+      if (answerId) {
+        const existingAnswer = await Answer.findOne({
+          where: { id: answerId, questionId: question.id }
+        });
+        if (existingAnswer) {
+          existingAnswer.text = answer.text;
+          existingAnswer.isCorrect = Boolean(answer.isCorrect);
+          await existingAnswer.save();
+          continue;
+        }
+      }
+
+      await Answer.create({
+        text: answer.text,
+        isCorrect: Boolean(answer.isCorrect),
+        questionId: question.id
+      });
+    }
+
+    const questionWithAnswers = await Question.findByPk(question.id, {
+      include: [{
+        model: Answer,
+        as: 'Answers'
+      }]
+    });
+
+    res.json(questionWithAnswers);
   } catch (error) {
     console.error('Ошибка обновления вопроса:', error);
     res.status(500).json({ error: 'Ошибка сервера' });

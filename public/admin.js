@@ -1165,7 +1165,8 @@ async function editQuestion(questionId) {
             answersList.innerHTML = question.Answers.map((answer, index) => `
                 <div class="answer-item-admin" style="margin-bottom: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: var(--radius);">
                     <div class="form-group">
-                        <input type="text" class="answer-text" value="${answer.text}" placeholder="Текст ответа" required>
+                        <input type="hidden" class="answer-id" value="${answer.id}">
+                        <input type="text" class="answer-text" value="${escapeAdminHtml(answer.text)}" placeholder="Текст ответа" required>
                     </div>
                     <div class="form-group checkbox-group">
                         <label>
@@ -1298,10 +1299,17 @@ async function saveQuestion(e) {
     const testId = parseInt(document.getElementById('questionTestId').value);
     
     const answerItems = document.querySelectorAll('.answer-item-admin');
-    const answers = Array.from(answerItems).map(item => ({
-        text: item.querySelector('.answer-text').value,
-        isCorrect: item.querySelector('.answer-correct').checked
-    }));
+    const answers = Array.from(answerItems).map(item => {
+        const answer = {
+            text: item.querySelector('.answer-text').value,
+            isCorrect: item.querySelector('.answer-correct').checked
+        };
+        const answerId = item.querySelector('.answer-id')?.value;
+        if (answerId) {
+            answer.id = parseInt(answerId, 10);
+        }
+        return answer;
+    });
 
     if (answers.length < 2) {
         showNotification('Должно быть минимум 2 ответа', 'error');
@@ -1314,46 +1322,26 @@ async function saveQuestion(e) {
     }
 
     try {
-        if (id) {
-            // Обновление вопроса
-            const response = await fetch(`${ADMIN_API_URL}/questions/${id}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${currentAdminToken}`
-                },
-                body: JSON.stringify({ text })
-            });
+        const url = id ? `${ADMIN_API_URL}/questions/${id}` : `${ADMIN_API_URL}/questions`;
+        const method = id ? 'PUT' : 'POST';
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentAdminToken}`
+            },
+            body: JSON.stringify({ text, testId, answers })
+        });
 
-            if (response.ok) {
-                showNotification('Вопрос обновлен', 'success');
-                document.getElementById('questionModal').style.display = 'none';
-                document.getElementById('questionForm').reset();
-                loadQuestions();
-            } else {
-                const result = await response.json();
-                showNotification(result.error || 'Ошибка сохранения', 'error');
-            }
+        if (response.ok) {
+            showNotification(id ? 'Вопрос обновлен' : 'Вопрос создан', 'success');
+            document.getElementById('questionModal').style.display = 'none';
+            document.getElementById('questionForm').reset();
+            loadQuestions();
         } else {
-            // Создание вопроса
-            const response = await fetch(`${ADMIN_API_URL}/questions`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${currentAdminToken}`
-                },
-                body: JSON.stringify({ text, testId, answers })
-            });
-
-            if (response.ok) {
-                showNotification('Вопрос создан', 'success');
-                document.getElementById('questionModal').style.display = 'none';
-                document.getElementById('questionForm').reset();
-                loadQuestions();
-            } else {
-                const result = await response.json();
-                showNotification(result.error || 'Ошибка сохранения', 'error');
-            }
+            const result = await response.json();
+            const validationError = result.errors?.[0]?.msg;
+            showNotification(validationError || result.error || 'Ошибка сохранения', 'error');
         }
     } catch (error) {
         console.error('Ошибка сохранения вопроса:', error);
