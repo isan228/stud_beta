@@ -4,7 +4,7 @@ const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { Op } = require('sequelize');
-const { User, UserStats, UserDeviceAlert } = require('../models');
+const { User, UserStats, UserDeviceAlert, UserBroadcastNotification, BroadcastMessage } = require('../models');
 
 function getClientIp(req) {
   const forwarded = req.headers['x-forwarded-for'];
@@ -243,6 +243,62 @@ router.put('/account-alerts/device/:id/dismiss', require('../middleware/auth'), 
     res.json({ ok: true });
   } catch (error) {
     console.error('Ошибка dismiss device alert:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Уведомления от администрации (колокольчик)
+router.get('/account-alerts/broadcast', require('../middleware/auth'), async (req, res) => {
+  try {
+    const rows = await UserBroadcastNotification.findAll({
+      where: {
+        userId: req.user.id,
+        dismissedByUser: false
+      },
+      include: [{
+        model: BroadcastMessage,
+        as: 'BroadcastMessage',
+        attributes: ['title', 'message', 'createdAt']
+      }],
+      order: [['createdAt', 'DESC']],
+      limit: 30
+    });
+
+    const broadcastAlerts = rows.map((row) => {
+      const json = row.toJSON();
+      const msg = json.BroadcastMessage || {};
+      return {
+        id: json.id,
+        title: msg.title || 'Сообщение',
+        message: msg.message || '',
+        createdAt: msg.createdAt || json.createdAt
+      };
+    });
+
+    res.json({ broadcastAlerts });
+  } catch (error) {
+    console.error('Ошибка account-alerts/broadcast:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.put('/account-alerts/broadcast/:id/dismiss', require('../middleware/auth'), async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ error: 'Некорректный идентификатор' });
+    }
+    const alert = await UserBroadcastNotification.findOne({
+      where: { id, userId: req.user.id }
+    });
+    if (!alert) {
+      return res.status(404).json({ error: 'Уведомление не найдено' });
+    }
+    alert.dismissedByUser = true;
+    await alert.save();
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Ошибка dismiss broadcast alert:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

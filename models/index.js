@@ -15,6 +15,8 @@ const UserDeviceAlert = require('./UserDeviceAlert');
 const News = require('./News');
 const ChatMessage = require('./ChatMessage');
 const PromoCode = require('./PromoCode');
+const BroadcastMessage = require('./BroadcastMessage');
+const UserBroadcastNotification = require('./UserBroadcastNotification');
 
 // Определение связей
 User.hasMany(TestResult, { foreignKey: 'userId', as: 'TestResults' });
@@ -54,6 +56,12 @@ UserDeviceAlert.belongsTo(User, { foreignKey: 'userId', as: 'User' });
 User.hasMany(ChatMessage, { foreignKey: 'userId', as: 'ChatMessages' });
 ChatMessage.belongsTo(User, { foreignKey: 'userId', as: 'User' });
 
+// Массовые уведомления в колокольчик
+BroadcastMessage.hasMany(UserBroadcastNotification, { foreignKey: 'broadcastMessageId', as: 'Deliveries' });
+UserBroadcastNotification.belongsTo(BroadcastMessage, { foreignKey: 'broadcastMessageId', as: 'BroadcastMessage' });
+User.hasMany(UserBroadcastNotification, { foreignKey: 'userId', as: 'BroadcastNotifications' });
+UserBroadcastNotification.belongsTo(User, { foreignKey: 'userId', as: 'User' });
+
 module.exports = {
   sequelize,
   User,
@@ -71,6 +79,8 @@ module.exports = {
   UserDeviceAlert,
   News,
   ChatMessage,
-  PromoCode
+  PromoCode,
+  BroadcastMessage,
+  UserBroadcastNotification
 };
 

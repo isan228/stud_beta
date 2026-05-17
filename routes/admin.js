@@ -3,7 +3,7 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const adminAuth = require('../middleware/adminAuth');
-const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, sequelize } = require('../models');
+const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, BroadcastMessage, UserBroadcastNotification, sequelize } = require('../models');
 const { Op, QueryTypes } = require('sequelize');
 const { Sequelize } = require('sequelize');
 
@@ -312,6 +312,74 @@ router.put('/chats/:userId/read', adminAuth, async (req, res) => {
     res.json({ updated });
   } catch (error) {
     console.error('Ошибка пометки сообщений пользователя как прочитанных:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Массовое уведомление всем пользователям (колокольчик на сайте)
+router.get('/broadcast-notifications', adminAuth, async (req, res) => {
+  try {
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 15));
+    const rows = await BroadcastMessage.findAll({
+      order: [['createdAt', 'DESC']],
+      limit,
+      attributes: ['id', 'title', 'message', 'recipientCount', 'createdAt']
+    });
+    res.json({ broadcasts: rows.map((r) => r.toJSON()) });
+  } catch (error) {
+    console.error('Ошибка списка рассылок:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.post('/broadcast-notifications', adminAuth, [
+  body('title')
+    .trim()
+    .isLength({ min: 1, max: 200 })
+    .withMessage('Заголовок от 1 до 200 символов'),
+  body('message')
+    .trim()
+    .isLength({ min: 1, max: 4000 })
+    .withMessage('Текст от 1 до 4000 символов')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const title = req.body.title.trim();
+    const message = req.body.message.trim();
+    const users = await User.findAll({ attributes: ['id'], raw: true });
+
+    if (!users.length) {
+      return res.status(400).json({ error: 'Нет пользователей для рассылки' });
+    }
+
+    const broadcast = await BroadcastMessage.create({
+      title,
+      message,
+      adminId: req.admin.id,
+      recipientCount: users.length
+    });
+
+    const deliveries = users.map((u) => ({
+      broadcastMessageId: broadcast.id,
+      userId: u.id,
+      dismissedByUser: false
+    }));
+
+    const chunkSize = 500;
+    for (let i = 0; i < deliveries.length; i += chunkSize) {
+      await UserBroadcastNotification.bulkCreate(deliveries.slice(i, i + chunkSize));
+    }
+
+    res.status(201).json({
+      broadcast: broadcast.toJSON(),
+      recipientCount: users.length
+    });
+  } catch (error) {
+    console.error('Ошибка рассылки уведомлений:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

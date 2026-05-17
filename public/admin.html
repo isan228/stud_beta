@@ -263,6 +263,19 @@
 
                 <!-- Чаты пользователей -->
                 <div id="chatsTab" class="admin-tab-content">
+                    <div class="admin-broadcast-section">
+                        <h3>Уведомление всем (колокольчик на сайте)</h3>
+                        <p class="page-description">Сообщение появится у каждого пользователя в панели уведомлений (колокольчик), не в чате.</p>
+                        <form id="adminBroadcastForm" class="admin-broadcast-form">
+                            <input type="text" id="adminBroadcastTitle" class="form-group input" placeholder="Заголовок" maxlength="200" required>
+                            <textarea id="adminBroadcastMessage" class="form-group input" rows="4" placeholder="Текст сообщения" maxlength="4000" required></textarea>
+                            <button type="submit" class="btn btn-primary">Отправить всем</button>
+                        </form>
+                        <div class="admin-broadcast-history">
+                            <h4>Последние рассылки</h4>
+                            <div id="adminBroadcastHistory" class="admin-list"></div>
+                        </div>
+                    </div>
                     <div class="admin-section-header">
                         <h2>Чаты с пользователями</h2>
                     </div>

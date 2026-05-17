@@ -58,6 +58,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     let chatPollInterval = null;
     let isChatOpen = false;
     let pendingDeviceAlerts = [];
+    let pendingBroadcastAlerts = [];
     let isSubscriptionAlertsOpen = false;
     /** Защита от двойного вызова setupEventListeners (init в app.js + inline DOMContentLoaded на страницах). */
     let appEventListenersAttached = false;
@@ -133,6 +134,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 return true; // Успешная загрузка
             } else {
                 pendingDeviceAlerts = [];
+                pendingBroadcastAlerts = [];
                 // Токен невалидный
                 if (response.status === 401) {
                     currentUser = null;
@@ -146,6 +148,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             console.error('Ошибка загрузки пользователя:', error);
             currentUser = null;
             pendingDeviceAlerts = [];
+            pendingBroadcastAlerts = [];
             updateUI();
             return false;
         }
@@ -235,20 +238,50 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     async function refreshAccountSecurityAlerts() {
         if (!currentToken || !currentUser) {
             pendingDeviceAlerts = [];
+            pendingBroadcastAlerts = [];
             ensureSubscriptionAlertVisibility();
             return;
         }
         try {
-            const response = await fetch(`${API_URL}/auth/account-alerts/device`, {
-                headers: { Authorization: `Bearer ${currentToken}` }
-            });
-            if (!response.ok) throw new Error('alerts');
-            const data = await response.json();
-            pendingDeviceAlerts = Array.isArray(data.deviceAlerts) ? data.deviceAlerts : [];
+            const [deviceRes, broadcastRes] = await Promise.all([
+                fetch(`${API_URL}/auth/account-alerts/device`, {
+                    headers: { Authorization: `Bearer ${currentToken}` }
+                }),
+                fetch(`${API_URL}/auth/account-alerts/broadcast`, {
+                    headers: { Authorization: `Bearer ${currentToken}` }
+                })
+            ]);
+            if (deviceRes.ok) {
+                const data = await deviceRes.json();
+                pendingDeviceAlerts = Array.isArray(data.deviceAlerts) ? data.deviceAlerts : [];
+            } else {
+                pendingDeviceAlerts = [];
+            }
+            if (broadcastRes.ok) {
+                const data = await broadcastRes.json();
+                pendingBroadcastAlerts = Array.isArray(data.broadcastAlerts) ? data.broadcastAlerts : [];
+            } else {
+                pendingBroadcastAlerts = [];
+            }
         } catch {
             pendingDeviceAlerts = [];
+            pendingBroadcastAlerts = [];
         }
         ensureSubscriptionAlertVisibility();
+    }
+
+    async function dismissBroadcastAlert(alertId) {
+        if (!currentToken) return;
+        try {
+            const response = await fetch(`${API_URL}/auth/account-alerts/broadcast/${encodeURIComponent(alertId)}/dismiss`, {
+                method: 'PUT',
+                headers: { Authorization: `Bearer ${currentToken}` }
+            });
+            if (!response.ok) return;
+            await refreshAccountSecurityAlerts();
+        } catch (e) {
+            console.error('dismissBroadcastAlert', e);
+        }
     }
 
     async function dismissDeviceAlert(alertId) {
@@ -311,7 +344,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const fabDock = document.getElementById('userChatFabDock');
         const subAlerts = buildSubscriptionAlerts();
         const deviceAlerts = pendingDeviceAlerts || [];
-        const totalCount = subAlerts.length + deviceAlerts.length;
+        const broadcastAlerts = pendingBroadcastAlerts || [];
+        const totalCount = subAlerts.length + deviceAlerts.length + broadcastAlerts.length;
 
         if (!fabDock) return;
 
@@ -428,7 +462,28 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                     <button type="button" class="btn btn-secondary btn-sm device-login-dismiss" data-dismiss-id="${a.id}">Скрыть</button>
                 </div>`;
             }).join('');
-            list.innerHTML = subHtml + devHtml;
+            const broadcastHtml = broadcastAlerts.map((a) => {
+                const when = a.createdAt ? new Date(a.createdAt).toLocaleString('ru-RU') : '';
+                const title = escapeHtmlStr(a.title || 'Сообщение от администрации');
+                const text = escapeHtmlStr(a.message || '').replace(/\n/g, '<br>');
+                return `
+                <div class="subscription-alert-item info admin-broadcast-alert" data-broadcast-alert-id="${a.id}">
+                    <h4>${title}</h4>
+                    ${when ? `<p class="device-login-meta">${when}</p>` : ''}
+                    <p class="admin-broadcast-text">${text}</p>
+                    <button type="button" class="btn btn-secondary btn-sm broadcast-alert-dismiss" data-dismiss-id="${a.id}">Скрыть</button>
+                </div>`;
+            }).join('');
+            list.innerHTML = broadcastHtml + subHtml + devHtml;
+            list.querySelectorAll('.broadcast-alert-dismiss').forEach((btn) => {
+                btn.addEventListener('click', async (ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    const id = btn.getAttribute('data-dismiss-id');
+                    if (!id) return;
+                    await dismissBroadcastAlert(id);
+                });
+            });
             list.querySelectorAll('.device-login-dismiss').forEach((btn) => {
                 btn.addEventListener('click', async (ev) => {
                     ev.preventDefault();
@@ -1178,6 +1233,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         currentUser = null;
         currentToken = null;
         pendingDeviceAlerts = [];
+        pendingBroadcastAlerts = [];
         stopChatPolling();
         localStorage.removeItem('token');
         showNotification('Вы вышли из системы', 'success');

@@ -1784,6 +1784,10 @@ function setupAdminEventListeners() {
     if (adminChatForm) {
         adminChatForm.addEventListener('submit', handleAdminChatSubmit);
     }
+    const adminBroadcastForm = document.getElementById('adminBroadcastForm');
+    if (adminBroadcastForm) {
+        adminBroadcastForm.addEventListener('submit', handleAdminBroadcastSubmit);
+    }
     setupAdminChatUserPicker();
 
     const uploadOfferBtn = document.getElementById('uploadOfferBtn');
@@ -2135,6 +2139,7 @@ function switchTab(tabName) {
             loadMessages();
             break;
         case 'chats':
+            loadAdminBroadcastHistory();
             loadAdminChats();
             startAdminChatsPolling();
             break;
@@ -2360,6 +2365,86 @@ async function deleteMessage(messageId) {
     } catch (error) {
         console.error('Ошибка удаления сообщения:', error);
         showNotification('Ошибка удаления сообщения', 'error');
+    }
+}
+
+function escapeAdminHtml(text) {
+    return String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+async function loadAdminBroadcastHistory() {
+    const listEl = document.getElementById('adminBroadcastHistory');
+    if (!listEl) return;
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/broadcast-notifications?limit=15`, {
+            headers: adminAuthHeaders()
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            listEl.innerHTML = '<p style="color: var(--text-muted);">Не удалось загрузить историю</p>';
+            return;
+        }
+        const items = data.broadcasts || [];
+        if (!items.length) {
+            listEl.innerHTML = '<p style="color: var(--text-muted);">Рассылок пока не было</p>';
+            return;
+        }
+        listEl.innerHTML = items.map((item) => {
+            const when = item.createdAt ? new Date(item.createdAt).toLocaleString('ru-RU') : '';
+            const count = item.recipientCount != null ? item.recipientCount : '—';
+            return `
+                <div class="admin-broadcast-item">
+                    <div class="admin-broadcast-item-meta">${escapeAdminHtml(when)} · получателей: ${count}</div>
+                    <h4 style="margin:0 0 0.35rem;font-size:0.95rem;">${escapeAdminHtml(item.title)}</h4>
+                    <p>${escapeAdminHtml(item.message)}</p>
+                </div>`;
+        }).join('');
+    } catch (error) {
+        console.error('Ошибка загрузки рассылок:', error);
+        listEl.innerHTML = '<p style="color: var(--text-muted);">Ошибка загрузки</p>';
+    }
+}
+
+async function handleAdminBroadcastSubmit(e) {
+    e.preventDefault();
+    const titleInput = document.getElementById('adminBroadcastTitle');
+    const messageInput = document.getElementById('adminBroadcastMessage');
+    const title = titleInput ? titleInput.value.trim() : '';
+    const message = messageInput ? messageInput.value.trim() : '';
+    if (!title || !message) {
+        showNotification('Заполните заголовок и текст', 'error');
+        return;
+    }
+    if (!confirm('Отправить это уведомление всем пользователям? Оно появится в колокольчике у каждого.')) {
+        return;
+    }
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/broadcast-notifications`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...adminAuthHeaders()
+            },
+            body: JSON.stringify({ title, message })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const errText = result.error || (result.errors && result.errors[0]?.msg) || 'Ошибка отправки';
+            showNotification(errText, 'error');
+            return;
+        }
+        if (titleInput) titleInput.value = '';
+        if (messageInput) messageInput.value = '';
+        const count = result.recipientCount != null ? result.recipientCount : '';
+        showNotification(`Уведомление отправлено (${count} пользователей)`, 'success');
+        await loadAdminBroadcastHistory();
+    } catch (error) {
+        console.error('Ошибка рассылки:', error);
+        showNotification('Ошибка соединения с сервером', 'error');
     }
 }
 

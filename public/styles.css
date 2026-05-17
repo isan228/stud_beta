@@ -369,6 +369,16 @@ html[data-theme="dark"] .navbar {
     line-height: 1.35;
 }
 
+.subscription-alert-item.admin-broadcast-alert {
+    border-color: rgba(37, 99, 235, 0.35);
+    background: rgba(37, 99, 235, 0.06);
+}
+
+.admin-broadcast-text {
+    margin-top: 0.35rem;
+    word-break: break-word;
+}
+
 .subscription-alert-item.warning {
     border-color: rgba(245, 158, 11, 0.35);
     background: rgba(245, 158, 11, 0.08);
