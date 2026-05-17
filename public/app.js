@@ -1402,17 +1402,13 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     function renderTestCard(test, index) {
         const isFree = test.isFree || false;
-        const locked = !canAccessTest(test);
         const qCount = getTestQuestionCount(test);
-        const lockBadge = locked
-            ? '<span style="background: #f59e0b; color: #111; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">По подписке</span>'
-            : '';
-        const cardClass = `test-card card-animate${locked ? ' test-card--locked' : ''}`;
+        const cardClass = 'test-card card-animate';
         return `
             <div class="${cardClass}" style="animation-delay: ${index * 0.1}s;" role="button" tabindex="0"
                 onclick="handleTestCardClick(${test.id})"
                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();handleTestCardClick(${test.id});}">
-                <h3>${test.name} ${isFree ? '<span style="background: #10b981; color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">БЕСПЛАТНО</span>' : ''}${lockBadge}</h3>
+                <h3>${test.name} ${isFree ? '<span style="background: #10b981; color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">БЕСПЛАТНО</span>' : ''}</h3>
                 <p><strong>Вопросов:</strong> ${qCount}</p>
                 ${test.description ? `<p style="margin-top: 0.5rem; font-size: 0.9rem;">${test.description}</p>` : ''}
             </div>
@@ -1431,34 +1427,12 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         showSubscriptionRequiredModal();
     }
 
-    function buildSubscriptionAccessBanner() {
-        if (hasActiveSubscription()) return '';
-        const subscribeHref = currentUser ? '/profile' : '/register';
-        const subscribeLabel = currentUser ? 'Продлить подписку' : 'Оформить подписку';
-        const loginBtn = currentUser
-            ? ''
-            : '<a href="/login" class="btn btn-secondary">Войти</a>';
-        return `
-            <div class="subscription-access-banner">
-                <p><strong>Оформите подписку для доступа ко всем тестам.</strong></p>
-                <p style="margin: 0.35rem 0 0; font-size: 0.92rem; color: var(--text-secondary);">
-                    Бесплатные тесты отмечены и доступны без подписки.
-                </p>
-                <div class="subscription-access-banner-actions">
-                    <a href="${subscribeHref}" class="btn btn-primary">${subscribeLabel}</a>
-                    ${loginBtn}
-                </div>
-            </div>
-        `;
-    }
-
     async function loadSubjectTests(subjectId, subjectName, subjectDescription = '') {
         currentSubjectId = subjectId;
         currentSubjectName = subjectName;
         currentSubjectDescription = subjectDescription;
 
         try {
-            const hasSubscription = hasActiveSubscription();
             const response = await fetch(`${API_URL}/tests/subjects/${subjectId}/tests`);
             const tests = await response.json();
             subjectTestsCache = Array.isArray(tests) ? tests : [];
@@ -1470,20 +1444,15 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
             const descEl = document.getElementById('subjectDescription');
             if (descEl) {
-                if (!hasSubscription) {
-                    descEl.textContent = 'Оформите подписку для доступа ко всем тестам. Бесплатные тесты можно проходить без подписки.';
-                } else {
-                    descEl.textContent = subjectDescription || 'Выберите тест для прохождения. Каждый тест можно настроить под свои потребности.';
-                }
+                descEl.textContent = subjectDescription || 'Выберите тест для прохождения. Каждый тест можно настроить под свои потребности.';
             }
 
             const container = document.getElementById('testsList');
             if (container) {
-                const banner = buildSubscriptionAccessBanner();
                 if (subjectTestsCache.length === 0) {
-                    container.innerHTML = `${banner}<p style="text-align: center; color: var(--text-secondary); padding: 3rem;">Тесты по данному предмету пока не добавлены</p>`;
+                    container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 3rem;">Тесты по данному предмету пока не добавлены</p>';
                 } else {
-                    container.innerHTML = banner + subjectTestsCache.map((test, index) => renderTestCard(test, index)).join('');
+                    container.innerHTML = subjectTestsCache.map((test, index) => renderTestCard(test, index)).join('');
                 }
             }
         } catch (error) {
