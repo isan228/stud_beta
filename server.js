@@ -95,12 +95,19 @@ try {
 }
 app.use('/api/admin', require('./routes/documentsUpload'));
 
-// Иконка сайта (вкладка браузера, закладки, /favicon.ico)
+// Иконка сайта (вкладка браузера, Google Search, /favicon.ico)
 app.get('/favicon.ico', (req, res) => {
-  res.redirect(301, '/img/icon.svg');
+  res.type('image/png');
+  res.sendFile(path.join(__dirname, 'public', 'img', 'icon-48.png'));
+});
+
+app.get('/favicon.png', (req, res) => {
+  res.type('image/png');
+  res.sendFile(path.join(__dirname, 'public', 'favicon.png'));
 });
 
 app.get('/favicon.svg', (req, res) => {
+  res.type('image/svg+xml');
   res.sendFile(path.join(__dirname, 'public', 'img', 'icon.svg'));
 });
 
