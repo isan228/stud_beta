@@ -177,7 +177,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     }
 
     function ensureUserChatVisibility() {
+        const dock = document.getElementById('userChatFabDock');
         const chatButton = document.getElementById('userChatToggle');
+        if (dock) dock.style.display = currentUser ? 'flex' : 'none';
         if (chatButton) chatButton.style.display = currentUser ? 'flex' : 'none';
 
         if (!currentUser) {
@@ -266,21 +268,24 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     function ensureSubscriptionAlertVisibility() {
         let bellButton = document.getElementById('subscriptionAlertToggle');
         let alertPanel = document.getElementById('subscriptionAlertPanel');
-        const navActions = document.querySelector('.nav-actions');
+        const fabDock = document.getElementById('userChatFabDock');
         const subAlerts = buildSubscriptionAlerts();
         const deviceAlerts = pendingDeviceAlerts || [];
         const totalCount = subAlerts.length + deviceAlerts.length;
 
-        if (!navActions) return;
+        if (!fabDock) return;
+
+        const bellSvg = `<span class="user-chat-toggle-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span>`;
 
         if (!bellButton) {
             bellButton = document.createElement('button');
             bellButton.id = 'subscriptionAlertToggle';
-            bellButton.className = 'subscription-alert-toggle';
+            bellButton.className = 'user-chat-toggle subscription-alert-toggle';
             bellButton.type = 'button';
             bellButton.setAttribute('aria-label', 'Уведомления: подписка и безопасность');
-            bellButton.innerHTML = '🔔<span id="subscriptionAlertBadge" class="subscription-alert-badge" style="display:none;">0</span>';
-            navActions.prepend(bellButton);
+            bellButton.setAttribute('title', 'Уведомления');
+            bellButton.innerHTML = `${bellSvg}<span id="subscriptionAlertBadge" class="user-chat-badge" style="display:none;">0</span>`;
+            fabDock.insertBefore(bellButton, fabDock.firstChild);
 
             alertPanel = document.createElement('div');
             alertPanel.id = 'subscriptionAlertPanel';
@@ -333,7 +338,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             return;
         }
 
-        bellButton.style.display = 'inline-flex';
+        bellButton.style.display = 'flex';
         if (badge) {
             badge.textContent = String(totalCount);
             badge.style.display = 'flex';
@@ -731,7 +736,12 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         chatToggle.setAttribute('aria-label', 'Чат с администратором');
         chatToggle.setAttribute('title', 'Чат');
         chatToggle.innerHTML = `<span class="user-chat-toggle-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span><span id="userChatUnreadBadge" class="user-chat-badge" style="display:none;">0</span>`;
-        chatToggle.style.display = 'none';
+
+        const fabDock = document.createElement('div');
+        fabDock.id = 'userChatFabDock';
+        fabDock.className = 'user-chat-fab-dock';
+        fabDock.style.display = 'none';
+        fabDock.appendChild(chatToggle);
 
         const chatStack = document.createElement('div');
         chatStack.id = 'userChatStack';
@@ -757,7 +767,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
         chatStack.appendChild(chatWindow);
 
-        document.body.appendChild(chatToggle);
+        document.body.appendChild(fabDock);
         document.body.appendChild(chatStack);
 
         chatToggle.addEventListener('click', async (e) => {

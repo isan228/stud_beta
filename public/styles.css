@@ -4661,6 +4661,24 @@ html[data-theme="dark"] .navbar {
     font-weight: 600;
 }
 
+.user-chat-fab-dock {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 1900;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+}
+
+.user-chat-fab-dock .user-chat-toggle {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    flex-shrink: 0;
+}
+
 .user-chat-toggle {
     position: fixed;
     right: 20px;
@@ -4711,13 +4729,9 @@ html[data-theme="dark"] .navbar {
     flex-shrink: 0;
 }
 
-.user-chat-toggle--notify .user-chat-toggle-icon {
-    width: 25px;
-    height: 25px;
-}
-
-.user-chat-toggle--notify {
-    bottom: 88px;
+.user-chat-fab-dock .subscription-alert-toggle {
+    background: var(--primary-color);
+    color: #fff;
 }
 
 .user-chat-badge {
@@ -4755,7 +4769,7 @@ html[data-theme="dark"] .navbar {
 .user-chat-notify-popover {
     position: fixed;
     right: 20px;
-    bottom: 156px;
+    bottom: 88px;
     z-index: 1910;
     width: 340px;
     max-width: calc(100vw - 24px);
