@@ -95,6 +95,15 @@ try {
 }
 app.use('/api/admin', require('./routes/documentsUpload'));
 
+// Иконка сайта (вкладка браузера, закладки, /favicon.ico)
+app.get('/favicon.ico', (req, res) => {
+  res.redirect(301, '/img/icon.svg');
+});
+
+app.get('/favicon.svg', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'img', 'icon.svg'));
+});
+
 // Маршруты для страниц (ДО статических файлов!)
 const pages = {
   '/': 'index.html',
