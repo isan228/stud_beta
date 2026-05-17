@@ -113,15 +113,14 @@
     <div id="registerModal" class="modal" style="display: none;">
         <div class="modal-content">
             <span class="modal-close" id="registerModalClose">&times;</span>
-            <h2>Регистрация требуется</h2>
-            <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">
-                Для доступа к тестам необходимо зарегистрироваться.
-                Создайте аккаунт, чтобы начать подготовку к экзаменам.
+            <h2 id="registerModalTitle">Подписка требуется</h2>
+            <p id="registerModalText" style="margin-bottom: 1.5rem; color: var(--text-secondary);">
+                Оформите подписку для доступа ко всем тестам.
             </p>
-            <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
-                <a href="/register" class="btn btn-primary"
-                    style="flex: 1; min-width: 150px; text-align: center;">Зарегистрироваться</a>
-                <a href="/login" class="btn btn-secondary"
+            <div id="subscriptionModalActions" style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                <a href="/register" id="subscriptionModalPrimaryBtn" class="btn btn-primary"
+                    style="flex: 1; min-width: 150px; text-align: center;">Оформить подписку</a>
+                <a href="/login" id="subscriptionModalSecondaryBtn" class="btn btn-secondary"
                     style="flex: 1; min-width: 150px; text-align: center;">Войти</a>
             </div>
         </div>

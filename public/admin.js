@@ -9,6 +9,48 @@ let adminChatUsers = [];
 let adminChatsPollInterval = null;
 let adminChatMessagesPollInterval = null;
 const TEST_ERROR_PREFIX = 'Отчет об ошибке в вопросе теста';
+const ADMIN_LIST_CACHE_MS = 60000;
+const adminListCache = {
+    subjectsCompact: { data: null, at: 0 },
+    testsCompact: { data: null, at: 0 }
+};
+
+function invalidateAdminListCache() {
+    adminListCache.subjectsCompact = { data: null, at: 0 };
+    adminListCache.testsCompact = { data: null, at: 0 };
+}
+
+function adminAuthHeaders() {
+    return { 'Authorization': `Bearer ${currentAdminToken}` };
+}
+
+async function fetchAdminSubjectsCompact(force = false) {
+    const now = Date.now();
+    if (!force && adminListCache.subjectsCompact.data && now - adminListCache.subjectsCompact.at < ADMIN_LIST_CACHE_MS) {
+        return adminListCache.subjectsCompact.data;
+    }
+    const response = await fetch(`${ADMIN_API_URL}/subjects?compact=1`, { headers: adminAuthHeaders() });
+    if (!response.ok) {
+        throw new Error('Ошибка загрузки предметов');
+    }
+    const data = await response.json();
+    adminListCache.subjectsCompact = { data, at: now };
+    return data;
+}
+
+async function fetchAdminTestsCompact(force = false) {
+    const now = Date.now();
+    if (!force && adminListCache.testsCompact.data && now - adminListCache.testsCompact.at < ADMIN_LIST_CACHE_MS) {
+        return adminListCache.testsCompact.data;
+    }
+    const response = await fetch(`${ADMIN_API_URL}/tests?compact=1`, { headers: adminAuthHeaders() });
+    if (!response.ok) {
+        throw new Error('Ошибка загрузки тестов');
+    }
+    const data = await response.json();
+    adminListCache.testsCompact = { data, at: now };
+    return data;
+}
 
 // Функция уведомлений (если не определена в app.js)
 function showNotification(message, type = 'info') {
@@ -221,17 +263,18 @@ function adminLogout() {
 // Загрузка дашборда
 async function loadDashboard() {
     try {
-        const response = await fetch(`${ADMIN_API_URL}/dashboard/stats`, {
-            headers: {
-                'Authorization': `Bearer ${currentAdminToken}`
-            }
-        });
+        const headers = adminAuthHeaders();
+        const [statsResponse, contactStatsResponse, messagesResponse] = await Promise.all([
+            fetch(`${ADMIN_API_URL}/dashboard/stats`, { headers }),
+            fetch(`${ADMIN_API_URL}/dashboard/contact-stats`, { headers }),
+            fetch(`${ADMIN_API_URL}/contact-messages?page=1&limit=5`, { headers })
+        ]);
 
-        if (!response.ok) {
+        if (!statsResponse.ok) {
             throw new Error('Ошибка загрузки статистики');
         }
 
-        const data = await response.json();
+        const data = await statsResponse.json();
         const stats = data.stats;
 
         document.getElementById('statTotalUsers').textContent = stats.totalUsers || 0;
@@ -240,45 +283,28 @@ async function loadDashboard() {
         document.getElementById('statTotalQuestions').textContent = stats.totalQuestions || 0;
         document.getElementById('statTotalResults').textContent = stats.totalResults || 0;
 
-        // Загружаем статистику сообщений
-        try {
-            const contactStatsResponse = await fetch(`${ADMIN_API_URL}/dashboard/contact-stats`, {
-                headers: {
-                    'Authorization': `Bearer ${currentAdminToken}`
-                }
-            });
-            if (contactStatsResponse.ok) {
-                const contactStats = await contactStatsResponse.json();
-                document.getElementById('statNewMessages').textContent = contactStats.newMessages || 0;
-                const testErrorBadge = document.getElementById('testErrorBadge');
-                if (testErrorBadge) {
-                    const totalTestErrors = contactStats.testErrorReports || 0;
-                    const newTestErrors = contactStats.newTestErrorReports || 0;
-                    if (totalTestErrors > 0) {
-                        testErrorBadge.style.display = 'inline-block';
-                        testErrorBadge.textContent = `Ошибки в вопросах: ${totalTestErrors}${newTestErrors > 0 ? ` (новых: ${newTestErrors})` : ''}`;
-                    } else {
-                        testErrorBadge.style.display = 'none';
-                        testErrorBadge.textContent = '';
-                    }
+        if (contactStatsResponse.ok) {
+            const contactStats = await contactStatsResponse.json();
+            document.getElementById('statNewMessages').textContent = contactStats.newMessages || 0;
+            const testErrorBadge = document.getElementById('testErrorBadge');
+            if (testErrorBadge) {
+                const totalTestErrors = contactStats.testErrorReports || 0;
+                const newTestErrors = contactStats.newTestErrorReports || 0;
+                if (totalTestErrors > 0) {
+                    testErrorBadge.style.display = 'inline-block';
+                    testErrorBadge.textContent = `Ошибки в вопросах: ${totalTestErrors}${newTestErrors > 0 ? ` (новых: ${newTestErrors})` : ''}`;
+                } else {
+                    testErrorBadge.style.display = 'none';
+                    testErrorBadge.textContent = '';
                 }
             }
-        } catch (error) {
-            console.error('Ошибка загрузки статистики сообщений:', error);
         }
 
-        // Загружаем последние сообщения
-        try {
-            const messagesResponse = await fetch(`${ADMIN_API_URL}/contact-messages?page=1&limit=5`, {
-                headers: {
-                    'Authorization': `Bearer ${currentAdminToken}`
-                }
-            });
-            if (messagesResponse.ok) {
-                const messagesData = await messagesResponse.json();
-                const recentMessagesList = document.getElementById('recentMessagesList');
-                if (messagesData.messages && messagesData.messages.length > 0) {
-                    recentMessagesList.innerHTML = messagesData.messages.map(msg => {
+        if (messagesResponse.ok) {
+            const messagesData = await messagesResponse.json();
+            const recentMessagesList = document.getElementById('recentMessagesList');
+            if (messagesData.messages && messagesData.messages.length > 0) {
+                recentMessagesList.innerHTML = messagesData.messages.map(msg => {
                         const date = new Date(msg.createdAt);
                         const statusLabels = {
                             'new': 'Новое',
@@ -315,16 +341,12 @@ async function loadDashboard() {
                             </div>
                         `;
                     }).join('');
-                } else {
-                    recentMessagesList.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 2rem;">Нет сообщений</p>';
-                }
+            } else {
+                recentMessagesList.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 2rem;">Нет сообщений</p>';
             }
-        } catch (error) {
-            console.error('Ошибка загрузки последних сообщений:', error);
         }
 
-        // Загружаем уведомления о входах с новых устройств
-        await loadDeviceAlerts();
+        loadDeviceAlerts();
 
         // Последние пользователи
         const recentUsersList = document.getElementById('recentUsersList');
@@ -483,7 +505,7 @@ async function markDeviceAlertRead(alertId) {
 
         const devicesTab = document.getElementById('devicesTab');
         const isDevicesTabActive = devicesTab && devicesTab.classList.contains('active');
-        await loadDeviceAlerts(isDevicesTabActive ? 1000 : 10);
+        await loadDeviceAlerts(isDevicesTabActive ? 50 : 10);
     } catch (error) {
         console.error('Ошибка обновления уведомления:', error);
         showNotification('Не удалось отметить уведомление', 'error');
@@ -594,7 +616,7 @@ async function loadSubjects() {
                         <h4>${subject.name}</h4>
                         ${subject.description ? `<p style="color: var(--text-muted); margin: 0.5rem 0;">${subject.description}</p>` : ''}
                         <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
-                            Тестов: ${subject.Tests?.length || 0}
+                            Тестов: ${subject.testCount ?? subject.Tests?.length ?? 0}
                         </p>
                     </div>
                     <div style="display: flex; gap: 0.5rem;">
@@ -637,7 +659,7 @@ async function loadTests() {
                         <h4>${test.name} ${test.isFree ? '<span style="background: #10b981; color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">БЕСПЛАТНЫЙ</span>' : ''}</h4>
                         ${test.description ? `<p style="color: var(--text-muted); margin: 0.5rem 0;">${test.description}</p>` : ''}
                         <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
-                            Предмет: ${test.Subject?.name || 'Неизвестно'} | Вопросов: ${test.Questions?.length || 0}
+                            Предмет: ${test.Subject?.name || 'Неизвестно'} | Вопросов: ${test.questionCount ?? test.Questions?.length ?? 0}
                         </p>
                     </div>
                     <div style="display: flex; gap: 0.5rem;">
@@ -901,6 +923,7 @@ async function deleteSubject(subjectId) {
         });
 
         if (response.ok) {
+            invalidateAdminListCache();
             showNotification('Предмет удален', 'success');
             loadSubjects();
         } else {
@@ -928,6 +951,7 @@ async function deleteTest(testId) {
         });
 
         if (response.ok) {
+            invalidateAdminListCache();
             showNotification('Тест удален', 'success');
             loadTests();
         } else {
@@ -1052,13 +1076,13 @@ async function deleteNews(newsId) {
 // Редактирование предмета
 async function editSubject(subjectId) {
     try {
-        const response = await fetch(`${ADMIN_API_URL}/subjects`, {
-            headers: {
-                'Authorization': `Bearer ${currentAdminToken}`
-            }
+        const response = await fetch(`${ADMIN_API_URL}/subjects/${subjectId}`, {
+            headers: adminAuthHeaders()
         });
-        const subjects = await response.json();
-        const subject = subjects.find(s => s.id === subjectId);
+        if (!response.ok) {
+            throw new Error('Предмет не найден');
+        }
+        const subject = await response.json();
 
         if (subject) {
             document.getElementById('subjectId').value = subject.id;
@@ -1076,25 +1100,20 @@ async function editSubject(subjectId) {
 // Редактирование теста
 async function editTest(testId) {
     try {
-        const subjectsResponse = await fetch(`${ADMIN_API_URL}/subjects`, {
-            headers: {
-                'Authorization': `Bearer ${currentAdminToken}`
-            }
-        });
-        const subjects = subjectsResponse.ok ? await subjectsResponse.json() : [];
+        const [subjects, testResponse] = await Promise.all([
+            fetchAdminSubjectsCompact(),
+            fetch(`${ADMIN_API_URL}/tests/${testId}`, { headers: adminAuthHeaders() })
+        ]);
         const subjectSelect = document.getElementById('testSubjectId');
         if (subjectSelect) {
             subjectSelect.innerHTML = '<option value="">Выберите предмет</option>' +
                 subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
         }
 
-        const response = await fetch(`${ADMIN_API_URL}/tests`, {
-            headers: {
-                'Authorization': `Bearer ${currentAdminToken}`
-            }
-        });
-        const tests = await response.json();
-        const test = tests.find(t => t.id === testId);
+        if (!testResponse.ok) {
+            throw new Error('Тест не найден');
+        }
+        const test = await testResponse.json();
 
         if (test) {
             document.getElementById('testId').value = test.id;
@@ -1115,15 +1134,7 @@ async function populateQuestionTestSelect(selectedTestId) {
     const select = document.getElementById('questionTestId');
     if (!select) return;
 
-    const response = await fetch(`${ADMIN_API_URL}/tests`, {
-        headers: {
-            'Authorization': `Bearer ${currentAdminToken}`
-        }
-    });
-    if (!response.ok) {
-        throw new Error('Ошибка загрузки тестов');
-    }
-    const tests = await response.json();
+    const tests = await fetchAdminTestsCompact();
     select.innerHTML = '<option value="">Выберите тест</option>' +
         tests.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
 
@@ -1135,18 +1146,13 @@ async function populateQuestionTestSelect(selectedTestId) {
 // Редактирование вопроса
 async function editQuestion(questionId) {
     try {
-        const testFilter = document.getElementById('questionsTestFilter')?.value || '';
-        const query = testFilter ? `?testId=${encodeURIComponent(testFilter)}` : '';
-        const response = await fetch(`${ADMIN_API_URL}/questions${query}`, {
-            headers: {
-                'Authorization': `Bearer ${currentAdminToken}`
-            }
+        const questionResponse = await fetch(`${ADMIN_API_URL}/questions/${questionId}`, {
+            headers: adminAuthHeaders()
         });
-        if (!response.ok) {
+        if (!questionResponse.ok) {
             throw new Error('Ошибка загрузки вопроса');
         }
-        const questions = await response.json();
-        const question = questions.find(q => q.id === questionId);
+        const question = await questionResponse.json();
 
         if (question) {
             await populateQuestionTestSelect(question.testId ?? question.Test?.id);
@@ -1231,6 +1237,7 @@ async function saveSubject(e) {
         });
 
         if (response.ok) {
+            invalidateAdminListCache();
             showNotification(id ? 'Предмет обновлен' : 'Предмет создан', 'success');
             document.getElementById('subjectModal').style.display = 'none';
             document.getElementById('subjectForm').reset();
@@ -1268,6 +1275,7 @@ async function saveTest(e) {
         });
 
         if (response.ok) {
+            invalidateAdminListCache();
             showNotification(id ? 'Тест обновлен' : 'Тест создан', 'success');
             document.getElementById('testModal').style.display = 'none';
             document.getElementById('testForm').reset();
@@ -1506,14 +1514,9 @@ function setupAdminEventListeners() {
         addTestBtn.addEventListener('click', async () => {
             // Загружаем предметы для выбора
             try {
-                const response = await fetch(`${ADMIN_API_URL}/subjects`, {
-                    headers: {
-                        'Authorization': `Bearer ${currentAdminToken}`
-                    }
-                });
-                const subjects = await response.json();
+                const subjects = await fetchAdminSubjectsCompact();
                 const select = document.getElementById('testSubjectId');
-                select.innerHTML = '<option value="">Выберите предмет</option>' + 
+                select.innerHTML = '<option value="">Выберите предмет</option>' +
                     subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
             } catch (error) {
                 console.error('Ошибка загрузки предметов:', error);
@@ -1532,12 +1535,7 @@ function setupAdminEventListeners() {
     if (uploadPdfBtn) {
         uploadPdfBtn.addEventListener('click', async () => {
             try {
-                const response = await fetch(`${ADMIN_API_URL}/tests`, {
-                    headers: {
-                        'Authorization': `Bearer ${currentAdminToken}`
-                    }
-                });
-                const tests = await response.json();
+                const tests = await fetchAdminTestsCompact();
                 const select = document.getElementById('pdfTestId');
                 select.innerHTML = '<option value="">Выберите тест</option>' +
                     tests.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
@@ -2115,12 +2113,9 @@ function switchTab(tabName) {
             break;
         case 'users':
             loadUsers();
-            // Загружаем фильтры для тестов и вопросов
-            loadSubjectsForFilters();
-            loadTestsForFilters();
             break;
         case 'devices':
-            loadDeviceAlerts(1000);
+            loadDeviceAlerts(50);
             break;
         case 'subjects':
             loadSubjects();
@@ -2155,17 +2150,13 @@ function switchTab(tabName) {
 // Загрузка предметов для фильтров
 async function loadSubjectsForFilters() {
     try {
-        const response = await fetch(`${ADMIN_API_URL}/subjects`, {
-            headers: {
-                'Authorization': `Bearer ${currentAdminToken}`
-            }
-        });
-        const subjects = await response.json();
-        
+        const subjects = await fetchAdminSubjectsCompact();
         const testsFilter = document.getElementById('testsSubjectFilter');
         if (testsFilter) {
-            testsFilter.innerHTML = '<option value="">Все предметы</option>' + 
+            const current = testsFilter.value;
+            testsFilter.innerHTML = '<option value="">Все предметы</option>' +
                 subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+            if (current) testsFilter.value = current;
         }
     } catch (error) {
         console.error('Ошибка загрузки предметов для фильтра:', error);
@@ -2175,18 +2166,13 @@ async function loadSubjectsForFilters() {
 // Загрузка тестов для фильтров
 async function loadTestsForFilters() {
     try {
-        const response = await fetch(`${ADMIN_API_URL}/tests`, {
-            headers: {
-                'Authorization': `Bearer ${currentAdminToken}`
-            }
-        });
-        const tests = await response.json();
-        
+        const tests = await fetchAdminTestsCompact();
         const questionsFilter = document.getElementById('questionsTestFilter');
         if (questionsFilter) {
-            questionsFilter.innerHTML = '<option value="">Выберите тест</option>' + 
+            const current = questionsFilter.value;
+            questionsFilter.innerHTML = '<option value="">Выберите тест</option>' +
                 tests.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
-            questionsFilter.value = '';
+            questionsFilter.value = current || '';
         }
     } catch (error) {
         console.error('Ошибка загрузки тестов для фильтра:', error);
@@ -2427,26 +2413,11 @@ async function loadAdminChats() {
     }
 }
 
-async function openAdminChat(userId) {
-    currentChatUserId = userId;
-    try {
-        const response = await fetch(`${ADMIN_API_URL}/chats/${userId}/messages`, {
-            headers: { 'Authorization': `Bearer ${currentAdminToken}` }
-        });
-        if (!response.ok) {
-            throw new Error('Ошибка загрузки диалога');
-        }
-
-        const data = await response.json();
-        const headerEl = document.getElementById('adminChatHeader');
-        const messagesEl = document.getElementById('adminChatMessages');
-        if (!messagesEl) return;
-
-        if (headerEl) {
-            headerEl.textContent = `Чат: ${data.user.username} (${data.user.email})`;
-        }
-
-        messagesEl.innerHTML = (data.messages || []).map(msg => `
+function renderAdminChatMessages(messages) {
+    const messagesEl = document.getElementById('adminChatMessages');
+    if (!messagesEl) return;
+    const shouldStickToBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 80;
+    messagesEl.innerHTML = (messages || []).map(msg => `
             <div class="admin-chat-bubble ${msg.isAdmin ? 'admin' : 'user'}">
                 ${msg.text}
                 <div style="margin-top: 0.3rem; font-size: 0.72rem; opacity: 0.75;">
@@ -2454,11 +2425,37 @@ async function openAdminChat(userId) {
                 </div>
             </div>
         `).join('');
+    if (shouldStickToBottom) {
         messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+}
+
+async function refreshAdminChatMessages(userId) {
+    const response = await fetch(`${ADMIN_API_URL}/chats/${userId}/messages`, {
+        headers: adminAuthHeaders()
+    });
+    if (!response.ok) {
+        throw new Error('Ошибка загрузки диалога');
+    }
+    const data = await response.json();
+    if (currentChatUserId === userId) {
+        renderAdminChatMessages(data.messages);
+    }
+    return data;
+}
+
+async function openAdminChat(userId) {
+    currentChatUserId = userId;
+    try {
+        const data = await refreshAdminChatMessages(userId);
+        const headerEl = document.getElementById('adminChatHeader');
+        if (headerEl && data?.user) {
+            headerEl.textContent = `Чат: ${data.user.username} (${data.user.email})`;
+        }
 
         await fetch(`${ADMIN_API_URL}/chats/${userId}/read`, {
             method: 'PUT',
-            headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+            headers: adminAuthHeaders()
         });
         await loadAdminChats();
         startAdminChatMessagesPolling();
@@ -2509,7 +2506,7 @@ function startAdminChatsPolling() {
         if (document.getElementById('chatsTab')?.classList.contains('active')) {
             loadAdminChats();
         }
-    }, 3000);
+    }, 8000);
 }
 
 function stopAdminChatsPolling() {
@@ -2524,8 +2521,8 @@ function startAdminChatMessagesPolling() {
     adminChatMessagesPollInterval = setInterval(async () => {
         if (!currentChatUserId) return;
         if (!document.getElementById('chatsTab')?.classList.contains('active')) return;
-        await openAdminChat(currentChatUserId);
-    }, 3000);
+        await refreshAdminChatMessages(currentChatUserId);
+    }, 8000);
 }
 
 function stopAdminChatMessagesPolling() {

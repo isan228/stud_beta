@@ -665,12 +665,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 if (btn.hasAttribute('data-page')) {
                     const page = btn.getAttribute('data-page');
                     if (page === 'tests') {
-                        if (!currentUser) {
-                            e.preventDefault();
-                            showRegisterModal();
-                        } else {
-                            loadSubjects();
-                        }
+                        window.location.href = '/tests';
                     }
                 }
             });
@@ -1256,6 +1251,71 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     let currentSubjectId = null;
     let currentSubjectName = null;
     let currentSubjectDescription = null;
+    let subjectTestsCache = [];
+
+    function hasActiveSubscription() {
+        return !!(currentUser && currentUser.subscriptionEndDate && new Date(currentUser.subscriptionEndDate) > new Date());
+    }
+
+    function canAccessTest(test) {
+        return !!(test && (test.isFree || hasActiveSubscription()));
+    }
+
+    function getTestQuestionCount(test) {
+        return test?.Questions?.length ?? test?.questionCount ?? 0;
+    }
+
+    function renderTestCard(test, index) {
+        const isFree = test.isFree || false;
+        const locked = !canAccessTest(test);
+        const qCount = getTestQuestionCount(test);
+        const lockBadge = locked
+            ? '<span style="background: #f59e0b; color: #111; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">По подписке</span>'
+            : '';
+        const cardClass = `test-card card-animate${locked ? ' test-card--locked' : ''}`;
+        return `
+            <div class="${cardClass}" style="animation-delay: ${index * 0.1}s;" role="button" tabindex="0"
+                onclick="handleTestCardClick(${test.id})"
+                onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();handleTestCardClick(${test.id});}">
+                <h3>${test.name} ${isFree ? '<span style="background: #10b981; color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">БЕСПЛАТНО</span>' : ''}${lockBadge}</h3>
+                <p><strong>Вопросов:</strong> ${qCount}</p>
+                ${test.description ? `<p style="margin-top: 0.5rem; font-size: 0.9rem;">${test.description}</p>` : ''}
+            </div>
+        `;
+    }
+
+    function handleTestCardClick(testId) {
+        const test = subjectTestsCache.find((t) => t.id === testId);
+        if (!test) return;
+        if (canAccessTest(test)) {
+            const testName = encodeURIComponent(test.name);
+            const qCount = getTestQuestionCount(test);
+            window.location.href = `/test-settings?id=${test.id}&name=${testName}&questions=${qCount}`;
+            return;
+        }
+        showSubscriptionRequiredModal();
+    }
+
+    function buildSubscriptionAccessBanner() {
+        if (hasActiveSubscription()) return '';
+        const subscribeHref = currentUser ? '/profile' : '/register';
+        const subscribeLabel = currentUser ? 'Продлить подписку' : 'Оформить подписку';
+        const loginBtn = currentUser
+            ? ''
+            : '<a href="/login" class="btn btn-secondary">Войти</a>';
+        return `
+            <div class="subscription-access-banner">
+                <p><strong>Оформите подписку для доступа ко всем тестам.</strong></p>
+                <p style="margin: 0.35rem 0 0; font-size: 0.92rem; color: var(--text-secondary);">
+                    Бесплатные тесты отмечены и доступны без подписки.
+                </p>
+                <div class="subscription-access-banner-actions">
+                    <a href="${subscribeHref}" class="btn btn-primary">${subscribeLabel}</a>
+                    ${loginBtn}
+                </div>
+            </div>
+        `;
+    }
 
     async function loadSubjectTests(subjectId, subjectName, subjectDescription = '') {
         currentSubjectId = subjectId;
@@ -1263,17 +1323,10 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         currentSubjectDescription = subjectDescription;
 
         try {
-            // Если пользователь не авторизован или нет активной подписки, загружаем только бесплатные тесты
-            let url = `${API_URL}/tests/subjects/${subjectId}/tests`;
-            
-            const hasSubscription = currentUser && currentUser.subscriptionEndDate && new Date(currentUser.subscriptionEndDate) > new Date();
-            
-            if (!currentUser || !hasSubscription) {
-                url = `${API_URL}/tests/subjects/${subjectId}/tests/free`;
-            }
-
-            const response = await fetch(url);
+            const hasSubscription = hasActiveSubscription();
+            const response = await fetch(`${API_URL}/tests/subjects/${subjectId}/tests`);
             const tests = await response.json();
+            subjectTestsCache = Array.isArray(tests) ? tests : [];
 
             const subjectNameEl = document.getElementById('subjectName');
             if (subjectNameEl) {
@@ -1282,37 +1335,20 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
             const descEl = document.getElementById('subjectDescription');
             if (descEl) {
-                if (!currentUser) {
-                    descEl.textContent = 'Бесплатные тесты доступны без регистрации. Войдите или зарегистрируйтесь для полного доступа.';
-                } else if (!hasSubscription) {
-                     descEl.textContent = 'У вас нет активной подписки. Вам доступны только бесплатные тесты. Оформите подписку для доступа ко всем материалам.';
+                if (!hasSubscription) {
+                    descEl.textContent = 'Оформите подписку для доступа ко всем тестам. Бесплатные тесты можно проходить без подписки.';
                 } else {
-                    descEl.textContent = subjectDescription || `Выберите тест для прохождения. Каждый тест можно настроить под свои потребности.`;
+                    descEl.textContent = subjectDescription || 'Выберите тест для прохождения. Каждый тест можно настроить под свои потребности.';
                 }
             }
 
             const container = document.getElementById('testsList');
             if (container) {
-                if (tests.length === 0) {
-                    if (!currentUser) {
-                        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 3rem;">Бесплатные тесты по данному предмету пока не добавлены. <a href="/register" style="color: var(--primary-color);">Зарегистрируйтесь</a> и оформите подписку для доступа ко всем тестам.</p>';
-                    } else if (!hasSubscription) {
-                        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 3rem;">Бесплатные тесты по данному предмету пока не добавлены. <a href="/profile" style="color: var(--primary-color);">Оформите подписку</a> для доступа к платным тестам.</p>';
-                    } else {
-                        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 3rem;">Тесты по данному предмету пока не добавлены</p>';
-                    }
+                const banner = buildSubscriptionAccessBanner();
+                if (subjectTestsCache.length === 0) {
+                    container.innerHTML = `${banner}<p style="text-align: center; color: var(--text-secondary); padding: 3rem;">Тесты по данному предмету пока не добавлены</p>`;
                 } else {
-                    container.innerHTML = tests.map((test, index) => {
-                        const testName = encodeURIComponent(test.name);
-                        const isFree = test.isFree || false;
-                        return `
-                    <div class="test-card card-animate" style="animation-delay: ${index * 0.1}s;" onclick="window.location.href='/test-settings?id=${test.id}&name=${testName}&questions=${test.Questions?.length || 0}'">
-                        <h3>${test.name} ${isFree ? '<span style="background: #10b981; color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">БЕСПЛАТНО</span>' : ''}</h3>
-                        <p><strong>Вопросов:</strong> ${test.Questions?.length || 0}</p>
-                        ${test.description ? `<p style="margin-top: 0.5rem; font-size: 0.9rem;">${test.description}</p>` : ''}
-                    </div>
-                `;
-                    }).join('');
+                    container.innerHTML = banner + subjectTestsCache.map((test, index) => renderTestCard(test, index)).join('');
                 }
             }
         } catch (error) {
@@ -1332,11 +1368,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             let url = `${API_URL}/tests/latest`;
         console.log('Fetching homepage tests from', url);
             
-            // Проверяем подписку
-            const hasSubscription = currentUser && currentUser.subscriptionEndDate && new Date(currentUser.subscriptionEndDate) > new Date();
-            
-            // Если нет подписки, запрашиваем только бесплатные
-            if (!currentUser || !hasSubscription) {
+            if (!hasActiveSubscription()) {
                 url += '?free=true';
             }
 
@@ -1344,20 +1376,11 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             if (!response.ok) throw new Error('Failed to fetch tests');
             
             const tests = await response.json();
+            subjectTestsCache = Array.isArray(tests) ? tests : [];
 
-            if (tests.length > 0) {
-            console.log('Displaying', tests.length, 'tests on homepage');
-                container.innerHTML = tests.map((test, index) => {
-                    const testName = encodeURIComponent(test.name);
-                    const isFree = test.isFree || false;
-                    return `
-                    <div class="test-card card-animate" style="animation-delay: ${index * 0.1}s;" onclick="window.location.href='/test-settings?id=${test.id}&name=${testName}&questions=${test.Questions?.length || 0}'">
-                        <h3>${test.name} ${isFree ? '<span style="background: #10b981; color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">БЕСПЛАТНО</span>' : ''}</h3>
-                        <p><strong>Вопросов:</strong> ${test.Questions?.length || 0}</p>
-                        ${test.description ? `<p style="margin-top: 0.5rem; font-size: 0.9rem;">${test.description}</p>` : ''}
-                    </div>
-                `;
-                }).join('');
+            if (subjectTestsCache.length > 0) {
+            console.log('Displaying', subjectTestsCache.length, 'tests on homepage');
+                container.innerHTML = subjectTestsCache.map((test, index) => renderTestCard(test, index)).join('');
                 section.style.display = 'block';
             } else {
                 section.style.display = 'none';
@@ -1402,6 +1425,26 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         currentTestId = parseInt(testId, 10);
         let total = parseInt(questionCount, 10);
         if (!Number.isFinite(total)) total = 0;
+
+        try {
+            const testResponse = await fetch(`${API_URL}/tests/tests/${currentTestId}`);
+            if (testResponse.ok) {
+                const test = await testResponse.json();
+                if (!canAccessTest(test)) {
+                    showSubscriptionRequiredModal();
+                    setTimeout(() => {
+                        if (document.referrer && document.referrer.includes(window.location.origin)) {
+                            history.back();
+                        } else {
+                            window.location.href = '/tests';
+                        }
+                    }, 300);
+                    return;
+                }
+            }
+        } catch (e) {
+            console.error('Ошибка проверки доступа к тесту:', e);
+        }
 
         const testNameEl = document.getElementById('testName');
         if (testNameEl) {
@@ -1484,9 +1527,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             console.error('Ошибка проверки теста:', error);
         }
 
-        // Если тест не бесплатный, требуется авторизация
-        if (!isFreeTest && !currentUser) {
-            showNotification('Для этого теста необходима регистрация и подписка', 'error');
+        if (!isFreeTest && !hasActiveSubscription()) {
+            showSubscriptionRequiredModal();
             return;
         }
 
@@ -2918,25 +2960,42 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }, 50);
     }
 
-    // Модальное окно регистрации
-    function showRegisterModal() {
+    function showSubscriptionRequiredModal() {
         const modal = document.getElementById('registerModal');
-        if (modal) {
-            modal.style.display = 'block';
-
-            // Закрытие по клику на фон
-            modal.addEventListener('click', function (e) {
-                if (e.target === modal) {
-                    closeRegisterModal();
-                }
-            });
-
-            // Закрытие по клику на крестик
-            const closeBtn = document.getElementById('registerModalClose');
-            if (closeBtn) {
-                closeBtn.addEventListener('click', closeRegisterModal);
-            }
+        if (!modal) {
+            window.location.href = currentUser ? '/profile' : '/register';
+            return;
         }
+
+        const titleEl = document.getElementById('registerModalTitle');
+        const textEl = document.getElementById('registerModalText');
+        const primaryBtn = document.getElementById('subscriptionModalPrimaryBtn');
+        const secondaryBtn = document.getElementById('subscriptionModalSecondaryBtn');
+
+        if (titleEl) titleEl.textContent = 'Подписка требуется';
+        if (textEl) textEl.textContent = 'Оформите подписку для доступа ко всем тестам.';
+        if (primaryBtn) {
+            primaryBtn.href = currentUser ? '/profile' : '/register';
+            primaryBtn.textContent = currentUser ? 'Продлить подписку' : 'Оформить подписку';
+        }
+        if (secondaryBtn) {
+            secondaryBtn.style.display = currentUser ? 'none' : 'inline-flex';
+        }
+
+        modal.style.display = 'block';
+
+        if (!modal.dataset.boundClose) {
+            modal.dataset.boundClose = '1';
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeRegisterModal();
+            });
+            const closeBtn = document.getElementById('registerModalClose');
+            if (closeBtn) closeBtn.addEventListener('click', closeRegisterModal);
+        }
+    }
+
+    function showRegisterModal() {
+        showSubscriptionRequiredModal();
     }
 
     function closeRegisterModal() {
@@ -3306,6 +3365,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     window.initTheme = initTheme;
     window.setupEventListeners = setupEventListeners;
     window.loadSubjectTests = loadSubjectTests;
+    window.handleTestCardClick = handleTestCardClick;
+    window.showSubscriptionRequiredModal = showSubscriptionRequiredModal;
+    window.showRegisterModal = showRegisterModal;
     window.loadTestSettings = loadTestSettings;
     window.loadSubjects = loadSubjects;
     window.loadHomepageTests = loadHomepageTests;

@@ -4,8 +4,40 @@ const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const adminAuth = require('../middleware/adminAuth');
 const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, sequelize } = require('../models');
-const { Op } = require('sequelize');
+const { Op, QueryTypes } = require('sequelize');
 const { Sequelize } = require('sequelize');
+
+async function attachQuestionCountsToTests(tests) {
+  if (!tests.length) return [];
+  const rows = await Question.findAll({
+    attributes: ['testId', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
+    where: { testId: { [Op.in]: tests.map((t) => t.id) } },
+    group: ['testId'],
+    raw: true
+  });
+  const countMap = new Map(rows.map((r) => [Number(r.testId), Number(r.count)]));
+  return tests.map((t) => {
+    const json = t.toJSON();
+    json.questionCount = countMap.get(t.id) || 0;
+    return json;
+  });
+}
+
+async function attachTestCountsToSubjects(subjects) {
+  if (!subjects.length) return [];
+  const rows = await Test.findAll({
+    attributes: ['subjectId', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
+    where: { subjectId: { [Op.in]: subjects.map((s) => s.id) } },
+    group: ['subjectId'],
+    raw: true
+  });
+  const countMap = new Map(rows.map((r) => [Number(r.subjectId), Number(r.count)]));
+  return subjects.map((s) => {
+    const json = s.toJSON();
+    json.testCount = countMap.get(s.id) || 0;
+    return json;
+  });
+}
 
 // Вход администратора
 router.post('/login', [
@@ -92,20 +124,26 @@ router.get('/me', adminAuth, async (req, res) => {
 // Статистика для админки
 router.get('/dashboard/stats', adminAuth, async (req, res) => {
   try {
-    const totalUsers = await User.count();
-    const totalSubjects = await Subject.count();
-    const totalTests = await Test.count();
-    const totalQuestions = await Question.count();
-    const totalResults = await TestResult.count();
-    
-    const recentUsers = await User.findAll({
-      order: [['createdAt', 'DESC']],
-      limit: 5,
-      attributes: ['id', 'username', 'email', 'createdAt', 'status']
-    });
-
-
-    const recentResults = await TestResult.findAll({
+    const [
+      totalUsers,
+      totalSubjects,
+      totalTests,
+      totalQuestions,
+      totalResults,
+      recentUsers,
+      recentResults
+    ] = await Promise.all([
+      User.count(),
+      Subject.count(),
+      Test.count(),
+      Question.count(),
+      TestResult.count(),
+      User.findAll({
+        order: [['createdAt', 'DESC']],
+        limit: 5,
+        attributes: ['id', 'username', 'email', 'createdAt', 'status']
+      }),
+      TestResult.findAll({
       include: [{
         model: Test,
         as: 'Test',
@@ -120,7 +158,8 @@ router.get('/dashboard/stats', adminAuth, async (req, res) => {
       }],
       order: [['createdAt', 'DESC']],
       limit: 10
-    });
+      })
+    ]);
 
     res.json({
       stats: {
@@ -142,28 +181,51 @@ router.get('/dashboard/stats', adminAuth, async (req, res) => {
 // Список чатов пользователей для админа
 router.get('/chats', adminAuth, async (req, res) => {
   try {
-    const users = await User.findAll({
-      attributes: ['id', 'username', 'email'],
-      include: [{
-        model: ChatMessage,
-        as: 'ChatMessages',
-        attributes: ['id', 'text', 'isAdmin', 'isRead', 'createdAt'],
-        required: false
-      }],
-      order: [['username', 'ASC']]
-    });
+    const lastRows = await sequelize.query(
+      `SELECT DISTINCT ON ("userId") id, "userId", text, "isAdmin", "isRead", "createdAt"
+       FROM "ChatMessages"
+       ORDER BY "userId", "createdAt" DESC`,
+      { type: QueryTypes.SELECT }
+    );
 
-    const chats = users
-      .map(user => {
-        const messages = (user.ChatMessages || []).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-        const lastMessage = messages[messages.length - 1] || null;
-        const unreadCount = messages.filter(m => !m.isAdmin && !m.isRead).length;
+    if (!lastRows.length) {
+      return res.json({ chats: [] });
+    }
+
+    const userIds = [...new Set(lastRows.map((row) => row.userId))];
+    const users = await User.findAll({
+      where: { id: userIds },
+      attributes: ['id', 'username', 'email']
+    });
+    const userMap = new Map(users.map((u) => [u.id, u]));
+    const lastByUser = new Map(lastRows.map((row) => [row.userId, row]));
+
+    const unreadRows = await ChatMessage.findAll({
+      attributes: ['userId', [sequelize.fn('COUNT', sequelize.col('id')), 'unreadCount']],
+      where: { userId: userIds, isAdmin: false, isRead: false },
+      group: ['userId'],
+      raw: true
+    });
+    const unreadMap = new Map(unreadRows.map((r) => [Number(r.userId), Number(r.unreadCount)]));
+
+    const chats = userIds
+      .map((userId) => {
+        const user = userMap.get(userId);
+        if (!user) return null;
+        const lastMessage = lastByUser.get(userId);
         return {
           user: { id: user.id, username: user.username, email: user.email },
-          lastMessage,
-          unreadCount
+          lastMessage: lastMessage ? {
+            id: lastMessage.id,
+            text: lastMessage.text,
+            isAdmin: lastMessage.isAdmin,
+            isRead: lastMessage.isRead,
+            createdAt: lastMessage.createdAt
+          } : null,
+          unreadCount: unreadMap.get(userId) || 0
         };
       })
+      .filter(Boolean)
       .sort((a, b) => {
         const aDate = a.lastMessage ? new Date(a.lastMessage.createdAt).getTime() : 0;
         const bDate = b.lastMessage ? new Date(b.lastMessage.createdAt).getTime() : 0;
@@ -444,18 +506,35 @@ router.delete('/users/:id', adminAuth, async (req, res) => {
 });
 
 // Управление предметами
+router.get('/subjects/:id', adminAuth, async (req, res) => {
+  try {
+    const subject = await Subject.findByPk(req.params.id);
+    if (!subject) {
+      return res.status(404).json({ error: 'Предмет не найден' });
+    }
+    res.json(subject);
+  } catch (error) {
+    console.error('Ошибка получения предмета:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 router.get('/subjects', adminAuth, async (req, res) => {
   try {
+    if (req.query.compact === '1') {
+      const subjects = await Subject.findAll({
+        attributes: ['id', 'name'],
+        order: [['name', 'ASC']]
+      });
+      return res.json(subjects);
+    }
+
     const subjects = await Subject.findAll({
-      include: [{
-        model: Test,
-        as: 'Tests',
-        attributes: ['id']
-      }],
+      attributes: ['id', 'name', 'description', 'createdAt', 'updatedAt'],
       order: [['createdAt', 'DESC']]
     });
 
-    res.json(subjects);
+    res.json(await attachTestCountsToSubjects(subjects));
   } catch (error) {
     console.error('Ошибка получения предметов:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
@@ -526,6 +605,25 @@ router.delete('/subjects/:id', adminAuth, async (req, res) => {
 });
 
 // Управление тестами
+router.get('/tests/:id', adminAuth, async (req, res) => {
+  try {
+    const test = await Test.findByPk(req.params.id, {
+      include: [{
+        model: Subject,
+        as: 'Subject',
+        attributes: ['id', 'name']
+      }]
+    });
+    if (!test) {
+      return res.status(404).json({ error: 'Тест не найден' });
+    }
+    res.json(test);
+  } catch (error) {
+    console.error('Ошибка получения теста:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 router.get('/tests', adminAuth, async (req, res) => {
   try {
     const subjectId = req.query.subjectId;
@@ -534,20 +632,26 @@ router.get('/tests', adminAuth, async (req, res) => {
       where.subjectId = subjectId;
     }
 
+    if (req.query.compact === '1') {
+      const tests = await Test.findAll({
+        where,
+        attributes: ['id', 'name', 'subjectId'],
+        order: [['name', 'ASC']]
+      });
+      return res.json(tests);
+    }
+
     const tests = await Test.findAll({
       where,
       include: [{
         model: Subject,
-        as: 'Subject'
-      }, {
-        model: Question,
-        as: 'Questions',
-        attributes: ['id']
+        as: 'Subject',
+        attributes: ['id', 'name']
       }],
       order: [['createdAt', 'DESC']]
     });
 
-    res.json(tests);
+    res.json(await attachQuestionCountsToTests(tests));
   } catch (error) {
     console.error('Ошибка получения тестов:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
@@ -657,14 +761,38 @@ router.get('/questions/suggestions', adminAuth, async (req, res) => {
   }
 });
 
+router.get('/questions/:id', adminAuth, async (req, res) => {
+  try {
+    const question = await Question.findByPk(req.params.id, {
+      include: [{
+        model: Test,
+        as: 'Test',
+        attributes: ['id', 'name', 'subjectId']
+      }, {
+        model: Answer,
+        as: 'Answers'
+      }]
+    });
+    if (!question) {
+      return res.status(404).json({ error: 'Вопрос не найден' });
+    }
+    res.json(question);
+  } catch (error) {
+    console.error('Ошибка получения вопроса:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 router.get('/questions', adminAuth, async (req, res) => {
   try {
     const testId = req.query.testId;
     const search = String(req.query.search || '').trim();
-    const where = {};
-    if (testId) {
-      where.testId = testId;
+    if (!testId) {
+      return res.json([]);
     }
+
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 300, 1), 500);
+    const where = { testId };
     if (search) {
       where.text = { [Op.iLike]: `%${search}%` };
     }
@@ -674,15 +802,14 @@ router.get('/questions', adminAuth, async (req, res) => {
       include: [{
         model: Test,
         as: 'Test',
-        include: [{
-          model: Subject,
-          as: 'Subject'
-        }]
+        attributes: ['id', 'name']
       }, {
         model: Answer,
-        as: 'Answers'
+        as: 'Answers',
+        attributes: ['id', 'text', 'isCorrect', 'questionId']
       }],
-      order: [['createdAt', 'DESC']]
+      order: [['createdAt', 'DESC']],
+      limit
     });
 
     res.json(questions);

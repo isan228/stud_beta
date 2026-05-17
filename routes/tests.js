@@ -164,10 +164,8 @@ router.get('/subjects/:subjectId/tests', async (req, res) => {
       include: [{
         model: Question,
         as: 'Questions',
-        include: [{
-          model: Answer,
-          as: 'Answers'
-        }]
+        attributes: ['id'],
+        required: false
       }],
       order: [['createdAt', 'DESC']]
     });
