@@ -156,6 +156,42 @@ function paymentKindLabel(kind) {
   return 'Другое';
 }
 
+/** Ключ дня UTC YYYY-MM-DD для группировки оплат по дням графика */
+function analyticsUtcDayKey(isoLike) {
+  const d = new Date(isoLike);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 10);
+}
+
+/** Одна точка на каждый календарный день между from и to (UTC-сутки): все успешные оплаты */
+function buildPurchaseTimeSeries(from, to, paymentRows) {
+  const dayMs = 24 * 60 * 60 * 1000;
+  const buckets = new Map();
+  for (const p of paymentRows) {
+    const key = analyticsUtcDayKey(p.paidAt);
+    if (!key) continue;
+    const agg = buckets.get(key) || { count: 0, revenue: 0 };
+    agg.count += 1;
+    agg.revenue += Number(p.amount) || 0;
+    buckets.set(key, agg);
+  }
+
+  const startUtc = Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate());
+  const endUtc = Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate());
+
+  const series = [];
+  for (let t = startUtc; t <= endUtc; t += dayMs) {
+    const key = new Date(t).toISOString().slice(0, 10);
+    const agg = buckets.get(key) || { count: 0, revenue: 0 };
+    series.push({
+      date: key,
+      count: agg.count,
+      revenue: Math.round(agg.revenue * 100) / 100
+    });
+  }
+  return series;
+}
+
 function resolveAnalyticsRange(query) {
   const period = String(query.period || '30d').toLowerCase();
   const now = new Date();
@@ -350,6 +386,8 @@ router.get('/analytics', adminAuth, async (req, res) => {
       };
     });
 
+    const purchaseTimeSeries = buildPurchaseTimeSeries(from, to, paymentRows);
+
     res.json({
       period,
       range: { from: fromIso, to: toIso },
@@ -370,7 +408,8 @@ router.get('/analytics', adminAuth, async (req, res) => {
       registrations: registrationRows,
       payments: paymentRows,
       renewals: renewalPayments,
-      expiredSubscriptions: expiredRows
+      expiredSubscriptions: expiredRows,
+      purchaseTimeSeries
     });
   } catch (error) {
     console.error('Ошибка аналитики:', error);

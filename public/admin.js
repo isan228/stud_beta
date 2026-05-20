@@ -2194,6 +2194,61 @@ function formatSom(amount) {
     return n.toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
+function escapeAnalyticsAttr(text) {
+    return String(text ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/\n/g, ' ');
+}
+
+/** series: { date, count, revenue }[] — все успешные оплаты по дням (с бэкенда) */
+function renderAnalyticsPurchasesChart(series) {
+    const wrap = document.getElementById('analyticsPurchasesChartWrap');
+    const hintEl = document.getElementById('analyticsPurchasesChartHint');
+    if (!wrap) return;
+
+    if (hintEl) {
+        hintEl.textContent =
+            'Столбики — число успешных оплат за день (оплата при регистрации, первая подписка, продление и прочие). ' +
+            'Наведите на столбец: сумма за день в сомах. Группировка по календарным суткам UTC.';
+    }
+
+    if (!Array.isArray(series) || !series.length) {
+        wrap.innerHTML =
+            '<p class="admin-analytics-chart-empty" style="color: var(--text-muted); text-align: center; padding: 1rem 0;">За период успешных оплат нет — график пустой</p>';
+        return;
+    }
+
+    const maxC = Math.max(1, ...series.map((s) => s.count));
+    const barMaxPx = 176;
+    const labelEvery = series.length <= 14 ? 1 : series.length <= 35 ? Math.ceil(series.length / 14) : Math.ceil(series.length / 12);
+
+    const cols = series.map((s, i) => {
+        const hPx = s.count <= 0 ? 0 : Math.max(3, Math.round((s.count / maxC) * barMaxPx));
+        const tp = `${s.date}: ${s.count} ${s.count === 1 ? 'оплата' : 'оплат'}, ${formatSom(s.revenue)} сом`;
+        const showLab = i % labelEvery === 0 || i === series.length - 1;
+        const dt = new Date(`${s.date}T12:00:00Z`);
+        const lab = Number.isNaN(dt.getTime())
+            ? s.date.slice(5)
+            : dt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+        return `
+            <div class="admin-analytics-bar-col" title="${escapeAnalyticsAttr(tp)}">
+                <div class="admin-analytics-bar-stack">
+                    <div class="admin-analytics-bar" style="height:${hPx}px"></div>
+                </div>
+                <span class="admin-analytics-bar-xlabel"${showLab ? '' : ' style="opacity:0"'}>${escapeAnalyticsAttr(lab)}</span>
+            </div>
+        `;
+    }).join('');
+
+    wrap.innerHTML = `
+        <div class="admin-analytics-bars" style="--analytics-bar-cols:${series.length}">
+            ${cols}
+        </div>
+    `;
+}
+
 function renderAnalyticsEmpty(container, text) {
     if (container) {
         container.innerHTML = `<p style="color: var(--text-muted); text-align: center; padding: 1.5rem;">${escapeAdminHtml(text)}</p>`;
@@ -2473,6 +2528,8 @@ async function loadAdminAnalytics() {
                 `Всего: ${count}.`;
         }
 
+        renderAnalyticsPurchasesChart(data.purchaseTimeSeries || []);
+
         analyticsDataCache = {
             registrations: data.registrations || [],
             renewals: data.renewals || [],
@@ -2497,6 +2554,13 @@ async function loadAdminAnalytics() {
     } catch (error) {
         console.error('Ошибка аналитики:', error);
         if (rangeLabel) rangeLabel.textContent = '';
+        const chartWrap = document.getElementById('analyticsPurchasesChartWrap');
+        if (chartWrap) {
+            chartWrap.innerHTML =
+                '<p class="admin-analytics-chart-empty" style="color: var(--text-muted); text-align: center; padding: 1rem 0;">График недоступен — ошибка загрузки</p>';
+        }
+        const chartHint = document.getElementById('analyticsPurchasesChartHint');
+        if (chartHint) chartHint.textContent = '';
         showNotification(error.message || 'Ошибка загрузки аналитики', 'error');
     }
 }
