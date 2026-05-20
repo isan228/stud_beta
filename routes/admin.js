@@ -3,7 +3,7 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const adminAuth = require('../middleware/adminAuth');
-const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, BroadcastMessage, UserBroadcastNotification, sequelize } = require('../models');
+const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, BroadcastMessage, UserBroadcastNotification, Transaction, sequelize } = require('../models');
 const { Op, QueryTypes } = require('sequelize');
 const { Sequelize } = require('sequelize');
 
@@ -117,6 +117,208 @@ router.get('/me', adminAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Ошибка получения администратора:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+function subscriptionTypeLabel(type) {
+  const t = String(type || '1');
+  if (t === '3') return '3 месяца';
+  if (t === '12') return '1 год';
+  if (t === 'group') return 'Групповая';
+  return '1 месяц';
+}
+
+function classifyPaymentKind(transaction) {
+  const fields = transaction.fields || {};
+  const paymentType = String(fields.paymentType || '').toLowerCase();
+  if (paymentType === 'registration' || fields.registrationData) {
+    return 'registration';
+  }
+  if (paymentType === 'subscription') {
+    return 'renewal';
+  }
+  return 'other';
+}
+
+function resolveAnalyticsRange(query) {
+  const period = String(query.period || '30d').toLowerCase();
+  const now = new Date();
+
+  let from;
+  let to;
+
+  if (period === 'custom') {
+    if (!query.from || !query.to) {
+      return { error: 'Укажите даты «с» и «по» для произвольного периода' };
+    }
+    from = new Date(`${query.from}T00:00:00`);
+    to = new Date(`${query.to}T23:59:59.999`);
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+      return { error: 'Некорректный формат даты' };
+    }
+  } else if (period === 'today') {
+    from = new Date(now);
+    from.setHours(0, 0, 0, 0);
+    to = new Date(now);
+    to.setHours(23, 59, 59, 999);
+  } else if (period === '7d') {
+    to = new Date(now);
+    to.setHours(23, 59, 59, 999);
+    from = new Date(to);
+    from.setDate(from.getDate() - 6);
+    from.setHours(0, 0, 0, 0);
+  } else if (period === 'month') {
+    from = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  } else {
+    // 30d по умолчанию
+    to = new Date(now);
+    to.setHours(23, 59, 59, 999);
+    from = new Date(to);
+    from.setDate(from.getDate() - 29);
+    from.setHours(0, 0, 0, 0);
+  }
+
+  if (from > to) {
+    return { error: 'Дата «с» не может быть позже даты «по»' };
+  }
+
+  return {
+    period: period === 'custom' ? 'custom' : (period === 'today' || period === '7d' || period === 'month' ? period : '30d'),
+    from,
+    to,
+    fromIso: from.toISOString(),
+    toIso: to.toISOString()
+  };
+}
+
+// Аналитика: регистрации, оплаты, продления за период
+router.get('/analytics', adminAuth, async (req, res) => {
+  try {
+    const range = resolveAnalyticsRange(req.query);
+    if (range.error) {
+      return res.status(400).json({ error: range.error });
+    }
+
+    const { from, to, fromIso, toIso, period } = range;
+    const dateWhere = { [Op.between]: [from, to] };
+
+    const [registrations, payments] = await Promise.all([
+      User.findAll({
+        where: { createdAt: dateWhere },
+        attributes: ['id', 'username', 'email', 'createdAt', 'subscriptionEndDate', 'coins', 'referredBy'],
+        order: [['createdAt', 'DESC']]
+      }),
+      Transaction.findAll({
+        where: {
+          status: 'SUCCEEDED',
+          updatedAt: dateWhere
+        },
+        include: [{
+          model: User,
+          as: 'User',
+          attributes: ['id', 'username', 'email', 'createdAt'],
+          required: false
+        }],
+        order: [['updatedAt', 'DESC']]
+      })
+    ]);
+
+    let revenueTotal = 0;
+    let revenueNet = 0;
+    let hasNet = false;
+
+    const paymentRows = payments.map((tx) => {
+      const json = tx.toJSON();
+      const fields = json.fields || {};
+      const amount = Number(json.amount) || 0;
+      const net = json.net != null ? Number(json.net) : null;
+      revenueTotal += amount;
+      if (net != null && !Number.isNaN(net)) {
+        revenueNet += net;
+        hasNet = true;
+      }
+
+      const kind = classifyPaymentKind(json);
+      const subscriptionType = fields.subscriptionType || '1';
+      const user = json.User;
+      let regEmail = null;
+      let regUsername = null;
+      if (fields.registrationData) {
+        const rd = typeof fields.registrationData === 'string'
+          ? (() => { try { return JSON.parse(fields.registrationData); } catch { return null; } })()
+          : fields.registrationData;
+        if (rd) {
+          regEmail = rd.email || null;
+          regUsername = rd.username || null;
+        }
+      }
+
+      return {
+        id: json.id,
+        finikTransactionId: json.finikTransactionId,
+        userId: json.userId,
+        username: user?.username || regUsername || null,
+        email: user?.email || regEmail || null,
+        amount,
+        net,
+        originalAmount: fields.originalAmount != null ? Number(fields.originalAmount) : null,
+        coinsUsed: fields.coinsToUse != null ? Number(fields.coinsToUse) : 0,
+        promoCode: fields.promoCode || null,
+        kind,
+        kindLabel: kind === 'registration' ? 'Регистрация с оплатой' : kind === 'renewal' ? 'Продление подписки' : 'Другое',
+        subscriptionType,
+        subscriptionLabel: subscriptionTypeLabel(subscriptionType),
+        paidAt: json.updatedAt,
+        createdAt: json.createdAt
+      };
+    });
+
+    const registrationPayments = paymentRows.filter((p) => p.kind === 'registration');
+    const renewalPayments = paymentRows.filter((p) => p.kind === 'renewal');
+
+    const registrationUserIds = new Set(
+      registrations.map((u) => u.id)
+    );
+    const paidRegistrationUserIds = new Set(
+      registrationPayments.filter((p) => p.userId).map((p) => p.userId)
+    );
+
+    const registrationRows = registrations.map((u) => {
+      const json = u.toJSON();
+      return {
+        id: json.id,
+        username: json.username,
+        email: json.email,
+        createdAt: json.createdAt,
+        subscriptionEndDate: json.subscriptionEndDate,
+        coins: json.coins,
+        referredBy: json.referredBy,
+        hasPaidRegistration: paidRegistrationUserIds.has(json.id)
+      };
+    });
+
+    res.json({
+      period,
+      range: { from: fromIso, to: toIso },
+      summary: {
+        registrationsCount: registrations.length,
+        paymentsCount: paymentRows.length,
+        registrationPaymentsCount: registrationPayments.length,
+        renewalPaymentsCount: renewalPayments.length,
+        revenueTotal: Math.round(revenueTotal * 100) / 100,
+        revenueNet: hasNet ? Math.round(revenueNet * 100) / 100 : null,
+        averagePayment: paymentRows.length
+          ? Math.round((revenueTotal / paymentRows.length) * 100) / 100
+          : 0
+      },
+      registrations: registrationRows,
+      payments: paymentRows,
+      renewals: renewalPayments
+    });
+  } catch (error) {
+    console.error('Ошибка аналитики:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

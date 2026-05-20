@@ -14,6 +14,7 @@ const adminListCache = {
     subjectsCompact: { data: null, at: 0 },
     testsCompact: { data: null, at: 0 }
 };
+let analyticsPeriod = '30d';
 
 function invalidateAdminListCache() {
     adminListCache.subjectsCompact = { data: null, at: 0 };
@@ -1776,6 +1777,23 @@ function setupAdminEventListeners() {
     if (adminBroadcastForm) {
         adminBroadcastForm.addEventListener('submit', handleAdminBroadcastSubmit);
     }
+
+    document.querySelectorAll('.admin-analytics-period-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.admin-analytics-period-btn').forEach((b) => b.classList.remove('active'));
+            btn.classList.add('active');
+            analyticsPeriod = btn.dataset.period || '30d';
+            const customRange = document.getElementById('analyticsCustomRange');
+            if (customRange) {
+                customRange.style.display = analyticsPeriod === 'custom' ? 'flex' : 'none';
+            }
+        });
+    });
+    const analyticsLoadBtn = document.getElementById('analyticsLoadBtn');
+    if (analyticsLoadBtn) {
+        analyticsLoadBtn.addEventListener('click', loadAdminAnalytics);
+    }
+
     setupAdminChatUserPicker();
 
     const uploadOfferBtn = document.getElementById('uploadOfferBtn');
@@ -2137,6 +2155,194 @@ function switchTab(tabName) {
         case 'promo':
             loadPromoCodes();
             break;
+        case 'analytics':
+            loadAdminAnalytics();
+            break;
+    }
+}
+
+function formatAnalyticsDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleString('ru-RU');
+}
+
+function formatSom(amount) {
+    const n = Number(amount);
+    if (!Number.isFinite(n)) return '0';
+    return n.toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+function renderAnalyticsEmpty(container, text) {
+    if (container) {
+        container.innerHTML = `<p style="color: var(--text-muted); text-align: center; padding: 1.5rem;">${escapeAdminHtml(text)}</p>`;
+    }
+}
+
+function renderAnalyticsRegistrationsTable(rows) {
+    const el = document.getElementById('analyticsRegistrationsList');
+    if (!el) return;
+    if (!rows.length) {
+        renderAnalyticsEmpty(el, 'За период регистраций нет');
+        return;
+    }
+    el.innerHTML = `
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Никнейм</th>
+                    <th>Email</th>
+                    <th>Дата регистрации</th>
+                    <th>Подписка до</th>
+                    <th>Оплата при рег.</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows.map((u) => `
+                    <tr>
+                        <td>${u.id}</td>
+                        <td>${escapeAdminHtml(u.username)}</td>
+                        <td>${escapeAdminHtml(u.email)}</td>
+                        <td>${formatAnalyticsDate(u.createdAt)}</td>
+                        <td>${u.subscriptionEndDate ? formatAnalyticsDate(u.subscriptionEndDate) : '—'}</td>
+                        <td>${u.hasPaidRegistration ? 'Да' : 'Нет'}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+function renderAnalyticsPaymentsTable(rows, emptyText) {
+    const el = document.getElementById('analyticsPaymentsList');
+    if (!el) return;
+    if (!rows.length) {
+        renderAnalyticsEmpty(el, emptyText);
+        return;
+    }
+    el.innerHTML = `
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Дата оплаты</th>
+                    <th>Пользователь</th>
+                    <th>Email</th>
+                    <th>Тип</th>
+                    <th>Тариф</th>
+                    <th>Сумма, сом</th>
+                    <th>Промокод</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows.map((p) => `
+                    <tr>
+                        <td>${formatAnalyticsDate(p.paidAt)}</td>
+                        <td>${escapeAdminHtml(p.username || '—')}</td>
+                        <td>${escapeAdminHtml(p.email || '—')}</td>
+                        <td>${escapeAdminHtml(p.kindLabel)}</td>
+                        <td>${escapeAdminHtml(p.subscriptionLabel || '—')}</td>
+                        <td><strong>${formatSom(p.amount)}</strong></td>
+                        <td>${escapeAdminHtml(p.promoCode || '—')}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+function renderAnalyticsRenewalsTable(rows) {
+    const el = document.getElementById('analyticsRenewalsList');
+    if (!el) return;
+    if (!rows.length) {
+        renderAnalyticsEmpty(el, 'Продлений подписки за период нет');
+        return;
+    }
+    el.innerHTML = `
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Дата оплаты</th>
+                    <th>Никнейм</th>
+                    <th>Email</th>
+                    <th>Тариф</th>
+                    <th>Сумма, сом</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows.map((p) => `
+                    <tr>
+                        <td>${formatAnalyticsDate(p.paidAt)}</td>
+                        <td>${escapeAdminHtml(p.username || '—')}</td>
+                        <td>${escapeAdminHtml(p.email || '—')}</td>
+                        <td>${escapeAdminHtml(p.subscriptionLabel || '—')}</td>
+                        <td><strong>${formatSom(p.amount)}</strong></td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+async function loadAdminAnalytics() {
+    if (!currentAdminToken) return;
+
+    const params = new URLSearchParams({ period: analyticsPeriod });
+    if (analyticsPeriod === 'custom') {
+        const from = document.getElementById('analyticsDateFrom')?.value;
+        const to = document.getElementById('analyticsDateTo')?.value;
+        if (!from || !to) {
+            showNotification('Укажите даты «с» и «по»', 'error');
+            return;
+        }
+        params.set('from', from);
+        params.set('to', to);
+    }
+
+    const rangeLabel = document.getElementById('analyticsRangeLabel');
+    if (rangeLabel) rangeLabel.textContent = 'Загрузка…';
+
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/analytics?${params}`, {
+            headers: adminAuthHeaders()
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || 'Ошибка загрузки аналитики');
+        }
+
+        const s = data.summary || {};
+        const set = (id, val) => {
+            const node = document.getElementById(id);
+            if (node) node.textContent = val;
+        };
+        set('analyticsRegistrations', s.registrationsCount ?? 0);
+        set('analyticsPayments', s.paymentsCount ?? 0);
+        set('analyticsRevenue', formatSom(s.revenueTotal ?? 0));
+        set('analyticsRenewals', s.renewalPaymentsCount ?? 0);
+        set('analyticsRegPayments', s.registrationPaymentsCount ?? 0);
+
+        if (rangeLabel && data.range) {
+            const fromD = new Date(data.range.from).toLocaleDateString('ru-RU');
+            const toD = new Date(data.range.to).toLocaleDateString('ru-RU');
+            let extra = '';
+            if (s.revenueNet != null) {
+                extra = ` · к зачислению (net): ${formatSom(s.revenueNet)} сом`;
+            }
+            if (s.averagePayment > 0) {
+                extra += ` · средний чек: ${formatSom(s.averagePayment)} сом`;
+            }
+            rangeLabel.textContent = `Период: ${fromD} — ${toD}${extra}`;
+        }
+
+        renderAnalyticsRegistrationsTable(data.registrations || []);
+        renderAnalyticsRenewalsTable(data.renewals || []);
+        renderAnalyticsPaymentsTable(data.payments || [], 'Оплат за период нет');
+    } catch (error) {
+        console.error('Ошибка аналитики:', error);
+        if (rangeLabel) rangeLabel.textContent = '';
+        showNotification(error.message || 'Ошибка загрузки аналитики', 'error');
     }
 }
 

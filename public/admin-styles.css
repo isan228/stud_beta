@@ -515,3 +515,56 @@
     }
 }
 
+.admin-analytics-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+}
+
+.admin-analytics-periods {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.admin-analytics-period-btn.active {
+    background: var(--primary-color);
+    color: #fff;
+    border-color: var(--primary-color);
+}
+
+.admin-analytics-custom-range {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: flex-end;
+}
+
+.admin-analytics-custom-range label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.admin-analytics-custom-range input {
+    min-width: 10rem;
+}
+
+.admin-analytics-range-label {
+    margin: 0 0 1.25rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.admin-analytics-summary {
+    margin-bottom: 2rem;
+}
+

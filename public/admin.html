@@ -83,6 +83,7 @@
                     <button class="admin-tab" data-tab="chats">Чаты</button>
                     <button class="admin-tab" data-tab="documents">Документы</button>
                     <button class="admin-tab" data-tab="promo">Промокоды</button>
+                    <button class="admin-tab" data-tab="analytics">Аналитика</button>
                 </div>
 
                 <!-- Дашборд -->
@@ -348,6 +349,77 @@
                     </form>
                     <div id="promoList" class="admin-list"></div>
                 </div>
+                <div id="analyticsTab" class="admin-tab-content">
+                    <div class="admin-section-header">
+                        <h2>Аналитика</h2>
+                        <p class="page-description" style="margin:0;">Регистрации, выручка и продления подписки за период</p>
+                    </div>
+                    <div class="admin-analytics-filters">
+                        <div class="admin-analytics-periods">
+                            <button type="button" class="btn btn-secondary admin-analytics-period-btn" data-period="today">Сегодня</button>
+                            <button type="button" class="btn btn-secondary admin-analytics-period-btn" data-period="7d">7 дней</button>
+                            <button type="button" class="btn btn-secondary admin-analytics-period-btn active" data-period="30d">30 дней</button>
+                            <button type="button" class="btn btn-secondary admin-analytics-period-btn" data-period="month">Этот месяц</button>
+                            <button type="button" class="btn btn-secondary admin-analytics-period-btn" data-period="custom">Свой период</button>
+                        </div>
+                        <div id="analyticsCustomRange" class="admin-analytics-custom-range" style="display: none;">
+                            <label><span>С</span><input type="date" id="analyticsDateFrom" class="form-group input"></label>
+                            <label><span>По</span><input type="date" id="analyticsDateTo" class="form-group input"></label>
+                        </div>
+                        <button type="button" class="btn btn-primary" id="analyticsLoadBtn">Показать</button>
+                    </div>
+                    <p id="analyticsRangeLabel" class="admin-analytics-range-label"></p>
+                    <div class="admin-stats-grid admin-analytics-summary">
+                        <div class="admin-stat-card">
+                            <div class="admin-stat-icon">👤</div>
+                            <div class="admin-stat-info">
+                                <div class="admin-stat-value" id="analyticsRegistrations">0</div>
+                                <div class="admin-stat-label">Регистраций</div>
+                            </div>
+                        </div>
+                        <div class="admin-stat-card">
+                            <div class="admin-stat-icon">💳</div>
+                            <div class="admin-stat-info">
+                                <div class="admin-stat-value" id="analyticsPayments">0</div>
+                                <div class="admin-stat-label">Успешных оплат</div>
+                            </div>
+                        </div>
+                        <div class="admin-stat-card">
+                            <div class="admin-stat-icon">💰</div>
+                            <div class="admin-stat-info">
+                                <div class="admin-stat-value" id="analyticsRevenue">0</div>
+                                <div class="admin-stat-label">Выручка, сом</div>
+                            </div>
+                        </div>
+                        <div class="admin-stat-card">
+                            <div class="admin-stat-icon">🔄</div>
+                            <div class="admin-stat-info">
+                                <div class="admin-stat-value" id="analyticsRenewals">0</div>
+                                <div class="admin-stat-label">Продлений подписки</div>
+                            </div>
+                        </div>
+                        <div class="admin-stat-card">
+                            <div class="admin-stat-icon">📝</div>
+                            <div class="admin-stat-info">
+                                <div class="admin-stat-value" id="analyticsRegPayments">0</div>
+                                <div class="admin-stat-label">Оплат при регистрации</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="admin-recent-section">
+                        <h3>Зарегистрировались</h3>
+                        <div id="analyticsRegistrationsList" class="admin-table-container"></div>
+                    </div>
+                    <div class="admin-recent-section">
+                        <h3>Продлили подписку</h3>
+                        <div id="analyticsRenewalsList" class="admin-table-container"></div>
+                    </div>
+                    <div class="admin-recent-section">
+                        <h3>Все оплаты за период</h3>
+                        <div id="analyticsPaymentsList" class="admin-table-container"></div>
+                    </div>
+                </div>
+
             </div>
         </div>
     </main>
