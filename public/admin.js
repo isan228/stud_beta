@@ -15,6 +15,8 @@ const adminListCache = {
     testsCompact: { data: null, at: 0 }
 };
 let analyticsPeriod = '30d';
+let analyticsView = 'all';
+let analyticsDataCache = null;
 
 function invalidateAdminListCache() {
     adminListCache.subjectsCompact = { data: null, at: 0 };
@@ -1793,6 +1795,23 @@ function setupAdminEventListeners() {
     if (analyticsLoadBtn) {
         analyticsLoadBtn.addEventListener('click', loadAdminAnalytics);
     }
+    document.querySelectorAll('.admin-analytics-view-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            analyticsView = btn.dataset.view || 'all';
+            applyAnalyticsView();
+        });
+    });
+    const analyticsSearchIds = [
+        'analyticsRegistrationsSearch',
+        'analyticsRenewalsSearch',
+        'analyticsPaymentsSearch'
+    ];
+    analyticsSearchIds.forEach((id) => {
+        const input = document.getElementById(id);
+        if (input) {
+            input.addEventListener('input', refreshAnalyticsTables);
+        }
+    });
 
     setupAdminChatUserPicker();
 
@@ -2180,6 +2199,72 @@ function renderAnalyticsEmpty(container, text) {
     }
 }
 
+function analyticsMatchesQuery(row, query, keys) {
+    if (!query) return true;
+    const q = query.toLowerCase();
+    return keys.some((key) => String(row[key] || '').toLowerCase().includes(q));
+}
+
+function applyAnalyticsView() {
+    document.querySelectorAll('.admin-analytics-view-btn').forEach((btn) => {
+        btn.classList.toggle('active', (btn.dataset.view || 'all') === analyticsView);
+    });
+
+    document.querySelectorAll('.admin-analytics-section').forEach((section) => {
+        const key = section.dataset.analyticsSection;
+        let show = false;
+        if (analyticsView === 'all') {
+            show = true;
+        } else if (analyticsView === 'registrations') {
+            show = key === 'registrations';
+        } else if (analyticsView === 'renewals') {
+            show = key === 'renewals';
+        } else if (analyticsView === 'reg_payments' || analyticsView === 'payments') {
+            show = key === 'payments';
+        }
+        section.style.display = show ? '' : 'none';
+    });
+
+    const paymentsTitle = document.querySelector('[data-analytics-section="payments"] h3');
+    if (paymentsTitle) {
+        paymentsTitle.textContent = analyticsView === 'reg_payments'
+            ? 'Оплата при регистрации'
+            : 'Все оплаты за период';
+    }
+
+    refreshAnalyticsTables();
+}
+
+function refreshAnalyticsTables() {
+    if (!analyticsDataCache) return;
+
+    const regQuery = (document.getElementById('analyticsRegistrationsSearch')?.value || '').trim();
+    const renQuery = (document.getElementById('analyticsRenewalsSearch')?.value || '').trim();
+    const payQuery = (document.getElementById('analyticsPaymentsSearch')?.value || '').trim();
+
+    const registrations = (analyticsDataCache.registrations || []).filter((row) =>
+        analyticsMatchesQuery(row, regQuery, ['username', 'email'])
+    );
+    const renewals = (analyticsDataCache.renewals || []).filter((row) =>
+        analyticsMatchesQuery(row, renQuery, ['username', 'email'])
+    );
+
+    let payments = analyticsDataCache.payments || [];
+    if (analyticsView === 'reg_payments') {
+        payments = payments.filter((p) => p.kind === 'registration');
+    }
+    payments = payments.filter((row) =>
+        analyticsMatchesQuery(row, payQuery, ['username', 'email', 'kindLabel', 'promoCode'])
+    );
+
+    renderAnalyticsRegistrationsTable(registrations);
+    renderAnalyticsRenewalsTable(renewals);
+    const paymentsEmpty = analyticsView === 'reg_payments'
+        ? 'Оплат при регистрации за период нет'
+        : 'Оплат за период нет';
+    renderAnalyticsPaymentsTable(payments, paymentsEmpty);
+}
+
 function renderAnalyticsRegistrationsTable(rows) {
     const el = document.getElementById('analyticsRegistrationsList');
     if (!el) return;
@@ -2266,6 +2351,7 @@ function renderAnalyticsRenewalsTable(rows) {
                     <th>Дата оплаты</th>
                     <th>Никнейм</th>
                     <th>Email</th>
+                    <th>Регистрация аккаунта</th>
                     <th>Тариф</th>
                     <th>Сумма, сом</th>
                 </tr>
@@ -2276,6 +2362,7 @@ function renderAnalyticsRenewalsTable(rows) {
                         <td>${formatAnalyticsDate(p.paidAt)}</td>
                         <td>${escapeAdminHtml(p.username || '—')}</td>
                         <td>${escapeAdminHtml(p.email || '—')}</td>
+                        <td>${p.userRegisteredAt ? formatAnalyticsDate(p.userRegisteredAt) : '—'}</td>
                         <td>${escapeAdminHtml(p.subscriptionLabel || '—')}</td>
                         <td><strong>${formatSom(p.amount)}</strong></td>
                     </tr>
@@ -2321,7 +2408,24 @@ async function loadAdminAnalytics() {
         set('analyticsPayments', s.paymentsCount ?? 0);
         set('analyticsRevenue', formatSom(s.revenueTotal ?? 0));
         set('analyticsRenewals', s.renewalPaymentsCount ?? 0);
+        set('analyticsUniqueRenewalUsers', s.uniqueRenewalUsersCount ?? 0);
+        set('analyticsRenewalRevenue', formatSom(s.renewalRevenue ?? 0));
         set('analyticsRegPayments', s.registrationPaymentsCount ?? 0);
+
+        const renewalsHint = document.getElementById('analyticsRenewalsHint');
+        if (renewalsHint) {
+            const unique = s.uniqueRenewalUsersCount ?? 0;
+            const rev = formatSom(s.renewalRevenue ?? 0);
+            renewalsHint.textContent =
+                'Учтены оплаты подписки после даты регистрации (не первая оплата в день регистрации). ' +
+                `Уникальных пользователей: ${unique}, выручка: ${rev} сом.`;
+        }
+
+        analyticsDataCache = {
+            registrations: data.registrations || [],
+            renewals: data.renewals || [],
+            payments: data.payments || []
+        };
 
         if (rangeLabel && data.range) {
             const fromD = new Date(data.range.from).toLocaleDateString('ru-RU');
@@ -2336,9 +2440,7 @@ async function loadAdminAnalytics() {
             rangeLabel.textContent = `Период: ${fromD} — ${toD}${extra}`;
         }
 
-        renderAnalyticsRegistrationsTable(data.registrations || []);
-        renderAnalyticsRenewalsTable(data.renewals || []);
-        renderAnalyticsPaymentsTable(data.payments || [], 'Оплат за период нет');
+        applyAnalyticsView();
     } catch (error) {
         console.error('Ошибка аналитики:', error);
         if (rangeLabel) rangeLabel.textContent = '';

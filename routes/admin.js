@@ -129,16 +129,31 @@ function subscriptionTypeLabel(type) {
   return '1 месяц';
 }
 
-function classifyPaymentKind(transaction) {
+function classifyPaymentKind(transaction, user) {
   const fields = transaction.fields || {};
   const paymentType = String(fields.paymentType || '').toLowerCase();
   if (paymentType === 'registration' || fields.registrationData) {
     return 'registration';
   }
   if (paymentType === 'subscription') {
+    if (user?.createdAt) {
+      const paidAt = new Date(transaction.updatedAt || transaction.createdAt);
+      const registeredAt = new Date(user.createdAt);
+      if (registeredAt < paidAt) {
+        return 'renewal';
+      }
+      return 'subscription_first';
+    }
     return 'renewal';
   }
   return 'other';
+}
+
+function paymentKindLabel(kind) {
+  if (kind === 'registration') return 'Регистрация с оплатой';
+  if (kind === 'renewal') return 'Продление подписки';
+  if (kind === 'subscription_first') return 'Первая оплата подписки';
+  return 'Другое';
 }
 
 function resolveAnalyticsRange(query) {
@@ -240,9 +255,9 @@ router.get('/analytics', adminAuth, async (req, res) => {
         hasNet = true;
       }
 
-      const kind = classifyPaymentKind(json);
-      const subscriptionType = fields.subscriptionType || '1';
       const user = json.User;
+      const kind = classifyPaymentKind(json, user);
+      const subscriptionType = fields.subscriptionType || '1';
       let regEmail = null;
       let regUsername = null;
       if (fields.registrationData) {
@@ -267,7 +282,8 @@ router.get('/analytics', adminAuth, async (req, res) => {
         coinsUsed: fields.coinsToUse != null ? Number(fields.coinsToUse) : 0,
         promoCode: fields.promoCode || null,
         kind,
-        kindLabel: kind === 'registration' ? 'Регистрация с оплатой' : kind === 'renewal' ? 'Продление подписки' : 'Другое',
+        kindLabel: paymentKindLabel(kind),
+        userRegisteredAt: user?.createdAt || null,
         subscriptionType,
         subscriptionLabel: subscriptionTypeLabel(subscriptionType),
         paidAt: json.updatedAt,
@@ -277,6 +293,10 @@ router.get('/analytics', adminAuth, async (req, res) => {
 
     const registrationPayments = paymentRows.filter((p) => p.kind === 'registration');
     const renewalPayments = paymentRows.filter((p) => p.kind === 'renewal');
+    const renewalRevenue = renewalPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    const uniqueRenewalUserIds = new Set(
+      renewalPayments.filter((p) => p.userId).map((p) => p.userId)
+    );
 
     const registrationUserIds = new Set(
       registrations.map((u) => u.id)
@@ -307,6 +327,8 @@ router.get('/analytics', adminAuth, async (req, res) => {
         paymentsCount: paymentRows.length,
         registrationPaymentsCount: registrationPayments.length,
         renewalPaymentsCount: renewalPayments.length,
+        uniqueRenewalUsersCount: uniqueRenewalUserIds.size,
+        renewalRevenue: Math.round(renewalRevenue * 100) / 100,
         revenueTotal: Math.round(revenueTotal * 100) / 100,
         revenueNet: hasNet ? Math.round(revenueNet * 100) / 100 : null,
         averagePayment: paymentRows.length

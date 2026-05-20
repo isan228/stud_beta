@@ -368,6 +368,14 @@
                         </div>
                         <button type="button" class="btn btn-primary" id="analyticsLoadBtn">Показать</button>
                     </div>
+                    <div class="admin-analytics-view-filters">
+                        <span class="admin-analytics-view-label">Показать:</span>
+                        <button type="button" class="btn btn-secondary admin-analytics-view-btn active" data-view="all">Все списки</button>
+                        <button type="button" class="btn btn-secondary admin-analytics-view-btn" data-view="registrations">Регистрации</button>
+                        <button type="button" class="btn btn-secondary admin-analytics-view-btn" data-view="renewals">Продления</button>
+                        <button type="button" class="btn btn-secondary admin-analytics-view-btn" data-view="reg_payments">Оплата при рег.</button>
+                        <button type="button" class="btn btn-secondary admin-analytics-view-btn" data-view="payments">Все оплаты</button>
+                    </div>
                     <p id="analyticsRangeLabel" class="admin-analytics-range-label"></p>
                     <div class="admin-stats-grid admin-analytics-summary">
                         <div class="admin-stat-card">
@@ -399,6 +407,20 @@
                             </div>
                         </div>
                         <div class="admin-stat-card">
+                            <div class="admin-stat-icon">👥</div>
+                            <div class="admin-stat-info">
+                                <div class="admin-stat-value" id="analyticsUniqueRenewalUsers">0</div>
+                                <div class="admin-stat-label">Уникальных продливших</div>
+                            </div>
+                        </div>
+                        <div class="admin-stat-card">
+                            <div class="admin-stat-icon">📈</div>
+                            <div class="admin-stat-info">
+                                <div class="admin-stat-value" id="analyticsRenewalRevenue">0</div>
+                                <div class="admin-stat-label">Выручка с продлений, сом</div>
+                            </div>
+                        </div>
+                        <div class="admin-stat-card">
                             <div class="admin-stat-icon">📝</div>
                             <div class="admin-stat-info">
                                 <div class="admin-stat-value" id="analyticsRegPayments">0</div>
@@ -406,16 +428,26 @@
                             </div>
                         </div>
                     </div>
-                    <div class="admin-recent-section">
+                    <div class="admin-recent-section admin-analytics-section" data-analytics-section="registrations">
                         <h3>Зарегистрировались</h3>
+                        <div class="admin-analytics-table-toolbar">
+                            <input type="text" id="analyticsRegistrationsSearch" class="form-group input" placeholder="Поиск по нику или email...">
+                        </div>
                         <div id="analyticsRegistrationsList" class="admin-table-container"></div>
                     </div>
-                    <div class="admin-recent-section">
+                    <div class="admin-recent-section admin-analytics-section" data-analytics-section="renewals">
                         <h3>Продлили подписку</h3>
+                        <p id="analyticsRenewalsHint" class="admin-analytics-section-hint"></p>
+                        <div class="admin-analytics-table-toolbar">
+                            <input type="text" id="analyticsRenewalsSearch" class="form-group input" placeholder="Поиск по нику или email...">
+                        </div>
                         <div id="analyticsRenewalsList" class="admin-table-container"></div>
                     </div>
-                    <div class="admin-recent-section">
+                    <div class="admin-recent-section admin-analytics-section" data-analytics-section="payments">
                         <h3>Все оплаты за период</h3>
+                        <div class="admin-analytics-table-toolbar">
+                            <input type="text" id="analyticsPaymentsSearch" class="form-group input" placeholder="Поиск по нику, email или типу...">
+                        </div>
                         <div id="analyticsPaymentsList" class="admin-table-container"></div>
                     </div>
                 </div>
