@@ -584,50 +584,75 @@
 .admin-analytics-chart-wrap {
     width: 100%;
     overflow-x: auto;
-    padding-top: 0.25rem;
+    padding-top: 0.35rem;
+    -webkit-overflow-scrolling: touch;
 }
 
-.admin-analytics-bars {
-    display: grid;
-    grid-template-columns: repeat(var(--analytics-bar-cols, 7), minmax(6px, 1fr));
-    gap: clamp(3px, 1vw, 8px);
-    align-items: end;
-    min-height: 220px;
-    padding: 0.5rem 0 0;
-    border-bottom: 1px solid var(--border-light);
+.admin-analytics-chart-zero-note {
+    margin: 0 0 0.65rem;
+    padding: 0.5rem 0.65rem;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    background: color-mix(in srgb, var(--bg-primary) 88%, var(--border-light));
+    border-radius: var(--radius, 8px);
+    border: 1px solid var(--border-light);
 }
 
-.admin-analytics-bar-col {
+.admin-analytics-bars-scroll {
+    min-width: 100%;
+    padding-bottom: 0.35rem;
+}
+
+.admin-analytics-bars-simple {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    justify-content: flex-start;
+    gap: 6px;
+    /* Достаточная ширина столбика: иначе на 30+ днях всё «схлопывается» в линию */
+    min-width: max(100%, calc(var(--analytics-bar-cols, 7) * 18px + 24px));
+    min-height: 200px;
+    padding: 0.25rem 0.25rem 0;
+    box-sizing: border-box;
+    border-bottom: 2px solid var(--border-light);
+}
+
+.admin-analytics-bar-col-simple {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: flex-end;
+    flex: 1 1 18px;
+    min-width: 14px;
+    max-width: 36px;
     gap: 0.35rem;
-    min-height: 210px;
-    justify-content: flex-end;
-}
-
-.admin-analytics-bar-stack {
-    flex: 1;
-    width: 100%;
-    min-height: 180px;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
 }
 
 .admin-analytics-bar {
     width: 100%;
-    border-radius: 4px 4px 2px 2px;
-    background: linear-gradient(180deg, var(--primary-color), rgba(37, 99, 235, 0.75));
-    min-height: 0;
+    flex-shrink: 0;
+    border-radius: 5px 5px 2px 2px;
+    background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+    background: linear-gradient(180deg, var(--primary-color, #3b82f6), color-mix(in srgb, var(--primary-color, #2563eb) 82%, black));
+    box-sizing: border-box;
+    border: 1px solid rgba(37, 99, 235, 0.35);
+}
+
+.admin-analytics-bar--zero {
+    opacity: 0.75;
+    background: #94a3b8 !important;
+    border-color: rgba(100, 116, 139, 0.55);
 }
 
 .admin-analytics-bar-xlabel {
-    font-size: 0.65rem;
+    font-size: 0.62rem;
     line-height: 1.15;
     color: var(--text-muted);
     text-align: center;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
 }
 
 .admin-analytics-view-filters {

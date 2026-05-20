@@ -2202,6 +2202,38 @@ function escapeAnalyticsAttr(text) {
         .replace(/\n/g, ' ');
 }
 
+/** Запасной вариант: старый API без purchaseTimeSeries — строим те же точки из payments */
+function buildPurchaseTimeSeriesFromRangeAndPayments(range, payments) {
+    if (!range || !payments || !payments.length) return [];
+    const dayMs = 24 * 60 * 60 * 1000;
+    const from = new Date(range.from);
+    const to = new Date(range.to);
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return [];
+
+    const buckets = new Map();
+    for (const p of payments) {
+        const key = new Date(p.paidAt).toISOString().slice(0, 10);
+        const cur = buckets.get(key) || { count: 0, revenue: 0 };
+        cur.count += 1;
+        cur.revenue += Number(p.amount) || 0;
+        buckets.set(key, cur);
+    }
+
+    const startUtc = Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate());
+    const endUtc = Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate());
+    const series = [];
+    for (let t = startUtc; t <= endUtc; t += dayMs) {
+        const key = new Date(t).toISOString().slice(0, 10);
+        const agg = buckets.get(key) || { count: 0, revenue: 0 };
+        series.push({
+            date: key,
+            count: agg.count,
+            revenue: Math.round(agg.revenue * 100) / 100
+        });
+    }
+    return series;
+}
+
 /** series: { date, count, revenue }[] — все успешные оплаты по дням (с бэкенда) */
 function renderAnalyticsPurchasesChart(series) {
     const wrap = document.getElementById('analyticsPurchasesChartWrap');
@@ -2210,41 +2242,51 @@ function renderAnalyticsPurchasesChart(series) {
 
     if (hintEl) {
         hintEl.textContent =
-            'Столбики — число успешных оплат за день (оплата при регистрации, первая подписка, продление и прочие). ' +
-            'Наведите на столбец: сумма за день в сомах. Группировка по календарным суткам UTC.';
+            'Столбики — число успешных оплат за день (регистрация с оплатой, первая подписка, продление и пр.). ' +
+            'Наведите на столбец: сумма за день. Ось времени по календарным суткам UTC.';
     }
 
     if (!Array.isArray(series) || !series.length) {
         wrap.innerHTML =
-            '<p class="admin-analytics-chart-empty" style="color: var(--text-muted); text-align: center; padding: 1rem 0;">За период успешных оплат нет — график пустой</p>';
+            '<p class="admin-analytics-chart-empty" style="color: var(--text-muted); text-align: center; padding: 1rem 0;">Нет данных за период (обновите сервер и нажмите «Показать»). Либо за интервал нет ни одного дня.</p>';
         return;
     }
 
-    const maxC = Math.max(1, ...series.map((s) => s.count));
-    const barMaxPx = 176;
+    const totalPayments = series.reduce((sum, s) => sum + (Number(s.count) || 0), 0);
+    const maxC = Math.max(1, ...series.map((s) => Number(s.count) || 0));
+    const barMaxPx = 160;
     const labelEvery = series.length <= 14 ? 1 : series.length <= 35 ? Math.ceil(series.length / 14) : Math.ceil(series.length / 12);
 
     const cols = series.map((s, i) => {
-        const hPx = s.count <= 0 ? 0 : Math.max(3, Math.round((s.count / maxC) * barMaxPx));
-        const tp = `${s.date}: ${s.count} ${s.count === 1 ? 'оплата' : 'оплат'}, ${formatSom(s.revenue)} сом`;
+        const cnt = Number(s.count) || 0;
+        const hPx = cnt <= 0
+            ? 6
+            : Math.max(8, Math.round((cnt / maxC) * barMaxPx));
+        const tp = `${s.date}: ${cnt} ${cnt === 1 ? 'оплата' : cnt === 0 ? 'оплат нет' : 'оплат'}, ${formatSom(s.revenue ?? 0)} сом`;
         const showLab = i % labelEvery === 0 || i === series.length - 1;
         const dt = new Date(`${s.date}T12:00:00Z`);
         const lab = Number.isNaN(dt.getTime())
             ? s.date.slice(5)
             : dt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+        const barClass = cnt <= 0 ? 'admin-analytics-bar admin-analytics-bar--zero' : 'admin-analytics-bar';
         return `
-            <div class="admin-analytics-bar-col" title="${escapeAnalyticsAttr(tp)}">
-                <div class="admin-analytics-bar-stack">
-                    <div class="admin-analytics-bar" style="height:${hPx}px"></div>
-                </div>
+            <div class="admin-analytics-bar-col-simple" title="${escapeAnalyticsAttr(tp)}">
+                <div class="${barClass}" style="height:${hPx}px" role="presentation"></div>
                 <span class="admin-analytics-bar-xlabel"${showLab ? '' : ' style="opacity:0"'}>${escapeAnalyticsAttr(lab)}</span>
             </div>
         `;
     }).join('');
 
+    const zerosNote = totalPayments === 0
+        ? `<p class="admin-analytics-chart-zero-note">За эти даты успешных оплат не было — серые столбики соответствуют нулям по дням.</p>`
+        : '';
+
     wrap.innerHTML = `
-        <div class="admin-analytics-bars" style="--analytics-bar-cols:${series.length}">
-            ${cols}
+        ${zerosNote}
+        <div class="admin-analytics-bars-scroll">
+            <div class="admin-analytics-bars-simple" style="--analytics-bar-cols:${series.length}">
+                ${cols}
+            </div>
         </div>
     `;
 }
@@ -2528,7 +2570,11 @@ async function loadAdminAnalytics() {
                 `Всего: ${count}.`;
         }
 
-        renderAnalyticsPurchasesChart(data.purchaseTimeSeries || []);
+        let purchaseSeries = Array.isArray(data.purchaseTimeSeries) && data.purchaseTimeSeries.length
+            ? data.purchaseTimeSeries
+            : buildPurchaseTimeSeriesFromRangeAndPayments(data.range, data.payments);
+
+        renderAnalyticsPurchasesChart(purchaseSeries);
 
         analyticsDataCache = {
             registrations: data.registrations || [],
