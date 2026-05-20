@@ -352,7 +352,7 @@
                 <div id="analyticsTab" class="admin-tab-content">
                     <div class="admin-section-header">
                         <h2>Аналитика</h2>
-                        <p class="page-description" style="margin:0;">Регистрации, выручка и продления подписки за период</p>
+                        <p class="page-description" style="margin:0;">Регистрации, выручка, продления и окончание подписки за период</p>
                     </div>
                     <div class="admin-analytics-filters">
                         <div class="admin-analytics-periods">
@@ -373,6 +373,7 @@
                         <button type="button" class="btn btn-secondary admin-analytics-view-btn active" data-view="all">Все списки</button>
                         <button type="button" class="btn btn-secondary admin-analytics-view-btn" data-view="registrations">Регистрации</button>
                         <button type="button" class="btn btn-secondary admin-analytics-view-btn" data-view="renewals">Продления</button>
+                        <button type="button" class="btn btn-secondary admin-analytics-view-btn" data-view="expired">Истекла подписка</button>
                         <button type="button" class="btn btn-secondary admin-analytics-view-btn" data-view="reg_payments">Оплата при рег.</button>
                         <button type="button" class="btn btn-secondary admin-analytics-view-btn" data-view="payments">Все оплаты</button>
                     </div>
@@ -421,6 +422,13 @@
                             </div>
                         </div>
                         <div class="admin-stat-card">
+                            <div class="admin-stat-icon">⏳</div>
+                            <div class="admin-stat-info">
+                                <div class="admin-stat-value" id="analyticsExpiredSubs">0</div>
+                                <div class="admin-stat-label">Подписка истекла</div>
+                            </div>
+                        </div>
+                        <div class="admin-stat-card">
                             <div class="admin-stat-icon">📝</div>
                             <div class="admin-stat-info">
                                 <div class="admin-stat-value" id="analyticsRegPayments">0</div>
@@ -442,6 +450,14 @@
                             <input type="text" id="analyticsRenewalsSearch" class="form-group input" placeholder="Поиск по нику или email...">
                         </div>
                         <div id="analyticsRenewalsList" class="admin-table-container"></div>
+                    </div>
+                    <div class="admin-recent-section admin-analytics-section" data-analytics-section="expired">
+                        <h3>Подписка истекла</h3>
+                        <p id="analyticsExpiredHint" class="admin-analytics-section-hint"></p>
+                        <div class="admin-analytics-table-toolbar">
+                            <input type="text" id="analyticsExpiredSearch" class="form-group input" placeholder="Поиск по нику или email...">
+                        </div>
+                        <div id="analyticsExpiredList" class="admin-table-container"></div>
                     </div>
                     <div class="admin-recent-section admin-analytics-section" data-analytics-section="payments">
                         <h3>Все оплаты за период</h3>

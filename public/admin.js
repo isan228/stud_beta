@@ -1804,6 +1804,7 @@ function setupAdminEventListeners() {
     const analyticsSearchIds = [
         'analyticsRegistrationsSearch',
         'analyticsRenewalsSearch',
+        'analyticsExpiredSearch',
         'analyticsPaymentsSearch'
     ];
     analyticsSearchIds.forEach((id) => {
@@ -2219,6 +2220,8 @@ function applyAnalyticsView() {
             show = key === 'registrations';
         } else if (analyticsView === 'renewals') {
             show = key === 'renewals';
+        } else if (analyticsView === 'expired') {
+            show = key === 'expired';
         } else if (analyticsView === 'reg_payments' || analyticsView === 'payments') {
             show = key === 'payments';
         }
@@ -2240,6 +2243,7 @@ function refreshAnalyticsTables() {
 
     const regQuery = (document.getElementById('analyticsRegistrationsSearch')?.value || '').trim();
     const renQuery = (document.getElementById('analyticsRenewalsSearch')?.value || '').trim();
+    const expQuery = (document.getElementById('analyticsExpiredSearch')?.value || '').trim();
     const payQuery = (document.getElementById('analyticsPaymentsSearch')?.value || '').trim();
 
     const registrations = (analyticsDataCache.registrations || []).filter((row) =>
@@ -2247,6 +2251,9 @@ function refreshAnalyticsTables() {
     );
     const renewals = (analyticsDataCache.renewals || []).filter((row) =>
         analyticsMatchesQuery(row, renQuery, ['username', 'email'])
+    );
+    const expired = (analyticsDataCache.expiredSubscriptions || []).filter((row) =>
+        analyticsMatchesQuery(row, expQuery, ['username', 'email'])
     );
 
     let payments = analyticsDataCache.payments || [];
@@ -2259,6 +2266,7 @@ function refreshAnalyticsTables() {
 
     renderAnalyticsRegistrationsTable(registrations);
     renderAnalyticsRenewalsTable(renewals);
+    renderAnalyticsExpiredTable(expired);
     const paymentsEmpty = analyticsView === 'reg_payments'
         ? 'Оплат при регистрации за период нет'
         : 'Оплат за период нет';
@@ -2372,6 +2380,41 @@ function renderAnalyticsRenewalsTable(rows) {
     `;
 }
 
+function renderAnalyticsExpiredTable(rows) {
+    const el = document.getElementById('analyticsExpiredList');
+    if (!el) return;
+    if (!rows.length) {
+        renderAnalyticsEmpty(el, 'За период истечений подписки нет');
+        return;
+    }
+    el.innerHTML = `
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Никнейм</th>
+                    <th>Email</th>
+                    <th>Дата окончания</th>
+                    <th>Дней без подписки</th>
+                    <th>Регистрация аккаунта</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows.map((u) => `
+                    <tr>
+                        <td>${u.id}</td>
+                        <td>${escapeAdminHtml(u.username)}</td>
+                        <td>${escapeAdminHtml(u.email)}</td>
+                        <td>${formatAnalyticsDate(u.subscriptionEndDate)}</td>
+                        <td>${u.daysSinceExpired != null ? u.daysSinceExpired : '—'}</td>
+                        <td>${formatAnalyticsDate(u.createdAt)}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
 async function loadAdminAnalytics() {
     if (!currentAdminToken) return;
 
@@ -2411,6 +2454,7 @@ async function loadAdminAnalytics() {
         set('analyticsUniqueRenewalUsers', s.uniqueRenewalUsersCount ?? 0);
         set('analyticsRenewalRevenue', formatSom(s.renewalRevenue ?? 0));
         set('analyticsRegPayments', s.registrationPaymentsCount ?? 0);
+        set('analyticsExpiredSubs', s.expiredSubscriptionsCount ?? 0);
 
         const renewalsHint = document.getElementById('analyticsRenewalsHint');
         if (renewalsHint) {
@@ -2421,9 +2465,18 @@ async function loadAdminAnalytics() {
                 `Уникальных пользователей: ${unique}, выручка: ${rev} сом.`;
         }
 
+        const expiredHint = document.getElementById('analyticsExpiredHint');
+        if (expiredHint) {
+            const count = s.expiredSubscriptionsCount ?? 0;
+            expiredHint.textContent =
+                'Пользователи, у которых дата окончания подписки попала в выбранный период и уже прошла (подписка не активна). ' +
+                `Всего: ${count}.`;
+        }
+
         analyticsDataCache = {
             registrations: data.registrations || [],
             renewals: data.renewals || [],
+            expiredSubscriptions: data.expiredSubscriptions || [],
             payments: data.payments || []
         };
 

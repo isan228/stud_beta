@@ -219,7 +219,8 @@ router.get('/analytics', adminAuth, async (req, res) => {
     const { from, to, fromIso, toIso, period } = range;
     const dateWhere = { [Op.between]: [from, to] };
 
-    const [registrations, payments] = await Promise.all([
+    const now = new Date();
+    const [registrations, payments, expiredSubscriptions] = await Promise.all([
       User.findAll({
         where: { createdAt: dateWhere },
         attributes: ['id', 'username', 'email', 'createdAt', 'subscriptionEndDate', 'coins', 'referredBy'],
@@ -237,6 +238,19 @@ router.get('/analytics', adminAuth, async (req, res) => {
           required: false
         }],
         order: [['updatedAt', 'DESC']]
+      }),
+      User.findAll({
+        where: {
+          subscriptionEndDate: {
+            [Op.and]: [
+              { [Op.ne]: null },
+              { [Op.between]: [from, to] },
+              { [Op.lt]: now }
+            ]
+          }
+        },
+        attributes: ['id', 'username', 'email', 'createdAt', 'subscriptionEndDate', 'coins'],
+        order: [['subscriptionEndDate', 'DESC']]
       })
     ]);
 
@@ -319,6 +333,23 @@ router.get('/analytics', adminAuth, async (req, res) => {
       };
     });
 
+    const expiredRows = expiredSubscriptions.map((u) => {
+      const json = u.toJSON();
+      const end = json.subscriptionEndDate ? new Date(json.subscriptionEndDate) : null;
+      const daysSinceExpired = end && !Number.isNaN(end.getTime())
+        ? Math.max(0, Math.floor((now.getTime() - end.getTime()) / (24 * 60 * 60 * 1000)))
+        : null;
+      return {
+        id: json.id,
+        username: json.username,
+        email: json.email,
+        createdAt: json.createdAt,
+        subscriptionEndDate: json.subscriptionEndDate,
+        daysSinceExpired,
+        coins: json.coins
+      };
+    });
+
     res.json({
       period,
       range: { from: fromIso, to: toIso },
@@ -329,6 +360,7 @@ router.get('/analytics', adminAuth, async (req, res) => {
         renewalPaymentsCount: renewalPayments.length,
         uniqueRenewalUsersCount: uniqueRenewalUserIds.size,
         renewalRevenue: Math.round(renewalRevenue * 100) / 100,
+        expiredSubscriptionsCount: expiredRows.length,
         revenueTotal: Math.round(revenueTotal * 100) / 100,
         revenueNet: hasNet ? Math.round(revenueNet * 100) / 100 : null,
         averagePayment: paymentRows.length
@@ -337,7 +369,8 @@ router.get('/analytics', adminAuth, async (req, res) => {
       },
       registrations: registrationRows,
       payments: paymentRows,
-      renewals: renewalPayments
+      renewals: renewalPayments,
+      expiredSubscriptions: expiredRows
     });
   } catch (error) {
     console.error('Ошибка аналитики:', error);
