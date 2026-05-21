@@ -78,6 +78,7 @@
                     <button class="admin-tab" data-tab="subjects">Предметы</button>
                     <button class="admin-tab" data-tab="tests">Тесты</button>
                     <button class="admin-tab" data-tab="questions">Вопросы</button>
+                    <button class="admin-tab" data-tab="editors">Редакторы</button>
                     <button class="admin-tab" data-tab="news">Новости</button>
                     <button class="admin-tab" data-tab="messages">Обратная связь</button>
                     <button class="admin-tab" data-tab="chats">Чаты</button>
@@ -225,6 +226,18 @@
                         </div>
                     </div>
                     <div id="questionsList" class="admin-list"></div>
+                </div>
+
+                <!-- Редакторы вопросов -->
+                <div id="editorsTab" class="admin-tab-content">
+                    <div class="admin-section-header">
+                        <h2>Редакторы вопросов</h2>
+                        <button class="btn btn-primary" id="addEditorBtn" type="button">+ Добавить редактора</button>
+                    </div>
+                    <p class="page-description" style="margin-bottom: 1rem;">
+                        Аккаунты для панели <a href="/redact/login" target="_blank" rel="noopener">/redact/login</a> — редактирование вопросов и отчёты об ошибках.
+                    </p>
+                    <div id="editorsList" class="admin-list"></div>
                 </div>
 
                 <!-- Новости -->
@@ -708,6 +721,36 @@
                 <div class="form-group">
                     <label for="updateCoinsValue">Добавить / списать монеты</label>
                     <input type="number" id="updateCoinsValue" step="1" required placeholder="Например: 50 или -20">
+                </div>
+                <button type="submit" class="btn btn-primary">Сохранить</button>
+                <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="editorModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 480px;">
+            <span class="modal-close">&times;</span>
+            <h2 id="editorModalTitle">Добавить редактора</h2>
+            <form id="editorForm">
+                <input type="hidden" id="editorId">
+                <div class="form-group">
+                    <label for="editorUsername">Логин</label>
+                    <input type="text" id="editorUsername" required minlength="3" maxlength="50" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="editorDisplayName">Отображаемое имя</label>
+                    <input type="text" id="editorDisplayName" maxlength="100">
+                </div>
+                <div class="form-group">
+                    <label for="editorPassword">Пароль <span id="editorPasswordHint" style="font-weight: normal; color: var(--text-muted);">(мин. 6 символов)</span></label>
+                    <input type="password" id="editorPassword" minlength="6" autocomplete="new-password">
+                </div>
+                <div class="form-group checkbox-group" id="editorActiveGroup" style="display: none;">
+                    <label>
+                        <input type="checkbox" id="editorIsActive" checked>
+                        <span>Аккаунт активен</span>
+                    </label>
                 </div>
                 <button type="submit" class="btn btn-primary">Сохранить</button>
                 <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>

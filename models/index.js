@@ -8,6 +8,7 @@ const Favorite = require('./Favorite');
 const TestResult = require('./TestResult');
 const UserStats = require('./UserStats');
 const Admin = require('./Admin');
+const Editor = require('./Editor');
 const ContactMessage = require('./ContactMessage');
 const Transaction = require('./Transaction');
 const Setting = require('./Setting');
@@ -73,6 +74,7 @@ module.exports = {
   TestResult,
   UserStats,
   Admin,
+  Editor,
   ContactMessage,
   Transaction,
   Setting,

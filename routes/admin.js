@@ -3,7 +3,7 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const adminAuth = require('../middleware/adminAuth');
-const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, BroadcastMessage, UserBroadcastNotification, Transaction, sequelize } = require('../models');
+const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, Editor, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, BroadcastMessage, UserBroadcastNotification, Transaction, sequelize } = require('../models');
 const { Op, QueryTypes } = require('sequelize');
 const { Sequelize } = require('sequelize');
 
@@ -117,6 +117,117 @@ router.get('/me', adminAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Ошибка получения администратора:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Управление аккаунтами редакторов вопросов
+router.get('/editors', adminAuth, async (req, res) => {
+  try {
+    const editors = await Editor.findAll({
+      attributes: ['id', 'username', 'displayName', 'isActive', 'createdAt', 'updatedAt'],
+      order: [['createdAt', 'DESC']]
+    });
+    res.json(editors);
+  } catch (error) {
+    console.error('Ошибка получения редакторов:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.post('/editors', adminAuth, [
+  body('username').trim().isLength({ min: 3, max: 50 }).withMessage('Логин от 3 до 50 символов'),
+  body('password').isLength({ min: 6 }).withMessage('Пароль минимум 6 символов'),
+  body('displayName').optional().trim().isLength({ max: 100 })
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { username, password, displayName } = req.body;
+    const existing = await Editor.findOne({
+      where: Sequelize.where(
+        Sequelize.fn('LOWER', Sequelize.col('username')),
+        username.toLowerCase()
+      )
+    });
+    if (existing) {
+      return res.status(400).json({ error: 'Редактор с таким логином уже существует' });
+    }
+
+    const editor = await Editor.create({
+      username: username.trim(),
+      password,
+      displayName: displayName?.trim() || null,
+      isActive: true
+    });
+
+    res.status(201).json({
+      id: editor.id,
+      username: editor.username,
+      displayName: editor.displayName,
+      isActive: editor.isActive,
+      createdAt: editor.createdAt
+    });
+  } catch (error) {
+    console.error('Ошибка создания редактора:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.put('/editors/:id', adminAuth, [
+  body('password').optional().isLength({ min: 6 }).withMessage('Пароль минимум 6 символов'),
+  body('displayName').optional().trim().isLength({ max: 100 }),
+  body('isActive').optional().isBoolean()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const editor = await Editor.findByPk(req.params.id);
+    if (!editor) {
+      return res.status(404).json({ error: 'Редактор не найден' });
+    }
+
+    if (req.body.displayName !== undefined) {
+      editor.displayName = req.body.displayName?.trim() || null;
+    }
+    if (req.body.isActive !== undefined) {
+      editor.isActive = Boolean(req.body.isActive);
+    }
+    if (req.body.password) {
+      editor.password = req.body.password;
+    }
+    await editor.save();
+
+    res.json({
+      id: editor.id,
+      username: editor.username,
+      displayName: editor.displayName,
+      isActive: editor.isActive,
+      updatedAt: editor.updatedAt
+    });
+  } catch (error) {
+    console.error('Ошибка обновления редактора:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.delete('/editors/:id', adminAuth, async (req, res) => {
+  try {
+    const editor = await Editor.findByPk(req.params.id);
+    if (!editor) {
+      return res.status(404).json({ error: 'Редактор не найден' });
+    }
+
+    await editor.destroy();
+    res.json({ message: 'Редактор удален' });
+  } catch (error) {
+    console.error('Ошибка удаления редактора:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

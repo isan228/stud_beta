@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/png" sizes="48x48" href="/img/icon-48.png">
+    <link rel="shortcut icon" href="/favicon.png" type="image/png">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="theme-color" content="#2563eb">
+    <title>Редактор вопросов — stud.kg</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="admin-styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="/redact"><h1>STUD.kg — Редактор</h1></a>
+            </div>
+            <div class="nav-menu">
+                <span id="editorUserLabel" style="color: var(--text-muted); margin-right: 0.75rem;"></span>
+                <button class="btn btn-logout" id="editorLogoutBtn" type="button">Выход</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="container">
+            <div class="page-header">
+                <h1>Редактирование вопросов</h1>
+                <p class="page-description">Вопросы, тесты и отчёты об ошибках от пользователей</p>
+            </div>
+
+            <div class="admin-stats-grid" style="margin-bottom: 1.5rem;">
+                <div class="admin-stat-card">
+                    <div class="admin-stat-icon">⚠️</div>
+                    <div class="admin-stat-info">
+                        <div class="admin-stat-value" id="statNewErrors">0</div>
+                        <div class="admin-stat-label">Новых отчётов об ошибках</div>
+                    </div>
+                </div>
+                <div class="admin-stat-card">
+                    <div class="admin-stat-icon">📋</div>
+                    <div class="admin-stat-info">
+                        <div class="admin-stat-value" id="statTotalErrors">0</div>
+                        <div class="admin-stat-label">Всего отчётов</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="admin-tabs">
+                <button class="admin-tab active" data-tab="questions">Вопросы</button>
+                <button class="admin-tab" data-tab="tests">Тесты</button>
+                <button class="admin-tab" data-tab="errors">
+                    Ошибки в вопросах
+                    <span id="errorsTabBadge" style="display: none; margin-left: 0.35rem; background: #dc2626; color: #fff; padding: 0.1rem 0.45rem; border-radius: 999px; font-size: 0.7rem;"></span>
+                </button>
+            </div>
+
+            <div id="questionsTab" class="admin-tab-content active">
+                <div class="admin-section-header">
+                    <h2>Вопросы</h2>
+                    <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                        <select id="questionsTestFilter" class="form-group input">
+                            <option value="">Выберите тест</option>
+                        </select>
+                        <input type="text" id="questionsSearch" list="questionsSearchSuggestions" class="form-group input" placeholder="Поиск по тексту...">
+                        <datalist id="questionsSearchSuggestions"></datalist>
+                        <button class="btn btn-primary" id="addQuestionBtn" type="button">+ Добавить вопрос</button>
+                    </div>
+                </div>
+                <div id="questionsList" class="admin-list">
+                    <p style="color: var(--text-muted); text-align: center; padding: 2rem;">Выберите тест</p>
+                </div>
+            </div>
+
+            <div id="testsTab" class="admin-tab-content">
+                <div class="admin-section-header">
+                    <h2>Тесты</h2>
+                    <select id="testsSubjectFilter" class="form-group input">
+                        <option value="">Все предметы</option>
+                    </select>
+                </div>
+                <div id="testsList" class="admin-list"></div>
+            </div>
+
+            <div id="errorsTab" class="admin-tab-content">
+                <div class="admin-section-header">
+                    <h2>Отчёты об ошибках в вопросах</h2>
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                        <select id="errorsStatusFilter" class="form-group input">
+                            <option value="">Все статусы</option>
+                            <option value="new">Новые</option>
+                            <option value="read">Прочитанные</option>
+                            <option value="replied">Обработанные</option>
+                            <option value="archived">Архив</option>
+                        </select>
+                        <input type="text" id="errorsSearch" class="form-group input" placeholder="Поиск...">
+                    </div>
+                </div>
+                <div id="errorsList" class="admin-list"></div>
+                <div id="errorsPagination" class="admin-pagination"></div>
+            </div>
+        </div>
+    </main>
+
+    <div id="questionModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 800px;">
+            <span class="modal-close">&times;</span>
+            <h2 id="questionModalTitle">Добавить вопрос</h2>
+            <form id="questionForm">
+                <input type="hidden" id="questionId">
+                <div class="form-group">
+                    <label for="questionText">Текст вопроса</label>
+                    <textarea id="questionText" rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="questionTestId">Тест</label>
+                    <select id="questionTestId" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Ответы</label>
+                    <div id="answersList"></div>
+                    <button type="button" class="btn btn-secondary" id="addAnswerBtn">+ Добавить ответ</button>
+                </div>
+                <button type="submit" class="btn btn-primary">Сохранить</button>
+                <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="errorReportModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 700px;">
+            <span class="modal-close">&times;</span>
+            <h2>Отчёт об ошибке</h2>
+            <div id="errorReportBody" style="white-space: pre-wrap; font-size: 0.9rem; line-height: 1.5; margin: 1rem 0;"></div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem;">
+                <button type="button" class="btn btn-primary" id="openQuestionFromReportBtn" style="display: none;">Открыть вопрос</button>
+                <select id="errorReportStatus" class="form-group input" style="max-width: 200px;">
+                    <option value="new">Новое</option>
+                    <option value="read">Прочитано</option>
+                    <option value="replied">Обработано</option>
+                    <option value="archived">Архив</option>
+                </select>
+                <button type="button" class="btn btn-secondary" id="saveErrorStatusBtn">Сохранить статус</button>
+            </div>
+            <button type="button" class="btn btn-secondary modal-cancel">Закрыть</button>
+        </div>
+    </div>
+
+    <div id="notification" class="notification" style="display: none;"></div>
+
+    <script src="redact.js"></script>
+</body>
+</html>

@@ -1564,6 +1564,20 @@ function setupAdminEventListeners() {
         });
     }
 
+    const addEditorBtn = document.getElementById('addEditorBtn');
+    if (addEditorBtn) {
+        addEditorBtn.addEventListener('click', () => {
+            document.getElementById('editorId').value = '';
+            document.getElementById('editorForm').reset();
+            document.getElementById('editorIsActive').checked = true;
+            openEditorModal(false);
+        });
+    }
+    const editorForm = document.getElementById('editorForm');
+    if (editorForm) {
+        editorForm.addEventListener('submit', saveEditorAccount);
+    }
+
     const addNewsBtn = document.getElementById('addNewsBtn');
     if (addNewsBtn) {
         addNewsBtn.addEventListener('click', () => {
@@ -2121,6 +2135,142 @@ async function handlePdfUpload(e) {
     }
 }
 
+// Редакторы вопросов
+async function loadEditors() {
+    const list = document.getElementById('editorsList');
+    if (!list) return;
+
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/editors`, { headers: adminAuthHeaders() });
+        if (!response.ok) throw new Error();
+        const editors = await response.json();
+
+        if (!editors.length) {
+            list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 2rem;">Редакторов пока нет</p>';
+            return;
+        }
+
+        list.innerHTML = editors.map(ed => `
+            <div class="admin-list-item">
+                <div style="flex: 1;">
+                    <strong>${escapeAdminHtml(ed.username)}</strong>
+                    ${ed.displayName ? `<span style="color: var(--text-muted); margin-left: 0.5rem;">(${escapeAdminHtml(ed.displayName)})</span>` : ''}
+                    <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0.35rem 0 0;">
+                        ${ed.isActive ? 'Активен' : 'Отключён'} • создан ${new Date(ed.createdAt).toLocaleDateString('ru-RU')}
+                    </p>
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="editEditorAccount(${ed.id})">Изменить</button>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="deleteEditorAccount(${ed.id})">Удалить</button>
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Ошибка загрузки редакторов:', error);
+        showNotification('Ошибка загрузки редакторов', 'error');
+    }
+}
+
+function openEditorModal(isEdit = false) {
+    document.getElementById('editorModalTitle').textContent = isEdit ? 'Редактировать аккаунт' : 'Добавить редактора';
+    document.getElementById('editorUsername').disabled = isEdit;
+    document.getElementById('editorActiveGroup').style.display = isEdit ? 'block' : 'none';
+    document.getElementById('editorPassword').required = !isEdit;
+    document.getElementById('editorPasswordHint').textContent = isEdit
+        ? '(оставьте пустым, чтобы не менять)'
+        : '(мин. 6 символов)';
+    document.getElementById('editorModal').style.display = 'block';
+}
+
+window.editEditorAccount = async function(editorId) {
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/editors`, { headers: adminAuthHeaders() });
+        if (!response.ok) throw new Error();
+        const editors = await response.json();
+        const ed = editors.find(e => e.id === editorId);
+        if (!ed) {
+            showNotification('Редактор не найден', 'error');
+            return;
+        }
+        document.getElementById('editorId').value = ed.id;
+        document.getElementById('editorUsername').value = ed.username;
+        document.getElementById('editorDisplayName').value = ed.displayName || '';
+        document.getElementById('editorPassword').value = '';
+        document.getElementById('editorIsActive').checked = ed.isActive !== false;
+        openEditorModal(true);
+    } catch (error) {
+        showNotification('Ошибка загрузки редактора', 'error');
+    }
+};
+
+window.deleteEditorAccount = async function(editorId) {
+    if (!confirm('Удалить аккаунт редактора?')) return;
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/editors/${editorId}`, {
+            method: 'DELETE',
+            headers: adminAuthHeaders()
+        });
+        if (response.ok) {
+            showNotification('Редактор удалён', 'success');
+            loadEditors();
+        } else {
+            const data = await response.json();
+            showNotification(data.error || 'Ошибка удаления', 'error');
+        }
+    } catch (error) {
+        showNotification('Ошибка удаления', 'error');
+    }
+};
+
+async function saveEditorAccount(e) {
+    e.preventDefault();
+    const id = document.getElementById('editorId').value;
+    const username = document.getElementById('editorUsername').value.trim();
+    const displayName = document.getElementById('editorDisplayName').value.trim();
+    const password = document.getElementById('editorPassword').value;
+    const isActive = document.getElementById('editorIsActive').checked;
+
+    try {
+        if (id) {
+            const body = { displayName: displayName || null, isActive };
+            if (password) body.password = password;
+            const response = await fetch(`${ADMIN_API_URL}/editors/${id}`, {
+                method: 'PUT',
+                headers: { ...adminAuthHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (!response.ok) {
+                const data = await response.json();
+                showNotification(data.errors?.[0]?.msg || data.error || 'Ошибка', 'error');
+                return;
+            }
+            showNotification('Редактор обновлён', 'success');
+        } else {
+            if (!password || password.length < 6) {
+                showNotification('Укажите пароль (мин. 6 символов)', 'error');
+                return;
+            }
+            const response = await fetch(`${ADMIN_API_URL}/editors`, {
+                method: 'POST',
+                headers: { ...adminAuthHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password, displayName: displayName || null })
+            });
+            if (!response.ok) {
+                const data = await response.json();
+                showNotification(data.errors?.[0]?.msg || data.error || 'Ошибка', 'error');
+                return;
+            }
+            showNotification('Редактор создан', 'success');
+        }
+        document.getElementById('editorModal').style.display = 'none';
+        document.getElementById('editorForm').reset();
+        document.getElementById('editorId').value = '';
+        loadEditors();
+    } catch (error) {
+        showNotification('Ошибка сохранения', 'error');
+    }
+}
+
 // Переключение табов
 function switchTab(tabName) {
     // Убираем активный класс со всех табов и контента
@@ -2157,6 +2307,9 @@ function switchTab(tabName) {
         case 'questions':
             loadTestsForFilters();
             renderQuestionsSelectPrompt();
+            break;
+        case 'editors':
+            loadEditors();
             break;
         case 'news':
             loadNewsAdmin();

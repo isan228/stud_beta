@@ -82,6 +82,7 @@ app.use('/api', require('./routes/stats'));
 app.use('/api', require('./routes/contact'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/redact', require('./routes/redact'));
 app.use('/api/news', require('./routes/news'));
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/chat', require('./routes/chat'));
@@ -128,6 +129,8 @@ const pages = {
   '/login': 'login.html',
   '/register': 'register.html',
   '/admin': 'admin.html',
+  '/redact/login': 'redact-login.html',
+  '/redact': 'redact.html',
   '/payment': 'payment.html',
   '/payment/success': 'payment-success.html'
 };
@@ -145,7 +148,7 @@ Object.keys(pages).forEach(route => {
       }
       
       // Отключаем кеширование для admin.html, чтобы всегда получать свежую версию
-      if (route === '/admin') {
+      if (route === '/admin' || route === '/redact' || route === '/redact/login') {
         res.set({
           'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
           'Pragma': 'no-cache',
@@ -172,7 +175,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
     res.set('X-Content-Type-Options', 'nosniff');
     
     // Отключаем кеширование для app.js и admin.js, чтобы всегда получать свежие версии
-    if (filePath.includes('app.js') || filePath.includes('admin.js')) {
+    if (filePath.includes('app.js') || filePath.includes('admin.js') || filePath.includes('redact.js')) {
       res.set({
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
         'Pragma': 'no-cache',

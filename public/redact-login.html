@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/png" sizes="48x48" href="/img/icon-48.png">
+    <link rel="shortcut icon" href="/favicon.png" type="image/png">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="theme-color" content="#2563eb">
+    <title>Вход редактора — stud.kg</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="admin-styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="/"><h1>STUD.kg</h1></a>
+            </div>
+            <div class="nav-menu">
+                <a href="/" class="nav-link">Главная</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="container">
+            <div class="auth-container">
+                <h2>Вход для редакторов</h2>
+                <p class="page-description" style="margin-bottom: 1.5rem;">Редактирование вопросов и обработка отчётов об ошибках</p>
+                <form id="editorLoginForm" class="auth-form">
+                    <div class="form-group">
+                        <label for="editorUsername">Логин</label>
+                        <input type="text" id="editorUsername" name="username" required autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label for="editorPassword">Пароль</label>
+                        <input type="password" id="editorPassword" name="password" required autocomplete="current-password">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Войти</button>
+                </form>
+                <p id="editorLoginError" style="color: #dc2626; margin-top: 1rem; display: none;"></p>
+            </div>
+        </div>
+    </main>
+
+    <div id="notification" class="notification" style="display: none;"></div>
+
+    <script>
+        const REDACT_API = '/api/redact';
+
+        function showLoginError(msg) {
+            const el = document.getElementById('editorLoginError');
+            if (el) {
+                el.textContent = msg;
+                el.style.display = msg ? 'block' : 'none';
+            }
+        }
+
+        if (localStorage.getItem('editorToken')) {
+            window.location.href = '/redact';
+        }
+
+        document.getElementById('editorLoginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            showLoginError('');
+            const username = document.getElementById('editorUsername').value.trim();
+            const password = document.getElementById('editorPassword').value;
+
+            try {
+                const response = await fetch(`${REDACT_API}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    showLoginError(data.error || 'Ошибка входа');
+                    return;
+                }
+                localStorage.setItem('editorToken', data.token);
+                window.location.href = '/redact';
+            } catch (err) {
+                console.error(err);
+                showLoginError('Ошибка соединения с сервером');
+            }
+        });
+    </script>
+</body>
+</html>
