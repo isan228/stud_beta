@@ -1578,6 +1578,8 @@ function setupAdminEventListeners() {
         editorForm.addEventListener('submit', saveEditorAccount);
     }
 
+    setupAuditEventListeners();
+
     const addNewsBtn = document.getElementById('addNewsBtn');
     if (addNewsBtn) {
         addNewsBtn.addEventListener('click', () => {
@@ -2271,6 +2273,182 @@ async function saveEditorAccount(e) {
     }
 }
 
+// Журнал правок
+let currentAuditPage = 1;
+
+const AUDIT_ACTION_LABELS = {
+    create: 'Создание',
+    update: 'Изменение',
+    delete: 'Удаление',
+    error_report: 'Отчёт об ошибке'
+};
+
+function formatAuditDateInput(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+function initAuditDateFilters() {
+    const to = new Date();
+    const from = new Date();
+    from.setDate(from.getDate() - 29);
+    const fromEl = document.getElementById('auditDateFrom');
+    const toEl = document.getElementById('auditDateTo');
+    if (fromEl && !fromEl.value) fromEl.value = formatAuditDateInput(from);
+    if (toEl && !toEl.value) toEl.value = formatAuditDateInput(to);
+}
+
+function setAuditDatePreset(days) {
+    const to = new Date();
+    const from = new Date();
+    from.setDate(from.getDate() - (days - 1));
+    document.getElementById('auditDateFrom').value = formatAuditDateInput(from);
+    document.getElementById('auditDateTo').value = formatAuditDateInput(to);
+    loadAuditLogs(1);
+}
+
+async function populateAuditEditorFilter() {
+    const select = document.getElementById('auditEditorFilter');
+    if (!select) return;
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/editors`, { headers: adminAuthHeaders() });
+        if (!response.ok) return;
+        const editors = await response.json();
+        const current = select.value;
+        select.innerHTML = '<option value="">Все редакторы</option>' +
+            editors.map(ed => `<option value="${ed.id}">${escapeAdminHtml(ed.username)}</option>`).join('');
+        select.value = current;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function loadAuditLogs(page = 1) {
+    const list = document.getElementById('auditLogsList');
+    if (!list) return;
+
+    initAuditDateFilters();
+
+    const from = document.getElementById('auditDateFrom')?.value || '';
+    const to = document.getElementById('auditDateTo')?.value || '';
+    const actorType = document.getElementById('auditActorType')?.value || '';
+    const editorId = document.getElementById('auditEditorFilter')?.value || '';
+    const action = document.getElementById('auditActionFilter')?.value || '';
+    const search = document.getElementById('auditSearch')?.value || '';
+
+    const params = new URLSearchParams({
+        page: String(page),
+        limit: '30',
+        from,
+        to,
+        search
+    });
+    if (action) params.set('action', action);
+    if (actorType) params.set('actorType', actorType);
+    if (editorId && (!actorType || actorType === 'editor')) params.set('editorId', editorId);
+
+    list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 2rem;">Загрузка…</p>';
+
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/audit-logs?${params}`, { headers: adminAuthHeaders() });
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        currentAuditPage = page;
+
+        if (!data.logs?.length) {
+            list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 2rem;">За выбранный период записей нет</p>';
+        } else {
+            list.innerHTML = data.logs.map(log => {
+                const dt = new Date(log.createdAt);
+                const actionLabel = AUDIT_ACTION_LABELS[log.action] || log.action;
+                const actorBadge = log.actorType === 'admin'
+                    ? '<span style="background: #2563eb; color: #fff; padding: 0.1rem 0.45rem; border-radius: 0.25rem; font-size: 0.7rem;">Админ</span>'
+                    : '<span style="background: #0d9488; color: #fff; padding: 0.1rem 0.45rem; border-radius: 0.25rem; font-size: 0.7rem;">Редактор</span>';
+                const actionColor = log.action === 'delete' ? '#dc2626' : (log.action === 'create' ? '#059669' : 'var(--text-secondary)');
+
+                let textBlock = '';
+                if (log.questionTextBefore || log.questionTextAfter) {
+                    if (log.action === 'update') {
+                        textBlock = `
+                            <p style="font-size: 0.8rem; margin: 0.35rem 0 0; color: var(--text-muted);"><strong>Было:</strong> ${escapeAdminHtml(log.questionTextBefore || '—')}</p>
+                            <p style="font-size: 0.8rem; margin: 0.2rem 0 0; color: var(--text-secondary);"><strong>Стало:</strong> ${escapeAdminHtml(log.questionTextAfter || '—')}</p>
+                        `;
+                    } else if (log.action === 'create') {
+                        textBlock = `<p style="font-size: 0.8rem; margin: 0.35rem 0 0;">${escapeAdminHtml(log.questionTextAfter || '')}</p>`;
+                    } else if (log.action === 'delete') {
+                        textBlock = `<p style="font-size: 0.8rem; margin: 0.35rem 0 0; color: var(--text-muted);">${escapeAdminHtml(log.questionTextBefore || '')}</p>`;
+                    }
+                }
+
+                const meta = [];
+                if (log.testName) meta.push(escapeAdminHtml(log.testName));
+                if (log.testId) meta.push(`тест #${log.testId}`);
+                if (log.questionId) meta.push(`вопрос #${log.questionId}`);
+
+                return `
+                    <div class="admin-list-item" style="align-items: flex-start;">
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.35rem;">
+                                <strong>${escapeAdminHtml(log.actorUsername)}</strong>
+                                ${actorBadge}
+                                <span style="color: ${actionColor}; font-weight: 600; font-size: 0.875rem;">${actionLabel}</span>
+                            </div>
+                            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">${meta.join(' · ')}</p>
+                            ${textBlock}
+                            ${log.details ? `<p style="font-size: 0.78rem; color: var(--text-secondary); margin: 0.35rem 0 0;">${escapeAdminHtml(log.details)}</p>` : ''}
+                        </div>
+                        <div style="text-align: right; white-space: nowrap; font-size: 0.8rem; color: var(--text-muted);">
+                            ${dt.toLocaleDateString('ru-RU')}<br>
+                            ${dt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        const pagination = document.getElementById('auditLogsPagination');
+        if (pagination && data.pagination) {
+            const { totalPages, page: currentPage, total } = data.pagination;
+            if (totalPages <= 1) {
+                pagination.innerHTML = total ? `<span style="color: var(--text-muted); font-size: 0.875rem;">Всего: ${total}</span>` : '';
+            } else {
+                let html = '';
+                const start = Math.max(1, currentPage - 2);
+                const end = Math.min(totalPages, currentPage + 2);
+                for (let i = start; i <= end; i++) {
+                    html += `<button type="button" class="admin-pagination-btn ${i === currentPage ? 'active' : ''}" onclick="loadAuditLogs(${i})">${i}</button>`;
+                }
+                pagination.innerHTML = html + `<span style="color: var(--text-muted); font-size: 0.875rem; margin-left: 0.5rem;">${total} записей</span>`;
+            }
+        }
+    } catch (error) {
+        console.error('Ошибка журнала правок:', error);
+        list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 2rem;">Ошибка загрузки</p>';
+        showNotification('Ошибка загрузки журнала', 'error');
+    }
+}
+
+window.loadAuditLogs = loadAuditLogs;
+
+function setupAuditEventListeners() {
+    document.getElementById('auditApplyFilters')?.addEventListener('click', () => loadAuditLogs(1));
+    document.getElementById('auditPreset7d')?.addEventListener('click', () => setAuditDatePreset(7));
+    document.getElementById('auditPreset30d')?.addEventListener('click', () => setAuditDatePreset(30));
+    document.getElementById('auditActorType')?.addEventListener('change', () => {
+        const editorFilter = document.getElementById('auditEditorFilter');
+        if (editorFilter) {
+            editorFilter.disabled = document.getElementById('auditActorType').value === 'admin';
+        }
+    });
+    let auditSearchTimeout;
+    document.getElementById('auditSearch')?.addEventListener('input', () => {
+        clearTimeout(auditSearchTimeout);
+        auditSearchTimeout = setTimeout(() => loadAuditLogs(1), 450);
+    });
+}
+
 // Переключение табов
 function switchTab(tabName) {
     // Убираем активный класс со всех табов и контента
@@ -2310,6 +2488,10 @@ function switchTab(tabName) {
             break;
         case 'editors':
             loadEditors();
+            break;
+        case 'audit':
+            populateAuditEditorFilter();
+            loadAuditLogs(1);
             break;
         case 'news':
             loadNewsAdmin();

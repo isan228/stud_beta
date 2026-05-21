@@ -3,7 +3,8 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const adminAuth = require('../middleware/adminAuth');
-const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, Editor, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, BroadcastMessage, UserBroadcastNotification, Transaction, sequelize } = require('../models');
+const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, Editor, EditorAuditLog, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, BroadcastMessage, UserBroadcastNotification, Transaction, sequelize } = require('../models');
+const { snapshotFromQuestion, logQuestionAudit } = require('../utils/questionAuditLog');
 const { Op, QueryTypes } = require('sequelize');
 const { Sequelize } = require('sequelize');
 
@@ -228,6 +229,69 @@ router.delete('/editors/:id', adminAuth, async (req, res) => {
     res.json({ message: 'Редактор удален' });
   } catch (error) {
     console.error('Ошибка удаления редактора:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Журнал правок редакторов и админов
+router.get('/audit-logs', adminAuth, async (req, res) => {
+  try {
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 30, 1), 100);
+    const offset = (page - 1) * limit;
+    const action = req.query.action || '';
+    const actorType = req.query.actorType || '';
+    const editorId = req.query.editorId ? parseInt(req.query.editorId, 10) : null;
+    const search = String(req.query.search || '').trim();
+
+    const where = {};
+    if (action) where.action = action;
+    if (actorType) where.actorType = actorType;
+    if (editorId && actorType !== 'admin') {
+      where.actorType = 'editor';
+      where.actorId = editorId;
+    }
+
+    if (req.query.from || req.query.to) {
+      where.createdAt = {};
+      if (req.query.from) {
+        const from = new Date(`${req.query.from}T00:00:00`);
+        if (!Number.isNaN(from.getTime())) where.createdAt[Op.gte] = from;
+      }
+      if (req.query.to) {
+        const to = new Date(`${req.query.to}T23:59:59.999`);
+        if (!Number.isNaN(to.getTime())) where.createdAt[Op.lte] = to;
+      }
+    }
+
+    if (search) {
+      where[Op.or] = [
+        { actorUsername: { [Op.iLike]: `%${search}%` } },
+        { testName: { [Op.iLike]: `%${search}%` } },
+        { details: { [Op.iLike]: `%${search}%` } },
+        { questionTextBefore: { [Op.iLike]: `%${search}%` } },
+        { questionTextAfter: { [Op.iLike]: `%${search}%` } }
+      ];
+    }
+
+    const { count, rows } = await EditorAuditLog.findAndCountAll({
+      where,
+      limit,
+      offset,
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.json({
+      logs: rows,
+      pagination: {
+        total: count,
+        page,
+        limit,
+        totalPages: Math.ceil(count / limit) || 1
+      }
+    });
+  } catch (error) {
+    console.error('Ошибка журнала правок:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
@@ -1331,7 +1395,21 @@ router.post('/questions', adminAuth, [
       include: [{
         model: Answer,
         as: 'Answers'
+      }, {
+        model: Test,
+        as: 'Test',
+        attributes: ['id', 'name']
       }]
+    });
+
+    await logQuestionAudit({
+      actorType: 'admin',
+      actorId: req.admin.id,
+      actorUsername: req.admin.username,
+      action: 'create',
+      question: questionWithAnswers,
+      test: questionWithAnswers?.Test,
+      afterSnapshot: snapshotFromQuestion(questionWithAnswers, questionWithAnswers?.Answers)
     });
 
     res.status(201).json(questionWithAnswers);
@@ -1355,10 +1433,15 @@ router.put('/questions/:id', adminAuth, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const question = await Question.findByPk(req.params.id);
+    const question = await Question.findByPk(req.params.id, {
+      include: [{ model: Answer, as: 'Answers' }, { model: Test, as: 'Test', attributes: ['id', 'name'] }]
+    });
     if (!question) {
       return res.status(404).json({ error: 'Вопрос не найден' });
     }
+
+    const beforeSnapshot = snapshotFromQuestion(question, question.Answers);
+    beforeSnapshot.questionId = question.id;
 
     const { text, testId, answers } = req.body;
 
@@ -1414,7 +1497,22 @@ router.put('/questions/:id', adminAuth, [
       include: [{
         model: Answer,
         as: 'Answers'
+      }, {
+        model: Test,
+        as: 'Test',
+        attributes: ['id', 'name']
       }]
+    });
+
+    await logQuestionAudit({
+      actorType: 'admin',
+      actorId: req.admin.id,
+      actorUsername: req.admin.username,
+      action: 'update',
+      question: questionWithAnswers,
+      test: questionWithAnswers?.Test,
+      beforeSnapshot,
+      afterSnapshot: snapshotFromQuestion(questionWithAnswers, questionWithAnswers?.Answers)
     });
 
     res.json(questionWithAnswers);
@@ -1427,10 +1525,25 @@ router.put('/questions/:id', adminAuth, [
 // Удалить вопрос
 router.delete('/questions/:id', adminAuth, async (req, res) => {
   try {
-    const question = await Question.findByPk(req.params.id);
+    const question = await Question.findByPk(req.params.id, {
+      include: [{ model: Answer, as: 'Answers' }, { model: Test, as: 'Test', attributes: ['id', 'name'] }]
+    });
     if (!question) {
       return res.status(404).json({ error: 'Вопрос не найден' });
     }
+
+    const beforeSnapshot = snapshotFromQuestion(question, question.Answers);
+    beforeSnapshot.questionId = question.id;
+
+    await logQuestionAudit({
+      actorType: 'admin',
+      actorId: req.admin.id,
+      actorUsername: req.admin.username,
+      action: 'delete',
+      question,
+      test: question.Test,
+      beforeSnapshot
+    });
 
     await question.destroy();
     res.json({ message: 'Вопрос удален' });

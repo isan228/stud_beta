@@ -13,6 +13,7 @@ const {
   Answer,
   ContactMessage
 } = require('../models');
+const { snapshotFromQuestion, logQuestionAudit, logErrorReportAudit } = require('../utils/questionAuditLog');
 
 const TEST_ERROR_PREFIX = 'Отчет об ошибке в вопросе теста';
 
@@ -245,7 +246,17 @@ router.post('/questions', editorAuth, [
     ));
 
     const questionWithAnswers = await Question.findByPk(question.id, {
-      include: [{ model: Answer, as: 'Answers' }]
+      include: [{ model: Answer, as: 'Answers' }, { model: Test, as: 'Test', attributes: ['id', 'name'] }]
+    });
+
+    await logQuestionAudit({
+      actorType: 'editor',
+      actorId: req.editor.id,
+      actorUsername: req.editor.username,
+      action: 'create',
+      question: questionWithAnswers,
+      test: questionWithAnswers?.Test,
+      afterSnapshot: snapshotFromQuestion(questionWithAnswers, questionWithAnswers?.Answers)
     });
 
     res.status(201).json(questionWithAnswers);
@@ -268,10 +279,15 @@ router.put('/questions/:id', editorAuth, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const question = await Question.findByPk(req.params.id);
+    const question = await Question.findByPk(req.params.id, {
+      include: [{ model: Answer, as: 'Answers' }, { model: Test, as: 'Test', attributes: ['id', 'name'] }]
+    });
     if (!question) {
       return res.status(404).json({ error: 'Вопрос не найден' });
     }
+
+    const beforeSnapshot = snapshotFromQuestion(question, question.Answers);
+    beforeSnapshot.questionId = question.id;
 
     const { text, testId, answers } = req.body;
     const hasCorrectAnswer = answers.some(a => a.isCorrect);
@@ -323,7 +339,18 @@ router.put('/questions/:id', editorAuth, [
     }
 
     const questionWithAnswers = await Question.findByPk(question.id, {
-      include: [{ model: Answer, as: 'Answers' }]
+      include: [{ model: Answer, as: 'Answers' }, { model: Test, as: 'Test', attributes: ['id', 'name'] }]
+    });
+
+    await logQuestionAudit({
+      actorType: 'editor',
+      actorId: req.editor.id,
+      actorUsername: req.editor.username,
+      action: 'update',
+      question: questionWithAnswers,
+      test: questionWithAnswers?.Test,
+      beforeSnapshot,
+      afterSnapshot: snapshotFromQuestion(questionWithAnswers, questionWithAnswers?.Answers)
     });
 
     res.json(questionWithAnswers);
@@ -335,10 +362,25 @@ router.put('/questions/:id', editorAuth, [
 
 router.delete('/questions/:id', editorAuth, async (req, res) => {
   try {
-    const question = await Question.findByPk(req.params.id);
+    const question = await Question.findByPk(req.params.id, {
+      include: [{ model: Answer, as: 'Answers' }, { model: Test, as: 'Test', attributes: ['id', 'name'] }]
+    });
     if (!question) {
       return res.status(404).json({ error: 'Вопрос не найден' });
     }
+
+    const beforeSnapshot = snapshotFromQuestion(question, question.Answers);
+    beforeSnapshot.questionId = question.id;
+
+    await logQuestionAudit({
+      actorType: 'editor',
+      actorId: req.editor.id,
+      actorUsername: req.editor.username,
+      action: 'delete',
+      question,
+      test: question.Test,
+      beforeSnapshot
+    });
 
     await question.destroy();
     res.json({ message: 'Вопрос удален' });
@@ -460,6 +502,24 @@ router.put('/error-reports/:id/status', editorAuth, [
     const json = message.toJSON();
     json.questionId = parseQuestionIdFromReport(json.message);
     json.testId = parseTestIdFromReport(json.message);
+
+    let testName = null;
+    if (json.testId) {
+      const test = await Test.findByPk(json.testId, { attributes: ['name'] });
+      testName = test?.name || null;
+    }
+
+    await logErrorReportAudit({
+      actorType: 'editor',
+      actorId: req.editor.id,
+      actorUsername: req.editor.username,
+      reportId: message.id,
+      status: req.body.status,
+      questionId: json.questionId,
+      testId: json.testId,
+      testName
+    });
+
     res.json(json);
   } catch (error) {
     console.error('Ошибка обновления статуса отчёта:', error);

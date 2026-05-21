@@ -9,6 +9,7 @@ const TestResult = require('./TestResult');
 const UserStats = require('./UserStats');
 const Admin = require('./Admin');
 const Editor = require('./Editor');
+const EditorAuditLog = require('./EditorAuditLog');
 const ContactMessage = require('./ContactMessage');
 const Transaction = require('./Transaction');
 const Setting = require('./Setting');
@@ -75,6 +76,7 @@ module.exports = {
   UserStats,
   Admin,
   Editor,
+  EditorAuditLog,
   ContactMessage,
   Transaction,
   Setting,
