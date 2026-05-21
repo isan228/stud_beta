@@ -175,7 +175,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
     res.set('X-Content-Type-Options', 'nosniff');
     
     // Отключаем кеширование для app.js и admin.js, чтобы всегда получать свежие версии
-    if (filePath.includes('app.js') || filePath.includes('admin.js') || filePath.includes('redact.js')) {
+    if (filePath.includes('app.js') || filePath.includes('admin.js') || filePath.includes('redact.js') || filePath.includes('redact-login.css')) {
       res.set({
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
         'Pragma': 'no-cache',

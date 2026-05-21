@@ -1,0 +1,304 @@
+/* Страница входа редакторов /redact/login */
+
+.redact-login-page {
+    --redact-accent: #0d9488;
+    --redact-accent-hover: #0f766e;
+    --redact-accent-light: #14b8a6;
+    --redact-accent-glow: rgba(13, 148, 136, 0.25);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-secondary);
+}
+
+[data-theme="dark"] .redact-login-page {
+    --redact-accent-glow: rgba(20, 184, 166, 0.15);
+}
+
+.redact-login-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(ellipse 80% 50% at 50% -20%, var(--redact-accent-glow), transparent 55%),
+        radial-gradient(ellipse 60% 40% at 100% 100%, rgba(37, 99, 235, 0.08), transparent 50%),
+        radial-gradient(ellipse 50% 35% at 0% 80%, rgba(13, 148, 136, 0.1), transparent 45%);
+}
+
+.redact-login-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(var(--border-light) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border-light) 1px, transparent 1px);
+    background-size: 48px 48px;
+    opacity: 0.35;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 20%, transparent 75%);
+}
+
+.redact-login-top {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    max-width: 520px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.redact-login-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+    color: var(--text-color);
+    font-weight: 700;
+    font-size: 1.125rem;
+    transition: color 0.2s ease;
+}
+
+.redact-login-brand:hover {
+    color: var(--redact-accent);
+}
+
+.redact-login-brand span {
+    color: var(--redact-accent);
+}
+
+.redact-login-theme {
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    background: var(--card-bg);
+    cursor: pointer;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+    box-shadow: var(--shadow);
+}
+
+.redact-login-theme:hover {
+    border-color: var(--redact-accent);
+    transform: scale(1.05);
+}
+
+.redact-login-main {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem 1rem 2.5rem;
+}
+
+.redact-login-card {
+    width: 100%;
+    max-width: 420px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-light);
+    border-radius: 1.25rem;
+    box-shadow: var(--shadow-xl);
+    padding: 2rem 1.75rem 1.75rem;
+    animation: redactLoginIn 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes redactLoginIn {
+    from {
+        opacity: 0;
+        transform: translateY(16px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.redact-login-card-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.redact-login-icon {
+    width: 4rem;
+    height: 4rem;
+    margin: 0 auto 1rem;
+    border-radius: 1rem;
+    background: linear-gradient(135deg, var(--redact-accent) 0%, var(--redact-accent-light) 100%);
+    color: #fff;
+    font-size: 1.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 24px var(--redact-accent-glow);
+}
+
+.redact-login-card h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-color);
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.02em;
+}
+
+.redact-login-subtitle {
+    font-size: 0.9375rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin: 0;
+}
+
+.redact-login-features {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0 0 1.5rem;
+    padding: 0.875rem 1rem;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-light);
+}
+
+.redact-login-features li {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+}
+
+.redact-login-features li::before {
+    content: '';
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--redact-accent);
+}
+
+.redact-login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.125rem;
+}
+
+.redact-login-form .form-group label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.redact-login-form .form-group input {
+    padding: 0.8125rem 1rem;
+    border-radius: 0.625rem;
+    border: 1px solid var(--border-color);
+    background: var(--bg-color);
+    font-size: 1rem;
+}
+
+.redact-login-form .form-group input:focus {
+    outline: none;
+    border-color: var(--redact-accent);
+    box-shadow: 0 0 0 3px var(--redact-accent-glow);
+}
+
+.redact-login-submit {
+    margin-top: 0.25rem;
+    padding: 0.875rem 1.25rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 0.625rem;
+    cursor: pointer;
+    color: #fff;
+    background: linear-gradient(135deg, var(--redact-accent) 0%, var(--redact-accent-light) 100%);
+    box-shadow: 0 4px 14px var(--redact-accent-glow);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.redact-login-submit:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px var(--redact-accent-glow);
+}
+
+.redact-login-submit:active {
+    transform: translateY(0);
+}
+
+.redact-login-submit:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.redact-login-error {
+    display: none;
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.625rem;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    color: var(--danger-color);
+    background: rgba(220, 38, 38, 0.08);
+    border: 1px solid rgba(220, 38, 38, 0.2);
+}
+
+[data-theme="dark"] .redact-login-error {
+    background: rgba(248, 113, 113, 0.12);
+    border-color: rgba(248, 113, 113, 0.25);
+}
+
+.redact-login-error.is-visible {
+    display: block;
+    animation: redactLoginShake 0.4s ease;
+}
+
+@keyframes redactLoginShake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+}
+
+.redact-login-footer {
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border-light);
+    text-align: center;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+}
+
+.redact-login-footer a {
+    color: var(--redact-accent);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.redact-login-footer a:hover {
+    text-decoration: underline;
+}
+
+@media (max-width: 480px) {
+    .redact-login-card {
+        padding: 1.5rem 1.25rem 1.25rem;
+        border-radius: 1rem;
+    }
+
+    .redact-login-card h1 {
+        font-size: 1.3125rem;
+    }
+
+    .redact-login-features {
+        padding: 0.75rem 0.875rem;
+    }
+}
