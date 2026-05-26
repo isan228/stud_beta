@@ -743,13 +743,15 @@ async function loadQuestions() {
         if (questions && questions.length > 0) {
             questionsList.innerHTML = questions.map(question => {
                 const correctAnswer = question.Answers?.find(a => a.isCorrect);
+                const hasExplanation = !!(question.explanation && String(question.explanation).trim());
                 return `
                     <div class="admin-list-item">
                         <div style="flex: 1;">
-                            <h4>${question.text}</h4>
+                            <h4>${escapeAdminHtml(question.text)}</h4>
                             <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
-                                Тест: ${question.Test?.name || 'Неизвестно'} | Ответов: ${question.Answers?.length || 0}
-                                ${correctAnswer ? ` | Правильный: ${correctAnswer.text}` : ''}
+                                Тест: ${escapeAdminHtml(question.Test?.name || 'Неизвестно')} | Ответов: ${question.Answers?.length || 0}
+                                ${correctAnswer ? ` | Правильный: ${escapeAdminHtml(correctAnswer.text)}` : ''}
+                                ${hasExplanation ? ' | <span style="color: var(--primary-color); font-weight: 600;">Есть объяснение</span>' : ''}
                             </p>
                         </div>
                         <div style="display: flex; gap: 0.5rem;">
@@ -1582,6 +1584,8 @@ function setupAdminEventListeners() {
 
             document.getElementById('questionId').value = '';
             document.getElementById('questionText').value = '';
+            const explanationEl = document.getElementById('questionExplanation');
+            if (explanationEl) explanationEl.value = '';
             document.getElementById('answersList').innerHTML = '';
             addAnswer(); // Добавляем первый ответ
             addAnswer(); // Добавляем второй ответ

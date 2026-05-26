@@ -232,18 +232,21 @@ async function loadQuestions() {
             return;
         }
 
-        list.innerHTML = questions.map(q => `
+        list.innerHTML = questions.map((q) => {
+            const hasExplanation = !!(q.explanation && String(q.explanation).trim());
+            return `
             <div class="admin-list-item">
                 <div style="flex: 1;">
                     <p style="margin: 0 0 0.5rem;">${escapeHtml((q.text || '').slice(0, 200))}${(q.text || '').length > 200 ? '…' : ''}</p>
-                    <span style="color: var(--text-muted); font-size: 0.8rem;">ID: ${q.id} • ответов: ${(q.Answers || []).length}</span>
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">ID: ${q.id} • ответов: ${(q.Answers || []).length}${hasExplanation ? ' • <span style="color: var(--primary-color); font-weight: 600;">есть объяснение</span>' : ''}</span>
                 </div>
                 <div style="display: flex; gap: 0.5rem;">
                     <button type="button" class="btn btn-secondary btn-sm" onclick="editQuestion(${q.id})">Изменить</button>
                     <button type="button" class="btn btn-danger btn-sm" onclick="deleteQuestion(${q.id})">Удалить</button>
                 </div>
             </div>
-        `).join('');
+        `;
+        }).join('');
     } catch (error) {
         console.error(error);
         showNotification('Ошибка загрузки вопросов', 'error');
@@ -281,6 +284,8 @@ window.editQuestion = async function(questionId) {
         await loadTestsForFilters();
         document.getElementById('questionId').value = question.id;
         document.getElementById('questionText').value = question.text;
+        const explanationEl = document.getElementById('questionExplanation');
+        if (explanationEl) explanationEl.value = question.explanation || '';
         document.getElementById('questionTestId').value = String(question.testId ?? question.Test?.id);
 
         const answersList = document.getElementById('answersList');
@@ -317,6 +322,7 @@ async function saveQuestion(e) {
     e.preventDefault();
     const id = document.getElementById('questionId').value;
     const text = document.getElementById('questionText').value;
+    const explanation = document.getElementById('questionExplanation')?.value?.trim() || '';
     const testId = parseInt(document.getElementById('questionTestId').value, 10);
 
     const answers = Array.from(document.querySelectorAll('.answer-item-admin')).map(item => {
@@ -343,7 +349,7 @@ async function saveQuestion(e) {
         const response = await fetch(url, {
             method: id ? 'PUT' : 'POST',
             headers: { ...editorAuthHeaders(), 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text, testId, answers })
+            body: JSON.stringify({ text, testId, answers, explanation: explanation || null })
         });
         if (response.ok) {
             showNotification(id ? 'Вопрос обновлён' : 'Вопрос создан', 'success');

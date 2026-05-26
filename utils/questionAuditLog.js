@@ -13,6 +13,7 @@ function snapshotFromQuestion(question, answers = []) {
   return {
     text: question.text,
     testId: question.testId,
+    explanation: question.explanation || null,
     answers: (answers || []).map(a => ({
       id: a.id,
       text: a.text,

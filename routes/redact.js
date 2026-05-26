@@ -230,13 +230,17 @@ router.post('/questions', editorAuth, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { text, testId, answers } = req.body;
+    const { text, testId, answers, explanation } = req.body;
     const hasCorrectAnswer = answers.some(a => a.isCorrect);
     if (!hasCorrectAnswer) {
       return res.status(400).json({ error: 'Должен быть хотя бы один правильный ответ' });
     }
 
-    const question = await Question.create({ text, testId });
+    const question = await Question.create({
+      text,
+      testId,
+      explanation: explanation != null && String(explanation).trim() ? String(explanation).trim() : null
+    });
     await Promise.all(answers.map(answer =>
       Answer.create({
         text: answer.text,
@@ -289,13 +293,16 @@ router.put('/questions/:id', editorAuth, [
     const beforeSnapshot = snapshotFromQuestion(question, question.Answers);
     beforeSnapshot.questionId = question.id;
 
-    const { text, testId, answers } = req.body;
+    const { text, testId, answers, explanation } = req.body;
     const hasCorrectAnswer = answers.some(a => a.isCorrect);
     if (!hasCorrectAnswer) {
       return res.status(400).json({ error: 'Должен быть хотя бы один правильный ответ' });
     }
 
     question.text = text;
+    question.explanation = explanation != null && String(explanation).trim()
+      ? String(explanation).trim()
+      : null;
     if (testId !== undefined && testId !== null) {
       question.testId = testId;
     }
