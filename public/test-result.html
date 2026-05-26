@@ -38,8 +38,15 @@
                 </div>
                 <div class="result-percentage" id="resultPercentage">0%</div>
                 <div id="resultDetails"></div>
+                <div id="testEndExplanationsSection" class="test-end-explanations" style="display: none; margin-top: 2rem;">
+                    <h3 style="margin-bottom: 1rem; text-align: center;">Объяснения к вопросам</h3>
+                    <p style="text-align: center; color: var(--text-secondary); margin: 0 0 1.25rem; font-size: 0.95rem;">
+                        Режим с таймером: пояснения показываются после завершения теста.
+                    </p>
+                    <div id="testEndExplanationsContent"></div>
+                </div>
                 <div class="result-card-actions" style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem;">
-                    <button type="button" class="btn btn-secondary" id="showAnalysisBtn" style="display: none;">📊 Разбор ошибок</button>
+                    <button type="button" class="btn btn-secondary" id="showAnalysisBtn" style="display: none;">📊 Разбор теста</button>
                     <button type="button" class="btn btn-secondary" id="retakeTestBtn" style="display: none;">Перепройти тест</button>
                     <a href="/tests" class="btn btn-primary">Вернуться к тестам</a>
                 </div>
@@ -102,6 +109,23 @@
             margin-bottom: 0.5rem;
             color: var(--text-secondary);
         }
+        .test-end-explanations {
+            text-align: left;
+            padding: 1.25rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-light);
+            background: var(--bg-secondary);
+        }
+        .test-end-explanation-item {
+            margin-bottom: 1.25rem;
+            padding: 1rem 1.25rem;
+            border-radius: var(--radius);
+            background: var(--card-bg);
+            border: 1px solid var(--border-light);
+        }
+        .test-end-explanation-item:last-child {
+            margin-bottom: 0;
+        }
     </style>
 
     <div id="notification" class="notification"></div>
@@ -111,6 +135,62 @@
 
         function normalizeTestId(id) {
             return id == null ? null : id;
+        }
+
+        function escHtml(text) {
+            return String(text || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        /** Объяснения в конце — только для режима без «Ответы сразу» */
+        function renderTestEndExplanationsSection(resultData) {
+            const section = document.getElementById('testEndExplanationsSection');
+            const content = document.getElementById('testEndExplanationsContent');
+            if (!section || !content) return;
+
+            if (resultData.instantFeedbackMode) {
+                section.style.display = 'none';
+                return;
+            }
+
+            const items = (resultData.questions || []).filter((q) => q.explanation && String(q.explanation).trim());
+            if (!items.length) {
+                section.style.display = 'none';
+                return;
+            }
+
+            section.style.display = 'block';
+            content.innerHTML = items.map((question, index) => {
+                const questionResult = resultData.results?.[question.id];
+                const isCorrect = questionResult ? questionResult.correct : null;
+                const statusLabel = isCorrect === true
+                    ? '✓ Верно'
+                    : isCorrect === false
+                        ? '✗ Ошибка'
+                        : '';
+                const statusColor = isCorrect === true
+                    ? 'var(--success-color)'
+                    : isCorrect === false
+                        ? 'var(--danger-color)'
+                        : 'var(--text-muted)';
+
+                return `
+                    <div class="test-end-explanation-item">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.5rem;">
+                            <strong style="color: var(--text-color);">Вопрос ${index + 1}</strong>
+                            ${statusLabel ? `<span style="font-size: 0.85rem; font-weight: 600; color: ${statusColor};">${statusLabel}</span>` : ''}
+                        </div>
+                        <p style="margin: 0 0 0.75rem; color: var(--text-color); line-height: 1.45;">${escHtml(question.text).replace(/\n/g, '<br>')}</p>
+                        <div class="question-explanation-box" style="margin-top: 0;">
+                            <div class="question-explanation-label">Объяснение</div>
+                            <div class="question-explanation-text">${escHtml(question.explanation).replace(/\n/g, '<br>')}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
 
         /** Вопросы для перепрохода: из результата или из сохранённого testData той же попытки. */
@@ -219,6 +299,7 @@
                 }
                 
                 showTestResults(currentResultData);
+                renderTestEndExplanationsSection(currentResultData);
                 
                 // Показываем кнопку разбора если есть вопросы и результаты
                 if (currentResultData.questions && currentResultData.results) {

@@ -1846,6 +1846,34 @@ html[data-theme="dark"] .navbar {
     display: none;
 }
 
+.question-explanation-slot {
+    margin-top: 1.25rem;
+}
+
+.question-explanation-box {
+    margin-top: 1rem;
+    padding: 1rem 1.15rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid color-mix(in srgb, var(--primary-color) 35%, var(--border-light));
+    border-left: 4px solid var(--primary-color);
+    background: color-mix(in srgb, var(--primary-color) 8%, var(--bg-secondary));
+}
+
+.question-explanation-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+}
+
+.question-explanation-text {
+    font-size: 0.95rem;
+    line-height: 1.55;
+    color: var(--text-secondary);
+}
+
 .test-actions {
     display: flex;
     justify-content: space-between;

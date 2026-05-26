@@ -392,47 +392,36 @@ router.post('/tests/:testId/questions', async (req, res) => {
       questions = questions.sort(() => Math.random() - 0.5).slice(0, limit);
     }
 
-    // Случайный порядок ответов
-    if (randomizeAnswers) {
-      questions = questions.map(q => {
-        const answers = [...(q.Answers || [])].sort(() => Math.random() - 0.5);
-        return { 
-          id: q.id,
-          text: q.text,
-          testId: q.testId,
-          createdAt: q.createdAt,
-          updatedAt: q.updatedAt,
-          Answers: answers.map(a => {
-            const answerData = {
-              id: a.id,
-              text: a.text
-            };
-            if (instantFeedbackMode) {
-              answerData.isCorrect = Boolean(a.isCorrect);
-            }
-            return answerData;
-          })
-        };
-      });
-    } else {
-      // Удаляем информацию о правильности ответов
-      questions = questions.map(q => ({
+    const mapQuestionForClient = (q, answersList) => {
+      const row = {
         id: q.id,
         text: q.text,
         testId: q.testId,
         createdAt: q.createdAt,
         updatedAt: q.updatedAt,
-        Answers: (q.Answers || []).map(a => {
-          const answerData = {
-            id: a.id,
-            text: a.text
-          };
+        Answers: (answersList || []).map((a) => {
+          const answerData = { id: a.id, text: a.text };
           if (instantFeedbackMode) {
             answerData.isCorrect = Boolean(a.isCorrect);
           }
           return answerData;
         })
-      }));
+      };
+      // В режиме «Ответы сразу» отдаём объяснения для показа после выбора ответа
+      if (instantFeedbackMode && q.explanation) {
+        row.explanation = q.explanation;
+      }
+      return row;
+    };
+
+    // Случайный порядок ответов
+    if (randomizeAnswers) {
+      questions = questions.map((q) => {
+        const answers = [...(q.Answers || [])].sort(() => Math.random() - 0.5);
+        return mapQuestionForClient(q, answers);
+      });
+    } else {
+      questions = questions.map((q) => mapQuestionForClient(q, q.Answers || []));
     }
 
     res.json(questions);

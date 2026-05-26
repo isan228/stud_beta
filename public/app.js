@@ -1766,6 +1766,32 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         testTimer = setInterval(updateTimer, 1000);
     }
 
+    function renderQuestionExplanationHtml(explanation) {
+        const text = String(explanation || '').trim();
+        if (!text) return '';
+        return `
+            <div class="question-explanation-box" role="note">
+                <div class="question-explanation-label">Объяснение</div>
+                <div class="question-explanation-text">${escapeHtmlStr(text).replace(/\n/g, '<br>')}</div>
+            </div>
+        `;
+    }
+
+    function refreshQuestionExplanationSlot(question) {
+        const slot = document.getElementById('questionExplanationSlot');
+        if (!slot || !question) return;
+        const show = instantFeedbackMode
+            && instantFeedbackLockedQuestions[question.id]
+            && question.explanation;
+        if (show) {
+            slot.innerHTML = renderQuestionExplanationHtml(question.explanation);
+            slot.hidden = false;
+        } else {
+            slot.innerHTML = '';
+            slot.hidden = true;
+        }
+    }
+
     function showQuestion() {
         // Проверяем, что есть вопросы
         if (!currentQuestions || currentQuestions.length === 0) {
@@ -1826,6 +1852,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                     </div>
                 `).join('')}
             </div>
+            <div id="questionExplanationSlot" class="question-explanation-slot" hidden></div>
         </div>
     `;
 
@@ -1865,6 +1892,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 }
             });
         }
+
+        refreshQuestionExplanationSlot(question);
 
         // Кнопки навигации
         const prevBtn = document.getElementById('prevQuestion');
@@ -1908,6 +1937,15 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 }
             });
             instantFeedbackLockedQuestions[question.id] = true;
+            refreshQuestionExplanationSlot(question);
+            try {
+                const testDataRaw = sessionStorage.getItem('testData');
+                if (testDataRaw) {
+                    const testData = JSON.parse(testDataRaw);
+                    testData.instantFeedbackLockedQuestions = instantFeedbackLockedQuestions;
+                    sessionStorage.setItem('testData', JSON.stringify(testData));
+                }
+            } catch (e) { /* ignore */ }
         }
     }
 
@@ -2042,13 +2080,15 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 firstQuestionId: currentQuestions[0]?.id
             });
 
-            if (currentTestId && currentUser) {
+            if (currentTestId) {
                 try {
                     console.log('📥 Загрузка полного теста с сервера...', { testId: currentTestId, API_URL });
+                    const fullHeaders = {};
+                    if (currentUser && currentToken) {
+                        fullHeaders.Authorization = `Bearer ${currentToken}`;
+                    }
                     const fullTestResponse = await fetch(`${API_URL}/tests/tests/${currentTestId}`, {
-                        headers: {
-                            'Authorization': `Bearer ${currentToken}`
-                        }
+                        headers: fullHeaders
                     });
 
                     console.log('📥 Ответ сервера:', {
@@ -2167,6 +2207,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
                                 return {
                                     ...q,
+                                    explanation: fullQ.explanation || q.explanation || null,
                                     Answers: answersWithCorrect
                                 };
                             }
@@ -2328,7 +2369,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 questions: questionsToSave, // Сохраняем вопросы с нормализованными правильными ответами
                 answers: currentAnswers,
                 timeSpent,
-                testId: currentTestId || window.currentTestId || null // Сохраняем testId для разбора (пробуем разные источники)
+                testId: currentTestId || window.currentTestId || null,
+                instantFeedbackMode: !!instantFeedbackMode
             }));
 
             // Переходим на страницу результатов
