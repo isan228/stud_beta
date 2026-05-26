@@ -1162,6 +1162,8 @@ async function editQuestion(questionId) {
 
             document.getElementById('questionId').value = question.id;
             document.getElementById('questionText').value = question.text;
+            const explanationEl = document.getElementById('questionExplanation');
+            if (explanationEl) explanationEl.value = question.explanation || '';
             
             // Заполняем ответы
             const answersList = document.getElementById('answersList');
@@ -1299,6 +1301,7 @@ async function saveQuestion(e) {
     e.preventDefault();
     const id = document.getElementById('questionId').value;
     const text = document.getElementById('questionText').value;
+    const explanation = document.getElementById('questionExplanation')?.value?.trim() || '';
     const testId = parseInt(document.getElementById('questionTestId').value);
     
     const answerItems = document.querySelectorAll('.answer-item-admin');
@@ -1333,13 +1336,15 @@ async function saveQuestion(e) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${currentAdminToken}`
             },
-            body: JSON.stringify({ text, testId, answers })
+            body: JSON.stringify({ text, testId, answers, explanation: explanation || null })
         });
 
         if (response.ok) {
             showNotification(id ? 'Вопрос обновлен' : 'Вопрос создан', 'success');
             document.getElementById('questionModal').style.display = 'none';
             document.getElementById('questionForm').reset();
+            const explanationEl = document.getElementById('questionExplanation');
+            if (explanationEl) explanationEl.value = '';
             loadQuestions();
         } else {
             const result = await response.json();
@@ -1541,6 +1546,27 @@ function setupAdminEventListeners() {
     const pdfUploadForm = document.getElementById('pdfUploadForm');
     if (pdfUploadForm) {
         pdfUploadForm.addEventListener('submit', handlePdfUpload);
+    }
+
+    const uploadTxtExplainedBtn = document.getElementById('uploadTxtExplainedBtn');
+    if (uploadTxtExplainedBtn) {
+        uploadTxtExplainedBtn.addEventListener('click', async () => {
+            try {
+                const tests = await fetchAdminTestsCompact();
+                const select = document.getElementById('txtExplainedTestId');
+                select.innerHTML = '<option value="">Выберите тест</option>' +
+                    tests.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+                document.getElementById('txtExplainedUploadModal').style.display = 'block';
+            } catch (error) {
+                console.error('Ошибка загрузки тестов:', error);
+                showNotification('Ошибка загрузки тестов', 'error');
+            }
+        });
+    }
+
+    const txtExplainedUploadForm = document.getElementById('txtExplainedUploadForm');
+    if (txtExplainedUploadForm) {
+        txtExplainedUploadForm.addEventListener('submit', handleTxtExplainedUpload);
     }
 
     const addQuestionBtn = document.getElementById('addQuestionBtn');
@@ -2132,6 +2158,69 @@ async function handlePdfUpload(e) {
         } else {
             alert(error.message || 'Ошибка загрузки TXT');
         }
+        if (progressDiv) progressDiv.style.display = 'none';
+        if (progressBar) progressBar.style.width = '0%';
+    }
+}
+
+async function handleTxtExplainedUpload(e) {
+    e.preventDefault();
+
+    const testId = document.getElementById('txtExplainedTestId')?.value;
+    const fileInput = document.getElementById('txtExplainedFile');
+
+    if (!testId) {
+        showNotification('Выберите тест', 'error');
+        return;
+    }
+    if (!fileInput?.files?.[0]) {
+        showNotification('Выберите TXT файл', 'error');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('pdf', fileInput.files[0]);
+    formData.append('testId', testId);
+
+    const progressDiv = document.getElementById('txtExplainedUploadProgress');
+    const progressBar = document.getElementById('txtExplainedUploadProgressBar');
+    const statusText = document.getElementById('txtExplainedUploadStatus');
+
+    if (progressDiv) progressDiv.style.display = 'block';
+    if (progressBar) progressBar.style.width = '30%';
+    if (statusText) statusText.textContent = 'Загрузка файла...';
+
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/upload-txt-explained`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` },
+            body: formData
+        });
+
+        if (progressBar) progressBar.style.width = '70%';
+        if (statusText) statusText.textContent = 'Обработка TXT...';
+
+        const result = await response.json();
+
+        if (response.ok) {
+            if (progressBar) progressBar.style.width = '100%';
+            if (statusText) statusText.textContent = 'Готово!';
+            setTimeout(() => {
+                showNotification(`Загружено ${result.questions.length} вопросов с объяснениями`, 'success');
+                const modal = document.getElementById('txtExplainedUploadModal');
+                if (modal) modal.style.display = 'none';
+                const form = document.getElementById('txtExplainedUploadForm');
+                if (form) form.reset();
+                if (progressDiv) progressDiv.style.display = 'none';
+                if (progressBar) progressBar.style.width = '0%';
+                loadQuestions();
+            }, 500);
+        } else {
+            throw new Error(result.error || 'Ошибка загрузки TXT');
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки TXT с объяснениями:', error);
+        showNotification(error.message || 'Ошибка загрузки TXT', 'error');
         if (progressDiv) progressDiv.style.display = 'none';
         if (progressBar) progressBar.style.width = '0%';
     }

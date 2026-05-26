@@ -224,6 +224,7 @@
                             <datalist id="questionsSearchSuggestions"></datalist>
                             <button class="btn btn-primary" id="addQuestionBtn">+ Добавить вопрос</button>
                             <button class="btn btn-secondary" id="uploadPdfBtn">📄 Загрузить из TXT</button>
+                            <button class="btn btn-secondary" id="uploadTxtExplainedBtn">📘 TXT с объяснениями</button>
                         </div>
                     </div>
                     <div id="questionsList" class="admin-list"></div>
@@ -617,6 +618,43 @@
         </div>
     </div>
 
+    <div id="txtExplainedUploadModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <span class="modal-close">&times;</span>
+            <h2>📘 Загрузить вопросы с объяснениями</h2>
+            <form id="txtExplainedUploadForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="txtExplainedTestId">Тест</label>
+                    <select id="txtExplainedTestId" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="txtExplainedFile">TXT файл</label>
+                    <input type="file" id="txtExplainedFile" accept=".txt" required>
+                    <div style="background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius); margin-top: 0.5rem;">
+                        <p style="margin: 0 0 0.5rem 0; font-weight: 600; color: var(--text-primary);">Формат TXT (как обычный + объяснение):</p>
+                        <pre style="margin: 0; font-size: 0.875rem; white-space: pre-wrap; word-wrap: break-word; color: var(--text-secondary); font-family: 'Courier New', monospace;">"ID":"1";
+"Q":"Вопрос?";
+"A1":"Ответ 1";
+"A2":"Ответ 2";
+"A3":"Ответ 3";
+"A4":"Ответ 4";
+"Correct":"2";
+"E":"Почему верен ответ 2";</pre>
+                        <p style="margin: 0.75rem 0 0; font-size: 0.85rem; color: var(--text-muted);">Поле <strong>E</strong> обязательно для каждого вопроса. Показывается в разборе теста после прохождения.</p>
+                    </div>
+                </div>
+                <div id="txtExplainedUploadProgress" style="display: none; margin: 1rem 0;">
+                    <div style="background: var(--bg-secondary); border-radius: var(--radius); padding: 0.25rem; height: 24px;">
+                        <div id="txtExplainedUploadProgressBar" style="background: linear-gradient(90deg, var(--primary-color), var(--primary-light)); height: 100%; border-radius: var(--radius); width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75rem; font-weight: 600;"></div>
+                    </div>
+                    <p id="txtExplainedUploadStatus" style="margin-top: 0.5rem; color: var(--text-secondary); font-size: 0.9rem; text-align: center;">Обработка...</p>
+                </div>
+                <button type="submit" class="btn btn-primary">Загрузить</button>
+                <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
+            </form>
+        </div>
+    </div>
+
     <div id="questionModal" class="modal" style="display: none;">
         <div class="modal-content" style="max-width: 800px;">
             <span class="modal-close">&times;</span>
@@ -626,6 +664,10 @@
                 <div class="form-group">
                     <label for="questionText">Текст вопроса</label>
                     <textarea id="questionText" rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="questionExplanation">Объяснение (опционально)</label>
+                    <textarea id="questionExplanation" rows="3" placeholder="Показывается в разборе теста после прохождения"></textarea>
                 </div>
                 <div class="form-group">
                     <label for="questionTestId">Тест</label>

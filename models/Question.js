@@ -11,6 +11,11 @@ const Question = sequelize.define('Question', {
     type: DataTypes.TEXT,
     allowNull: false
   },
+  explanation: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    comment: 'Пояснение к правильному ответу (разбор теста)'
+  },
   testId: {
     type: DataTypes.INTEGER,
     allowNull: false,
