@@ -1842,8 +1842,13 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             favoriteContainer.innerHTML = '';
         }
 
+        const questionImageHtml = question.imageUrl
+            ? `<div class="question-image-wrap"><img src="${String(question.imageUrl).replace(/"/g, '')}" alt="" class="question-image" loading="lazy"></div>`
+            : '';
+
         content.innerHTML = `
         <div class="question-item">
+            ${questionImageHtml}
             <h3>${question.text.replace(/\n/g, '<br>')}</h3>
             <div class="answers-list">
                 ${question.Answers.map(answer => `

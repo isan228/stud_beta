@@ -1874,6 +1874,23 @@ html[data-theme="dark"] .navbar {
     color: var(--text-secondary);
 }
 
+.question-image-wrap {
+    margin: 0 0 1rem;
+    text-align: center;
+}
+
+.question-image,
+.question-image-preview-img {
+    max-width: 100%;
+    max-height: min(320px, 50vh);
+    width: auto;
+    height: auto;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-light);
+    object-fit: contain;
+    background: var(--bg-secondary);
+}
+
 .test-actions {
     display: flex;
     justify-content: space-between;

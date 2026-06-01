@@ -171,6 +171,14 @@
     font-size: 1.1rem;
 }
 
+.question-image-preview-wrap {
+    margin-bottom: 0.5rem;
+}
+
+.question-image-preview-wrap .question-image-preview-img {
+    max-height: 200px;
+}
+
 /* Таблицы */
 .admin-table-container {
     overflow-x: auto;

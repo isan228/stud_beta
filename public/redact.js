@@ -234,11 +234,12 @@ async function loadQuestions() {
 
         list.innerHTML = questions.map((q) => {
             const hasExplanation = !!(q.explanation && String(q.explanation).trim());
+            const hasImage = !!(q.imageUrl && String(q.imageUrl).trim());
             return `
             <div class="admin-list-item">
                 <div style="flex: 1;">
                     <p style="margin: 0 0 0.5rem;">${escapeHtml((q.text || '').slice(0, 200))}${(q.text || '').length > 200 ? '…' : ''}</p>
-                    <span style="color: var(--text-muted); font-size: 0.8rem;">ID: ${q.id} • ответов: ${(q.Answers || []).length}${hasExplanation ? ' • <span style="color: var(--primary-color); font-weight: 600;">есть объяснение</span>' : ''}</span>
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">ID: ${q.id} • ответов: ${(q.Answers || []).length}${hasExplanation ? ' • <span style="color: var(--primary-color); font-weight: 600;">есть объяснение</span>' : ''}${hasImage ? ' • <span style="color: var(--primary-color); font-weight: 600;">есть картинка</span>' : ''}</span>
                 </div>
                 <div style="display: flex; gap: 0.5rem;">
                     <button type="button" class="btn btn-secondary btn-sm" onclick="editQuestion(${q.id})">Изменить</button>
@@ -286,6 +287,9 @@ window.editQuestion = async function(questionId) {
         document.getElementById('questionText').value = question.text;
         const explanationEl = document.getElementById('questionExplanation');
         if (explanationEl) explanationEl.value = question.explanation || '';
+        if (typeof showQuestionImagePreview === 'function') {
+            showQuestionImagePreview(question.imageUrl || null);
+        }
         document.getElementById('questionTestId').value = String(question.testId ?? question.Test?.id);
 
         const answersList = document.getElementById('answersList');
@@ -352,9 +356,26 @@ async function saveQuestion(e) {
             body: JSON.stringify({ text, testId, answers, explanation: explanation || null })
         });
         if (response.ok) {
-            showNotification(id ? 'Вопрос обновлён' : 'Вопрос создан', 'success');
+            const saved = await response.json();
+            const questionId = id || saved.id;
+            let imageWarning = '';
+            if (questionId && typeof syncQuestionImageAfterSave === 'function') {
+                const imgResult = await syncQuestionImageAfterSave(questionId, {
+                    apiBase: REDACT_API,
+                    getAuthHeaders: editorAuthHeaders
+                });
+                if (!imgResult.ok) {
+                    imageWarning = imgResult.error || 'Ошибка изображения';
+                }
+            }
+            if (imageWarning) {
+                showNotification(`${id ? 'Вопрос обновлён' : 'Вопрос создан'}, но: ${imageWarning}`, 'error');
+            } else {
+                showNotification(id ? 'Вопрос обновлён' : 'Вопрос создан', 'success');
+            }
             document.getElementById('questionModal').style.display = 'none';
             document.getElementById('questionForm').reset();
+            if (typeof resetQuestionImageUI === 'function') resetQuestionImageUI();
             document.getElementById('answersList').innerHTML = '';
             const filter = document.getElementById('questionsTestFilter');
             if (filter && !filter.value) filter.value = String(testId);
@@ -520,10 +541,15 @@ function setupRedactUI() {
         errorsSearchTimeout = setTimeout(() => loadErrorReports(1), 400);
     });
 
+    if (typeof initQuestionImageForm === 'function') {
+        initQuestionImageForm();
+    }
+
     document.getElementById('addQuestionBtn')?.addEventListener('click', async () => {
         await loadTestsForFilters();
         document.getElementById('questionId').value = '';
         document.getElementById('questionForm').reset();
+        if (typeof resetQuestionImageUI === 'function') resetQuestionImageUI();
         document.getElementById('answersList').innerHTML = '';
         addAnswerField();
         addAnswerField();

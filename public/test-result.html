@@ -183,6 +183,7 @@
                             <strong style="color: var(--text-color);">Вопрос ${index + 1}</strong>
                             ${statusLabel ? `<span style="font-size: 0.85rem; font-weight: 600; color: ${statusColor};">${statusLabel}</span>` : ''}
                         </div>
+                        ${question.imageUrl ? `<div class="question-image-wrap" style="margin-bottom: 0.75rem;"><img src="${escHtml(question.imageUrl)}" alt="" class="question-image" loading="lazy"></div>` : ''}
                         <p style="margin: 0 0 0.75rem; color: var(--text-color); line-height: 1.45;">${escHtml(question.text).replace(/\n/g, '<br>')}</p>
                         <div class="question-explanation-box" style="margin-top: 0;">
                             <div class="question-explanation-label">Объяснение</div>
@@ -431,6 +432,7 @@
                                     ${index + 1}
                                 </div>
                                 <div style="flex: 1;">
+                                    ${question.imageUrl ? `<div class="question-image-wrap" style="margin-bottom: 0.75rem;"><img src="${escHtml(question.imageUrl)}" alt="" class="question-image" loading="lazy"></div>` : ''}
                                     <div class="test-analysis-question">${question.text}</div>
                                     <div style="margin-top: 0.75rem;">
                                         <span style="padding: 0.25rem 0.75rem; border-radius: 0.25rem; font-size: 0.875rem; font-weight: 600; background-color: ${isCorrect ? 'rgba(16, 185, 129, 0.1)' : 'rgba(220, 38, 38, 0.1)'}; color: ${isCorrect ? 'var(--success-color)' : 'var(--danger-color)'};">

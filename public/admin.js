@@ -744,6 +744,7 @@ async function loadQuestions() {
             questionsList.innerHTML = questions.map(question => {
                 const correctAnswer = question.Answers?.find(a => a.isCorrect);
                 const hasExplanation = !!(question.explanation && String(question.explanation).trim());
+                const hasImage = !!(question.imageUrl && String(question.imageUrl).trim());
                 return `
                     <div class="admin-list-item">
                         <div style="flex: 1;">
@@ -752,6 +753,7 @@ async function loadQuestions() {
                                 Тест: ${escapeAdminHtml(question.Test?.name || 'Неизвестно')} | Ответов: ${question.Answers?.length || 0}
                                 ${correctAnswer ? ` | Правильный: ${escapeAdminHtml(correctAnswer.text)}` : ''}
                                 ${hasExplanation ? ' | <span style="color: var(--primary-color); font-weight: 600;">Есть объяснение</span>' : ''}
+                                ${hasImage ? ' | <span style="color: var(--primary-color); font-weight: 600;">Есть картинка</span>' : ''}
                             </p>
                         </div>
                         <div style="display: flex; gap: 0.5rem;">
@@ -1166,6 +1168,9 @@ async function editQuestion(questionId) {
             document.getElementById('questionText').value = question.text;
             const explanationEl = document.getElementById('questionExplanation');
             if (explanationEl) explanationEl.value = question.explanation || '';
+            if (typeof showQuestionImagePreview === 'function') {
+                showQuestionImagePreview(question.imageUrl || null);
+            }
             
             // Заполняем ответы
             const answersList = document.getElementById('answersList');
@@ -1342,11 +1347,26 @@ async function saveQuestion(e) {
         });
 
         if (response.ok) {
-            showNotification(id ? 'Вопрос обновлен' : 'Вопрос создан', 'success');
+            const saved = await response.json();
+            const questionId = id || saved.id;
+            let imageWarning = '';
+            if (questionId && typeof syncQuestionImageAfterSave === 'function') {
+                const imgResult = await syncQuestionImageAfterSave(questionId, {
+                    apiBase: ADMIN_API_URL,
+                    getAuthHeaders: adminAuthHeaders
+                });
+                if (!imgResult.ok) {
+                    imageWarning = imgResult.error || 'Ошибка изображения';
+                }
+            }
+            if (imageWarning) {
+                showNotification(`${id ? 'Вопрос обновлен' : 'Вопрос создан'}, но: ${imageWarning}`, 'error');
+            } else {
+                showNotification(id ? 'Вопрос обновлен' : 'Вопрос создан', 'success');
+            }
             document.getElementById('questionModal').style.display = 'none';
             document.getElementById('questionForm').reset();
-            const explanationEl = document.getElementById('questionExplanation');
-            if (explanationEl) explanationEl.value = '';
+            if (typeof resetQuestionImageUI === 'function') resetQuestionImageUI();
             loadQuestions();
         } else {
             const result = await response.json();
@@ -1438,6 +1458,9 @@ function addAnswer() {
 let eventListenersSetup = false; // Флаг для предотвращения двойной инициализации
 
 function setupAdminEventListeners() {
+    if (typeof initQuestionImageForm === 'function') {
+        initQuestionImageForm();
+    }
     // Предотвращаем двойную инициализацию
     if (eventListenersSetup) {
         console.log('Обработчики событий уже настроены, пропускаем...');
@@ -1586,6 +1609,7 @@ function setupAdminEventListeners() {
             document.getElementById('questionText').value = '';
             const explanationEl = document.getElementById('questionExplanation');
             if (explanationEl) explanationEl.value = '';
+            if (typeof resetQuestionImageUI === 'function') resetQuestionImageUI();
             document.getElementById('answersList').innerHTML = '';
             addAnswer(); // Добавляем первый ответ
             addAnswer(); // Добавляем второй ответ

@@ -83,6 +83,11 @@ app.use('/api', require('./routes/contact'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/redact', require('./routes/redact'));
+const createQuestionImageRouter = require('./routes/questionImageUpload');
+const adminAuth = require('./middleware/adminAuth');
+const editorAuth = require('./middleware/editorAuth');
+app.use('/api/admin', createQuestionImageRouter(adminAuth));
+app.use('/api/redact', createQuestionImageRouter(editorAuth));
 app.use('/api/news', require('./routes/news'));
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/chat', require('./routes/chat'));
@@ -175,7 +180,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
     res.set('X-Content-Type-Options', 'nosniff');
     
     // Отключаем кеширование для app.js и admin.js, чтобы всегда получать свежие версии
-    if (filePath.includes('app.js') || filePath.includes('admin.js') || filePath.includes('redact.js') || filePath.includes('redact-login.css')) {
+    if (filePath.includes('app.js') || filePath.includes('admin.js') || filePath.includes('redact.js') || filePath.includes('question-image-form.js') || filePath.includes('redact-login.css')) {
       res.set({
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
         'Pragma': 'no-cache',

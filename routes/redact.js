@@ -389,6 +389,11 @@ router.delete('/questions/:id', editorAuth, async (req, res) => {
       beforeSnapshot
     });
 
+    const { deleteQuestionImageFile } = require('../utils/questionImages');
+    if (question.imageUrl) {
+      deleteQuestionImageFile(question.imageUrl);
+    }
+
     await question.destroy();
     res.json({ message: 'Вопрос удален' });
   } catch (error) {

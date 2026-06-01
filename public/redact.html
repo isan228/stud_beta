@@ -118,6 +118,17 @@
                     <textarea id="questionExplanation" rows="4" placeholder="Показывается после ответа (режим «Ответы сразу») или в конце теста"></textarea>
                 </div>
                 <div class="form-group">
+                    <label>Изображение к вопросу (опционально)</label>
+                    <input type="hidden" id="questionImagePendingRemove" value="0">
+                    <input type="file" id="questionImageFile" accept="image/jpeg,image/png,image/gif,image/webp" style="display: none;">
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem;">
+                        <button type="button" class="btn btn-secondary btn-sm" id="questionImagePickBtn">Загрузить с устройства</button>
+                        <button type="button" class="btn btn-danger btn-sm" id="questionImageRemoveBtn" style="display: none;">Удалить картинку</button>
+                    </div>
+                    <div id="questionImagePreview" class="question-image-preview-wrap" style="display: none;"></div>
+                    <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted);">JPG, PNG, GIF или WEBP, до 5 МБ</p>
+                </div>
+                <div class="form-group">
                     <label for="questionTestId">Тест</label>
                     <select id="questionTestId" required></select>
                 </div>
@@ -153,6 +164,7 @@
 
     <div id="notification" class="notification" style="display: none;"></div>
 
+    <script src="/question-image-form.js"></script>
     <script src="/redact.js"></script>
 </body>
 </html>

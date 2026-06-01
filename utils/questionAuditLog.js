@@ -14,6 +14,7 @@ function snapshotFromQuestion(question, answers = []) {
     text: question.text,
     testId: question.testId,
     explanation: question.explanation || null,
+    imageUrl: question.imageUrl || null,
     answers: (answers || []).map(a => ({
       id: a.id,
       text: a.text,
