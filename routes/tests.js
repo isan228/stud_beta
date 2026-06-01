@@ -411,6 +411,9 @@ router.post('/tests/:testId/questions', async (req, res) => {
       if (instantFeedbackMode && q.explanation) {
         row.explanation = q.explanation;
       }
+      if (q.imageUrl && String(q.imageUrl).trim()) {
+        row.imageUrl = String(q.imageUrl).trim();
+      }
       return row;
     };
 

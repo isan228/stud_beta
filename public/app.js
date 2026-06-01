@@ -2213,6 +2213,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                                 return {
                                     ...q,
                                     explanation: fullQ.explanation || q.explanation || null,
+                                    imageUrl: fullQ.imageUrl || q.imageUrl || null,
                                     Answers: answersWithCorrect
                                 };
                             }
