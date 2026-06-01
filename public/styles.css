@@ -1874,21 +1874,123 @@ html[data-theme="dark"] .navbar {
     color: var(--text-secondary);
 }
 
+/* Иллюстрация к вопросу (тест, разбор, результаты) */
+figure.question-image-wrap,
 .question-image-wrap {
-    margin: 0 0 1rem;
+    margin: 0 0 1.5rem;
+    padding: 0.65rem;
+    position: relative;
+    z-index: 1;
     text-align: center;
+    background: var(--card-bg);
+    border-radius: var(--radius-lg);
+    border: 1px solid color-mix(in srgb, var(--primary-color) 22%, var(--border-light));
+    box-shadow:
+        0 1px 2px rgba(15, 23, 42, 0.04),
+        0 8px 24px rgba(15, 23, 42, 0.07);
+    overflow: hidden;
 }
 
-.question-image,
-.question-image-preview-img {
+figure.question-image-wrap::before,
+.question-image-wrap::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+        145deg,
+        color-mix(in srgb, var(--primary-color) 14%, transparent) 0%,
+        transparent 42%,
+        color-mix(in srgb, var(--success-color) 6%, transparent) 100%
+    );
+    pointer-events: none;
+}
+
+figure.question-image-wrap::after,
+.question-image-wrap::after {
+    content: 'Иллюстрация';
+    position: absolute;
+    top: 0.65rem;
+    left: 0.65rem;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--primary-color);
+    background: color-mix(in srgb, var(--card-bg) 88%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary-color) 25%, var(--border-light));
+    border-radius: 999px;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 2;
+    pointer-events: none;
+}
+
+.question-image {
+    display: block;
+    margin: 0 auto;
     max-width: 100%;
-    max-height: min(320px, 50vh);
+    max-height: min(380px, 52vh);
     width: auto;
     height: auto;
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border-light);
+    border-radius: calc(var(--radius-lg) - 6px);
     object-fit: contain;
-    background: var(--bg-secondary);
+    background: #fff;
+    box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+html[data-theme="dark"] .question-image,
+[data-theme="dark"] .question-image {
+    background: rgba(255, 255, 255, 0.06);
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
+}
+
+@media (hover: hover) {
+    .question-image-wrap:hover .question-image {
+        transform: scale(1.01);
+        box-shadow: 0 6px 20px rgba(15, 23, 42, 0.12);
+    }
+
+    html[data-theme="dark"] .question-image-wrap:hover .question-image,
+    [data-theme="dark"] .question-image-wrap:hover .question-image {
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    }
+}
+
+/* Компактный вариант в разборе и блоке объяснений */
+.test-analysis-item .question-image-wrap,
+.test-end-explanation-item .question-image-wrap {
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+}
+
+.test-analysis-item .question-image,
+.test-end-explanation-item .question-image {
+    max-height: min(280px, 40vh);
+}
+
+.question-item .question-image-wrap + h3 {
+    margin-top: 0;
+}
+
+.question-image-preview-img {
+    display: block;
+    margin: 0 auto;
+    max-width: 100%;
+    max-height: 200px;
+    width: auto;
+    height: auto;
+    border-radius: calc(var(--radius-lg) - 4px);
+    object-fit: contain;
+    background: #fff;
+    border: 1px solid var(--border-light);
+}
+
+html[data-theme="dark"] .question-image-preview-img,
+[data-theme="dark"] .question-image-preview-img {
+    background: rgba(255, 255, 255, 0.06);
 }
 
 .test-actions {
@@ -3412,6 +3514,23 @@ html[data-theme="dark"] .navbar {
         word-wrap: break-word;
         overflow-wrap: break-word;
         white-space: pre-wrap;
+    }
+
+    figure.question-image-wrap,
+    .question-image-wrap {
+        padding: 0.5rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .question-image {
+        max-height: min(260px, 45vh);
+    }
+
+    figure.question-image-wrap::after,
+    .question-image-wrap::after {
+        font-size: 0.6rem;
+        top: 0.5rem;
+        left: 0.5rem;
     }
 
     .answers-list {

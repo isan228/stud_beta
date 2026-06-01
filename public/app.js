@@ -1843,7 +1843,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
 
         const questionImageHtml = question.imageUrl
-            ? `<div class="question-image-wrap"><img src="${String(question.imageUrl).replace(/"/g, '')}" alt="" class="question-image" loading="lazy"></div>`
+            ? `<figure class="question-image-wrap"><img src="${String(question.imageUrl).replace(/"/g, '')}" alt="Иллюстрация к вопросу" class="question-image" loading="lazy" decoding="async"></figure>`
             : '';
 
         content.innerHTML = `
@@ -3713,6 +3713,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                                 ${index + 1}
                             </div>
                             <div style="flex: 1;">
+                                ${question.imageUrl ? `<figure class="question-image-wrap"><img src="${String(question.imageUrl).replace(/"/g, '')}" alt="Иллюстрация к вопросу" class="question-image" loading="lazy" decoding="async"></figure>` : ''}
                                 <div class="test-analysis-question">${question.text}</div>
                                 <div style="margin-top: 0.75rem;">
                                     <span style="padding: 0.25rem 0.75rem; border-radius: 0.25rem; font-size: 0.875rem; font-weight: 600; background-color: ${isCorrect ? 'rgba(16, 185, 129, 0.1)' : 'rgba(220, 38, 38, 0.1)'}; color: ${isCorrect ? 'var(--success-color)' : 'var(--danger-color)'};">
