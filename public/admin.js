@@ -1636,8 +1636,8 @@ function setupAdminEventListeners() {
     const addQuestionBtn = document.getElementById('addQuestionBtn');
     if (addQuestionBtn) {
         addQuestionBtn.addEventListener('click', async () => {
+            const presetTestId = document.getElementById('questionsTestFilter')?.value || '';
             try {
-                const presetTestId = document.getElementById('questionsTestFilter')?.value || '';
                 await populateQuestionTestSelect(presetTestId || undefined);
             } catch (error) {
                 console.error('Ошибка загрузки тестов:', error);
