@@ -1766,13 +1766,21 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         testTimer = setInterval(updateTimer, 1000);
     }
 
-    function renderQuestionExplanationHtml(explanation) {
+    function renderQuestionExplanationHtml(explanation, explanationImageUrl) {
         const text = String(explanation || '').trim();
-        if (!text) return '';
+        const imgUrl = explanationImageUrl && String(explanationImageUrl).trim();
+        if (!text && !imgUrl) return '';
+        const imgHtml = imgUrl
+            ? `<figure class="question-image-wrap question-explanation-image-wrap"><img src="${String(imgUrl).replace(/"/g, '')}" alt="Иллюстрация к объяснению" class="question-image" loading="lazy" decoding="async"></figure>`
+            : '';
+        const textHtml = text
+            ? `<div class="question-explanation-text">${escapeHtmlStr(text).replace(/\n/g, '<br>')}</div>`
+            : '';
         return `
             <div class="question-explanation-box" role="note">
                 <div class="question-explanation-label">Объяснение</div>
-                <div class="question-explanation-text">${escapeHtmlStr(text).replace(/\n/g, '<br>')}</div>
+                ${imgHtml}
+                ${textHtml}
             </div>
         `;
     }
@@ -1782,9 +1790,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         if (!slot || !question) return;
         const show = instantFeedbackMode
             && instantFeedbackLockedQuestions[question.id]
-            && question.explanation;
+            && (question.explanation || question.explanationImageUrl);
         if (show) {
-            slot.innerHTML = renderQuestionExplanationHtml(question.explanation);
+            slot.innerHTML = renderQuestionExplanationHtml(question.explanation, question.explanationImageUrl);
             slot.hidden = false;
         } else {
             slot.innerHTML = '';
@@ -2213,6 +2221,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                                 return {
                                     ...q,
                                     explanation: fullQ.explanation || q.explanation || null,
+                                    explanationImageUrl: fullQ.explanationImageUrl || q.explanationImageUrl || null,
                                     imageUrl: fullQ.imageUrl || q.imageUrl || null,
                                     Answers: answersWithCorrect
                                 };
@@ -3768,10 +3777,11 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                                 `).join('')}
                             </div>
                         ` : ''}
-                        ${question.explanation ? `
+                        ${(question.explanation || question.explanationImageUrl) ? `
                             <div style="margin-top: 1rem; padding: 1rem; background: rgba(37, 99, 235, 0.08); border-radius: var(--radius); border-left: 4px solid var(--primary-color);">
                                 <div class="test-analysis-label" style="color: var(--primary-color);">Объяснение</div>
-                                <div style="color: var(--text-secondary); line-height: 1.55; margin-top: 0.35rem;">${escapeHtmlStr(question.explanation).replace(/\n/g, '<br>')}</div>
+                                ${question.explanationImageUrl ? `<figure class="question-image-wrap question-explanation-image-wrap" style="margin-top: 0.5rem;"><img src="${String(question.explanationImageUrl).replace(/"/g, '')}" alt="Иллюстрация к объяснению" class="question-image" loading="lazy"></figure>` : ''}
+                                ${question.explanation ? `<div style="color: var(--text-secondary); line-height: 1.55; margin-top: 0.35rem;">${escapeHtmlStr(question.explanation).replace(/\n/g, '<br>')}</div>` : ''}
                             </div>
                         ` : ''}
                     </div>

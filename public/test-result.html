@@ -156,7 +156,10 @@
                 return;
             }
 
-            const items = (resultData.questions || []).filter((q) => q.explanation && String(q.explanation).trim());
+            const items = (resultData.questions || []).filter((q) =>
+                (q.explanation && String(q.explanation).trim())
+                || (q.explanationImageUrl && String(q.explanationImageUrl).trim())
+            );
             if (!items.length) {
                 section.style.display = 'none';
                 return;
@@ -187,7 +190,8 @@
                         <p style="margin: 0 0 0.75rem; color: var(--text-color); line-height: 1.45;">${escHtml(question.text).replace(/\n/g, '<br>')}</p>
                         <div class="question-explanation-box" style="margin-top: 0;">
                             <div class="question-explanation-label">Объяснение</div>
-                            <div class="question-explanation-text">${escHtml(question.explanation).replace(/\n/g, '<br>')}</div>
+                            ${question.explanationImageUrl ? `<figure class="question-image-wrap question-explanation-image-wrap"><img src="${escHtml(question.explanationImageUrl)}" alt="Иллюстрация к объяснению" class="question-image" loading="lazy" decoding="async"></figure>` : ''}
+                            ${question.explanation ? `<div class="question-explanation-text">${escHtml(question.explanation).replace(/\n/g, '<br>')}</div>` : ''}
                         </div>
                     </div>
                 `;
@@ -467,10 +471,11 @@
                                     `).join('')}
                                 </div>
                             ` : ''}
-                            ${question.explanation ? `
+                            ${(question.explanation || question.explanationImageUrl) ? `
                                 <div style="margin-top: 1rem; padding: 1rem; background: rgba(37, 99, 235, 0.08); border-radius: 8px; border-left: 4px solid var(--primary-color);">
                                     <div class="test-analysis-label" style="color: var(--primary-color);">Объяснение</div>
-                                    <div style="color: var(--text-secondary); line-height: 1.55; margin-top: 0.35rem;">${String(question.explanation).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</div>
+                                    ${question.explanationImageUrl ? `<figure class="question-image-wrap question-explanation-image-wrap" style="margin-top: 0.5rem;"><img src="${escHtml(question.explanationImageUrl)}" alt="Иллюстрация к объяснению" class="question-image" loading="lazy"></figure>` : ''}
+                                    ${question.explanation ? `<div style="color: var(--text-secondary); line-height: 1.55; margin-top: 0.35rem;">${String(question.explanation).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</div>` : ''}
                                 </div>
                             ` : ''}
                         </div>

@@ -113,9 +113,29 @@
                     <label for="questionText">Текст вопроса</label>
                     <textarea id="questionText" rows="3" required></textarea>
                 </div>
-                <div class="form-group">
-                    <label for="questionExplanation">Объяснение (опционально)</label>
-                    <textarea id="questionExplanation" rows="4" placeholder="Показывается после ответа (режим «Ответы сразу») или в конце теста"></textarea>
+                <div class="form-group checkbox-group">
+                    <label>
+                        <input type="checkbox" id="questionTestWithExplanations">
+                        <span>Тест с объяснениями</span>
+                    </label>
+                    <p style="margin: 0.35rem 0 0; font-size: 0.8rem; color: var(--text-muted);">Включите, чтобы добавить пояснение к ответу</p>
+                </div>
+                <div id="questionExplanationBlock" class="question-explanation-block" style="display: none;">
+                    <div class="form-group">
+                        <label for="questionExplanation">Текст объяснения</label>
+                        <textarea id="questionExplanation" rows="4" placeholder="Пояснение к правильному ответу"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Картинка в объяснении (опционально)</label>
+                        <input type="hidden" id="explanationImagePendingRemove" value="0">
+                        <input type="file" id="explanationImageFile" accept="image/jpeg,image/png,image/gif,image/webp" style="display: none;">
+                        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem;">
+                            <button type="button" class="btn btn-secondary btn-sm" id="explanationImagePickBtn">Загрузить с устройства</button>
+                            <button type="button" class="btn btn-danger btn-sm" id="explanationImageRemoveBtn" style="display: none;">Удалить картинку</button>
+                        </div>
+                        <div id="explanationImagePreview" class="question-image-preview-wrap" style="display: none;"></div>
+                        <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted);">JPG, PNG, GIF или WEBP, до 5 МБ</p>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Изображение к вопросу (опционально)</label>

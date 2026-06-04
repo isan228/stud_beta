@@ -21,6 +21,11 @@ const Question = sequelize.define('Question', {
     allowNull: true,
     comment: 'Путь к изображению вопроса, например /uploads/questions/...'
   },
+  explanationImageUrl: {
+    type: DataTypes.STRING(512),
+    allowNull: true,
+    comment: 'Изображение в блоке объяснения'
+  },
   testId: {
     type: DataTypes.INTEGER,
     allowNull: false,

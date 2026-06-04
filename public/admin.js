@@ -1128,6 +1128,8 @@ async function editTest(testId) {
             document.getElementById('testDescription').value = test.description || '';
             document.getElementById('testSubjectId').value = test.subjectId;
             document.getElementById('testIsFree').checked = test.isFree || false;
+            const testHasExplEl = document.getElementById('testHasExplanations');
+            if (testHasExplEl) testHasExplEl.checked = !!test.hasExplanations;
             document.getElementById('testModalTitle').textContent = 'Редактировать тест';
             document.getElementById('testModal').style.display = 'block';
         }
@@ -1147,6 +1149,23 @@ async function populateQuestionTestSelect(selectedTestId) {
 
     if (selectedTestId != null && selectedTestId !== '') {
         select.value = String(selectedTestId);
+        const editingId = document.getElementById('questionId')?.value;
+        if (!editingId) {
+            await applyQuestionExplanationForTestId(selectedTestId);
+        }
+    }
+}
+
+async function applyQuestionExplanationForTestId(testId) {
+    if (!testId || typeof setQuestionExplanationFormState !== 'function') return;
+    try {
+        const tests = await fetchAdminTestsCompact();
+        const test = tests.find((t) => String(t.id) === String(testId));
+        if (test) {
+            setQuestionExplanationFormState({ testHasExplanations: test.hasExplanations });
+        }
+    } catch (error) {
+        console.warn('Не удалось загрузить флаг объяснений теста:', error);
     }
 }
 
@@ -1166,8 +1185,13 @@ async function editQuestion(questionId) {
 
             document.getElementById('questionId').value = question.id;
             document.getElementById('questionText').value = question.text;
-            const explanationEl = document.getElementById('questionExplanation');
-            if (explanationEl) explanationEl.value = question.explanation || '';
+            if (typeof setQuestionExplanationFormState === 'function') {
+                setQuestionExplanationFormState({
+                    testHasExplanations: question.Test?.hasExplanations,
+                    explanation: question.explanation,
+                    explanationImageUrl: question.explanationImageUrl
+                });
+            }
             if (typeof showQuestionImagePreview === 'function') {
                 showQuestionImagePreview(question.imageUrl || null);
             }
@@ -1273,6 +1297,7 @@ async function saveTest(e) {
     const description = document.getElementById('testDescription').value;
     const subjectId = parseInt(document.getElementById('testSubjectId').value);
     const isFree = document.getElementById('testIsFree').checked;
+    const hasExplanations = document.getElementById('testHasExplanations')?.checked || false;
 
     try {
         const url = id ? `${ADMIN_API_URL}/tests/${id}` : `${ADMIN_API_URL}/tests`;
@@ -1284,7 +1309,7 @@ async function saveTest(e) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${currentAdminToken}`
             },
-            body: JSON.stringify({ name, description, subjectId, isFree })
+            body: JSON.stringify({ name, description, subjectId, isFree, hasExplanations })
         });
 
         if (response.ok) {
@@ -1308,7 +1333,10 @@ async function saveQuestion(e) {
     e.preventDefault();
     const id = document.getElementById('questionId').value;
     const text = document.getElementById('questionText').value;
-    const explanation = document.getElementById('questionExplanation')?.value?.trim() || '';
+    const withExplanations = document.getElementById('questionTestWithExplanations')?.checked || false;
+    const explanation = withExplanations
+        ? (document.getElementById('questionExplanation')?.value?.trim() || '')
+        : '';
     const testId = parseInt(document.getElementById('questionTestId').value);
     
     const answerItems = document.querySelectorAll('.answer-item-admin');
@@ -1343,20 +1371,30 @@ async function saveQuestion(e) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${currentAdminToken}`
             },
-            body: JSON.stringify({ text, testId, answers, explanation: explanation || null })
+            body: JSON.stringify({
+                text,
+                testId,
+                answers,
+                explanation: withExplanations && explanation ? explanation : null,
+                setTestWithExplanations: withExplanations
+            })
         });
 
         if (response.ok) {
             const saved = await response.json();
             const questionId = id || saved.id;
             let imageWarning = '';
+            const imgOpts = { apiBase: ADMIN_API_URL, getAuthHeaders: adminAuthHeaders };
             if (questionId && typeof syncQuestionImageAfterSave === 'function') {
-                const imgResult = await syncQuestionImageAfterSave(questionId, {
-                    apiBase: ADMIN_API_URL,
-                    getAuthHeaders: adminAuthHeaders
-                });
-                if (!imgResult.ok) {
-                    imageWarning = imgResult.error || 'Ошибка изображения';
+                const imgResult = await syncQuestionImageAfterSave(questionId, imgOpts);
+                if (!imgResult.ok) imageWarning = imgResult.error || 'Ошибка изображения вопроса';
+            }
+            if (questionId && typeof syncExplanationImageAfterSave === 'function') {
+                const explImg = await syncExplanationImageAfterSave(questionId, imgOpts);
+                if (!explImg.ok) {
+                    imageWarning = imageWarning
+                        ? `${imageWarning}; ${explImg.error}`
+                        : (explImg.error || 'Ошибка картинки объяснения');
                 }
             }
             if (imageWarning) {
@@ -1367,6 +1405,7 @@ async function saveQuestion(e) {
             document.getElementById('questionModal').style.display = 'none';
             document.getElementById('questionForm').reset();
             if (typeof resetQuestionImageUI === 'function') resetQuestionImageUI();
+            if (typeof resetQuestionExplanationForm === 'function') resetQuestionExplanationForm();
             loadQuestions();
         } else {
             const result = await response.json();
@@ -1607,14 +1646,22 @@ function setupAdminEventListeners() {
 
             document.getElementById('questionId').value = '';
             document.getElementById('questionText').value = '';
-            const explanationEl = document.getElementById('questionExplanation');
-            if (explanationEl) explanationEl.value = '';
+            if (typeof resetQuestionExplanationForm === 'function') resetQuestionExplanationForm();
             if (typeof resetQuestionImageUI === 'function') resetQuestionImageUI();
+            if (presetTestId) await applyQuestionExplanationForTestId(presetTestId);
             document.getElementById('answersList').innerHTML = '';
             addAnswer(); // Добавляем первый ответ
             addAnswer(); // Добавляем второй ответ
             document.getElementById('questionModalTitle').textContent = 'Добавить вопрос';
             document.getElementById('questionModal').style.display = 'block';
+        });
+    }
+
+    const questionTestIdSelect = document.getElementById('questionTestId');
+    if (questionTestIdSelect && questionTestIdSelect.dataset.bound !== '1') {
+        questionTestIdSelect.dataset.bound = '1';
+        questionTestIdSelect.addEventListener('change', () => {
+            applyQuestionExplanationForTestId(questionTestIdSelect.value);
         });
     }
 

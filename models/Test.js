@@ -28,6 +28,12 @@ const Test = sequelize.define('Test', {
     allowNull: false,
     comment: 'Бесплатный тест для неавторизованных пользователей'
   },
+  hasExplanations: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    allowNull: false,
+    comment: 'В тесте есть пояснения к ответам (показ в конце или в режиме «Ответы сразу»)'
+  },
   createdAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW

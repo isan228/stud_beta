@@ -408,8 +408,13 @@ router.post('/tests/:testId/questions', async (req, res) => {
         })
       };
       // В режиме «Ответы сразу» отдаём объяснения для показа после выбора ответа
-      if (instantFeedbackMode && q.explanation) {
-        row.explanation = q.explanation;
+      if (instantFeedbackMode) {
+        if (q.explanation && String(q.explanation).trim()) {
+          row.explanation = String(q.explanation).trim();
+        }
+        if (q.explanationImageUrl && String(q.explanationImageUrl).trim()) {
+          row.explanationImageUrl = String(q.explanationImageUrl).trim();
+        }
       }
       if (q.imageUrl && String(q.imageUrl).trim()) {
         row.imageUrl = String(q.imageUrl).trim();

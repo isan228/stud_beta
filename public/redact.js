@@ -142,8 +142,23 @@ async function loadTestsForFilters() {
             questionTestSelect.innerHTML = options.replace('Выберите тест', '—');
             if (current) questionTestSelect.value = current;
         }
+        return tests;
     } catch (error) {
         console.error(error);
+        return [];
+    }
+}
+
+async function applyQuestionExplanationForTestId(testId) {
+    if (!testId || typeof setQuestionExplanationFormState !== 'function') return;
+    try {
+        const tests = await fetchTestsCached();
+        const test = tests.find((t) => String(t.id) === String(testId));
+        if (test) {
+            setQuestionExplanationFormState({ testHasExplanations: test.hasExplanations });
+        }
+    } catch (error) {
+        console.warn('Не удалось загрузить флаг объяснений теста:', error);
     }
 }
 
@@ -285,8 +300,13 @@ window.editQuestion = async function(questionId) {
         await loadTestsForFilters();
         document.getElementById('questionId').value = question.id;
         document.getElementById('questionText').value = question.text;
-        const explanationEl = document.getElementById('questionExplanation');
-        if (explanationEl) explanationEl.value = question.explanation || '';
+        if (typeof setQuestionExplanationFormState === 'function') {
+            setQuestionExplanationFormState({
+                testHasExplanations: question.Test?.hasExplanations,
+                explanation: question.explanation,
+                explanationImageUrl: question.explanationImageUrl
+            });
+        }
         if (typeof showQuestionImagePreview === 'function') {
             showQuestionImagePreview(question.imageUrl || null);
         }
@@ -326,7 +346,10 @@ async function saveQuestion(e) {
     e.preventDefault();
     const id = document.getElementById('questionId').value;
     const text = document.getElementById('questionText').value;
-    const explanation = document.getElementById('questionExplanation')?.value?.trim() || '';
+    const withExplanations = document.getElementById('questionTestWithExplanations')?.checked || false;
+    const explanation = withExplanations
+        ? (document.getElementById('questionExplanation')?.value?.trim() || '')
+        : '';
     const testId = parseInt(document.getElementById('questionTestId').value, 10);
 
     const answers = Array.from(document.querySelectorAll('.answer-item-admin')).map(item => {
@@ -353,19 +376,29 @@ async function saveQuestion(e) {
         const response = await fetch(url, {
             method: id ? 'PUT' : 'POST',
             headers: { ...editorAuthHeaders(), 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text, testId, answers, explanation: explanation || null })
+            body: JSON.stringify({
+                text,
+                testId,
+                answers,
+                explanation: withExplanations && explanation ? explanation : null,
+                setTestWithExplanations: withExplanations
+            })
         });
         if (response.ok) {
             const saved = await response.json();
             const questionId = id || saved.id;
             let imageWarning = '';
+            const imgOpts = { apiBase: REDACT_API, getAuthHeaders: editorAuthHeaders };
             if (questionId && typeof syncQuestionImageAfterSave === 'function') {
-                const imgResult = await syncQuestionImageAfterSave(questionId, {
-                    apiBase: REDACT_API,
-                    getAuthHeaders: editorAuthHeaders
-                });
-                if (!imgResult.ok) {
-                    imageWarning = imgResult.error || 'Ошибка изображения';
+                const imgResult = await syncQuestionImageAfterSave(questionId, imgOpts);
+                if (!imgResult.ok) imageWarning = imgResult.error || 'Ошибка изображения вопроса';
+            }
+            if (questionId && typeof syncExplanationImageAfterSave === 'function') {
+                const explImg = await syncExplanationImageAfterSave(questionId, imgOpts);
+                if (!explImg.ok) {
+                    imageWarning = imageWarning
+                        ? `${imageWarning}; ${explImg.error}`
+                        : (explImg.error || 'Ошибка картинки объяснения');
                 }
             }
             if (imageWarning) {
@@ -376,6 +409,7 @@ async function saveQuestion(e) {
             document.getElementById('questionModal').style.display = 'none';
             document.getElementById('questionForm').reset();
             if (typeof resetQuestionImageUI === 'function') resetQuestionImageUI();
+            if (typeof resetQuestionExplanationForm === 'function') resetQuestionExplanationForm();
             document.getElementById('answersList').innerHTML = '';
             const filter = document.getElementById('questionsTestFilter');
             if (filter && !filter.value) filter.value = String(testId);
@@ -545,16 +579,28 @@ function setupRedactUI() {
         initQuestionImageForm();
     }
 
+    const questionTestIdSelect = document.getElementById('questionTestId');
+    if (questionTestIdSelect && questionTestIdSelect.dataset.bound !== '1') {
+        questionTestIdSelect.dataset.bound = '1';
+        questionTestIdSelect.addEventListener('change', () => {
+            applyQuestionExplanationForTestId(questionTestIdSelect.value);
+        });
+    }
+
     document.getElementById('addQuestionBtn')?.addEventListener('click', async () => {
         await loadTestsForFilters();
         document.getElementById('questionId').value = '';
         document.getElementById('questionForm').reset();
+        if (typeof resetQuestionExplanationForm === 'function') resetQuestionExplanationForm();
         if (typeof resetQuestionImageUI === 'function') resetQuestionImageUI();
         document.getElementById('answersList').innerHTML = '';
         addAnswerField();
         addAnswerField();
         const preset = document.getElementById('questionsTestFilter')?.value;
-        if (preset) document.getElementById('questionTestId').value = preset;
+        if (preset) {
+            document.getElementById('questionTestId').value = preset;
+            await applyQuestionExplanationForTestId(preset);
+        }
         document.getElementById('questionModalTitle').textContent = 'Добавить вопрос';
         document.getElementById('questionModal').style.display = 'block';
     });

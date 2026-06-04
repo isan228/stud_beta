@@ -111,7 +111,7 @@ router.get('/tests', editorAuth, async (req, res) => {
 
     const tests = await Test.findAll({
       where,
-      attributes: ['id', 'name', 'subjectId', 'description', 'isFree'],
+      attributes: ['id', 'name', 'subjectId', 'description', 'isFree', 'hasExplanations'],
       include: [{
         model: Subject,
         as: 'Subject',
@@ -165,7 +165,7 @@ router.get('/questions/:id', editorAuth, async (req, res) => {
       include: [{
         model: Test,
         as: 'Test',
-        attributes: ['id', 'name', 'subjectId']
+        attributes: ['id', 'name', 'subjectId', 'hasExplanations']
       }, {
         model: Answer,
         as: 'Answers'
@@ -230,7 +230,8 @@ router.post('/questions', editorAuth, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { text, testId, answers, explanation } = req.body;
+    const { text, testId, answers, explanation, setTestWithExplanations } = req.body;
+    const withExplanations = setTestWithExplanations === true || setTestWithExplanations === 'true';
     const hasCorrectAnswer = answers.some(a => a.isCorrect);
     if (!hasCorrectAnswer) {
       return res.status(400).json({ error: 'Должен быть хотя бы один правильный ответ' });
@@ -239,8 +240,13 @@ router.post('/questions', editorAuth, [
     const question = await Question.create({
       text,
       testId,
-      explanation: explanation != null && String(explanation).trim() ? String(explanation).trim() : null
+      explanation: withExplanations && explanation != null && String(explanation).trim()
+        ? String(explanation).trim()
+        : null
     });
+
+    const { syncTestHasExplanations } = require('../utils/syncTestExplanations');
+    await syncTestHasExplanations(testId, withExplanations);
     await Promise.all(answers.map(answer =>
       Answer.create({
         text: answer.text,
@@ -293,20 +299,32 @@ router.put('/questions/:id', editorAuth, [
     const beforeSnapshot = snapshotFromQuestion(question, question.Answers);
     beforeSnapshot.questionId = question.id;
 
-    const { text, testId, answers, explanation } = req.body;
+    const { text, testId, answers, explanation, setTestWithExplanations } = req.body;
+    const withExplanations = setTestWithExplanations === true || setTestWithExplanations === 'true';
+    const { deleteQuestionImageFile } = require('../utils/questionImages');
+    const { syncTestHasExplanations } = require('../utils/syncTestExplanations');
     const hasCorrectAnswer = answers.some(a => a.isCorrect);
     if (!hasCorrectAnswer) {
       return res.status(400).json({ error: 'Должен быть хотя бы один правильный ответ' });
     }
 
     question.text = text;
-    question.explanation = explanation != null && String(explanation).trim()
-      ? String(explanation).trim()
-      : null;
+    if (!withExplanations) {
+      if (question.explanationImageUrl) {
+        deleteQuestionImageFile(question.explanationImageUrl);
+        question.explanationImageUrl = null;
+      }
+      question.explanation = null;
+    } else {
+      question.explanation = explanation != null && String(explanation).trim()
+        ? String(explanation).trim()
+        : null;
+    }
     if (testId !== undefined && testId !== null) {
       question.testId = testId;
     }
     await question.save();
+    await syncTestHasExplanations(testId ?? question.testId, withExplanations);
 
     const existingAnswers = await Answer.findAll({ where: { questionId: question.id } });
     const submittedIds = new Set(
@@ -392,6 +410,9 @@ router.delete('/questions/:id', editorAuth, async (req, res) => {
     const { deleteQuestionImageFile } = require('../utils/questionImages');
     if (question.imageUrl) {
       deleteQuestionImageFile(question.imageUrl);
+    }
+    if (question.explanationImageUrl) {
+      deleteQuestionImageFile(question.explanationImageUrl);
     }
 
     await question.destroy();

@@ -1174,7 +1174,7 @@ router.get('/tests', adminAuth, async (req, res) => {
     if (req.query.compact === '1') {
       const tests = await Test.findAll({
         where,
-        attributes: ['id', 'name', 'subjectId'],
+        attributes: ['id', 'name', 'subjectId', 'hasExplanations'],
         order: [['name', 'ASC']]
       });
       return res.json(tests);
@@ -1208,12 +1208,13 @@ router.post('/tests', adminAuth, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, description, subjectId, isFree } = req.body;
+    const { name, description, subjectId, isFree, hasExplanations } = req.body;
     const test = await Test.create({ 
       name, 
       description, 
       subjectId, 
-      isFree: isFree === true || isFree === 'true' 
+      isFree: isFree === true || isFree === 'true',
+      hasExplanations: hasExplanations === true || hasExplanations === 'true'
     });
     res.status(201).json(test);
   } catch (error) {
@@ -1237,10 +1238,13 @@ router.put('/tests/:id', adminAuth, [
       return res.status(404).json({ error: 'Тест не найден' });
     }
 
-    const { name, description, isFree } = req.body;
+    const { name, description, isFree, hasExplanations } = req.body;
     test.name = name;
     if (description !== undefined) test.description = description;
     if (isFree !== undefined) test.isFree = isFree === true || isFree === 'true';
+    if (hasExplanations !== undefined) {
+      test.hasExplanations = hasExplanations === true || hasExplanations === 'true';
+    }
     await test.save();
 
     res.json(test);
@@ -1306,7 +1310,7 @@ router.get('/questions/:id', adminAuth, async (req, res) => {
       include: [{
         model: Test,
         as: 'Test',
-        attributes: ['id', 'name', 'subjectId']
+        attributes: ['id', 'name', 'subjectId', 'hasExplanations']
       }, {
         model: Answer,
         as: 'Answers'
@@ -1372,7 +1376,8 @@ router.post('/questions', adminAuth, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { text, testId, answers, explanation } = req.body;
+    const { text, testId, answers, explanation, setTestWithExplanations } = req.body;
+    const withExplanations = setTestWithExplanations === true || setTestWithExplanations === 'true';
 
     // Проверяем, что есть хотя бы один правильный ответ
     const hasCorrectAnswer = answers.some(a => a.isCorrect);
@@ -1383,8 +1388,13 @@ router.post('/questions', adminAuth, [
     const question = await Question.create({
       text,
       testId,
-      explanation: explanation != null && String(explanation).trim() ? String(explanation).trim() : null
+      explanation: withExplanations && explanation != null && String(explanation).trim()
+        ? String(explanation).trim()
+        : null
     });
+
+    const { syncTestHasExplanations } = require('../utils/syncTestExplanations');
+    await syncTestHasExplanations(testId, withExplanations);
     
     // Создаем ответы
     await Promise.all(answers.map(answer => 
@@ -1447,7 +1457,10 @@ router.put('/questions/:id', adminAuth, [
     const beforeSnapshot = snapshotFromQuestion(question, question.Answers);
     beforeSnapshot.questionId = question.id;
 
-    const { text, testId, answers, explanation } = req.body;
+    const { text, testId, answers, explanation, setTestWithExplanations } = req.body;
+    const withExplanations = setTestWithExplanations === true || setTestWithExplanations === 'true';
+    const { deleteQuestionImageFile } = require('../utils/questionImages');
+    const { syncTestHasExplanations } = require('../utils/syncTestExplanations');
 
     const hasCorrectAnswer = answers.some(a => a.isCorrect);
     if (!hasCorrectAnswer) {
@@ -1455,13 +1468,22 @@ router.put('/questions/:id', adminAuth, [
     }
 
     question.text = text;
-    question.explanation = explanation != null && String(explanation).trim()
-      ? String(explanation).trim()
-      : null;
+    if (!withExplanations) {
+      if (question.explanationImageUrl) {
+        deleteQuestionImageFile(question.explanationImageUrl);
+        question.explanationImageUrl = null;
+      }
+      question.explanation = null;
+    } else {
+      question.explanation = explanation != null && String(explanation).trim()
+        ? String(explanation).trim()
+        : null;
+    }
     if (testId !== undefined && testId !== null) {
       question.testId = testId;
     }
     await question.save();
+    await syncTestHasExplanations(testId ?? question.testId, withExplanations);
 
     const existingAnswers = await Answer.findAll({ where: { questionId: question.id } });
     const submittedIds = new Set(
@@ -1555,6 +1577,9 @@ router.delete('/questions/:id', adminAuth, async (req, res) => {
     const { deleteQuestionImageFile } = require('../utils/questionImages');
     if (question.imageUrl) {
       deleteQuestionImageFile(question.imageUrl);
+    }
+    if (question.explanationImageUrl) {
+      deleteQuestionImageFile(question.explanationImageUrl);
     }
 
     await question.destroy();

@@ -1971,6 +1971,27 @@ html[data-theme="dark"] .question-image,
     max-height: min(280px, 40vh);
 }
 
+.question-explanation-block {
+    margin-bottom: 1.25rem;
+    padding: 1rem 1.15rem;
+    border-radius: var(--radius-lg);
+    border: 1px dashed color-mix(in srgb, var(--primary-color) 35%, var(--border-light));
+    background: color-mix(in srgb, var(--primary-color) 5%, var(--bg-secondary));
+}
+
+.question-explanation-image-wrap::after {
+    content: 'К объяснению';
+}
+
+.question-explanation-box .question-explanation-image-wrap {
+    margin: 0.75rem 0;
+    padding: 0.5rem;
+}
+
+.question-explanation-box .question-explanation-image-wrap .question-image {
+    max-height: min(240px, 38vh);
+}
+
 .question-item .question-image-wrap + h3 {
     margin-top: 0;
 }
