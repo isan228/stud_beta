@@ -27,19 +27,29 @@ async function saveParsedQuestions(testId, questions) {
       explanation: q.explanation || null
     });
 
+    const createdAnswers = [];
     for (const answer of q.answers) {
-      await Answer.create({
+      const row = await Answer.create({
         text: answer.text,
         isCorrect: answer.isCorrect,
         questionId: question.id
+      });
+      createdAnswers.push({
+        id: row.id,
+        text: row.text,
+        isCorrect: Boolean(row.isCorrect),
+        imageUrl: row.imageUrl || null
       });
     }
 
     createdQuestions.push({
       id: question.id,
       text: question.text,
-      answersCount: q.answers.length,
-      hasExplanation: Boolean(q.explanation)
+      explanation: question.explanation || null,
+      imageUrl: question.imageUrl || null,
+      answersCount: createdAnswers.length,
+      hasExplanation: Boolean(q.explanation),
+      answers: createdAnswers
     });
   }
   return createdQuestions;

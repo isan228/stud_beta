@@ -401,6 +401,9 @@ router.post('/tests/:testId/questions', async (req, res) => {
         updatedAt: q.updatedAt,
         Answers: (answersList || []).map((a) => {
           const answerData = { id: a.id, text: a.text };
+          if (a.imageUrl && String(a.imageUrl).trim()) {
+            answerData.imageUrl = String(a.imageUrl).trim();
+          }
           if (instantFeedbackMode) {
             answerData.isCorrect = Boolean(a.isCorrect);
           }

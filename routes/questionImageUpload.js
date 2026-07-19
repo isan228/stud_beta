@@ -1,13 +1,13 @@
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
-const { Question } = require('../models');
+const { Question, Answer } = require('../models');
 const {
   QUESTION_IMAGES_DIR,
   isAllowedImageMime,
   safeImageExt,
   questionImageFilename,
   explanationImageFilename,
+  answerImageFilename,
   deleteQuestionImageFile
 } = require('../utils/questionImages');
 
@@ -123,6 +123,74 @@ function createQuestionImageRouter(authMiddleware) {
   }, makeImageUploadHandler('explanationImageUrl', 'explanationImageUrl', explanationImageFilename));
 
   router.delete('/questions/:id/explanation-image', authMiddleware, makeImageDeleteHandler('explanationImageUrl'));
+
+  const answerStorage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, QUESTION_IMAGES_DIR),
+    filename: (req, file, cb) => {
+      const ext = safeImageExt(file.originalname, file.mimetype);
+      cb(null, answerImageFilename(req.params.id, ext));
+    }
+  });
+  const answerUpload = multer({
+    storage: answerStorage,
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: imageFileFilter
+  });
+
+  router.post('/answers/:id/image', authMiddleware, (req, res, next) => {
+    answerUpload.single('image')(req, res, (err) => {
+      if (err) {
+        return res.status(400).json({ error: err.message || 'Ошибка загрузки файла' });
+      }
+      next();
+    });
+  }, async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'Файл не выбран' });
+      }
+
+      const answer = await Answer.findByPk(req.params.id);
+      if (!answer) {
+        deleteQuestionImageFile('/uploads/questions/' + req.file.filename);
+        return res.status(404).json({ error: 'Ответ не найден' });
+      }
+
+      const oldUrl = answer.imageUrl;
+      const relativePath = '/uploads/questions/' + req.file.filename;
+      answer.imageUrl = relativePath;
+      await answer.save();
+
+      if (oldUrl && oldUrl !== relativePath) {
+        deleteQuestionImageFile(oldUrl);
+      }
+
+      res.json({ imageUrl: relativePath, message: 'Изображение ответа загружено' });
+    } catch (error) {
+      console.error('Ошибка загрузки изображения ответа:', error);
+      res.status(500).json({ error: 'Ошибка сервера' });
+    }
+  });
+
+  router.delete('/answers/:id/image', authMiddleware, async (req, res) => {
+    try {
+      const answer = await Answer.findByPk(req.params.id);
+      if (!answer) {
+        return res.status(404).json({ error: 'Ответ не найден' });
+      }
+
+      if (answer.imageUrl) {
+        deleteQuestionImageFile(answer.imageUrl);
+        answer.imageUrl = null;
+        await answer.save();
+      }
+
+      res.json({ message: 'Изображение ответа удалено' });
+    } catch (error) {
+      console.error('Ошибка удаления изображения ответа:', error);
+      res.status(500).json({ error: 'Ошибка сервера' });
+    }
+  });
 
   return router;
 }

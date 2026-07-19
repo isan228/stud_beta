@@ -29,6 +29,10 @@ function explanationImageFilename(questionId, ext) {
   return `explanation-${questionId}-${Date.now()}${ext}`;
 }
 
+function answerImageFilename(answerId, ext) {
+  return `answer-${answerId}-${Date.now()}${ext}`;
+}
+
 function deleteQuestionImageFile(imageUrl) {
   if (!imageUrl || typeof imageUrl !== 'string') return;
   if (!imageUrl.startsWith('/uploads/questions/')) return;
@@ -49,5 +53,6 @@ module.exports = {
   safeImageExt,
   questionImageFilename,
   explanationImageFilename,
+  answerImageFilename,
   deleteQuestionImageFile
 };

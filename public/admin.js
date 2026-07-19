@@ -1727,7 +1727,12 @@ function setupAdminEventListeners() {
     // Закрытие модальных окон
     document.querySelectorAll('.modal-close, .modal-cancel').forEach(btn => {
         btn.addEventListener('click', (e) => {
-            e.target.closest('.modal').style.display = 'none';
+            const modal = e.target.closest('.modal');
+            if (!modal) return;
+            modal.style.display = 'none';
+            if (modal.id === 'uploadPreviewModal') {
+                loadQuestions();
+            }
         });
     });
 
@@ -2219,9 +2224,11 @@ async function handlePdfUpload(e) {
                 if (form) form.reset();
                 if (progressDiv) progressDiv.style.display = 'none';
                 if (progressBar) progressBar.style.width = '0%';
-                
-                // Обновляем список вопросов
-                loadQuestions();
+
+                openUploadPreview(result.questions || [], {
+                    title: `Загружено ${result.questions.length} вопросов`,
+                    withExplanations: false
+                });
             }, 500);
         } else {
             throw new Error(result.error || 'Ошибка загрузки TXT');
@@ -2288,7 +2295,11 @@ async function handleTxtExplainedUpload(e) {
                 if (form) form.reset();
                 if (progressDiv) progressDiv.style.display = 'none';
                 if (progressBar) progressBar.style.width = '0%';
-                loadQuestions();
+
+                openUploadPreview(result.questions || [], {
+                    title: `Загружено ${result.questions.length} вопросов с объяснениями`,
+                    withExplanations: true
+                });
             }, 500);
         } else {
             throw new Error(result.error || 'Ошибка загрузки TXT');
@@ -2299,6 +2310,247 @@ async function handleTxtExplainedUpload(e) {
         if (progressDiv) progressDiv.style.display = 'none';
         if (progressBar) progressBar.style.width = '0%';
     }
+}
+
+function escapeUploadPreviewHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function renderUploadPreviewMedia(url, emptyLabel) {
+    if (url) {
+        return `<img src="${escapeUploadPreviewHtml(url)}" alt="Превью" class="upload-preview-thumb">`;
+    }
+    return `<span class="upload-preview-media-empty">${escapeUploadPreviewHtml(emptyLabel)}</span>`;
+}
+
+function openUploadPreview(questions, options = {}) {
+    const modal = document.getElementById('uploadPreviewModal');
+    const list = document.getElementById('uploadPreviewList');
+    const title = document.getElementById('uploadPreviewTitle');
+    if (!modal || !list) return;
+
+    if (title) {
+        title.textContent = options.title || 'Предпросмотр загруженных вопросов';
+    }
+
+    if (!Array.isArray(questions) || questions.length === 0) {
+        list.innerHTML = '<p class="upload-preview-empty">Вопросы не найдены</p>';
+        modal.style.display = 'block';
+        return;
+    }
+
+    list.innerHTML = questions.map((q, index) => {
+        const answers = Array.isArray(q.answers) ? q.answers : [];
+        const explanationHtml = (options.withExplanations || q.explanation)
+            ? `<div class="upload-preview-explanation">
+                    <strong>Объяснение:</strong>
+                    <span>${escapeUploadPreviewHtml(q.explanation || '—')}</span>
+               </div>`
+            : '';
+
+        const answersHtml = answers.map((a, aIndex) => `
+            <div class="upload-preview-answer ${a.isCorrect ? 'is-correct' : ''}" data-answer-id="${a.id}">
+                <div class="upload-preview-answer-main">
+                    <span class="upload-preview-answer-label">${aIndex + 1}.</span>
+                    <span class="upload-preview-answer-text">${escapeUploadPreviewHtml(a.text)}</span>
+                    ${a.isCorrect ? '<span class="upload-preview-correct-badge">правильный</span>' : ''}
+                </div>
+                <div class="upload-preview-media" data-media-for="answer" data-answer-id="${a.id}">
+                    ${renderUploadPreviewMedia(a.imageUrl, 'Нет фото')}
+                </div>
+                <div class="upload-preview-media-actions">
+                    <label class="btn btn-secondary btn-sm upload-preview-file-btn">
+                        📷 Фото ответа
+                        <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" data-upload-kind="answer" data-answer-id="${a.id}" hidden>
+                    </label>
+                    <button type="button" class="btn btn-secondary btn-sm" data-remove-kind="answer" data-answer-id="${a.id}" ${a.imageUrl ? '' : 'style="display:none"'}>Удалить</button>
+                </div>
+            </div>
+        `).join('');
+
+        return `
+            <article class="upload-preview-card" data-question-id="${q.id}">
+                <header class="upload-preview-card-header">
+                    <h3>Вопрос ${index + 1}</h3>
+                    <span class="upload-preview-id">ID: ${q.id}</span>
+                </header>
+                <p class="upload-preview-question-text">${escapeUploadPreviewHtml(q.text)}</p>
+                <div class="upload-preview-question-media-row">
+                    <div class="upload-preview-media" data-media-for="question" data-question-id="${q.id}">
+                        ${renderUploadPreviewMedia(q.imageUrl, 'Нет фото вопроса')}
+                    </div>
+                    <div class="upload-preview-media-actions">
+                        <label class="btn btn-secondary btn-sm upload-preview-file-btn">
+                            📷 Фото вопроса
+                            <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" data-upload-kind="question" data-question-id="${q.id}" hidden>
+                        </label>
+                        <button type="button" class="btn btn-secondary btn-sm" data-remove-kind="question" data-question-id="${q.id}" ${q.imageUrl ? '' : 'style="display:none"'}>Удалить</button>
+                    </div>
+                </div>
+                <div class="upload-preview-answers">
+                    ${answersHtml || '<p class="upload-preview-empty">Нет ответов</p>'}
+                </div>
+                ${explanationHtml}
+            </article>
+        `;
+    }).join('');
+
+    modal.style.display = 'block';
+    bindUploadPreviewEvents();
+}
+
+function bindUploadPreviewEvents() {
+    const list = document.getElementById('uploadPreviewList');
+    const doneBtn = document.getElementById('uploadPreviewDoneBtn');
+    if (doneBtn && doneBtn.dataset.bound !== '1') {
+        doneBtn.dataset.bound = '1';
+        doneBtn.addEventListener('click', closeUploadPreview);
+    }
+    if (!list || list.dataset.bound === '1') return;
+    list.dataset.bound = '1';
+
+    list.addEventListener('change', async (e) => {
+        const input = e.target;
+        if (!(input instanceof HTMLInputElement) || input.type !== 'file') return;
+        const file = input.files && input.files[0];
+        if (!file) return;
+
+        const kind = input.dataset.uploadKind;
+        try {
+            if (kind === 'question') {
+                await uploadPreviewQuestionImage(input.dataset.questionId, file, input);
+            } else if (kind === 'answer') {
+                await uploadPreviewAnswerImage(input.dataset.answerId, file, input);
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки фото в предпросмотре:', error);
+            showNotification(error.message || 'Ошибка загрузки фото', 'error');
+        } finally {
+            input.value = '';
+        }
+    });
+
+    list.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-remove-kind]');
+        if (!btn) return;
+        const kind = btn.dataset.removeKind;
+        try {
+            if (kind === 'question') {
+                await removePreviewQuestionImage(btn.dataset.questionId, btn);
+            } else if (kind === 'answer') {
+                await removePreviewAnswerImage(btn.dataset.answerId, btn);
+            }
+        } catch (error) {
+            console.error('Ошибка удаления фото в предпросмотре:', error);
+            showNotification(error.message || 'Ошибка удаления фото', 'error');
+        }
+    });
+}
+
+function updatePreviewMediaNode(selector, imageUrl, emptyLabel) {
+    const media = document.querySelector(selector);
+    if (!media) return;
+    media.innerHTML = renderUploadPreviewMedia(imageUrl, emptyLabel);
+}
+
+function findPreviewRemoveBtn(kind, id) {
+    if (kind === 'question') {
+        return document.querySelector(`[data-remove-kind="question"][data-question-id="${id}"]`);
+    }
+    return document.querySelector(`[data-remove-kind="answer"][data-answer-id="${id}"]`);
+}
+
+async function uploadPreviewQuestionImage(questionId, file, inputEl) {
+    const formData = new FormData();
+    formData.append('image', file);
+    const response = await fetch(`${ADMIN_API_URL}/questions/${questionId}/image`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${currentAdminToken}` },
+        body: formData
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || 'Не удалось загрузить фото вопроса');
+    }
+    updatePreviewMediaNode(
+        `.upload-preview-media[data-media-for="question"][data-question-id="${questionId}"]`,
+        result.imageUrl,
+        'Нет фото вопроса'
+    );
+    const removeBtn = findPreviewRemoveBtn('question', questionId);
+    if (removeBtn) removeBtn.style.display = '';
+    if (inputEl) inputEl.value = '';
+    showNotification('Фото вопроса загружено', 'success');
+}
+
+async function uploadPreviewAnswerImage(answerId, file, inputEl) {
+    const formData = new FormData();
+    formData.append('image', file);
+    const response = await fetch(`${ADMIN_API_URL}/answers/${answerId}/image`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${currentAdminToken}` },
+        body: formData
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || 'Не удалось загрузить фото ответа');
+    }
+    updatePreviewMediaNode(
+        `.upload-preview-media[data-media-for="answer"][data-answer-id="${answerId}"]`,
+        result.imageUrl,
+        'Нет фото'
+    );
+    const removeBtn = findPreviewRemoveBtn('answer', answerId);
+    if (removeBtn) removeBtn.style.display = '';
+    if (inputEl) inputEl.value = '';
+    showNotification('Фото ответа загружено', 'success');
+}
+
+async function removePreviewQuestionImage(questionId, btn) {
+    const response = await fetch(`${ADMIN_API_URL}/questions/${questionId}/image`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || 'Не удалось удалить фото вопроса');
+    }
+    updatePreviewMediaNode(
+        `.upload-preview-media[data-media-for="question"][data-question-id="${questionId}"]`,
+        null,
+        'Нет фото вопроса'
+    );
+    if (btn) btn.style.display = 'none';
+    showNotification('Фото вопроса удалено', 'success');
+}
+
+async function removePreviewAnswerImage(answerId, btn) {
+    const response = await fetch(`${ADMIN_API_URL}/answers/${answerId}/image`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || 'Не удалось удалить фото ответа');
+    }
+    updatePreviewMediaNode(
+        `.upload-preview-media[data-media-for="answer"][data-answer-id="${answerId}"]`,
+        null,
+        'Нет фото'
+    );
+    if (btn) btn.style.display = 'none';
+    showNotification('Фото ответа удалено', 'success');
+}
+
+function closeUploadPreview() {
+    const modal = document.getElementById('uploadPreviewModal');
+    if (modal) modal.style.display = 'none';
+    loadQuestions();
 }
 
 // Редакторы вопросов

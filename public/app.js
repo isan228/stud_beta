@@ -1861,7 +1861,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             <div class="answers-list">
                 ${question.Answers.map(answer => `
                     <div class="answer-item" data-answer-id="${answer.id}" onclick="selectAnswer(${answer.id})">
-                        ${answer.text}
+                        ${answer.imageUrl ? `<img src="${String(answer.imageUrl).replace(/"/g, '')}" alt="" class="answer-option-image" loading="lazy" decoding="async">` : ''}
+                        <span class="answer-option-text">${answer.text}</span>
                     </div>
                 `).join('')}
             </div>
@@ -2325,6 +2326,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                             return {
                                 id: a.id,
                                 text: a.text,
+                                imageUrl: a.imageUrl || null,
                                 isCorrect: isCorrect // Всегда сохраняем как boolean
                             };
                         })
@@ -2673,6 +2675,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 Answers: q.Answers.map(a => ({
                     id: a.id,
                     text: a.text,
+                    imageUrl: a.imageUrl || null,
                     isCorrect: a.isCorrect // Сохраняем для проверки
                 }))
             }));
@@ -3770,7 +3773,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                                 }
                                 return `
                                     <div class="test-analysis-answer" style="border: ${isAnswerCorrect ? '2px solid var(--success-color)' : answer.id === parseInt(userAnswerId) ? '2px solid var(--danger-color)' : '1px solid var(--border-light)'}; background: ${isAnswerCorrect ? 'rgba(16, 185, 129, 0.1)' : answer.id === parseInt(userAnswerId) ? 'rgba(220, 38, 38, 0.1)' : 'var(--card-bg)'};">
-                                        ${isAnswerCorrect ? '✓ ' : answer.id === parseInt(userAnswerId) ? '✗ ' : ''}${answer.text}
+                                        ${answer.imageUrl ? `<img src="${String(answer.imageUrl).replace(/"/g, '')}" alt="" class="answer-option-image" loading="lazy" decoding="async">` : ''}
+                                        <span>${isAnswerCorrect ? '✓ ' : answer.id === parseInt(userAnswerId) ? '✗ ' : ''}${answer.text}</span>
                                     </div>
                                         `;
                             })()}

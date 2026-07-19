@@ -1786,6 +1786,31 @@ html[data-theme="dark"] .navbar {
     touch-action: manipulation;
     position: relative;
     overflow: hidden;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.answer-option-image {
+    width: 72px;
+    height: 72px;
+    object-fit: cover;
+    border-radius: 0.4rem;
+    flex-shrink: 0;
+    background: var(--bg-secondary);
+}
+
+.answer-option-text {
+    flex: 1;
+    min-width: 0;
+    line-height: 1.45;
+}
+
+.test-analysis-answer .answer-option-image {
+    width: 56px;
+    height: 56px;
+    margin-right: 0.35rem;
+    vertical-align: middle;
 }
 
 .answer-item::before {

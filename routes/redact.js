@@ -335,6 +335,9 @@ router.put('/questions/:id', editorAuth, [
 
     for (const existing of existingAnswers) {
       if (!submittedIds.has(existing.id)) {
+        if (existing.imageUrl) {
+          deleteQuestionImageFile(existing.imageUrl);
+        }
         await existing.destroy();
       }
     }
@@ -413,6 +416,13 @@ router.delete('/questions/:id', editorAuth, async (req, res) => {
     }
     if (question.explanationImageUrl) {
       deleteQuestionImageFile(question.explanationImageUrl);
+    }
+    if (Array.isArray(question.Answers)) {
+      for (const answer of question.Answers) {
+        if (answer.imageUrl) {
+          deleteQuestionImageFile(answer.imageUrl);
+        }
+      }
     }
 
     await question.destroy();

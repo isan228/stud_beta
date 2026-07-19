@@ -15,6 +15,11 @@ const Answer = sequelize.define('Answer', {
     type: DataTypes.BOOLEAN,
     defaultValue: false
   },
+  imageUrl: {
+    type: DataTypes.STRING(512),
+    allowNull: true,
+    comment: 'Путь к изображению варианта ответа, например /uploads/questions/...'
+  },
   questionId: {
     type: DataTypes.INTEGER,
     allowNull: false,
