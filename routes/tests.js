@@ -1,7 +1,8 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
-const { Test, Question, Answer, Subject, Favorite, TestResult, User } = require('../models');
+const { Test, Question, Answer, Subject, Favorite, TestResult, User, University } = require('../models');
+const { Op } = require('sequelize');
 
 function tryGetUserIdFromRequest(req) {
   const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -12,6 +13,35 @@ function tryGetUserIdFromRequest(req) {
   } catch {
     return null;
   }
+}
+
+/** universityId пользователя или null (гость / без вуза — без фильтра по вузу) */
+async function resolveUserUniversityId(req) {
+  const userId = tryGetUserIdFromRequest(req);
+  if (!userId) return null;
+  const user = await User.findByPk(userId, { attributes: ['id', 'universityId'] });
+  return user?.universityId || null;
+}
+
+function universityInclude() {
+  return {
+    model: University,
+    as: 'University',
+    attributes: ['id', 'name', 'shortName'],
+    required: false
+  };
+}
+
+async function assertUserCanAccessTest(test, req) {
+  if (!test || !test.universityId) return { ok: true };
+  const userId = tryGetUserIdFromRequest(req);
+  if (!userId) return { ok: true }; // гости: дальше решают isFree / подписка
+  const user = await User.findByPk(userId, { attributes: ['id', 'universityId'] });
+  if (!user?.universityId) return { ok: true };
+  if (Number(user.universityId) !== Number(test.universityId)) {
+    return { ok: false, status: 403, error: 'Этот тест относится к другому университету' };
+  }
+  return { ok: true };
 }
 
 /** Последний известный исход по каждому вопросу (по всем попыткам по порядку времени). */
@@ -124,6 +154,11 @@ router.get('/latest', async (req, res) => {
       whereClause.isFree = true;
     }
 
+    const universityId = await resolveUserUniversityId(req);
+    if (universityId) {
+      whereClause.universityId = universityId;
+    }
+
     const tests = await Test.findAll({
       where: whereClause,
       limit: 6,
@@ -132,7 +167,7 @@ router.get('/latest', async (req, res) => {
         model: Question,
         as: 'Questions',
         attributes: ['id']
-      }]
+      }, universityInclude()]
     });
 
     res.json(tests);
@@ -145,6 +180,30 @@ router.get('/latest', async (req, res) => {
 // Получить все предметы
 router.get('/subjects', async (req, res) => {
   try {
+    const universityId = await resolveUserUniversityId(req);
+    const isFreeOnly = req.query.free === 'true';
+
+    if (universityId || isFreeOnly) {
+      const testWhere = {};
+      if (universityId) testWhere.universityId = universityId;
+      if (isFreeOnly) testWhere.isFree = true;
+
+      const tests = await Test.findAll({
+        where: testWhere,
+        attributes: ['subjectId'],
+        raw: true
+      });
+      const subjectIds = [...new Set(tests.map((t) => t.subjectId).filter(Boolean))];
+      if (!subjectIds.length) {
+        return res.json([]);
+      }
+      const subjects = await Subject.findAll({
+        where: { id: { [Op.in]: subjectIds } },
+        order: [['name', 'ASC']]
+      });
+      return res.json(subjects);
+    }
+
     const subjects = await Subject.findAll({
       order: [['name', 'ASC']]
     });
@@ -158,15 +217,20 @@ router.get('/subjects', async (req, res) => {
 // Получить тесты по предмету
 router.get('/subjects/:subjectId/tests', async (req, res) => {
   try {
-    // Получаем все тесты, включая бесплатные
+    const where = { subjectId: req.params.subjectId };
+    const universityId = await resolveUserUniversityId(req);
+    if (universityId) {
+      where.universityId = universityId;
+    }
+
     const tests = await Test.findAll({
-      where: { subjectId: req.params.subjectId },
+      where,
       include: [{
         model: Question,
         as: 'Questions',
         attributes: ['id'],
         required: false
-      }],
+      }, universityInclude()],
       order: [['createdAt', 'DESC']]
     });
     res.json(tests);
@@ -179,17 +243,23 @@ router.get('/subjects/:subjectId/tests', async (req, res) => {
 // Получить только бесплатные тесты по предмету (для неавторизованных)
 router.get('/subjects/:subjectId/tests/free', async (req, res) => {
   try {
+    const where = {
+      subjectId: req.params.subjectId,
+      isFree: true
+    };
+    const universityId = await resolveUserUniversityId(req);
+    if (universityId) {
+      where.universityId = universityId;
+    }
+
     const tests = await Test.findAll({
-      where: { 
-        subjectId: req.params.subjectId,
-        isFree: true
-      },
+      where,
       include: [{
         model: Question,
         as: 'Questions',
-        attributes: ['id'], // Только ID для подсчета
+        attributes: ['id'],
         required: false
-      }],
+      }, universityInclude()],
       order: [['createdAt', 'DESC']]
     });
     res.json(tests);
@@ -246,11 +316,16 @@ router.get('/tests/:testId', async (req, res) => {
           as: 'Answers'
           // Убираем явное указание attributes - Sequelize должен вернуть все поля
         }]
-      }]
+      }, universityInclude()]
     });
 
     if (!test) {
       return res.status(404).json({ error: 'Тест не найден' });
+    }
+
+    const access = await assertUserCanAccessTest(test, req);
+    if (!access.ok) {
+      return res.status(access.status).json({ error: access.error });
     }
 
     // Преобразуем в JSON и убеждаемся, что isCorrect присутствует
@@ -334,6 +409,11 @@ router.post('/tests/:testId/questions', async (req, res) => {
 
     if (!test) {
       return res.status(404).json({ error: 'Тест не найден' });
+    }
+
+    const access = await assertUserCanAccessTest(test, req);
+    if (!access.ok) {
+      return res.status(access.status).json({ error: access.error });
     }
 
     // Проверяем доступ: если тест не бесплатный, требуется авторизация
@@ -457,6 +537,11 @@ router.post('/tests/:testId/check', async (req, res) => {
     }
     
     isFreeTest = test.isFree;
+
+    const access = await assertUserCanAccessTest(test, req);
+    if (!access.ok) {
+      return res.status(access.status).json({ error: access.error });
+    }
     
     // Если тест не бесплатный, проверяем авторизацию
     if (!isFreeTest) {

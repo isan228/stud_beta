@@ -9,6 +9,9 @@ async function initDatabase() {
     await sequelize.sync({ force: true });
     console.log('Таблицы созданы');
 
+    const { ensureUniversities } = require('../utils/ensureUniversities');
+    const kgma = await ensureUniversities();
+
     // Создание тестовых данных
     const subjects = await Subject.bulkCreate([
       { name: 'Математика', description: 'Тесты по математике' },
@@ -25,7 +28,8 @@ async function initDatabase() {
       const test = await Test.create({
         name: `Тест по ${subject.name}`,
         description: `Пробный тест по предмету ${subject.name}`,
-        subjectId: subject.id
+        subjectId: subject.id,
+        universityId: kgma.id
       });
 
       // Создание вопросов для каждого теста
@@ -57,4 +61,3 @@ async function initDatabase() {
 }
 
 initDatabase();
-

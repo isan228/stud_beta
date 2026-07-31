@@ -3,7 +3,7 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const adminAuth = require('../middleware/adminAuth');
-const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, Editor, EditorAuditLog, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, BroadcastMessage, UserBroadcastNotification, Transaction, sequelize } = require('../models');
+const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, Editor, EditorAuditLog, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, BroadcastMessage, UserBroadcastNotification, Transaction, University, sequelize } = require('../models');
 const { snapshotFromQuestion, logQuestionAudit } = require('../utils/questionAuditLog');
 const { Op, QueryTypes } = require('sequelize');
 const { Sequelize } = require('sequelize');
@@ -933,6 +933,11 @@ router.get('/users', adminAuth, async (req, res) => {
         model: UserStats,
         as: 'UserStat',
         required: false
+      }, {
+        model: University,
+        as: 'University',
+        attributes: ['id', 'name', 'shortName'],
+        required: false
       }],
       attributes: { exclude: ['password'] }
     });
@@ -1044,6 +1049,170 @@ router.delete('/users/:id', adminAuth, async (req, res) => {
   }
 });
 
+// Управление университетами
+router.get('/universities', adminAuth, async (req, res) => {
+  try {
+    if (req.query.compact === '1') {
+      const universities = await University.findAll({
+        attributes: ['id', 'name', 'shortName', 'isActive'],
+        order: [['shortName', 'ASC']]
+      });
+      return res.json(universities);
+    }
+
+    const universities = await University.findAll({
+      order: [['shortName', 'ASC']]
+    });
+
+    const ids = universities.map((u) => u.id);
+    let countMap = new Map();
+    if (ids.length) {
+      const rows = await Test.findAll({
+        attributes: ['universityId', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
+        where: { universityId: { [Op.in]: ids } },
+        group: ['universityId'],
+        raw: true
+      });
+      countMap = new Map(rows.map((r) => [Number(r.universityId), Number(r.count)]));
+    }
+
+    res.json(universities.map((u) => {
+      const json = u.toJSON();
+      json.testCount = countMap.get(u.id) || 0;
+      return json;
+    }));
+  } catch (error) {
+    console.error('Ошибка получения университетов:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.get('/universities/:id', adminAuth, async (req, res) => {
+  try {
+    const university = await University.findByPk(req.params.id);
+    if (!university) {
+      return res.status(404).json({ error: 'Университет не найден' });
+    }
+    res.json(university);
+  } catch (error) {
+    console.error('Ошибка получения университета:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.post('/universities', adminAuth, [
+  body('name').trim().notEmpty().withMessage('Название обязательно'),
+  body('shortName').trim().isLength({ min: 2, max: 50 }).withMessage('Краткое название: 2–50 символов'),
+  body('description').optional({ nullable: true }),
+  body('isActive').optional()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const name = String(req.body.name).trim();
+    const shortName = String(req.body.shortName).trim().toUpperCase();
+    const description = req.body.description ? String(req.body.description).trim() : null;
+    const isActive = req.body.isActive === undefined
+      ? true
+      : (req.body.isActive === true || req.body.isActive === 'true');
+
+    const existing = await University.findOne({
+      where: {
+        [Op.or]: [
+          { name: { [Op.iLike]: name } },
+          { shortName: { [Op.iLike]: shortName } }
+        ]
+      }
+    });
+    if (existing) {
+      return res.status(400).json({ error: 'Университет с таким названием или тегом уже существует' });
+    }
+
+    const university = await University.create({ name, shortName, description, isActive });
+    res.status(201).json(university);
+  } catch (error) {
+    console.error('Ошибка создания университета:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.put('/universities/:id', adminAuth, [
+  body('name').trim().notEmpty().withMessage('Название обязательно'),
+  body('shortName').trim().isLength({ min: 2, max: 50 }).withMessage('Краткое название: 2–50 символов'),
+  body('description').optional({ nullable: true }),
+  body('isActive').optional()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const university = await University.findByPk(req.params.id);
+    if (!university) {
+      return res.status(404).json({ error: 'Университет не найден' });
+    }
+
+    const name = String(req.body.name).trim();
+    const shortName = String(req.body.shortName).trim().toUpperCase();
+    const description = req.body.description !== undefined
+      ? (req.body.description ? String(req.body.description).trim() : null)
+      : university.description;
+
+    const existing = await University.findOne({
+      where: {
+        id: { [Op.ne]: university.id },
+        [Op.or]: [
+          { name: { [Op.iLike]: name } },
+          { shortName: { [Op.iLike]: shortName } }
+        ]
+      }
+    });
+    if (existing) {
+      return res.status(400).json({ error: 'Университет с таким названием или тегом уже существует' });
+    }
+
+    university.name = name;
+    university.shortName = shortName;
+    university.description = description;
+    if (req.body.isActive !== undefined) {
+      university.isActive = req.body.isActive === true || req.body.isActive === 'true';
+    }
+    await university.save();
+
+    res.json(university);
+  } catch (error) {
+    console.error('Ошибка обновления университета:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.delete('/universities/:id', adminAuth, async (req, res) => {
+  try {
+    const university = await University.findByPk(req.params.id);
+    if (!university) {
+      return res.status(404).json({ error: 'Университет не найден' });
+    }
+
+    const testsCount = await Test.count({ where: { universityId: university.id } });
+    const usersCount = await User.count({ where: { universityId: university.id } });
+    if (testsCount > 0 || usersCount > 0) {
+      return res.status(400).json({
+        error: `Нельзя удалить: привязано тестов ${testsCount}, пользователей ${usersCount}. Сначала переназначьте или отключите университет.`
+      });
+    }
+
+    await university.destroy();
+    res.json({ message: 'Университет удален' });
+  } catch (error) {
+    console.error('Ошибка удаления университета:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 // Управление предметами
 router.get('/subjects/:id', adminAuth, async (req, res) => {
   try {
@@ -1151,6 +1320,10 @@ router.get('/tests/:id', adminAuth, async (req, res) => {
         model: Subject,
         as: 'Subject',
         attributes: ['id', 'name']
+      }, {
+        model: University,
+        as: 'University',
+        attributes: ['id', 'name', 'shortName']
       }]
     });
     if (!test) {
@@ -1166,15 +1339,19 @@ router.get('/tests/:id', adminAuth, async (req, res) => {
 router.get('/tests', adminAuth, async (req, res) => {
   try {
     const subjectId = req.query.subjectId;
+    const universityId = req.query.universityId;
     const where = {};
     if (subjectId) {
       where.subjectId = subjectId;
+    }
+    if (universityId) {
+      where.universityId = universityId;
     }
 
     if (req.query.compact === '1') {
       const tests = await Test.findAll({
         where,
-        attributes: ['id', 'name', 'subjectId', 'hasExplanations'],
+        attributes: ['id', 'name', 'subjectId', 'universityId', 'hasExplanations'],
         order: [['name', 'ASC']]
       });
       return res.json(tests);
@@ -1186,6 +1363,10 @@ router.get('/tests', adminAuth, async (req, res) => {
         model: Subject,
         as: 'Subject',
         attributes: ['id', 'name']
+      }, {
+        model: University,
+        as: 'University',
+        attributes: ['id', 'name', 'shortName']
       }],
       order: [['createdAt', 'DESC']]
     });
@@ -1200,7 +1381,8 @@ router.get('/tests', adminAuth, async (req, res) => {
 // Создать тест
 router.post('/tests', adminAuth, [
   body('name').trim().notEmpty().withMessage('Название теста обязательно'),
-  body('subjectId').isInt().withMessage('ID предмета обязателен')
+  body('subjectId').isInt().withMessage('ID предмета обязателен'),
+  body('universityId').isInt().withMessage('Университет обязателен')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -1208,11 +1390,18 @@ router.post('/tests', adminAuth, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, description, subjectId, isFree, hasExplanations } = req.body;
-    const test = await Test.create({ 
-      name, 
-      description, 
-      subjectId, 
+    const { name, description, subjectId, universityId, isFree, hasExplanations } = req.body;
+
+    const university = await University.findByPk(universityId);
+    if (!university) {
+      return res.status(400).json({ error: 'Университет не найден' });
+    }
+
+    const test = await Test.create({
+      name,
+      description,
+      subjectId,
+      universityId: parseInt(universityId, 10),
       isFree: isFree === true || isFree === 'true',
       hasExplanations: hasExplanations === true || hasExplanations === 'true'
     });
@@ -1238,9 +1427,17 @@ router.put('/tests/:id', adminAuth, [
       return res.status(404).json({ error: 'Тест не найден' });
     }
 
-    const { name, description, isFree, hasExplanations } = req.body;
+    const { name, description, subjectId, universityId, isFree, hasExplanations } = req.body;
     test.name = name;
     if (description !== undefined) test.description = description;
+    if (subjectId !== undefined) test.subjectId = parseInt(subjectId, 10);
+    if (universityId !== undefined) {
+      const university = await University.findByPk(universityId);
+      if (!university) {
+        return res.status(400).json({ error: 'Университет не найден' });
+      }
+      test.universityId = parseInt(universityId, 10);
+    }
     if (isFree !== undefined) test.isFree = isFree === true || isFree === 'true';
     if (hasExplanations !== undefined) {
       test.hasExplanations = hasExplanations === true || hasExplanations === 'true';

@@ -2,11 +2,14 @@ require('dotenv').config();
 const sequelize = require('../config/database');
 const Subject = require('../models/Subject');
 const Test = require('../models/Test');
+const { ensureUniversities } = require('../utils/ensureUniversities');
 
 async function addTests() {
   try {
     await sequelize.authenticate();
     console.log('✓ Подключение к БД установлено');
+
+    const kgma = await ensureUniversities();
 
     // Получаем все предметы
     const subjects = await Subject.findAll();
@@ -40,7 +43,8 @@ async function addTests() {
         const test = await Test.create({
           name: `Тест по ${subject.name}`,
           description: `Основной тест по предмету ${subject.name}`,
-          subjectId: subject.id
+          subjectId: subject.id,
+          universityId: kgma.id
         });
 
         console.log(`✓ Создан тест: "${test.name}" для предмета "${subject.name}"`);
@@ -63,4 +67,3 @@ async function addTests() {
 }
 
 addTests();
-

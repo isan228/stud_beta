@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
-const { Transaction, User, PromoCode } = require('../models');
+const { Transaction, User, PromoCode, University } = require('../models');
 const { validateFinikSignature } = require('../utils/finikValidator');
 const { createPayment } = require('../utils/finikClient');
 
@@ -316,12 +316,26 @@ router.post('/webhook', async (req, res) => {
 
               // Создаем нового пользователя
               console.log('👤 Creating new user account...');
+              let universityId = registrationData.universityId
+                ? parseInt(registrationData.universityId, 10)
+                : null;
+              if (universityId) {
+                const uni = await University.findOne({ where: { id: universityId, isActive: true } });
+                if (!uni) universityId = null;
+              }
+              if (!universityId) {
+                const { ensureUniversities } = require('../utils/ensureUniversities');
+                const kgma = await ensureUniversities();
+                universityId = kgma.id;
+              }
+
               const newUser = await User.create({
                 username: registrationData.username,
                 email: registrationData.email,
                 password: registrationData.password, // Будет захеширован в hook
                 status: 'approved', // Автоматически одобряем после оплаты
-                referredBy: referredBy
+                referredBy: referredBy,
+                universityId
               });
 
               console.log(`✅ User account created: ID ${newUser.id}, email: ${newUser.email}`);
@@ -835,7 +849,8 @@ router.post('/create-registration', [
   body('registrationData').isObject().withMessage('Данные регистрации обязательны'),
   body('registrationData.username').trim().isLength({ min: 3, max: 50 }).withMessage('Никнейм должен быть от 3 до 50 символов'),
   body('registrationData.email').isEmail().withMessage('Некорректный email'),
-  body('registrationData.password').isLength({ min: 6 }).withMessage('Пароль должен быть минимум 6 символов')
+  body('registrationData.password').isLength({ min: 6 }).withMessage('Пароль должен быть минимум 6 символов'),
+  body('registrationData.universityId').isInt({ min: 1 }).withMessage('Выберите университет')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -844,6 +859,13 @@ router.post('/create-registration', [
     }
 
     const { amount, description, paymentType, registrationData } = req.body;
+
+    const university = await University.findOne({
+      where: { id: registrationData.universityId, isActive: true }
+    });
+    if (!university) {
+      return res.status(400).json({ error: 'Выбранный университет недоступен' });
+    }
 
     // Проверка существующих пользователей со схожими никнеймами или почтами (на этапе до создания оплаты)
     const normalizedEmail = registrationData.email.trim();
@@ -900,6 +922,7 @@ router.post('/create-registration', [
     // Сохраняем registrationData в fields для обработки в webhook
     const registrationDataForFields = {
       ...registrationData,
+      universityId: university.id,
       subscription: registrationData.subscription || {},
       referralCode: referralCode,
       referrerId: referrerId,

@@ -757,6 +757,13 @@
                             <input type="email" id="regEmail" name="email" required placeholder="your@email.com">
                         </div>
                         <div class="form-group">
+                            <label for="regUniversity">Университет</label>
+                            <select id="regUniversity" name="universityId" required>
+                                <option value="">Загрузка...</option>
+                            </select>
+                            <small>Тесты будут показаны для выбранного университета</small>
+                        </div>
+                        <div class="form-group">
                             <label for="regPassword">Пароль</label>
                             <input type="password" id="regPassword" name="password" required minlength="6" placeholder="Минимум 6 символов">
                         </div>
@@ -822,6 +829,29 @@
         let selectedSubscription = null;
         let registrationData = null;
         let referralCode = null;
+
+        async function loadUniversitiesForRegister() {
+            const select = document.getElementById('regUniversity');
+            if (!select) return;
+            try {
+                const response = await fetch('/api/universities');
+                if (!response.ok) throw new Error('Не удалось загрузить университеты');
+                const universities = await response.json();
+                if (!universities.length) {
+                    select.innerHTML = '<option value="">Университеты пока не добавлены</option>';
+                    return;
+                }
+                select.innerHTML = '<option value="">Выберите университет</option>' +
+                    universities.map((u) =>
+                        `<option value="${u.id}">${u.shortName} — ${u.name}</option>`
+                    ).join('');
+            } catch (error) {
+                console.error(error);
+                select.innerHTML = '<option value="">Ошибка загрузки</option>';
+            }
+        }
+
+        loadUniversitiesForRegister();
 
         function applyReferralPromoLock() {
             const promoGroup = document.getElementById('promoCodeGroup');
@@ -964,11 +994,17 @@
                 }
                 
                 const formData = new FormData(this);
+                const universityId = formData.get('universityId');
+                if (!universityId) {
+                    showNotification('Выберите университет', 'error');
+                    return;
+                }
                 const data = {
                     username: formData.get('username'),
                     email: formData.get('email'),
                     password: formData.get('password'),
                     confirmPassword: formData.get('confirmPassword'),
+                    universityId: parseInt(universityId, 10),
                     promoCode: referralCode ? '' : (formData.get('promoCode') || ''),
                     dataConsent: document.getElementById('dataConsent').checked ? 'true' : 'false',
                     publicOffer: document.getElementById('publicOffer').checked ? 'true' : 'false',
@@ -1015,6 +1051,7 @@
                                 username: data.username,
                                 email: data.email,
                                 password: data.password,
+                                universityId: data.universityId,
                                 subscription: selectedSubscription,
                                 referralCode: referralCode
                             }

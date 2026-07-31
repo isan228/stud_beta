@@ -19,6 +19,7 @@ const ChatMessage = require('./ChatMessage');
 const PromoCode = require('./PromoCode');
 const BroadcastMessage = require('./BroadcastMessage');
 const UserBroadcastNotification = require('./UserBroadcastNotification');
+const University = require('./University');
 
 // Определение связей
 User.hasMany(TestResult, { foreignKey: 'userId', as: 'TestResults' });
@@ -29,6 +30,12 @@ TestResult.belongsTo(Test, { foreignKey: 'testId', as: 'Test' });
 
 User.hasOne(UserStats, { foreignKey: 'userId', as: 'UserStat' });
 UserStats.belongsTo(User, { foreignKey: 'userId' });
+
+University.hasMany(User, { foreignKey: 'universityId', as: 'Users' });
+User.belongsTo(University, { foreignKey: 'universityId', as: 'University' });
+
+University.hasMany(Test, { foreignKey: 'universityId', as: 'Tests' });
+Test.belongsTo(University, { foreignKey: 'universityId', as: 'University' });
 
 Subject.hasMany(Test, { foreignKey: 'subjectId', as: 'Tests' });
 Test.belongsTo(Subject, { foreignKey: 'subjectId', as: 'Subject' });
@@ -85,6 +92,7 @@ module.exports = {
   ChatMessage,
   PromoCode,
   BroadcastMessage,
-  UserBroadcastNotification
+  UserBroadcastNotification,
+  University
 };
 

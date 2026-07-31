@@ -22,6 +22,15 @@ const Test = sequelize.define('Test', {
       key: 'id'
     }
   },
+  universityId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'Universities',
+      key: 'id'
+    },
+    comment: 'Университет, к которому относится тест (тег)'
+  },
   isFree: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,

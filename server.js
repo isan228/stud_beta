@@ -76,6 +76,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // API роуты (должны быть первыми)
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/universities', require('./routes/universities'));
 app.use('/api/tests', require('./routes/tests'));
 app.use('/api', require('./routes/favorites'));
 app.use('/api', require('./routes/stats'));
@@ -226,8 +227,10 @@ sequelize.authenticate()
     console.log('Подключение к базе данных установлено');
     return sequelize.sync({ alter: true });
   })
-  .then(() => {
+  .then(async () => {
     console.log('Модели синхронизированы');
+    const { ensureUniversities } = require('./utils/ensureUniversities');
+    await ensureUniversities();
     const onListen = () => {
       console.log(`Сервер запущен на порту ${PORT}` + (LISTEN_HOST ? ` (bind: ${LISTEN_HOST})` : ''));
       if (!LISTEN_HOST) {

@@ -55,6 +55,15 @@ const User = sequelize.define('User', {
       key: 'id'
     }
   },
+  universityId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'Universities',
+      key: 'id'
+    },
+    comment: 'Университет пользователя'
+  },
   subscriptionEndDate: {
     type: DataTypes.DATE,
     allowNull: true,

@@ -1249,7 +1249,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             const container = document.getElementById('subjectsList');
             if (!container) return;
 
-            const response = await fetch(`${API_URL}/tests/subjects`);
+            const response = await fetch(`${API_URL}/tests/subjects`, {
+                headers: currentToken ? { 'Authorization': `Bearer ${currentToken}` } : {}
+            });
             allSubjects = await response.json();
 
             // Проверяем количество избранных вопросов (только для авторизованных)
@@ -1403,12 +1405,15 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     function renderTestCard(test, index) {
         const isFree = test.isFree || false;
         const qCount = getTestQuestionCount(test);
+        const uniTag = test.University?.shortName
+            ? `<span style="background: var(--bg-secondary); color: var(--text-secondary); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">${test.University.shortName}</span>`
+            : '';
         const cardClass = 'test-card card-animate';
         return `
             <div class="${cardClass}" style="animation-delay: ${index * 0.1}s;" role="button" tabindex="0"
                 onclick="handleTestCardClick(${test.id})"
                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();handleTestCardClick(${test.id});}">
-                <h3>${test.name} ${isFree ? '<span style="background: #10b981; color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">БЕСПЛАТНО</span>' : ''}</h3>
+                <h3>${test.name} ${isFree ? '<span style="background: #10b981; color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">БЕСПЛАТНО</span>' : ''}${uniTag}</h3>
                 <p><strong>Вопросов:</strong> ${qCount}</p>
                 ${test.description ? `<p style="margin-top: 0.5rem; font-size: 0.9rem;">${test.description}</p>` : ''}
             </div>
@@ -1433,7 +1438,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         currentSubjectDescription = subjectDescription;
 
         try {
-            const response = await fetch(`${API_URL}/tests/subjects/${subjectId}/tests`);
+            const response = await fetch(`${API_URL}/tests/subjects/${subjectId}/tests`, {
+                headers: currentToken ? { 'Authorization': `Bearer ${currentToken}` } : {}
+            });
             const tests = await response.json();
             subjectTestsCache = Array.isArray(tests) ? tests : [];
 
@@ -1476,7 +1483,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 url += '?free=true';
             }
 
-            const response = await fetch(url);
+            const response = await fetch(url, {
+                headers: currentToken ? { 'Authorization': `Bearer ${currentToken}` } : {}
+            });
             if (!response.ok) throw new Error('Failed to fetch tests');
             
             const tests = await response.json();
@@ -2753,6 +2762,12 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
                 if (usernameEl && user.username) usernameEl.textContent = user.username;
                 if (emailEl && user.email) emailEl.textContent = user.email;
+                const universityEl = document.getElementById('userUniversity');
+                if (universityEl) {
+                    universityEl.textContent = user.University
+                        ? `${user.University.shortName} — ${user.University.name}`
+                        : 'Не указан';
+                }
                 if (createdAtEl && user.createdAt) {
                     const createdAt = new Date(user.createdAt);
                     if (!isNaN(createdAt.getTime())) {

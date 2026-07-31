@@ -75,6 +75,7 @@
                     <button class="admin-tab active" data-tab="dashboard">Дашборд</button>
                     <button class="admin-tab" data-tab="users">Пользователи</button>
                     <button class="admin-tab" data-tab="devices">Новые устройства</button>
+                    <button class="admin-tab" data-tab="universities">Университеты</button>
                     <button class="admin-tab" data-tab="subjects">Предметы</button>
                     <button class="admin-tab" data-tab="tests">Тесты</button>
                     <button class="admin-tab" data-tab="questions">Вопросы</button>
@@ -189,6 +190,15 @@
                     <div id="deviceAlertsList" class="admin-list"></div>
                 </div>
 
+                <!-- Университеты -->
+                <div id="universitiesTab" class="admin-tab-content">
+                    <div class="admin-section-header">
+                        <h2>Управление университетами</h2>
+                        <button class="btn btn-primary" id="addUniversityBtn">+ Добавить университет</button>
+                    </div>
+                    <div id="universitiesList" class="admin-list"></div>
+                </div>
+
                 <!-- Предметы -->
                 <div id="subjectsTab" class="admin-tab-content">
                     <div class="admin-section-header">
@@ -203,6 +213,9 @@
                     <div class="admin-section-header">
                         <h2>Управление тестами</h2>
                         <div style="display: flex; gap: 1rem; align-items: center;">
+                            <select id="testsUniversityFilter" class="form-group input">
+                                <option value="">Все университеты</option>
+                            </select>
                             <select id="testsSubjectFilter" class="form-group input">
                                 <option value="">Все предметы</option>
                             </select>
@@ -552,6 +565,36 @@
         </div>
     </div>
 
+    <div id="universityModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="modal-close">&times;</span>
+            <h2 id="universityModalTitle">Добавить университет</h2>
+            <form id="universityForm">
+                <input type="hidden" id="universityId">
+                <div class="form-group">
+                    <label for="universityName">Полное название</label>
+                    <input type="text" id="universityName" required maxlength="200" placeholder="Кыргызская государственная медицинская академия">
+                </div>
+                <div class="form-group">
+                    <label for="universityShortName">Краткое название (тег)</label>
+                    <input type="text" id="universityShortName" required maxlength="50" placeholder="КГМА">
+                </div>
+                <div class="form-group">
+                    <label for="universityDescription">Описание</label>
+                    <textarea id="universityDescription" rows="3"></textarea>
+                </div>
+                <div class="form-group checkbox-group">
+                    <label>
+                        <input type="checkbox" id="universityIsActive" checked>
+                        <span>Активен (доступен при регистрации)</span>
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-primary">Сохранить</button>
+                <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
+            </form>
+        </div>
+    </div>
+
     <div id="testModal" class="modal" style="display: none;">
         <div class="modal-content">
             <span class="modal-close">&times;</span>
@@ -565,6 +608,10 @@
                 <div class="form-group">
                     <label for="testSubjectId">Предмет</label>
                     <select id="testSubjectId" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="testUniversityId">Университет</label>
+                    <select id="testUniversityId" required></select>
                 </div>
                 <div class="form-group">
                     <label for="testDescription">Описание</label>

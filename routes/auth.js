@@ -4,7 +4,7 @@ const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { Op } = require('sequelize');
-const { User, UserStats, UserDeviceAlert, UserBroadcastNotification, BroadcastMessage } = require('../models');
+const { User, UserStats, UserDeviceAlert, UserBroadcastNotification, BroadcastMessage, University } = require('../models');
 
 function getClientIp(req) {
   const forwarded = req.headers['x-forwarded-for'];
@@ -27,7 +27,8 @@ router.post('/register', [
     return true;
   }),
   body('dataConsent').equals('true').withMessage('Необходимо согласие на обработку данных'),
-  body('publicOffer').equals('true').withMessage('Необходимо согласие с публичной офертой')
+  body('publicOffer').equals('true').withMessage('Необходимо согласие с публичной офертой'),
+  body('universityId').isInt({ min: 1 }).withMessage('Выберите университет')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -35,7 +36,14 @@ router.post('/register', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { username, email, password, referralCode } = req.body;
+    const { username, email, password, referralCode, universityId } = req.body;
+
+    const university = await University.findOne({
+      where: { id: universityId, isActive: true }
+    });
+    if (!university) {
+      return res.status(400).json({ error: 'Выбранный университет недоступен' });
+    }
 
     // Проверка существующих пользователей со схожими никнеймами или почтами (без учета регистра)
     const normalizedEmail = email.trim();
@@ -72,7 +80,8 @@ router.post('/register', [
       email, 
       password,
       status: 'approved',
-      referredBy
+      referredBy,
+      universityId: university.id
     });
 
     // Создание статистики
@@ -84,7 +93,8 @@ router.post('/register', [
         id: user.id,
         username: user.username,
         email: user.email,
-        status: user.status
+        status: user.status,
+        universityId: user.universityId
       }
     });
   } catch (error) {
@@ -307,7 +317,13 @@ router.put('/account-alerts/broadcast/:id/dismiss', require('../middleware/auth'
 router.get('/me', require('../middleware/auth'), async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
-      attributes: ['id', 'username', 'email', 'createdAt', 'referralCode', 'coins', 'subscriptionEndDate']
+      attributes: ['id', 'username', 'email', 'createdAt', 'referralCode', 'coins', 'subscriptionEndDate', 'universityId'],
+      include: [{
+        model: University,
+        as: 'University',
+        attributes: ['id', 'name', 'shortName'],
+        required: false
+      }]
     });
     
     // Если у пользователя нет реферального кода, генерируем его

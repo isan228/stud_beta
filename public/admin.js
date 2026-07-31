@@ -542,6 +542,7 @@ async function loadUsers(page = 1) {
                             <th>ID</th>
                             <th>Никнейм</th>
                             <th>Email</th>
+                            <th>Университет</th>
                             <th>Бонусы</th>
                             <th>Тестов пройдено</th>
                             <th>Точность</th>
@@ -552,15 +553,17 @@ async function loadUsers(page = 1) {
                     <tbody>
                         ${data.users.map(user => {
                             const date = new Date(user.createdAt);
-                            const stats = user.UserStats || {};
+                            const stats = user.UserStats || user.UserStat || {};
                             const accuracy = stats.totalQuestionsAnswered > 0 
                                 ? Math.round((stats.correctAnswers / stats.totalQuestionsAnswered) * 100) 
                                 : 0;
+                            const uniLabel = user.University?.shortName || '—';
                             return `
                                 <tr>
                                     <td>${user.id}</td>
                                     <td>${user.username}</td>
                                     <td>${user.email}</td>
+                                    <td>${uniLabel}</td>
                                     <td>${user.coins || 0}</td>
                                     <td>${stats.totalTestsCompleted || 0}</td>
                                     <td>${accuracy}%</td>
@@ -593,6 +596,130 @@ async function loadUsers(page = 1) {
     } catch (error) {
         console.error('Ошибка загрузки пользователей:', error);
         showNotification('Ошибка загрузки пользователей', 'error');
+    }
+}
+
+// Загрузка университетов
+async function loadUniversities() {
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/universities`, {
+            headers: {
+                'Authorization': `Bearer ${currentAdminToken}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Ошибка загрузки университетов');
+        }
+
+        const universities = await response.json();
+        const list = document.getElementById('universitiesList');
+
+        if (universities && universities.length > 0) {
+            list.innerHTML = universities.map(uni => `
+                <div class="admin-list-item">
+                    <div style="flex: 1;">
+                        <h4>${uni.shortName} ${uni.isActive ? '' : '<span style="background:#ef4444;color:white;padding:0.15rem 0.4rem;border-radius:4px;font-size:0.7rem;">выкл</span>'}</h4>
+                        <p style="color: var(--text-muted); margin: 0.5rem 0;">${uni.name}</p>
+                        ${uni.description ? `<p style="color: var(--text-secondary); font-size: 0.875rem;">${uni.description}</p>` : ''}
+                        <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
+                            Тестов: ${uni.testCount ?? 0}
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-primary btn-sm" onclick="editUniversity(${uni.id})">Редактировать</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteUniversity(${uni.id})">Удалить</button>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 2rem;">Нет университетов</p>';
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки университетов:', error);
+        showNotification('Ошибка загрузки университетов', 'error');
+    }
+}
+
+async function fetchAdminUniversitiesCompact() {
+    const response = await fetch(`${ADMIN_API_URL}/universities?compact=1`, {
+        headers: adminAuthHeaders()
+    });
+    if (!response.ok) throw new Error('Ошибка загрузки университетов');
+    return response.json();
+}
+
+async function editUniversity(id) {
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/universities/${id}`, {
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+        });
+        if (!response.ok) throw new Error('Не найден');
+        const uni = await response.json();
+        document.getElementById('universityId').value = uni.id;
+        document.getElementById('universityName').value = uni.name || '';
+        document.getElementById('universityShortName').value = uni.shortName || '';
+        document.getElementById('universityDescription').value = uni.description || '';
+        document.getElementById('universityIsActive').checked = uni.isActive !== false;
+        document.getElementById('universityModalTitle').textContent = 'Редактировать университет';
+        document.getElementById('universityModal').style.display = 'block';
+    } catch (error) {
+        console.error(error);
+        showNotification('Ошибка загрузки университета', 'error');
+    }
+}
+
+async function saveUniversity(e) {
+    e.preventDefault();
+    const id = document.getElementById('universityId').value;
+    const name = document.getElementById('universityName').value.trim();
+    const shortName = document.getElementById('universityShortName').value.trim();
+    const description = document.getElementById('universityDescription').value.trim();
+    const isActive = document.getElementById('universityIsActive').checked;
+
+    try {
+        const url = id ? `${ADMIN_API_URL}/universities/${id}` : `${ADMIN_API_URL}/universities`;
+        const method = id ? 'PUT' : 'POST';
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentAdminToken}`
+            },
+            body: JSON.stringify({ name, shortName, description, isActive })
+        });
+        if (response.ok) {
+            showNotification(id ? 'Университет обновлен' : 'Университет создан', 'success');
+            document.getElementById('universityModal').style.display = 'none';
+            document.getElementById('universityForm').reset();
+            loadUniversities();
+        } else {
+            const result = await response.json();
+            showNotification(result.error || 'Ошибка сохранения', 'error');
+        }
+    } catch (error) {
+        console.error(error);
+        showNotification('Ошибка сохранения университета', 'error');
+    }
+}
+
+async function deleteUniversity(id) {
+    if (!confirm('Удалить университет? Можно только если нет привязанных тестов и пользователей.')) return;
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/universities/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+        });
+        if (response.ok) {
+            showNotification('Университет удален', 'success');
+            loadUniversities();
+        } else {
+            const result = await response.json();
+            showNotification(result.error || 'Ошибка удаления', 'error');
+        }
+    } catch (error) {
+        console.error(error);
+        showNotification('Ошибка удаления университета', 'error');
     }
 }
 
@@ -641,7 +768,12 @@ async function loadSubjects() {
 async function loadTests() {
     try {
         const subjectId = document.getElementById('testsSubjectFilter')?.value || '';
-        const url = `${ADMIN_API_URL}/tests${subjectId ? `?subjectId=${subjectId}` : ''}`;
+        const universityId = document.getElementById('testsUniversityFilter')?.value || '';
+        const params = new URLSearchParams();
+        if (subjectId) params.set('subjectId', subjectId);
+        if (universityId) params.set('universityId', universityId);
+        const qs = params.toString();
+        const url = `${ADMIN_API_URL}/tests${qs ? `?${qs}` : ''}`;
         const response = await fetch(url, {
             headers: {
                 'Authorization': `Bearer ${currentAdminToken}`
@@ -659,10 +791,10 @@ async function loadTests() {
             testsList.innerHTML = tests.map(test => `
                 <div class="admin-list-item">
                     <div style="flex: 1;">
-                        <h4>${test.name} ${test.isFree ? '<span style="background: #10b981; color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">БЕСПЛАТНЫЙ</span>' : ''}</h4>
+                        <h4>${test.name} ${test.isFree ? '<span style="background: #10b981; color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">БЕСПЛАТНЫЙ</span>' : ''} ${test.University?.shortName ? `<span style="background: var(--bg-secondary); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">${test.University.shortName}</span>` : ''}</h4>
                         ${test.description ? `<p style="color: var(--text-muted); margin: 0.5rem 0;">${test.description}</p>` : ''}
                         <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
-                            Предмет: ${test.Subject?.name || 'Неизвестно'} | Вопросов: ${test.questionCount ?? test.Questions?.length ?? 0}
+                            Предмет: ${test.Subject?.name || 'Неизвестно'} | Университет: ${test.University?.shortName || '—'} | Вопросов: ${test.questionCount ?? test.Questions?.length ?? 0}
                         </p>
                     </div>
                     <div style="display: flex; gap: 0.5rem;">
@@ -1107,14 +1239,20 @@ async function editSubject(subjectId) {
 // Редактирование теста
 async function editTest(testId) {
     try {
-        const [subjects, testResponse] = await Promise.all([
+        const [subjects, universities, testResponse] = await Promise.all([
             fetchAdminSubjectsCompact(),
+            fetchAdminUniversitiesCompact(),
             fetch(`${ADMIN_API_URL}/tests/${testId}`, { headers: adminAuthHeaders() })
         ]);
         const subjectSelect = document.getElementById('testSubjectId');
         if (subjectSelect) {
             subjectSelect.innerHTML = '<option value="">Выберите предмет</option>' +
                 subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        }
+        const universitySelect = document.getElementById('testUniversityId');
+        if (universitySelect) {
+            universitySelect.innerHTML = '<option value="">Выберите университет</option>' +
+                universities.map(u => `<option value="${u.id}">${u.shortName} — ${u.name}</option>`).join('');
         }
 
         if (!testResponse.ok) {
@@ -1127,6 +1265,7 @@ async function editTest(testId) {
             document.getElementById('testName').value = test.name;
             document.getElementById('testDescription').value = test.description || '';
             document.getElementById('testSubjectId').value = test.subjectId;
+            if (universitySelect) universitySelect.value = test.universityId || '';
             document.getElementById('testIsFree').checked = test.isFree || false;
             const testHasExplEl = document.getElementById('testHasExplanations');
             if (testHasExplEl) testHasExplEl.checked = !!test.hasExplanations;
@@ -1296,8 +1435,14 @@ async function saveTest(e) {
     const name = document.getElementById('testName').value;
     const description = document.getElementById('testDescription').value;
     const subjectId = parseInt(document.getElementById('testSubjectId').value);
+    const universityId = parseInt(document.getElementById('testUniversityId').value);
     const isFree = document.getElementById('testIsFree').checked;
     const hasExplanations = document.getElementById('testHasExplanations')?.checked || false;
+
+    if (!universityId) {
+        showNotification('Выберите университет', 'error');
+        return;
+    }
 
     try {
         const url = id ? `${ADMIN_API_URL}/tests/${id}` : `${ADMIN_API_URL}/tests`;
@@ -1309,7 +1454,7 @@ async function saveTest(e) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${currentAdminToken}`
             },
-            body: JSON.stringify({ name, description, subjectId, isFree, hasExplanations })
+            body: JSON.stringify({ name, description, subjectId, universityId, isFree, hasExplanations })
         });
 
         if (response.ok) {
@@ -1572,12 +1717,20 @@ function setupAdminEventListeners() {
     const addTestBtn = document.getElementById('addTestBtn');
     if (addTestBtn) {
         addTestBtn.addEventListener('click', async () => {
-            // Загружаем предметы для выбора
+            // Загружаем предметы и университеты для выбора
             try {
-                const subjects = await fetchAdminSubjectsCompact();
+                const [subjects, universities] = await Promise.all([
+                    fetchAdminSubjectsCompact(),
+                    fetchAdminUniversitiesCompact()
+                ]);
                 const select = document.getElementById('testSubjectId');
                 select.innerHTML = '<option value="">Выберите предмет</option>' +
                     subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+                const uniSelect = document.getElementById('testUniversityId');
+                if (uniSelect) {
+                    uniSelect.innerHTML = '<option value="">Выберите университет</option>' +
+                        universities.map(u => `<option value="${u.id}">${u.shortName} — ${u.name}</option>`).join('');
+                }
             } catch (error) {
                 console.error('Ошибка загрузки предметов:', error);
             }
@@ -1588,6 +1741,22 @@ function setupAdminEventListeners() {
             document.getElementById('testModalTitle').textContent = 'Добавить тест';
             document.getElementById('testModal').style.display = 'block';
         });
+    }
+
+    const addUniversityBtn = document.getElementById('addUniversityBtn');
+    if (addUniversityBtn) {
+        addUniversityBtn.addEventListener('click', () => {
+            document.getElementById('universityId').value = '';
+            document.getElementById('universityForm').reset();
+            document.getElementById('universityIsActive').checked = true;
+            document.getElementById('universityModalTitle').textContent = 'Добавить университет';
+            document.getElementById('universityModal').style.display = 'block';
+        });
+    }
+
+    const universityForm = document.getElementById('universityForm');
+    if (universityForm) {
+        universityForm.addEventListener('submit', saveUniversity);
     }
 
     // Загрузка PDF
@@ -1752,6 +1921,12 @@ function setupAdminEventListeners() {
     const testsSubjectFilter = document.getElementById('testsSubjectFilter');
     if (testsSubjectFilter) {
         testsSubjectFilter.addEventListener('change', () => {
+            loadTests();
+        });
+    }
+    const testsUniversityFilter = document.getElementById('testsUniversityFilter');
+    if (testsUniversityFilter) {
+        testsUniversityFilter.addEventListener('change', () => {
             loadTests();
         });
     }
@@ -2891,12 +3066,16 @@ function switchTab(tabName) {
         case 'devices':
             loadDeviceAlerts(50);
             break;
+        case 'universities':
+            loadUniversities();
+            break;
         case 'subjects':
             loadSubjects();
             break;
         case 'tests':
             loadTests();
             loadSubjectsForFilters();
+            loadUniversitiesForFilters();
             break;
         case 'questions':
             loadTestsForFilters();
@@ -3375,6 +3554,21 @@ async function loadSubjectsForFilters() {
         }
     } catch (error) {
         console.error('Ошибка загрузки предметов для фильтра:', error);
+    }
+}
+
+async function loadUniversitiesForFilters() {
+    try {
+        const universities = await fetchAdminUniversitiesCompact();
+        const filter = document.getElementById('testsUniversityFilter');
+        if (filter) {
+            const current = filter.value;
+            filter.innerHTML = '<option value="">Все университеты</option>' +
+                universities.map(u => `<option value="${u.id}">${u.shortName}</option>`).join('');
+            if (current) filter.value = current;
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки университетов для фильтра:', error);
     }
 }
 
@@ -3881,6 +4075,8 @@ window.deleteTest = deleteTest;
 window.deleteQuestion = deleteQuestion;
 window.editSubject = editSubject;
 window.editTest = editTest;
+window.editUniversity = editUniversity;
+window.deleteUniversity = deleteUniversity;
 window.editQuestion = editQuestion;
 window.editNews = editNews;
 window.loadUsers = loadUsers;
