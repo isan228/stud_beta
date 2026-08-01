@@ -9,13 +9,11 @@ const University = sequelize.define('University', {
   },
   name: {
     type: DataTypes.STRING(200),
-    allowNull: false,
-    unique: true
+    allowNull: false
   },
   shortName: {
     type: DataTypes.STRING(50),
     allowNull: false,
-    unique: true,
     comment: 'Краткое название / тег, например КГМА'
   },
   description: {
@@ -35,6 +33,13 @@ const University = sequelize.define('University', {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
   }
+}, {
+  // unique через indexes — иначе sync({ alter: true }) генерирует
+  // невалидный SQL: ALTER COLUMN ... TYPE VARCHAR(...) UNIQUE
+  indexes: [
+    { unique: true, fields: ['name'], name: 'universities_name_unique' },
+    { unique: true, fields: ['shortName'], name: 'universities_short_name_unique' }
+  ]
 });
 
 module.exports = University;

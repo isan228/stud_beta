@@ -226,7 +226,11 @@ const LISTEN_HOST = process.env.LISTEN_HOST || undefined;
 sequelize.authenticate()
   .then(() => {
     console.log('Подключение к базе данных установлено');
-    return sequelize.sync({ alter: true });
+    return sequelize.sync({ alter: true }).catch(async (syncErr) => {
+      console.error('⚠️  sequelize.sync({ alter: true }) не удался:', syncErr.message);
+      console.warn('   Пробуем sync без alter…');
+      return sequelize.sync();
+    });
   })
   .then(async () => {
     console.log('Модели синхронизированы');
