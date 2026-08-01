@@ -160,6 +160,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const logoutBtn = document.getElementById('logoutBtn');
         const profileLink = document.getElementById('profileLink');
         const favoritesLink = document.getElementById('favoritesLink');
+        const subscriptionsLink = document.getElementById('subscriptionsLink');
 
         if (currentUser) {
             if (loginBtn) loginBtn.style.display = 'none';
@@ -167,12 +168,14 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             if (logoutBtn) logoutBtn.style.display = 'block';
             if (profileLink) profileLink.style.display = 'block';
             if (favoritesLink) favoritesLink.style.display = 'block';
+            if (subscriptionsLink) subscriptionsLink.style.display = 'block';
         } else {
             if (loginBtn) loginBtn.style.display = 'block';
             if (registerBtn) registerBtn.style.display = 'block';
             if (logoutBtn) logoutBtn.style.display = 'none';
             if (profileLink) profileLink.style.display = 'none';
             if (favoritesLink) favoritesLink.style.display = 'none';
+            if (subscriptionsLink) subscriptionsLink.style.display = 'none';
         }
 
         ensureUserChatVisibility();
@@ -561,6 +564,11 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             case 'profile':
                 if (document.getElementById('userStats')) {
                     loadProfile();
+                }
+                break;
+            case 'subscriptions':
+                if (document.getElementById('subsStatus') && typeof loadSubscriptionsPage === 'function') {
+                    loadSubscriptionsPage();
                 }
                 break;
             case 'news':
@@ -1212,7 +1220,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 currentUser = result.user;
                 localStorage.setItem('token', currentToken);
                 showNotification('Вход выполнен успешно!', 'success');
-                window.location.href = '/';
+                const next = new URLSearchParams(window.location.search).get('next');
+                const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
+                window.location.href = safeNext;
             } else {
                 showNotification(result.error || 'Ошибка входа', 'error');
             }
@@ -3142,7 +3152,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     function showSubscriptionRequiredModal() {
         const modal = document.getElementById('registerModal');
         if (!modal) {
-            window.location.href = currentUser ? '/profile' : '/register';
+            window.location.href = currentUser ? '/subscriptions' : '/register';
             return;
         }
 
@@ -3152,13 +3162,23 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const secondaryBtn = document.getElementById('subscriptionModalSecondaryBtn');
 
         if (titleEl) titleEl.textContent = 'Подписка требуется';
-        if (textEl) textEl.textContent = 'Оформите подписку для доступа ко всем тестам.';
+        if (textEl) {
+            textEl.textContent = currentUser
+                ? 'Оформите или продлите подписку во вкладке «Подписки», чтобы открыть платные тесты.'
+                : 'Зарегистрируйтесь бесплатно, затем оформите подписку для доступа ко всем тестам.';
+        }
         if (primaryBtn) {
-            primaryBtn.href = currentUser ? '/profile' : '/register';
-            primaryBtn.textContent = currentUser ? 'Продлить подписку' : 'Оформить подписку';
+            primaryBtn.href = currentUser ? '/subscriptions' : '/register';
+            primaryBtn.textContent = currentUser ? 'К подпискам' : 'Зарегистрироваться';
         }
         if (secondaryBtn) {
-            secondaryBtn.style.display = currentUser ? 'none' : 'inline-flex';
+            if (currentUser) {
+                secondaryBtn.style.display = 'none';
+            } else {
+                secondaryBtn.style.display = 'inline-flex';
+                secondaryBtn.href = '/login';
+                secondaryBtn.textContent = 'Войти';
+            }
         }
 
         modal.style.display = 'block';
@@ -3395,32 +3415,13 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
     }
 
-    // Продление подписки
+    // Продление подписки — на странице /subscriptions
     function renewSubscription() {
-        const modal = document.getElementById('renewalModal');
-        if (modal) {
-            modal.style.display = 'block';
-
-            const coinsBalanceEl = document.getElementById('renewalCoinsBalance');
-            const coinsToUseInput = document.getElementById('renewalCoinsToUse');
-            const userCoins = (currentUser && (currentUser.coins !== undefined)) ? currentUser.coins : 0;
-            if (coinsBalanceEl) coinsBalanceEl.textContent = userCoins;
-            if (coinsToUseInput) {
-                coinsToUseInput.max = Math.min(selectedPlan.price, userCoins);
-                coinsToUseInput.value = Math.min(parseInt(coinsToUseInput.value, 10) || 0, selectedPlan.price, userCoins);
-                coinsToUseInput.addEventListener('input', updateRenewalTotal);
-            }
-            updateRenewalTotal();
-
-            const closeBtn = document.getElementById('renewalModalClose');
-            if (closeBtn) {
-                closeBtn.onclick = () => modal.style.display = 'none';
-            }
-
-            window.onclick = (e) => {
-                if (e.target === modal) modal.style.display = 'none';
-            };
+        if (document.getElementById('subsPlans')) {
+            document.getElementById('subsPlans')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
         }
+        window.location.href = '/subscriptions';
     }
 
     let selectedPlan = { months: 1, price: 500 };
@@ -3429,18 +3430,30 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const coinsToUseInput = document.getElementById('renewalCoinsToUse');
         const totalEl = document.getElementById('totalPrice');
         if (!totalEl) return;
+        let price = selectedPlan.price;
+        const promoHint = document.getElementById('subsPromoHint');
+        const discountPercent = Number(document.getElementById('subsPromoDiscount')?.value || 0);
+        if (discountPercent > 0 && discountPercent <= 100) {
+            price = Math.max(0.01, price - (price * discountPercent) / 100);
+        }
         const coinsToUse = Math.min(
             parseInt(coinsToUseInput?.value, 10) || 0,
-            selectedPlan.price,
+            Math.floor(price),
             (currentUser && (currentUser.coins !== undefined)) ? currentUser.coins : 0
         );
-        const toPay = Math.max(0, selectedPlan.price - coinsToUse);
+        const toPay = Math.max(0, Math.round((price - coinsToUse) * 100) / 100);
         totalEl.textContent = toPay + ' сом';
+        if (promoHint && discountPercent > 0) {
+            promoHint.textContent = `Скидка ${discountPercent}% учтена`;
+            promoHint.style.display = 'block';
+        } else if (promoHint) {
+            promoHint.style.display = 'none';
+        }
     }
 
     function selectPlan(card) {
         if (card.classList.contains('disabled')) return;
-        document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'));
+        document.querySelectorAll('.plan-card, .subs-plan').forEach(c => c.classList.remove('selected'));
         card.classList.add('selected');
 
         selectedPlan = {
@@ -3462,33 +3475,28 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const planLabel = selectedPlan.months === 12
             ? '1 год'
             : `${selectedPlan.months} ${getMonthDeclension(selectedPlan.months)}`;
-        const description = `Продление подписки: ${planLabel}`;
+        const description = `Подписка: ${planLabel}`;
         const subscriptionType = selectedPlan.months.toString();
 
-        // Показываем индикатор загрузки
-        const payBtn = document.querySelector('#renewalModal .btn-primary');
-        const originalText = payBtn.textContent;
-        payBtn.disabled = true;
-        payBtn.textContent = 'Создание платежа...';
+        const payBtn = document.getElementById('subsPayBtn')
+            || document.querySelector('#renewalModal .btn-primary');
+        const originalText = payBtn ? payBtn.textContent : '';
+        if (payBtn) {
+            payBtn.disabled = true;
+            payBtn.textContent = 'Создание платежа...';
+        }
 
         try {
-            // Получаем токен из localStorage
             const token = localStorage.getItem('token');
-            const headers = {
-                'Content-Type': 'application/json'
-            };
+            const headers = { 'Content-Type': 'application/json' };
             if (token) {
                 headers['Authorization'] = `Bearer ${token}`;
+            } else if (typeof currentToken !== 'undefined' && currentToken) {
+                headers['Authorization'] = `Bearer ${currentToken}`;
             } else {
-                // Если токена нет, пробуем глобальную переменную или перенаправляем на логин
-                if (typeof currentToken !== 'undefined' && currentToken) {
-                    headers['Authorization'] = `Bearer ${currentToken}`;
-                } else {
-                    console.error('No auth token found');
-                    showNotification('Ошибка авторизации. Пожалуйста, войдите в систему.', 'error');
-                    setTimeout(() => window.location.href = '/login', 2000);
-                    return;
-                }
+                showNotification('Ошибка авторизации. Пожалуйста, войдите в систему.', 'error');
+                setTimeout(() => window.location.href = '/login?next=/subscriptions', 1500);
+                return;
             }
 
             const coinsToUseInput = document.getElementById('renewalCoinsToUse');
@@ -3498,34 +3506,42 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 (currentUser && (currentUser.coins !== undefined)) ? currentUser.coins : 0
             );
 
+            const promoCode = (document.getElementById('subsPromoCode')?.value || '').trim();
+
+            const body = {
+                amount: selectedPlan.price,
+                description: description,
+                paymentType: paymentType,
+                subscriptionType: subscriptionType,
+                coinsToUse: coinsToUse
+            };
+            if (promoCode) body.promoCode = promoCode;
+
             const response = await fetch('/api/payments/create', {
                 method: 'POST',
                 headers: headers,
-                body: JSON.stringify({
-                    amount: selectedPlan.price,
-                    description: description,
-                    paymentType: paymentType,
-                    subscriptionType: subscriptionType,
-                    coinsToUse: coinsToUse
-                })
+                body: JSON.stringify(body)
             });
 
             const data = await response.json();
 
             if (response.ok && data.success && data.paymentUrl) {
-                // Успешно, перенаправляем на страницу оплаты Finik
                 window.location.href = data.paymentUrl;
             } else {
                 console.error('Payment creation failed:', data);
                 showNotification(data.error || data.message || 'Ошибка создания платежа', 'error');
-                payBtn.disabled = false;
-                payBtn.textContent = originalText;
+                if (payBtn) {
+                    payBtn.disabled = false;
+                    payBtn.textContent = originalText;
+                }
             }
         } catch (error) {
             console.error('Error proceeding to payment:', error);
             showNotification('Ошибка соединения с сервером', 'error');
-            payBtn.disabled = false;
-            payBtn.textContent = originalText;
+            if (payBtn) {
+                payBtn.disabled = false;
+                payBtn.textContent = originalText;
+            }
         }
     }
 
@@ -3533,6 +3549,106 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         if (months === 1) return 'месяц';
         if (months >= 2 && months <= 4) return 'месяца';
         return 'месяцев';
+    }
+
+    async function loadSubscriptionsPage() {
+        const statusBox = document.getElementById('subsStatus');
+        const statusText = document.getElementById('subsStatusText');
+        const historyEl = document.getElementById('subsHistory');
+        if (!statusBox || !historyEl) return;
+
+        const token = currentToken || localStorage.getItem('token');
+        if (!token) {
+            statusText.textContent = 'Войдите, чтобы видеть подписки';
+            return;
+        }
+
+        try {
+            // Актуализируем пользователя
+            if (typeof fetchUser === 'function') {
+                await fetchUser();
+            } else if (typeof loadUser === 'function') {
+                await loadUser();
+            }
+
+            const response = await fetch('/api/payments/transactions', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) throw new Error('Не удалось загрузить историю');
+            const data = await response.json();
+
+            const end = data.subscriptionEndDate ? new Date(data.subscriptionEndDate) : null;
+            const active = !!data.subscriptionActive;
+            statusBox.classList.toggle('active', active);
+            statusBox.classList.toggle('inactive', !active);
+
+            if (active && end) {
+                const daysLeft = Math.max(0, Math.ceil((end - new Date()) / (1000 * 60 * 60 * 24)));
+                statusText.innerHTML = `Подписка <strong>активна</strong> до <strong>${end.toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' })}</strong> (осталось ${daysLeft} дн.).`;
+            } else if (end) {
+                statusText.innerHTML = `Подписка <strong>истекла</strong> ${end.toLocaleDateString('ru-RU')}. Выберите тариф ниже, чтобы продлить.`;
+            } else {
+                statusText.innerHTML = 'Подписки пока нет. Выберите тариф и оформите доступ.';
+            }
+
+            const coinsBalanceEl = document.getElementById('renewalCoinsBalance');
+            const coinsToUseInput = document.getElementById('renewalCoinsToUse');
+            const userCoins = data.coins ?? currentUser?.coins ?? 0;
+            if (currentUser) currentUser.coins = userCoins;
+            if (coinsBalanceEl) coinsBalanceEl.textContent = userCoins;
+            if (coinsToUseInput) {
+                coinsToUseInput.max = Math.min(selectedPlan.price, userCoins);
+                if (!coinsToUseInput.dataset.bound) {
+                    coinsToUseInput.dataset.bound = '1';
+                    coinsToUseInput.addEventListener('input', updateRenewalTotal);
+                }
+            }
+            updateRenewalTotal();
+
+            const txs = Array.isArray(data.transactions) ? data.transactions : [];
+            if (!txs.length) {
+                historyEl.innerHTML = '<p style="color: var(--text-muted);">Пока нет оплаченных подписок</p>';
+            } else {
+                const statusBadge = (s) => {
+                    if (s === 'SUCCEEDED') return '<span class="subs-badge ok">Оплачено</span>';
+                    if (s === 'PENDING') return '<span class="subs-badge pending">Ожидание</span>';
+                    return '<span class="subs-badge fail">Ошибка</span>';
+                };
+                historyEl.innerHTML = `
+                    <table class="subs-history-table">
+                        <thead>
+                            <tr>
+                                <th>Дата</th>
+                                <th>Тариф</th>
+                                <th>Сумма</th>
+                                <th>Статус</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${txs.map((t) => {
+                                const d = new Date(t.createdAt);
+                                const dateStr = isNaN(d.getTime()) ? '—' : d.toLocaleString('ru-RU');
+                                const renewBtn = t.status === 'SUCCEEDED'
+                                    ? `<button type="button" class="btn btn-secondary btn-sm" onclick="renewSubscription()">Продлить</button>`
+                                    : '';
+                                return `<tr>
+                                    <td>${dateStr}</td>
+                                    <td>${t.planLabel || 'Подписка'}${t.promoCode ? ` <small>(${t.promoCode})</small>` : ''}</td>
+                                    <td>${t.amount} сом${t.coinsUsed ? ` <small>(−${t.coinsUsed} 🪙)</small>` : ''}</td>
+                                    <td>${statusBadge(t.status)}</td>
+                                    <td>${renewBtn}</td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+        } catch (error) {
+            console.error('loadSubscriptionsPage:', error);
+            statusText.textContent = 'Не удалось загрузить данные подписки';
+            historyEl.innerHTML = '<p style="color: var(--danger-color);">Ошибка загрузки истории</p>';
+        }
     }
 
     // Глобальные функции для onclick
@@ -3568,6 +3684,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     window.handleChangePassword = handleChangePassword;
     window.showNotification = showNotification;
     window.renewSubscription = renewSubscription;
+    window.loadSubscriptionsPage = loadSubscriptionsPage;
 
     // Экспорт переменных состояния для доступа из inline скриптов
     Object.defineProperty(window, 'currentUser', {

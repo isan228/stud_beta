@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/png" sizes="48x48" href="/img/icon-48.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/img/icon-192.png">
+    <link rel="icon" href="/img/icon.svg" type="image/svg+xml">
+    <link rel="shortcut icon" href="/favicon.png" type="image/png">
+    <link rel="apple-touch-icon" sizes="192x192" href="/img/icon-192.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <meta property="og:image" content="https://stud.kg/img/icon-192.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="theme-color" content="#2563eb">
+    <title>Подписки - stud.kg</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .subs-page { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+        .subs-status {
+            background: var(--card-bg);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .subs-status.active { border-left: 4px solid var(--success-color); }
+        .subs-status.inactive { border-left: 4px solid var(--warning-color, #f59e0b); }
+        .subs-status h2 { margin: 0 0 0.5rem; font-size: 1.25rem; }
+        .subs-status p { margin: 0.25rem 0; color: var(--text-secondary); }
+        .subs-section-title { margin: 0 0 1rem; font-size: 1.35rem; }
+        .subs-plans {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .subs-plan {
+            background: var(--card-bg);
+            border: 2px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            padding: 1.25rem;
+            cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .subs-plan:hover:not(.disabled) { border-color: var(--primary-color); }
+        .subs-plan.selected {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+        .subs-plan.disabled { opacity: 0.55; cursor: not-allowed; }
+        .subs-plan-name { font-weight: 700; font-size: 1.1rem; margin-bottom: 0.35rem; }
+        .subs-plan-price { font-size: 1.4rem; font-weight: 700; color: var(--primary-color); }
+        .subs-plan-price .old {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-decoration: line-through;
+            margin-right: 0.35rem;
+        }
+        .subs-plan-desc { margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-secondary); }
+        .subs-checkout {
+            background: var(--card-bg);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+        .subs-checkout .row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: flex-end;
+            margin-bottom: 1rem;
+        }
+        .subs-history-table { width: 100%; border-collapse: collapse; }
+        .subs-history-table th,
+        .subs-history-table td {
+            text-align: left;
+            padding: 0.75rem 0.5rem;
+            border-bottom: 1px solid var(--border-light);
+            font-size: 0.95rem;
+        }
+        .subs-history-table th { color: var(--text-secondary); font-weight: 600; }
+        .subs-badge {
+            display: inline-block;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .subs-badge.ok { background: rgba(16, 185, 129, 0.15); color: #059669; }
+        .subs-badge.pending { background: rgba(245, 158, 11, 0.15); color: #d97706; }
+        .subs-badge.fail { background: rgba(239, 68, 68, 0.15); color: #dc2626; }
+        .welcome-banner {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(37, 99, 235, 0.08));
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            border-radius: var(--radius-lg);
+            padding: 1rem 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+        @media (max-width: 640px) {
+            .subs-history-wrap { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="/"><h1>stud.kg</h1></a>
+            </div>
+            <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Меню">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <a href="/" class="nav-link">Главная</a>
+                <a href="/tests" class="nav-link">Тесты</a>
+                <a href="/news" class="nav-link">Новости</a>
+                <a href="/about" class="nav-link">О нас</a>
+                <a href="/favorites" class="nav-link" id="favoritesLink" style="display: none;">Избранное</a>
+                <a href="/subscriptions" class="nav-link" id="subscriptionsLink" style="display: none;">Подписки</a>
+                <a href="/profile" class="nav-link" id="profileLink" style="display: none;">Профиль</a>
+                <a href="/contact" class="nav-link">Обратная связь</a>
+                <div class="nav-actions">
+                    <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему">
+                        <span class="theme-icon">🌙</span>
+                    </button>
+                    <a href="/login" class="btn btn-primary" id="loginBtn">Войти</a>
+                    <a href="/register" class="btn btn-secondary" id="registerBtn">Регистрация</a>
+                    <button class="btn btn-logout" id="logoutBtn" style="display: none;">Выход</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="subs-page">
+            <div class="page-header" style="margin-bottom: 1.5rem;">
+                <h1>Подписки</h1>
+                <p style="color: var(--text-secondary); margin: 0.35rem 0 0;">
+                    Выберите тариф, оплатите и управляйте сроком доступа
+                </p>
+            </div>
+
+            <div id="subsWelcome" class="welcome-banner" style="display: none;">
+                <strong>Добро пожаловать!</strong>
+                Аккаунт создан. Выберите подписку ниже, чтобы открыть полный доступ к тестам.
+            </div>
+
+            <div id="subsStatus" class="subs-status inactive">
+                <h2>Текущий статус</h2>
+                <p id="subsStatusText">Загрузка…</p>
+            </div>
+
+            <h2 class="subs-section-title">Выбрать подписку</h2>
+            <div class="subs-plans" id="subsPlans">
+                <div class="subs-plan selected plan-card" data-months="1" data-price="500" onclick="selectPlan(this)">
+                    <div class="subs-plan-name">1 месяц</div>
+                    <div class="subs-plan-price">500 сом</div>
+                    <div class="subs-plan-desc">Полный доступ на 1 месяц</div>
+                </div>
+                <div class="subs-plan plan-card" data-months="3" data-price="950" onclick="selectPlan(this)">
+                    <div class="subs-plan-name">3 месяца</div>
+                    <div class="subs-plan-price"><span class="old">1500</span>950 сом</div>
+                    <div class="subs-plan-desc">Полный доступ на 3 месяца</div>
+                </div>
+                <div class="subs-plan plan-card" data-months="12" data-price="1950" onclick="selectPlan(this)">
+                    <div class="subs-plan-name">1 год</div>
+                    <div class="subs-plan-price"><span class="old">6000</span>1950 сом</div>
+                    <div class="subs-plan-desc">Максимальная выгода</div>
+                </div>
+                <div class="subs-plan plan-card disabled">
+                    <div class="subs-plan-name">Групповая</div>
+                    <div class="subs-plan-price" style="color: var(--text-muted); font-size: 1.1rem;">В разработке</div>
+                    <div class="subs-plan-desc">Для групп от 5 человек</div>
+                </div>
+            </div>
+
+            <div class="subs-checkout">
+                <div class="row">
+                    <div class="form-group" style="flex: 1; min-width: 160px; margin: 0;">
+                        <label for="subsPromoCode">Промокод</label>
+                        <input type="text" id="subsPromoCode" placeholder="Если есть">
+                    </div>
+                    <div class="form-group" style="flex: 1; min-width: 160px; margin: 0;">
+                        <label for="renewalCoinsToUse">Монетки (1 = 1 сом)</label>
+                        <input type="number" id="renewalCoinsToUse" min="0" value="0">
+                        <small>Доступно: <span id="renewalCoinsBalance">0</span></small>
+                    </div>
+                    <div style="min-width: 140px;">
+                        <div style="color: var(--text-secondary); font-size: 0.9rem;">К оплате</div>
+                        <div id="totalPrice" style="font-size: 1.5rem; font-weight: 700; color: var(--primary-color);">500 сом</div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-primary btn-block btn-large" id="subsPayBtn" onclick="proceedToPayment()">
+                    Оформить / продлить
+                </button>
+                <p style="margin: 0.75rem 0 0; font-size: 0.85rem; color: var(--text-muted);">
+                    Срок продлевается от текущей даты окончания, если подписка ещё активна.
+                </p>
+            </div>
+
+            <h2 class="subs-section-title">История подписок</h2>
+            <div class="subs-history-wrap" id="subsHistory">
+                <p style="color: var(--text-muted);">Загрузка…</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Hidden close target for shared renew helpers in app.js -->
+    <div id="renewalModal" style="display: none;" aria-hidden="true">
+        <button type="button" id="renewalModalClose" style="display:none;"></button>
+        <button type="button" class="btn-primary" style="display:none;"></button>
+    </div>
+
+    <div id="notification" class="notification"></div>
+    <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            initTheme();
+            const ok = await loadUser();
+            setupEventListeners();
+            if (!ok && !localStorage.getItem('token')) {
+                showNotification('Войдите, чтобы управлять подписками', 'error');
+                setTimeout(() => { window.location.href = '/login?next=/subscriptions'; }, 800);
+                return;
+            }
+            if (new URLSearchParams(window.location.search).get('welcome') === '1') {
+                const banner = document.getElementById('subsWelcome');
+                if (banner) banner.style.display = 'block';
+            }
+            if (typeof loadSubscriptionsPage === 'function') {
+                await loadSubscriptionsPage();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -138,7 +138,8 @@ const pages = {
   '/redact/login': 'redact-login.html',
   '/redact': 'redact.html',
   '/payment': 'payment.html',
-  '/payment/success': 'payment-success.html'
+  '/payment/success': 'payment-success.html',
+  '/subscriptions': 'subscriptions.html'
 };
 
 // Обработка маршрутов страниц

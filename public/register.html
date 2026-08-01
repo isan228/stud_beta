@@ -9,614 +9,10 @@
     <link rel="apple-touch-icon" sizes="192x192" href="/img/icon-192.png">
     <link rel="manifest" href="/site.webmanifest">
     <meta property="og:image" content="https://stud.kg/img/icon-192.png">
-    <meta property="og:image:type" content="image/png">
-    <meta property="og:image:width" content="192">
-    <meta property="og:image:height" content="192">
-    <meta name="twitter:image" content="https://stud.kg/img/icon-192.png">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <meta name="theme-color" content="#2563eb">
-    <title>Оформление подписки - stud.kg</title>
+    <title>Регистрация - stud.kg</title>
     <link rel="stylesheet" href="styles.css">
-    <style>
-        body {
-            background: linear-gradient(135deg, var(--bg-color) 0%, var(--bg-secondary) 100%);
-            min-height: 100vh;
-        }
-        
-        .subscription-page {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem 1rem;
-        }
-        
-        .page-header {
-            text-align: center;
-            margin-bottom: 3rem;
-        }
-        
-        .page-header h1 {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        
-        .page-header p {
-            font-size: 1.125rem;
-            color: var(--text-secondary);
-        }
-        
-        .registration-steps {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin-bottom: 3rem;
-            gap: 2rem;
-            flex-wrap: wrap;
-        }
-        
-        .step {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            color: var(--text-secondary);
-            position: relative;
-        }
-        
-        .step:not(:last-child)::after {
-            content: '';
-            position: absolute;
-            right: -1.5rem;
-            width: 2rem;
-            height: 2px;
-            background: var(--border-color);
-        }
-        
-        .step.active::after {
-            background: var(--primary-color);
-        }
-        
-        .step.completed::after {
-            background: var(--success-color);
-        }
-        
-        .step.active {
-            color: var(--primary-color);
-            font-weight: 600;
-        }
-        
-        .step.completed {
-            color: var(--success-color);
-        }
-        
-        .step-number {
-            width: 2.5rem;
-            height: 2.5rem;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--bg-secondary);
-            border: 3px solid var(--border-color);
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-        
-        .step.active .step-number {
-            background: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
-            transform: scale(1.1);
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
-        }
-        
-        .step.completed .step-number {
-            background: var(--success-color);
-            color: white;
-            border-color: var(--success-color);
-        }
-        
-        .step-label {
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-        
-        .registration-step {
-            display: none;
-            animation: fadeIn 0.3s ease;
-        }
-        
-        .registration-step.active {
-            display: block;
-        }
-        
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        /* Стили для карточек подписок */
-        .subscription-selection {
-            margin-bottom: 2rem;
-        }
-        
-        .subscription-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.5rem;
-            margin-top: 2rem;
-            align-items: stretch;
-        }
-        
-        .subscription-card {
-            border: 1px solid rgba(77, 163, 255, 0.25);
-            border-radius: 18px;
-            padding: 1.25rem;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            background: linear-gradient(180deg, #0e2a5a, #081a38);
-            position: relative;
-            overflow: hidden;
-            color: #fff;
-            min-height: 620px;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-            gap: 0.6rem;
-        }
-        
-        .subscription-card::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            border-radius: 18px;
-            border: 1px solid transparent;
-            background: linear-gradient(130deg, rgba(77, 163, 255, 0.45), rgba(47, 107, 255, 0.05)) border-box;
-            -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
-            mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor;
-            mask-composite: exclude;
-            pointer-events: none;
-        }
-        
-        .subscription-card:hover:not(.disabled) {
-            transform: translateY(-6px);
-            box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35);
-        }
-        
-        .subscription-card.selected {
-            border-color: rgba(77, 163, 255, 0.6);
-            box-shadow: 0 0 0 2px rgba(77, 163, 255, 0.45), 0 14px 30px rgba(0, 0, 0, 0.4);
-            transform: translateY(-6px);
-        }
-        
-        .subscription-card.selected * {
-            color: inherit;
-        }
-        
-        .subscription-card.disabled {
-            opacity: 0.72;
-            cursor: not-allowed;
-            filter: grayscale(0.25);
-        }
-
-        .subscription-card.disabled .subscription-cta {
-            opacity: 0.65;
-        }
-        
-        .subscription-card.disabled::after {
-            content: 'В разработке';
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            background: #ff4d4d;
-            color: white;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            box-shadow: 0 2px 8px rgba(255, 77, 77, 0.3);
-        }
-        
-        .subscription-badge {
-            position: absolute;
-            top: 12px;
-            left: 0;
-            right: 0;
-            display: flex;
-            justify-content: space-between;
-            padding: 0 12px;
-            pointer-events: none;
-        }
-
-        .subscription-badge-left,
-        .subscription-badge-right {
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            color: #fff;
-        }
-
-        .subscription-badge-left {
-            background: #2f6bff;
-        }
-
-        .subscription-badge-right {
-            background: #ff4d4d;
-        }
-
-        .subscription-title {
-            font-size: 1.6rem;
-            font-weight: 700;
-            margin: 2.1rem 0 0.6rem;
-            text-align: center;
-        }
-
-        .subscription-price {
-            text-align: center;
-            margin: 0.3rem 0 0.4rem;
-        }
-
-        .subscription-price-old {
-            text-decoration: line-through;
-            color: #a8b2c8;
-            margin-right: 8px;
-            font-size: 1rem;
-        }
-
-        .subscription-price-new {
-            font-size: 2rem;
-            color: #4da3ff;
-            font-weight: 800;
-        }
-
-        .subscription-period {
-            text-align: center;
-            font-size: 0.9rem;
-            color: #cfd8ea;
-            margin-bottom: 0.8rem;
-        }
-
-        .subscription-cta {
-            width: 100%;
-            padding: 12px;
-            border: none;
-            border-radius: 12px;
-            background: linear-gradient(90deg, #2f6bff, #4da3ff);
-            color: #fff;
-            font-weight: 600;
-            margin-bottom: 0.75rem;
-            font-size: 0.95rem;
-        }
-        
-        .subscription-description {
-            text-align: center;
-            color: #c6d4f0;
-            font-size: 0.88rem;
-            line-height: 1.5;
-        }
-        
-        .subscription-features {
-            margin-top: 1rem;
-            text-align: left;
-            padding-top: 1rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.12);
-        }
-        
-        .subscription-features ul {
-            list-style: none;
-            padding: 0;
-            margin: 0 0 0.65rem;
-        }
-        
-        .subscription-features li {
-            padding: 0.35rem 0;
-            color: #b6ffcc;
-            font-size: 0.86rem;
-            display: flex;
-            align-items: center;
-            gap: 0.45rem;
-        }
-
-        .subscription-features.locked li {
-            color: #8ea0bd;
-        }
-        
-        .subscription-features li::before {
-            content: '✔';
-            color: #9ef0bd;
-            font-size: 0.92rem;
-        }
-
-        .subscription-features.locked li::before {
-            content: '🔒';
-            color: #9aa7c0;
-            font-size: 0.88rem;
-        }
-
-        .subscription-note {
-            margin-top: 0.9rem;
-            padding: 0.75rem;
-            border-radius: 12px;
-            background: rgba(255, 255, 255, 0.06);
-            text-align: center;
-            color: #dbe6ff;
-            font-size: 0.82rem;
-            line-height: 1.45;
-        }
-
-        .subscription-note span {
-            color: #9fb2d2;
-        }
-        
-        /* Форма данных */
-        .data-form-container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: var(--card-bg);
-            padding: 2.5rem;
-            border-radius: 20px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-        }
-        
-        .form-section-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-bottom: 1.5rem;
-            color: var(--text-primary);
-        }
-        
-        .auth-form .form-group {
-            margin-bottom: 1.5rem;
-        }
-        
-        .auth-form .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            font-size: 0.9375rem;
-        }
-        
-        .auth-form .form-group input {
-            width: 100%;
-            padding: 0.875rem 1rem;
-            border: 2px solid var(--border-color);
-            border-radius: 12px;
-            font-size: 1rem;
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            transition: all 0.3s ease;
-        }
-        
-        .auth-form .form-group input:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-            background: var(--card-bg);
-        }
-        
-        .checkbox-group {
-            background: var(--bg-secondary);
-            padding: 0.5rem 0.75rem;
-            border-radius: 12px;
-            margin-bottom: 0.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.75rem;
-            border: 1px solid var(--border-light);
-        }
-        
-        .checkbox-group label {
-            display: flex;
-            align-items: center;
-            gap: 0.55rem;
-            cursor: pointer;
-            font-size: 0.86rem;
-            line-height: 1.3;
-            margin: 0;
-            flex: 1;
-            font-weight: 500;
-        }
-        
-        .checkbox-group input[type="checkbox"] {
-            margin: 0;
-            cursor: pointer;
-            width: 16px;
-            height: 16px;
-            flex-shrink: 0;
-        }
-        
-        .checkbox-group small {
-            display: inline-block;
-            margin: 0;
-            color: var(--text-muted);
-            font-size: 0.68rem;
-            line-height: 1.1;
-            white-space: nowrap;
-            background: var(--card-bg);
-            border: 1px solid var(--border-light);
-            border-radius: 999px;
-            padding: 0.2rem 0.45rem;
-        }
-
-        .checkbox-group a {
-            color: var(--primary-color);
-            font-weight: 600;
-            text-decoration: none;
-        }
-
-        .checkbox-group a:hover {
-            text-decoration: underline;
-        }
-
-        @media (max-width: 640px) {
-            .checkbox-group {
-                align-items: flex-start;
-                flex-direction: column;
-                gap: 0.35rem;
-            }
-
-            .checkbox-group small {
-                margin-left: 1.5rem;
-            }
-        }
-        
-        .btn-group {
-            display: flex;
-            gap: 1rem;
-            margin-top: 2rem;
-        }
-        
-        .btn {
-            padding: 0.875rem 2rem;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-            border: none;
-            cursor: pointer;
-        }
-        
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-            color: white;
-            flex: 1;
-        }
-        
-        .btn-primary:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 16px rgba(37, 99, 235, 0.3);
-        }
-        
-        .btn-primary:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-        
-        .btn-secondary {
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            border: 2px solid var(--border-color);
-        }
-        
-        .btn-secondary:hover {
-            background: var(--bg-tertiary);
-            border-color: var(--text-secondary);
-        }
-        
-        .btn-block {
-            width: 100%;
-            margin-top: 2rem;
-        }
-        
-        /* Шаг оплаты */
-        .payment-loading {
-            text-align: center;
-            padding: 4rem 2rem;
-            background: var(--card-bg);
-            border-radius: 20px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-        }
-        
-        .payment-loading h3 {
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-            color: var(--text-primary);
-        }
-        
-        .payment-loading p {
-            color: var(--text-secondary);
-            margin-bottom: 2rem;
-        }
-        
-        .auth-link {
-            text-align: center;
-            margin-top: 2rem;
-            color: var(--text-secondary);
-        }
-        
-        .auth-link a {
-            color: var(--primary-color);
-            text-decoration: none;
-            font-weight: 600;
-        }
-        
-        .auth-link a:hover {
-            text-decoration: underline;
-        }
-        
-        @media (max-width: 768px) {
-            .subscription-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .registration-steps {
-                gap: 1rem;
-            }
-            
-            .step:not(:last-child)::after {
-                display: none;
-            }
-            
-            .step-label {
-                display: none;
-            }
-            
-            .data-form-container {
-                padding: 1.5rem;
-            }
-
-            .btn-group {
-                flex-direction: column;
-                gap: 0.625rem;
-            }
-
-            .btn-group .btn {
-                width: 100%;
-                min-width: 0;
-                padding: 0.8rem 1rem;
-                white-space: normal;
-            }
-            
-            .page-header h1 {
-                font-size: 2rem;
-            }
-
-            .subscription-grid {
-                grid-template-columns: 1fr;
-                gap: 1rem;
-            }
-
-            .subscription-card {
-                min-height: 0;
-                padding: 1rem;
-                border-radius: 16px;
-            }
-
-            .subscription-title {
-                margin-top: 1.8rem;
-                font-size: 1.35rem;
-            }
-
-            .subscription-price-new {
-                font-size: 1.8rem;
-            }
-        }
-    </style>
 </head>
 <body>
     <nav class="navbar">
@@ -628,206 +24,69 @@
     </nav>
 
     <main class="main-content">
-        <div class="subscription-page">
-            <div class="page-header">
-                <h1>Оформление подписки</h1>
-                <p>Выберите подходящий тариф и начните подготовку к экзаменам</p>
-            </div>
-            
-            <!-- Шаги регистрации -->
-            <div class="registration-steps">
-                <div class="step active" id="step1">
-                    <div class="step-number">1</div>
-                    <span class="step-label">Выбор подписки</span>
+        <div class="auth-container" style="max-width: 480px;">
+            <h2>Регистрация</h2>
+            <p style="color: var(--text-secondary); margin: -0.5rem 0 1.5rem; text-align: center;">
+                Создайте аккаунт бесплатно. Подписку можно оформить позже во вкладке «Подписки».
+            </p>
+            <form id="registerForm" class="auth-form">
+                <div class="form-group">
+                    <label for="regUsername">Никнейм</label>
+                    <input type="text" id="regUsername" name="username" required minlength="3" maxlength="50" placeholder="Введите ваш никнейм">
                 </div>
-                <div class="step" id="step2">
-                    <div class="step-number">2</div>
-                    <span class="step-label">Данные</span>
+                <div class="form-group">
+                    <label for="regEmail">Email</label>
+                    <input type="email" id="regEmail" name="email" required placeholder="your@email.com">
                 </div>
-                <div class="step" id="step3">
-                    <div class="step-number">3</div>
-                    <span class="step-label">Оплата</span>
+                <div class="form-group">
+                    <label for="regUniversity">Университет</label>
+                    <select id="regUniversity" name="universityId" required>
+                        <option value="">Загрузка...</option>
+                    </select>
                 </div>
-            </div>
-            
-            <!-- Шаг 1: Выбор подписки -->
-            <div class="registration-step active" id="subscriptionStep">
-                <div class="subscription-selection">
-                    <div class="subscription-grid">
-                        <div class="subscription-card selected" data-subscription="1" data-amount="500">
-                            <div class="subscription-title">1 месяц</div>
-                            <div class="subscription-price"><span class="subscription-price-new">500 сом</span></div>
-                            <div class="subscription-period">Полный доступ на 1 месяц</div>
-                            <button type="button" class="subscription-cta">🚀 Старт на 1 месяц</button>
-                            <div class="subscription-description">
-                                Все текущие услуги платформы
-                            </div>
-                            <div class="subscription-features">
-                                <ul>
-                                    <li>Неограниченный доступ к тестам</li>
-                                    <li>Все предметы</li>
-                                    <li>Статистика и прогресс</li>
-                                    <li>Система избранного</li>
-                                </ul>
-                            </div>
-                        </div>
-                        <div class="subscription-card" data-subscription="3" data-amount="950">
-                            <div class="subscription-title">3 месяца</div>
-                            <div class="subscription-price"><span class="subscription-price-old">1500 сом</span><span class="subscription-price-new">950 сом</span></div>
-                            <div class="subscription-period">Полный доступ на 3 месяца</div>
-                            <button type="button" class="subscription-cta">🔥 Выбрать на 3 месяца</button>
-                            <div class="subscription-description">
-                                Все текущие услуги платформы
-                            </div>
-                            <div class="subscription-features">
-                                <ul>
-                                    <li>Неограниченный доступ к тестам</li>
-                                    <li>Все предметы</li>
-                                    <li>Статистика и прогресс</li>
-                                    <li>Система избранного</li>
-                                </ul>
-                            </div>
-                        </div>
-                        <div class="subscription-card" data-subscription="12" data-amount="1950">
-                            <div class="subscription-badge">
-                                <span class="subscription-badge-left">Популярный ★</span>
-                                <span class="subscription-badge-right">⏰ Ограничено</span>
-                            </div>
-                            <div class="subscription-title">1 год</div>
-                            <div class="subscription-price"><span class="subscription-price-old">6000 сом</span><span class="subscription-price-new">1950 сом</span></div>
-                            <div class="subscription-period">Полный доступ на 12 месяцев</div>
-                            <button type="button" class="subscription-cta">🏷 Годовой доступ со скидкой</button>
-                            <div class="subscription-description">
-                                Максимальная выгода: ≈163 сом/месяц
-                            </div>
-                            <div class="subscription-features">
-                                <ul>
-                                    <li>Неограниченный доступ к тестам</li>
-                                    <li>Все предметы</li>
-                                    <li>Статистика и прогресс</li>
-                                    <li>Система избранного</li>
-                                </ul>
-                            </div>
-                            <div class="subscription-features locked">
-                                <ul>
-                                    <li>Лабораторная диагностика (скоро)</li>
-                                    <li>ЭКГ, рентген, КТ/МРТ, УЗИ (скоро)</li>
-                                    <li>Визуальные квизы (скоро)</li>
-                                    <li>USMLE-тесты (скоро)</li>
-                                    <li>Игры и баттлы (скоро)</li>
-                                </ul>
-                            </div>
-                            <div class="subscription-note">
-                                🎁 Покупая сейчас, ты фиксируешь цену.<br>
-                                <span>Когда функции выйдут — цена вырастет.</span>
-                            </div>
-                        </div>
-                        <div class="subscription-card disabled" data-subscription="group" data-amount="2000">
-                            <div class="subscription-title">Групповая</div>
-                            <div class="subscription-price"><span class="subscription-price-new">В разработке</span></div>
-                            <div class="subscription-period">Для групп от 5 человек</div>
-                            <button type="button" class="subscription-cta">👥 Тариф для группы скоро</button>
-                            <div class="subscription-description">
-                                Специальные условия для групп
-                            </div>
-                            <div class="subscription-features">
-                                <ul>
-                                    <li>Неограниченный доступ к тестам</li>
-                                    <li>Все предметы</li>
-                                    <li>Статистика и прогресс</li>
-                                    <li>Система избранного</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
+                <div class="form-group">
+                    <label for="regPassword">Пароль</label>
+                    <input type="password" id="regPassword" name="password" required minlength="6" placeholder="Минимум 6 символов">
                 </div>
-            </div>
-            
-            <!-- Шаг 2: Форма данных -->
-            <div class="registration-step" id="dataStep">
-                <div class="data-form-container">
-                    <h2 class="form-section-title">Заполните данные</h2>
-                    <form id="registerForm" class="auth-form">
-                        <div class="form-group">
-                            <label for="regUsername">Никнейм</label>
-                            <input type="text" id="regUsername" name="username" required minlength="3" maxlength="50" placeholder="Введите ваш никнейм">
-                        </div>
-                        <div class="form-group">
-                            <label for="regEmail">Email</label>
-                            <input type="email" id="regEmail" name="email" required placeholder="your@email.com">
-                        </div>
-                        <div class="form-group">
-                            <label for="regUniversity">Университет</label>
-                            <select id="regUniversity" name="universityId" required>
-                                <option value="">Загрузка...</option>
-                            </select>
-                            <small>Тесты будут показаны для выбранного университета</small>
-                        </div>
-                        <div class="form-group">
-                            <label for="regPassword">Пароль</label>
-                            <input type="password" id="regPassword" name="password" required minlength="6" placeholder="Минимум 6 символов">
-                        </div>
-                        <div class="form-group">
-                            <label for="regConfirmPassword">Подтвердите пароль</label>
-                            <input type="password" id="regConfirmPassword" name="confirmPassword" required placeholder="Повторите пароль">
-                        </div>
-                        <div class="form-group" id="promoCodeGroup">
-                            <label for="regPromoCode">Промокод (если есть)</label>
-                            <input type="text" id="regPromoCode" name="promoCode" placeholder="Введите промокод">
-                            <small id="regPromoCodeHint" style="display: none; color: var(--text-muted); margin-top: 0.4rem;">
-                                Вы уже перешли по бонусной ссылке
-                            </small>
-                        </div>
-                        <div class="form-group checkbox-group">
-                            <label for="dataConsent">
-                                <input type="checkbox" id="dataConsent" name="dataConsent" value="true" required style="pointer-events: auto; z-index: 10; position: relative;">
-                                <span>Согласие на <a href="/contact" data-doc="privacy" target="_blank" rel="noopener">обработку персональных данных</a></span>
-                            </label>
-                            <small>Обязательно для регистрации</small>
-                        </div>
-                        <div class="form-group checkbox-group">
-                            <label for="publicOffer">
-                                <input type="checkbox" id="publicOffer" name="publicOffer" value="true" required style="pointer-events: auto; z-index: 10; position: relative;">
-                                <span>Согласие с <a href="/contact" data-doc="offer" target="_blank" rel="noopener">публичной офертой</a></span>
-                            </label>
-                            <small>Обязательно для регистрации</small>
-                        </div>
-                        <div class="account-warning">
-                            <p class="account-warning-title">⚠️ Внимание</p>
-                            <p class="account-warning-text">
-                                Передача доступа к аккаунту третьим лицам запрещена. При нарушении —
-                                аккаунт удаляется без возможности восстановления.
-                            </p>
-                        </div>
-                        <div class="btn-group">
-                            <button type="button" class="btn btn-secondary" id="backToSubscriptionBtn">Назад</button>
-                            <button type="submit" class="btn btn-primary">Перейти к оплате</button>
-                        </div>
-                    
-                    </form>
+                <div class="form-group">
+                    <label for="regConfirmPassword">Подтвердите пароль</label>
+                    <input type="password" id="regConfirmPassword" name="confirmPassword" required placeholder="Повторите пароль">
                 </div>
-            </div>
-            
-            <!-- Шаг 3: Оплата -->
-            <div class="registration-step" id="paymentStep">
-                <div class="payment-loading">
-                    <h3>Обработка платежа...</h3>
-                    <p>
-                        Пожалуйста, подождите, происходит перенаправление на страницу оплаты
+                <div class="form-group" id="promoCodeGroup">
+                    <label for="regPromoCode">Реферальный код (если есть)</label>
+                    <input type="text" id="regPromoCode" name="referralCode" placeholder="Необязательно">
+                    <small id="regPromoCodeHint" style="display: none; color: var(--text-muted); margin-top: 0.4rem;">
+                        Вы уже перешли по бонусной ссылке
+                    </small>
+                </div>
+                <div class="form-group checkbox-group">
+                    <label for="dataConsent">
+                        <input type="checkbox" id="dataConsent" name="dataConsent" value="true" required>
+                        <span>Согласие на <a href="/contact" data-doc="privacy" target="_blank" rel="noopener">обработку персональных данных</a></span>
+                    </label>
+                </div>
+                <div class="form-group checkbox-group">
+                    <label for="publicOffer">
+                        <input type="checkbox" id="publicOffer" name="publicOffer" value="true" required>
+                        <span>Согласие с <a href="/contact" data-doc="offer" target="_blank" rel="noopener">публичной офертой</a></span>
+                    </label>
+                </div>
+                <div class="account-warning" style="margin-bottom: 1rem;">
+                    <p class="account-warning-title">⚠️ Внимание</p>
+                    <p class="account-warning-text">
+                        Передача доступа к аккаунту третьим лицам запрещена. При нарушении —
+                        аккаунт удаляется без возможности восстановления.
                     </p>
-                    <div class="loading" style="margin: 2rem auto;"></div>
                 </div>
-            </div>
-            
-            <p class="auth-link">Уже есть аккаунт? <a href="/login">Войти</a></p>
+                <button type="submit" class="btn btn-primary btn-block" id="registerSubmitBtn">Зарегистрироваться</button>
+                <p class="auth-link">Уже есть аккаунт? <a href="/login">Войти</a></p>
+            </form>
         </div>
     </main>
 
     <div id="notification" class="notification"></div>
     <script src="app.js"></script>
     <script>
-        let selectedSubscription = null;
-        let registrationData = null;
         let referralCode = null;
 
         async function loadUniversitiesForRegister() {
@@ -851,285 +110,118 @@
             }
         }
 
-        loadUniversitiesForRegister();
-
-        function applyReferralPromoLock() {
+        function applyReferralLock() {
+            const params = new URLSearchParams(window.location.search);
+            const ref = (params.get('ref') || '').trim().toUpperCase();
+            if (!ref) return;
+            referralCode = ref;
             const promoGroup = document.getElementById('promoCodeGroup');
             const promoInput = document.getElementById('regPromoCode');
             const promoHint = document.getElementById('regPromoCodeHint');
-            if (!promoInput) return;
-
-            if (referralCode) {
-                if (promoGroup) {
-                    promoGroup.style.display = 'none';
-                }
-                promoInput.value = '';
+            if (promoInput) {
+                promoInput.value = ref;
                 promoInput.disabled = true;
-                promoInput.placeholder = 'Вы уже перешли по бонусной ссылке';
-                if (promoHint) {
-                    promoHint.style.display = 'block';
-                }
-            } else {
-                if (promoGroup) {
-                    promoGroup.style.display = 'block';
-                }
-                promoInput.disabled = false;
-                promoInput.placeholder = 'Введите промокод';
-                if (promoHint) {
-                    promoHint.style.display = 'none';
-                }
             }
+            if (promoHint) promoHint.style.display = 'block';
         }
 
-        function getSubscriptionLabel(type) {
-            if (type === '1') return '1 месяц';
-            if (type === '3') return '3 месяца';
-            if (type === '12') return '1 год';
-            if (type === 'group') return 'групповой тариф';
-            return `${type} мес.`;
-        }
-        
         document.addEventListener('DOMContentLoaded', () => {
-            initTheme();
-            setupEventListeners();
-            
-            // Проверяем наличие реферального кода в URL
-            const urlParams = new URLSearchParams(window.location.search);
-            referralCode = urlParams.get('ref');
-            if (referralCode) {
-                referralCode = referralCode.toUpperCase();
-                console.log('✅ Referral code found in URL:', referralCode);
-                // Показываем уведомление о бонусе
-                setTimeout(() => {
-                    showNotification(`🎉 При регистрации вы получите 50 монет! Код: ${referralCode}`, 'success');
-                }, 500);
-            }
+            if (typeof initTheme === 'function') initTheme();
+            loadUniversitiesForRegister();
+            applyReferralLock();
 
-            applyReferralPromoLock();
-            
-            setupRegistrationSteps();
-        });
-        
-        function setupRegistrationSteps() {
-            // Выбор подписки
-            const subscriptionCards = document.querySelectorAll('.subscription-card');
-            const defaultCard = document.querySelector('.subscription-card.selected:not(.disabled)');
-            if (defaultCard) {
-                selectedSubscription = {
-                    type: defaultCard.dataset.subscription,
-                    amount: parseFloat(defaultCard.dataset.amount)
-                };
-            }
-            
-            subscriptionCards.forEach(card => {
-                card.addEventListener('click', function() {
-                    if (this.classList.contains('disabled')) {
-                        return;
-                    }
-                    
-                    // Убираем выделение с других карточек
-                    subscriptionCards.forEach(c => c.classList.remove('selected'));
-                    // Выделяем выбранную
-                    this.classList.add('selected');
-                    
-                    const amount = parseFloat(this.dataset.amount);
-                    
-                    selectedSubscription = {
-                        type: this.dataset.subscription,
-                        amount: amount
-                    };
-                    
-                    // Сразу переходим к заполнению данных
-                    showStep(2);
+            // Ссылки на документы из настроек
+            fetch('/api/settings/docs').then(r => r.json()).then((docs) => {
+                document.querySelectorAll('a[data-doc="privacy"]').forEach((a) => {
+                    if (docs.privacyPolicyUrl) a.href = docs.privacyPolicyUrl;
                 });
-            });
-            
-            // Кнопка "Назад" к выбору подписки
-            const backBtn = document.getElementById('backToSubscriptionBtn');
-            if (backBtn) {
-                backBtn.addEventListener('click', () => {
-                    showStep(1);
+                document.querySelectorAll('a[data-doc="offer"]').forEach((a) => {
+                    if (docs.publicOfferUrl) a.href = docs.publicOfferUrl;
                 });
-            }
-        }
-        
-        function showStep(stepNumber) {
-            // Скрываем все шаги
-            document.querySelectorAll('.registration-step').forEach(step => {
-                step.classList.remove('active');
-            });
-            
-            // Обновляем индикаторы шагов
-            document.querySelectorAll('.step').forEach((step, index) => {
-                step.classList.remove('active', 'completed');
-                if (index + 1 < stepNumber) {
-                    step.classList.add('completed');
-                } else if (index + 1 === stepNumber) {
-                    step.classList.add('active');
-                }
-            });
-            
-            // Показываем нужный шаг
-            if (stepNumber === 1) {
-                document.getElementById('subscriptionStep').classList.add('active');
-            } else if (stepNumber === 2) {
-                document.getElementById('dataStep').classList.add('active');
-            } else if (stepNumber === 3) {
-                document.getElementById('paymentStep').classList.add('active');
-            }
-        }
-        
-        // Переопределяем handleRegister для нового процесса
-        const registerForm = document.getElementById('registerForm');
-        if (registerForm) {
-            // Используем capture phase чтобы наш обработчик вызвался первым
-            registerForm.addEventListener('submit', async function(e) {
+            }).catch(() => {});
+
+            const form = document.getElementById('registerForm');
+            form.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                e.stopImmediatePropagation(); // Останавливаем все другие обработчики
-                
-                if (!selectedSubscription) {
-                    showNotification('Пожалуйста, выберите подписку', 'error');
-                    showStep(1);
-                    return;
-                }
-                
-                const formData = new FormData(this);
-                const universityId = formData.get('universityId');
+                e.stopImmediatePropagation();
+
+                const username = document.getElementById('regUsername').value.trim();
+                const email = document.getElementById('regEmail').value.trim();
+                const universityId = document.getElementById('regUniversity').value;
+                const password = document.getElementById('regPassword').value;
+                const confirmPassword = document.getElementById('regConfirmPassword').value;
+                const dataConsent = document.getElementById('dataConsent').checked;
+                const publicOffer = document.getElementById('publicOffer').checked;
+                const codeFromInput = document.getElementById('regPromoCode').value.trim();
+
                 if (!universityId) {
                     showNotification('Выберите университет', 'error');
                     return;
                 }
-                const data = {
-                    username: formData.get('username'),
-                    email: formData.get('email'),
-                    password: formData.get('password'),
-                    confirmPassword: formData.get('confirmPassword'),
-                    universityId: parseInt(universityId, 10),
-                    promoCode: referralCode ? '' : (formData.get('promoCode') || ''),
-                    dataConsent: document.getElementById('dataConsent').checked ? 'true' : 'false',
-                    publicOffer: document.getElementById('publicOffer').checked ? 'true' : 'false',
-                    subscription: selectedSubscription
-                };
-                
-                // Проверка чекбоксов
-                if (!document.getElementById('dataConsent').checked) {
-                    showNotification('Необходимо согласие на обработку персональных данных', 'error');
+                if (password !== confirmPassword) {
+                    showNotification('Пароли не совпадают', 'error');
                     return;
                 }
-                
-                if (!document.getElementById('publicOffer').checked) {
-                    showNotification('Необходимо согласие с публичной офертой', 'error');
+                if (!dataConsent || !publicOffer) {
+                    showNotification('Необходимо принять соглашения', 'error');
                     return;
                 }
-                
-                // Сохраняем данные регистрации
-                registrationData = data;
-                
-                // Переходим к оплате
-                showStep(3);
-                
+
+                const btn = document.getElementById('registerSubmitBtn');
+                btn.disabled = true;
+                btn.textContent = 'Регистрация...';
+
                 try {
-                    console.log('📝 Creating registration payment with data:', {
-                        amount: selectedSubscription.amount,
-                        email: data.email,
-                        username: data.username,
-                        subscriptionType: selectedSubscription.type
-                    });
-                    
-                    // Создаем платеж для регистрации
-                    const response = await fetch('/api/payments/create-registration', {
+                    const response = await fetch('/api/auth/register', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            amount: selectedSubscription.amount,
-                            description: `Регистрация: подписка на ${getSubscriptionLabel(selectedSubscription.type)}`,
-                            paymentType: 'registration',
-                            promoCode: data.promoCode,
-                            registrationData: {
-                                username: data.username,
-                                email: data.email,
-                                password: data.password,
-                                universityId: data.universityId,
-                                subscription: selectedSubscription,
-                                referralCode: referralCode
-                            }
+                            username,
+                            email,
+                            password,
+                            confirmPassword,
+                            universityId: parseInt(universityId, 10),
+                            referralCode: referralCode || codeFromInput || undefined,
+                            dataConsent: 'true',
+                            publicOffer: 'true'
                         })
                     });
-                    
-                    console.log('📥 Payment creation response status:', response.status);
-                    
+                    const data = await response.json();
                     if (!response.ok) {
-                        const errorText = await response.text();
-                        let errorData;
-                        try {
-                            errorData = JSON.parse(errorText);
-                        } catch (e) {
-                            errorData = { error: errorText };
-                        }
-                        console.error('❌ Payment creation failed:', errorData);
-                        showNotification(errorData.error || errorData.message || 'Ошибка при создании платежа', 'error');
-                        showStep(2);
+                        const msg = data.error || data.errors?.[0]?.msg || 'Ошибка регистрации';
+                        showNotification(msg, 'error');
+                        btn.disabled = false;
+                        btn.textContent = 'Зарегистрироваться';
                         return;
                     }
-                    
-                    const result = await response.json();
-                    console.log('✅ Payment created successfully:', {
-                        success: result.success,
-                        paymentId: result.paymentId,
-                        hasPaymentUrl: !!result.paymentUrl,
-                        paymentUrl: result.paymentUrl,
-                        fullResponse: result
-                    });
-                    
-                    // Проверяем наличие paymentUrl
-                    if (!result.paymentUrl) {
-                        console.error('❌ No paymentUrl in response:', result);
-                        showNotification('Ошибка: не получен URL для оплаты. Проверьте консоль для деталей.', 'error');
-                        showStep(2);
-                        return;
-                    }
-                    
-                    // Проверяем, что paymentUrl валидный
-                    if (!result.paymentUrl.startsWith('http://') && !result.paymentUrl.startsWith('https://')) {
-                        console.error('❌ Invalid paymentUrl format:', result.paymentUrl);
-                        showNotification('Ошибка: некорректный URL для оплаты', 'error');
-                        showStep(2);
-                        return;
-                    }
-                    
-                    // Сохраняем данные регистрации в localStorage (более надежно, чем sessionStorage при редиректах)
-                    localStorage.setItem('pendingRegistration', JSON.stringify(data));
-                    // Также сохраняем в sessionStorage для совместимости
-                    sessionStorage.setItem('pendingRegistration', JSON.stringify(data));
-                    
-                    console.log('🔄 Redirecting to Finik payment page:', result.paymentUrl);
-                    
-                    // Показываем сообщение пользователю перед редиректом
-                    const paymentStep = document.getElementById('paymentStep');
-                    if (paymentStep) {
-                        const loadingDiv = paymentStep.querySelector('.payment-loading');
-                        if (loadingDiv) {
-                            loadingDiv.innerHTML = `
-                                <h3>Перенаправление на страницу оплаты...</h3>
-                                <p>Пожалуйста, подождите, происходит перенаправление на страницу оплаты Finik</p>
-                                <div class="loading" style="margin: 2rem auto;"></div>
-                            `;
+
+                    if (data.token) {
+                        localStorage.setItem('token', data.token);
+                    } else {
+                        // Fallback: логин после регистрации
+                        const loginRes = await fetch('/api/auth/login', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ identifier: email, password })
+                        });
+                        const loginData = await loginRes.json();
+                        if (loginRes.ok && loginData.token) {
+                            localStorage.setItem('token', loginData.token);
                         }
                     }
-                    
-                    // Редирект на оплату с небольшой задержкой для показа сообщения
+
+                    showNotification('Аккаунт создан! Переходим к подпискам…', 'success');
                     setTimeout(() => {
-                        window.location.href = result.paymentUrl;
-                    }, 500);
-                } catch (error) {
-                    console.error('❌ Error creating payment:', error);
-                    showNotification('Ошибка соединения с сервером: ' + error.message, 'error');
-                    showStep(2);
+                        window.location.href = '/subscriptions?welcome=1';
+                    }, 600);
+                } catch (err) {
+                    console.error(err);
+                    showNotification('Ошибка соединения с сервером', 'error');
+                    btn.disabled = false;
+                    btn.textContent = 'Зарегистрироваться';
                 }
-            });
-        }
+            }, true);
+        });
     </script>
 </body>
 </html>

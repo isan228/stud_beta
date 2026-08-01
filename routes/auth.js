@@ -87,14 +87,33 @@ router.post('/register', [
     // Создание статистики
     await UserStats.create({ userId: user.id });
 
+    // Реферальные бонусы при бесплатной регистрации
+    if (referredBy) {
+      try {
+        user.coins = (user.coins || 0) + 50;
+        await user.save();
+        const referrer = await User.findByPk(referredBy);
+        if (referrer) {
+          referrer.coins = (referrer.coins || 0) + 50;
+          await referrer.save();
+        }
+      } catch (coinErr) {
+        console.error('Ошибка начисления реферальных монет:', coinErr);
+      }
+    }
+
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+
     res.status(201).json({
       message: 'Регистрация успешно завершена!',
+      token,
       user: {
         id: user.id,
         username: user.username,
         email: user.email,
         status: user.status,
-        universityId: user.universityId
+        universityId: user.universityId,
+        coins: user.coins || 0
       }
     });
   } catch (error) {

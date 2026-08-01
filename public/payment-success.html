@@ -23,7 +23,7 @@
                 var hasPaymentId = /(?:\?|&)paymentId=[\da-f-]{8}-/i.test(href);
                 var q = new URLSearchParams(window.location.search);
                 if (q.get('registration') === 'true' || q.get('reg') === '1' || hasPaymentId) return;
-                window.location.replace('/profile');
+                window.location.replace('/subscriptions');
             } catch (e) { /* остаёмся на странице */ }
         })();
     </script>
@@ -280,7 +280,7 @@
             </div>
             <div class="nav-menu">
                 <a href="/" class="nav-link">Главная</a>
-                <a href="/profile" class="nav-link">Профиль</a>
+                <a href="/subscriptions" class="nav-link">Подписки</a>
             </div>
         </div>
     </nav>
@@ -292,7 +292,8 @@
             </div>
             <h1 class="success-title">Оплата успешно завершена!</h1>
             <p class="success-message">
-                Спасибо ваша оплата прошла пожалуйста зайдите ранее веденными данными
+                Оплата прошла успешно. Подписка обновится в течение нескольких минут.
+                Вы можете проверить статус во вкладке «Подписки».
             </p>
             
             <div class="payment-details" id="paymentDetails" style="display: none;">
@@ -303,7 +304,8 @@
             </div>
             
             <div class="btn-group">
-                <a href="/" class="btn btn-primary">Войти</a>
+                <a href="/subscriptions" class="btn btn-primary">К подпискам</a>
+                <a href="/" class="btn btn-secondary">На главную</a>
             </div>
         </div>
     </main>
@@ -328,7 +330,7 @@
         const paymentIdFromUrl = extractPaymentId();
 
         async function goToProfile() {
-            window.location.replace('/profile');
+            window.location.replace('/subscriptions');
         }
 
         /** Возврат с Finik: получить JWT по paymentId (регистрация) или сразу в кабинет (подписка). */
@@ -454,7 +456,7 @@
                         localStorage.setItem('token', result.token);
                         localStorage.removeItem('pendingRegistration');
                         sessionStorage.removeItem('pendingRegistration');
-                        window.location.replace('/profile');
+                        window.location.replace('/subscriptions');
                         return;
                     } else {
                         const errorData = await loginResponse.json().catch(() => ({}));

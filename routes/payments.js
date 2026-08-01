@@ -625,18 +625,59 @@ router.post('/webhook', async (req, res) => {
 });
 
 /**
- * Получить список транзакций пользователя
+ * Получить список транзакций пользователя (история подписок)
  * GET /api/payments/transactions
  */
 router.get('/transactions', auth, async (req, res) => {
   try {
+    const user = await User.findByPk(req.user.id, {
+      attributes: ['id', 'subscriptionEndDate', 'coins']
+    });
+
     const transactions = await Transaction.findAll({
       where: { userId: req.user.id },
       order: [['createdAt', 'DESC']],
       limit: 50
     });
 
-    res.json({ transactions });
+    const planLabel = (months) => {
+      const m = parseInt(months, 10);
+      if (m === 12) return '1 год';
+      if (m === 3) return '3 месяца';
+      if (m === 1) return '1 месяц';
+      if (Number.isFinite(m) && m > 0) return `${m} мес.`;
+      return 'Подписка';
+    };
+
+    const items = transactions.map((t) => {
+      const json = t.toJSON();
+      const fields = json.fields || {};
+      const months = fields.subscriptionType || fields.registrationData?.subscription?.type || null;
+      return {
+        id: json.id,
+        status: json.status,
+        amount: json.amount,
+        createdAt: json.createdAt,
+        updatedAt: json.updatedAt,
+        paymentType: fields.paymentType || 'subscription',
+        subscriptionType: months,
+        planLabel: planLabel(months),
+        promoCode: fields.promoCode || null,
+        coinsUsed: fields.coinsToUse || 0,
+        description: fields.description || null
+      };
+    });
+
+    const end = user?.subscriptionEndDate ? new Date(user.subscriptionEndDate) : null;
+    const now = new Date();
+    const active = !!(end && end > now);
+
+    res.json({
+      subscriptionEndDate: user?.subscriptionEndDate || null,
+      subscriptionActive: active,
+      coins: user?.coins || 0,
+      transactions: items
+    });
   } catch (error) {
     console.error('Error fetching transactions:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
@@ -700,7 +741,7 @@ router.post('/create', [
       });
     }
 
-    // Получаем userId из токена (если есть) или null для тестирования
+    // Получаем userId из токена (обязателен для покупки подписки)
     let userId = null;
     let user = null;
     try {
@@ -712,8 +753,13 @@ router.post('/create', [
         user = await User.findByPk(userId);
       }
     } catch (e) {
-      // Игнорируем ошибки токена - работаем без авторизации для теста
-      console.log('Тестовый режим: платеж без авторизации');
+      console.log('Ошибка токена при создании платежа:', e.message);
+    }
+
+    if (!userId || !user) {
+      return res.status(401).json({
+        error: 'Войдите в аккаунт, чтобы оформить подписку'
+      });
     }
 
     // Промокод как процентная скидка
