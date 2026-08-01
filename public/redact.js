@@ -64,22 +64,48 @@ async function fetchEditor() {
         }
         setupRedactUI();
         loadErrorStats();
-        loadTestsForFilters();
+        fillRedactUniversityFilters().then(() => loadTestsForFilters());
     } catch (error) {
         console.error(error);
         redirectToLogin();
     }
 }
 
+async function fetchUniversitiesForRedact() {
+    try {
+        const response = await fetch('/api/universities');
+        if (!response.ok) return [];
+        return await response.json();
+    } catch {
+        return [];
+    }
+}
+
+async function fillRedactUniversityFilters() {
+    const universities = await fetchUniversitiesForRedact();
+    ['questionsUniversityFilter', 'testsUniversityFilter'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const current = el.value;
+        el.innerHTML = '<option value="">Все университеты</option>' +
+            universities.map(u => `<option value="${u.id}">${escapeHtml(u.shortName)}</option>`).join('');
+        if (current) el.value = current;
+    });
+}
+
 async function fetchTestsCached(force = false) {
+    const universityId = document.getElementById('questionsUniversityFilter')?.value || '';
+    const cacheKey = universityId || 'all';
     const now = Date.now();
-    if (!force && testsCache.data && now - testsCache.at < CACHE_MS) {
+    if (!force && testsCache.data && testsCache.key === cacheKey && now - testsCache.at < CACHE_MS) {
         return testsCache.data;
     }
-    const response = await fetch(`${REDACT_API}/tests`, { headers: editorAuthHeaders() });
+    const qs = universityId ? `?universityId=${encodeURIComponent(universityId)}` : '';
+    const response = await fetch(`${REDACT_API}/tests${qs}`, { headers: editorAuthHeaders() });
     if (!response.ok) throw new Error('Ошибка загрузки тестов');
     const data = await response.json();
     testsCache.data = data;
+    testsCache.key = cacheKey;
     testsCache.at = now;
     return data;
 }
@@ -109,7 +135,9 @@ async function loadErrorStats() {
 
 async function loadSubjectsForFilters() {
     try {
-        const response = await fetch(`${REDACT_API}/subjects`, { headers: editorAuthHeaders() });
+        const universityId = document.getElementById('testsUniversityFilter')?.value || '';
+        const qs = universityId ? `?universityId=${encodeURIComponent(universityId)}` : '';
+        const response = await fetch(`${REDACT_API}/subjects${qs}`, { headers: editorAuthHeaders() });
         if (!response.ok) return;
         const subjects = await response.json();
         const filter = document.getElementById('testsSubjectFilter');
@@ -117,7 +145,11 @@ async function loadSubjectsForFilters() {
             const current = filter.value;
             filter.innerHTML = '<option value="">Все предметы</option>' +
                 subjects.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
-            filter.value = current;
+            if (current && subjects.some(s => String(s.id) === String(current))) {
+                filter.value = current;
+            } else {
+                filter.value = '';
+            }
         }
     } catch (error) {
         console.error(error);
@@ -126,16 +158,23 @@ async function loadSubjectsForFilters() {
 
 async function loadTestsForFilters() {
     try {
-        const tests = await fetchTestsCached();
+        const tests = await fetchTestsCached(true);
         const questionsFilter = document.getElementById('questionsTestFilter');
         const questionTestSelect = document.getElementById('questionTestId');
         const options = '<option value="">Выберите тест</option>' +
-            tests.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+            tests.map(t => {
+                const tag = t.University?.shortName ? ` (${t.University.shortName})` : '';
+                return `<option value="${t.id}">${escapeHtml(t.name)}${escapeHtml(tag)}</option>`;
+            }).join('');
 
         if (questionsFilter) {
             const current = questionsFilter.value;
             questionsFilter.innerHTML = options;
-            questionsFilter.value = current || '';
+            if (current && tests.some(t => String(t.id) === String(current))) {
+                questionsFilter.value = current;
+            } else {
+                questionsFilter.value = '';
+            }
         }
         if (questionTestSelect) {
             const current = questionTestSelect.value;
@@ -164,13 +203,16 @@ async function applyQuestionExplanationForTestId(testId) {
 
 async function loadTestsList() {
     const subjectId = document.getElementById('testsSubjectFilter')?.value || '';
+    const universityId = document.getElementById('testsUniversityFilter')?.value || '';
     const list = document.getElementById('testsList');
     if (!list) return;
 
     try {
-        const url = subjectId
-            ? `${REDACT_API}/tests?subjectId=${encodeURIComponent(subjectId)}`
-            : `${REDACT_API}/tests`;
+        const params = new URLSearchParams();
+        if (subjectId) params.set('subjectId', subjectId);
+        if (universityId) params.set('universityId', universityId);
+        const qs = params.toString();
+        const url = `${REDACT_API}/tests${qs ? `?${qs}` : ''}`;
         const response = await fetch(url, { headers: editorAuthHeaders() });
         if (!response.ok) throw new Error();
         const tests = await response.json();
@@ -185,7 +227,9 @@ async function loadTestsList() {
                 <div>
                     <strong>${escapeHtml(t.name)}</strong>
                     <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0.25rem 0 0;">
-                        ${escapeHtml(t.Subject?.name || 'Без предмета')} • ID: ${t.id}
+                        ${escapeHtml(t.Subject?.name || 'Без предмета')}
+                        ${t.University?.shortName ? ` • ${escapeHtml(t.University.shortName)}` : ''}
+                        • ID: ${t.id}
                         ${t.isFree ? ' • бесплатный' : ''}
                     </p>
                 </div>
@@ -538,10 +582,12 @@ function switchRedactTab(tabName) {
     document.getElementById(`${tabName}Tab`)?.classList.add('active');
 
     if (tabName === 'questions') {
-        loadTestsForFilters();
+        fillRedactUniversityFilters().then(() => loadTestsForFilters());
     } else if (tabName === 'tests') {
-        loadSubjectsForFilters();
-        loadTestsList();
+        fillRedactUniversityFilters().then(async () => {
+            await loadSubjectsForFilters();
+            loadTestsList();
+        });
     } else if (tabName === 'errors') {
         loadErrorReports();
     }
@@ -558,6 +604,19 @@ function setupRedactUI() {
     });
 
     document.getElementById('questionsTestFilter')?.addEventListener('change', loadQuestions);
+    document.getElementById('questionsUniversityFilter')?.addEventListener('change', () => {
+        const testFilter = document.getElementById('questionsTestFilter');
+        if (testFilter) testFilter.value = '';
+        loadTestsForFilters();
+        const list = document.getElementById('questionsList');
+        if (list) {
+            list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 2rem;">Выберите тест</p>';
+        }
+    });
+    document.getElementById('testsUniversityFilter')?.addEventListener('change', async () => {
+        await loadSubjectsForFilters();
+        loadTestsList();
+    });
     let searchTimeout;
     document.getElementById('questionsSearch')?.addEventListener('input', () => {
         clearTimeout(searchTimeout);

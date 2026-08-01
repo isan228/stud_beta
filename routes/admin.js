@@ -923,6 +923,9 @@ router.get('/users', adminAuth, async (req, res) => {
         { email: { [Op.iLike]: `%${search}%` } }
       ];
     }
+    if (req.query.universityId) {
+      where.universityId = req.query.universityId;
+    }
 
     const { count, rows: users } = await User.findAndCountAll({
       where,

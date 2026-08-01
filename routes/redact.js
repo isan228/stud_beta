@@ -11,7 +11,8 @@ const {
   Test,
   Question,
   Answer,
-  ContactMessage
+  ContactMessage,
+  University
 } = require('../models');
 const { snapshotFromQuestion, logQuestionAudit, logErrorReportAudit } = require('../utils/questionAuditLog');
 
@@ -90,8 +91,19 @@ router.get('/me', editorAuth, async (req, res) => {
 // Справочники (только чтение)
 router.get('/subjects', editorAuth, async (req, res) => {
   try {
+    const where = {};
+    if (req.query.universityId) {
+      where.universityId = req.query.universityId;
+    }
     const subjects = await Subject.findAll({
-      attributes: ['id', 'name'],
+      where,
+      attributes: ['id', 'name', 'universityId'],
+      include: [{
+        model: University,
+        as: 'University',
+        attributes: ['id', 'shortName'],
+        required: false
+      }],
       order: [['name', 'ASC']]
     });
     res.json(subjects);
@@ -104,18 +116,27 @@ router.get('/subjects', editorAuth, async (req, res) => {
 router.get('/tests', editorAuth, async (req, res) => {
   try {
     const subjectId = req.query.subjectId;
+    const universityId = req.query.universityId;
     const where = {};
     if (subjectId) {
       where.subjectId = subjectId;
     }
+    if (universityId) {
+      where.universityId = universityId;
+    }
 
     const tests = await Test.findAll({
       where,
-      attributes: ['id', 'name', 'subjectId', 'description', 'isFree', 'hasExplanations'],
+      attributes: ['id', 'name', 'subjectId', 'universityId', 'description', 'isFree', 'hasExplanations'],
       include: [{
         model: Subject,
         as: 'Subject',
         attributes: ['id', 'name']
+      }, {
+        model: University,
+        as: 'University',
+        attributes: ['id', 'shortName'],
+        required: false
       }],
       order: [['name', 'ASC']]
     });

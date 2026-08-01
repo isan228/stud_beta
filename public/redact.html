@@ -60,6 +60,9 @@
                 <div class="admin-section-header">
                     <h2>Вопросы</h2>
                     <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                        <select id="questionsUniversityFilter" class="form-group input">
+                            <option value="">Все университеты</option>
+                        </select>
                         <select id="questionsTestFilter" class="form-group input">
                             <option value="">Выберите тест</option>
                         </select>
@@ -76,9 +79,14 @@
             <div id="testsTab" class="admin-tab-content">
                 <div class="admin-section-header">
                     <h2>Тесты</h2>
-                    <select id="testsSubjectFilter" class="form-group input">
-                        <option value="">Все предметы</option>
-                    </select>
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                        <select id="testsUniversityFilter" class="form-group input">
+                            <option value="">Все университеты</option>
+                        </select>
+                        <select id="testsSubjectFilter" class="form-group input">
+                            <option value="">Все предметы</option>
+                        </select>
+                    </div>
                 </div>
                 <div id="testsList" class="admin-list"></div>
             </div>

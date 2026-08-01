@@ -520,7 +520,14 @@ let currentUsersPage = 1;
 async function loadUsers(page = 1) {
     try {
         const search = document.getElementById('usersSearch')?.value || '';
-        const response = await fetch(`${ADMIN_API_URL}/users?page=${page}&limit=20&search=${encodeURIComponent(search)}`, {
+        const universityId = document.getElementById('usersUniversityFilter')?.value || '';
+        const params = new URLSearchParams({
+            page: String(page),
+            limit: '20',
+            search
+        });
+        if (universityId) params.set('universityId', universityId);
+        const response = await fetch(`${ADMIN_API_URL}/users?${params}`, {
             headers: {
                 'Authorization': `Bearer ${currentAdminToken}`
             }
@@ -1965,6 +1972,7 @@ function setupAdminEventListeners() {
     const testsUniversityFilter = document.getElementById('testsUniversityFilter');
     if (testsUniversityFilter) {
         testsUniversityFilter.addEventListener('change', () => {
+            loadSubjectsForFilters();
             loadTests();
         });
     }
@@ -1972,6 +1980,21 @@ function setupAdminEventListeners() {
     if (subjectsUniversityFilter) {
         subjectsUniversityFilter.addEventListener('change', () => {
             loadSubjects();
+        });
+    }
+    const usersUniversityFilter = document.getElementById('usersUniversityFilter');
+    if (usersUniversityFilter) {
+        usersUniversityFilter.addEventListener('change', () => {
+            loadUsers(1);
+        });
+    }
+    const questionsUniversityFilter = document.getElementById('questionsUniversityFilter');
+    if (questionsUniversityFilter) {
+        questionsUniversityFilter.addEventListener('change', () => {
+            const testFilter = document.getElementById('questionsTestFilter');
+            if (testFilter) testFilter.value = '';
+            loadTestsForFilters();
+            renderQuestionsSelectPrompt();
         });
     }
 
@@ -3106,6 +3129,7 @@ function switchTab(tabName) {
             break;
         case 'users':
             loadUsers();
+            loadUniversitiesForUsersFilter();
             break;
         case 'devices':
             loadDeviceAlerts(50);
@@ -3123,6 +3147,7 @@ function switchTab(tabName) {
             loadUniversitiesForFilters();
             break;
         case 'questions':
+            loadUniversitiesForQuestionsFilter();
             loadTestsForFilters();
             renderQuestionsSelectPrompt();
             break;
@@ -3589,13 +3614,24 @@ async function loadAdminAnalytics() {
 // Загрузка предметов для фильтров
 async function loadSubjectsForFilters() {
     try {
-        const subjects = await fetchAdminSubjectsCompact();
+        const universityId = document.getElementById('testsUniversityFilter')?.value || '';
+        const qs = new URLSearchParams({ compact: '1' });
+        if (universityId) qs.set('universityId', universityId);
+        const response = await fetch(`${ADMIN_API_URL}/subjects?${qs}`, {
+            headers: adminAuthHeaders()
+        });
+        if (!response.ok) throw new Error('subjects');
+        const subjects = await response.json();
         const testsFilter = document.getElementById('testsSubjectFilter');
         if (testsFilter) {
             const current = testsFilter.value;
             testsFilter.innerHTML = '<option value="">Все предметы</option>' +
                 subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-            if (current) testsFilter.value = current;
+            if (current && subjects.some(s => String(s.id) === String(current))) {
+                testsFilter.value = current;
+            } else {
+                testsFilter.value = '';
+            }
         }
     } catch (error) {
         console.error('Ошибка загрузки предметов для фильтра:', error);
@@ -3632,6 +3668,36 @@ async function loadUniversitiesForSubjectFilters() {
     }
 }
 
+async function loadUniversitiesForUsersFilter() {
+    try {
+        const universities = await fetchAdminUniversitiesCompact();
+        const filter = document.getElementById('usersUniversityFilter');
+        if (filter) {
+            const current = filter.value;
+            filter.innerHTML = '<option value="">Все университеты</option>' +
+                universities.map(u => `<option value="${u.id}">${u.shortName}</option>`).join('');
+            if (current) filter.value = current;
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки университетов для фильтра пользователей:', error);
+    }
+}
+
+async function loadUniversitiesForQuestionsFilter() {
+    try {
+        const universities = await fetchAdminUniversitiesCompact();
+        const filter = document.getElementById('questionsUniversityFilter');
+        if (filter) {
+            const current = filter.value;
+            filter.innerHTML = '<option value="">Все университеты</option>' +
+                universities.map(u => `<option value="${u.id}">${u.shortName}</option>`).join('');
+            if (current) filter.value = current;
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки университетов для фильтра вопросов:', error);
+    }
+}
+
 function filterTestSubjectsByUniversity() {
     const uniSelect = document.getElementById('testUniversityId');
     const subjectSelect = document.getElementById('testSubjectId');
@@ -3655,13 +3721,24 @@ function filterTestSubjectsByUniversity() {
 // Загрузка тестов для фильтров
 async function loadTestsForFilters() {
     try {
-        const tests = await fetchAdminTestsCompact();
+        const universityId = document.getElementById('questionsUniversityFilter')?.value || '';
+        const qs = new URLSearchParams({ compact: '1' });
+        if (universityId) qs.set('universityId', universityId);
+        const response = await fetch(`${ADMIN_API_URL}/tests?${qs}`, {
+            headers: adminAuthHeaders()
+        });
+        if (!response.ok) throw new Error('tests');
+        const tests = await response.json();
         const questionsFilter = document.getElementById('questionsTestFilter');
         if (questionsFilter) {
             const current = questionsFilter.value;
             questionsFilter.innerHTML = '<option value="">Выберите тест</option>' +
                 tests.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
-            questionsFilter.value = current || '';
+            if (current && tests.some(t => String(t.id) === String(current))) {
+                questionsFilter.value = current;
+            } else {
+                questionsFilter.value = '';
+            }
         }
     } catch (error) {
         console.error('Ошибка загрузки тестов для фильтра:', error);
