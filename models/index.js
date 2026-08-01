@@ -37,6 +37,9 @@ User.belongsTo(University, { foreignKey: 'universityId', as: 'University' });
 University.hasMany(Test, { foreignKey: 'universityId', as: 'Tests' });
 Test.belongsTo(University, { foreignKey: 'universityId', as: 'University' });
 
+University.hasMany(Subject, { foreignKey: 'universityId', as: 'Subjects' });
+Subject.belongsTo(University, { foreignKey: 'universityId', as: 'University' });
+
 Subject.hasMany(Test, { foreignKey: 'subjectId', as: 'Tests' });
 Test.belongsTo(Subject, { foreignKey: 'subjectId', as: 'Subject' });
 

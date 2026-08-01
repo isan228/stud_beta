@@ -1,4 +1,4 @@
-const { University, Test, User } = require('../models');
+const { University, Test, User, Subject } = require('../models');
 
 const KGMA = {
   name: 'Кыргызская государственная медицинская академия',
@@ -8,7 +8,7 @@ const KGMA = {
 
 /**
  * Создаёт КГМА при необходимости и проставляет universityId
- * всем тестам и пользователям без университета.
+ * тестам, пользователям и предметам без университета.
  */
 async function ensureUniversities() {
   let kgma = await University.findOne({
@@ -34,6 +34,14 @@ async function ensureUniversities() {
   );
   if (usersUpdated > 0) {
     console.log(`✅ Пользователям без университета назначен ${kgma.shortName}: ${usersUpdated}`);
+  }
+
+  const [subjectsUpdated] = await Subject.update(
+    { universityId: kgma.id },
+    { where: { universityId: null } }
+  );
+  if (subjectsUpdated > 0) {
+    console.log(`✅ Предметам без университета назначен ${kgma.shortName}: ${subjectsUpdated}`);
   }
 
   return kgma;

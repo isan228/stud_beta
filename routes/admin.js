@@ -1199,9 +1199,10 @@ router.delete('/universities/:id', adminAuth, async (req, res) => {
 
     const testsCount = await Test.count({ where: { universityId: university.id } });
     const usersCount = await User.count({ where: { universityId: university.id } });
-    if (testsCount > 0 || usersCount > 0) {
+    const subjectsCount = await Subject.count({ where: { universityId: university.id } });
+    if (testsCount > 0 || usersCount > 0 || subjectsCount > 0) {
       return res.status(400).json({
-        error: `Нельзя удалить: привязано тестов ${testsCount}, пользователей ${usersCount}. Сначала переназначьте или отключите университет.`
+        error: `Нельзя удалить: привязано предметов ${subjectsCount}, тестов ${testsCount}, пользователей ${usersCount}. Сначала переназначьте или отключите университет.`
       });
     }
 
@@ -1216,7 +1217,13 @@ router.delete('/universities/:id', adminAuth, async (req, res) => {
 // Управление предметами
 router.get('/subjects/:id', adminAuth, async (req, res) => {
   try {
-    const subject = await Subject.findByPk(req.params.id);
+    const subject = await Subject.findByPk(req.params.id, {
+      include: [{
+        model: University,
+        as: 'University',
+        attributes: ['id', 'name', 'shortName']
+      }]
+    });
     if (!subject) {
       return res.status(404).json({ error: 'Предмет не найден' });
     }
@@ -1229,16 +1236,35 @@ router.get('/subjects/:id', adminAuth, async (req, res) => {
 
 router.get('/subjects', adminAuth, async (req, res) => {
   try {
+    const where = {};
+    if (req.query.universityId) {
+      where.universityId = req.query.universityId;
+    }
+
     if (req.query.compact === '1') {
       const subjects = await Subject.findAll({
-        attributes: ['id', 'name'],
+        where,
+        attributes: ['id', 'name', 'universityId'],
+        include: [{
+          model: University,
+          as: 'University',
+          attributes: ['id', 'shortName'],
+          required: false
+        }],
         order: [['name', 'ASC']]
       });
       return res.json(subjects);
     }
 
     const subjects = await Subject.findAll({
-      attributes: ['id', 'name', 'description', 'createdAt', 'updatedAt'],
+      where,
+      attributes: ['id', 'name', 'description', 'universityId', 'createdAt', 'updatedAt'],
+      include: [{
+        model: University,
+        as: 'University',
+        attributes: ['id', 'name', 'shortName'],
+        required: false
+      }],
       order: [['createdAt', 'DESC']]
     });
 
@@ -1252,6 +1278,7 @@ router.get('/subjects', adminAuth, async (req, res) => {
 // Создать предмет
 router.post('/subjects', adminAuth, [
   body('name').trim().notEmpty().withMessage('Название предмета обязательно'),
+  body('universityId').isInt({ min: 1 }).withMessage('Университет обязателен'),
   body('description').optional()
 ], async (req, res) => {
   try {
@@ -1260,11 +1287,33 @@ router.post('/subjects', adminAuth, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, description } = req.body;
-    const subject = await Subject.create({ name, description });
+    const { name, description, universityId } = req.body;
+    const university = await University.findByPk(universityId);
+    if (!university) {
+      return res.status(400).json({ error: 'Университет не найден' });
+    }
+
+    const existing = await Subject.findOne({
+      where: {
+        universityId: university.id,
+        name: { [Op.iLike]: String(name).trim() }
+      }
+    });
+    if (existing) {
+      return res.status(400).json({ error: 'Предмет с таким названием уже есть у этого университета' });
+    }
+
+    const subject = await Subject.create({
+      name: String(name).trim(),
+      description,
+      universityId: university.id
+    });
     res.status(201).json(subject);
   } catch (error) {
     console.error('Ошибка создания предмета:', error);
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(400).json({ error: 'Предмет с таким названием уже есть у этого университета' });
+    }
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
@@ -1284,14 +1333,41 @@ router.put('/subjects/:id', adminAuth, [
       return res.status(404).json({ error: 'Предмет не найден' });
     }
 
-    const { name, description } = req.body;
-    subject.name = name;
+    const { name, description, universityId } = req.body;
+    const nextName = String(name).trim();
+    const nextUniversityId = universityId !== undefined
+      ? parseInt(universityId, 10)
+      : subject.universityId;
+
+    if (universityId !== undefined) {
+      const university = await University.findByPk(nextUniversityId);
+      if (!university) {
+        return res.status(400).json({ error: 'Университет не найден' });
+      }
+    }
+
+    const existing = await Subject.findOne({
+      where: {
+        id: { [Op.ne]: subject.id },
+        universityId: nextUniversityId,
+        name: { [Op.iLike]: nextName }
+      }
+    });
+    if (existing) {
+      return res.status(400).json({ error: 'Предмет с таким названием уже есть у этого университета' });
+    }
+
+    subject.name = nextName;
     if (description !== undefined) subject.description = description;
+    if (universityId !== undefined) subject.universityId = nextUniversityId;
     await subject.save();
 
     res.json(subject);
   } catch (error) {
     console.error('Ошибка обновления предмета:', error);
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(400).json({ error: 'Предмет с таким названием уже есть у этого университета' });
+    }
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

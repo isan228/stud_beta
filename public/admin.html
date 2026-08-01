@@ -203,7 +203,12 @@
                 <div id="subjectsTab" class="admin-tab-content">
                     <div class="admin-section-header">
                         <h2>Управление предметами</h2>
-                        <button class="btn btn-primary" id="addSubjectBtn">+ Добавить предмет</button>
+                        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                            <select id="subjectsUniversityFilter" class="form-group input">
+                                <option value="">Все университеты</option>
+                            </select>
+                            <button class="btn btn-primary" id="addSubjectBtn">+ Добавить предмет</button>
+                        </div>
                     </div>
                     <div id="subjectsList" class="admin-list"></div>
                 </div>
@@ -551,6 +556,12 @@
             <h2 id="subjectModalTitle">Добавить предмет</h2>
             <form id="subjectForm">
                 <input type="hidden" id="subjectId">
+                <div class="form-group">
+                    <label for="subjectUniversityId">Университет</label>
+                    <select id="subjectUniversityId" required>
+                        <option value="">Выберите университет</option>
+                    </select>
+                </div>
                 <div class="form-group">
                     <label for="subjectName">Название</label>
                     <input type="text" id="subjectName" required>

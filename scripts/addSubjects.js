@@ -1,6 +1,7 @@
 require('dotenv').config();
 const sequelize = require('../config/database');
 const Subject = require('../models/Subject');
+const { ensureUniversities } = require('../utils/ensureUniversities');
 
 const subjects = [
   'Оториноларингология',
@@ -30,16 +31,19 @@ async function addSubjects() {
     await sequelize.authenticate();
     console.log('✓ Подключение к БД установлено');
 
+    const kgma = await ensureUniversities();
+
     let added = 0;
     let skipped = 0;
 
     for (const subjectName of subjects) {
       try {
         const [subject, created] = await Subject.findOrCreate({
-          where: { name: subjectName },
+          where: { name: subjectName, universityId: kgma.id },
           defaults: {
             name: subjectName,
-            description: `Тесты по предмету ${subjectName}`
+            description: `Тесты по предмету ${subjectName}`,
+            universityId: kgma.id
           }
         });
 
@@ -68,4 +72,3 @@ async function addSubjects() {
 }
 
 addSubjects();
-

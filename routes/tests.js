@@ -198,7 +198,10 @@ router.get('/subjects', async (req, res) => {
         return res.json([]);
       }
       const subjects = await Subject.findAll({
-        where: { id: { [Op.in]: subjectIds } },
+        where: {
+          id: { [Op.in]: subjectIds },
+          ...(universityId ? { universityId } : {})
+        },
         order: [['name', 'ASC']]
       });
       return res.json(subjects);

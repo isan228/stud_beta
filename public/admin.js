@@ -726,7 +726,9 @@ async function deleteUniversity(id) {
 // Загрузка предметов
 async function loadSubjects() {
     try {
-        const response = await fetch(`${ADMIN_API_URL}/subjects`, {
+        const universityId = document.getElementById('subjectsUniversityFilter')?.value || '';
+        const qs = universityId ? `?universityId=${encodeURIComponent(universityId)}` : '';
+        const response = await fetch(`${ADMIN_API_URL}/subjects${qs}`, {
             headers: {
                 'Authorization': `Bearer ${currentAdminToken}`
             }
@@ -743,10 +745,10 @@ async function loadSubjects() {
             subjectsList.innerHTML = subjects.map(subject => `
                 <div class="admin-list-item">
                     <div style="flex: 1;">
-                        <h4>${subject.name}</h4>
+                        <h4>${subject.name} ${subject.University?.shortName ? `<span style="background: var(--bg-secondary); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">${subject.University.shortName}</span>` : ''}</h4>
                         ${subject.description ? `<p style="color: var(--text-muted); margin: 0.5rem 0;">${subject.description}</p>` : ''}
                         <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
-                            Тестов: ${subject.testCount ?? subject.Tests?.length ?? 0}
+                            Университет: ${subject.University?.shortName || '—'} | Тестов: ${subject.testCount ?? subject.Tests?.length ?? 0}
                         </p>
                     </div>
                     <div style="display: flex; gap: 0.5rem;">
@@ -762,6 +764,15 @@ async function loadSubjects() {
         console.error('Ошибка загрузки предметов:', error);
         showNotification('Ошибка загрузки предметов', 'error');
     }
+}
+
+async function fillSubjectUniversitySelect(selectedId) {
+    const select = document.getElementById('subjectUniversityId');
+    if (!select) return;
+    const universities = await fetchAdminUniversitiesCompact();
+    select.innerHTML = '<option value="">Выберите университет</option>' +
+        universities.map(u => `<option value="${u.id}">${u.shortName} — ${u.name}</option>`).join('');
+    if (selectedId) select.value = String(selectedId);
 }
 
 // Загрузка тестов
@@ -1224,6 +1235,7 @@ async function editSubject(subjectId) {
         const subject = await response.json();
 
         if (subject) {
+            await fillSubjectUniversitySelect(subject.universityId);
             document.getElementById('subjectId').value = subject.id;
             document.getElementById('subjectName').value = subject.name;
             document.getElementById('subjectDescription').value = subject.description || '';
@@ -1247,12 +1259,19 @@ async function editTest(testId) {
         const subjectSelect = document.getElementById('testSubjectId');
         if (subjectSelect) {
             subjectSelect.innerHTML = '<option value="">Выберите предмет</option>' +
-                subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+                subjects.map(s => {
+                    const tag = s.University?.shortName || '';
+                    return `<option value="${s.id}" data-university-id="${s.universityId || ''}">${s.name}${tag ? ` (${tag})` : ''}</option>`;
+                }).join('');
         }
         const universitySelect = document.getElementById('testUniversityId');
         if (universitySelect) {
             universitySelect.innerHTML = '<option value="">Выберите университет</option>' +
                 universities.map(u => `<option value="${u.id}">${u.shortName} — ${u.name}</option>`).join('');
+            if (!universitySelect.dataset.boundSubjectFilter) {
+                universitySelect.dataset.boundSubjectFilter = '1';
+                universitySelect.addEventListener('change', () => filterTestSubjectsByUniversity());
+            }
         }
 
         if (!testResponse.ok) {
@@ -1264,8 +1283,9 @@ async function editTest(testId) {
             document.getElementById('testId').value = test.id;
             document.getElementById('testName').value = test.name;
             document.getElementById('testDescription').value = test.description || '';
-            document.getElementById('testSubjectId').value = test.subjectId;
             if (universitySelect) universitySelect.value = test.universityId || '';
+            filterTestSubjectsByUniversity();
+            document.getElementById('testSubjectId').value = test.subjectId;
             document.getElementById('testIsFree').checked = test.isFree || false;
             const testHasExplEl = document.getElementById('testHasExplanations');
             if (testHasExplEl) testHasExplEl.checked = !!test.hasExplanations;
@@ -1398,6 +1418,12 @@ async function saveSubject(e) {
     const id = document.getElementById('subjectId').value;
     const name = document.getElementById('subjectName').value;
     const description = document.getElementById('subjectDescription').value;
+    const universityId = parseInt(document.getElementById('subjectUniversityId').value, 10);
+
+    if (!universityId) {
+        showNotification('Выберите университет', 'error');
+        return;
+    }
 
     try {
         const url = id ? `${ADMIN_API_URL}/subjects/${id}` : `${ADMIN_API_URL}/subjects`;
@@ -1409,7 +1435,7 @@ async function saveSubject(e) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${currentAdminToken}`
             },
-            body: JSON.stringify({ name, description })
+            body: JSON.stringify({ name, description, universityId })
         });
 
         if (response.ok) {
@@ -1705,10 +1731,15 @@ function setupAdminEventListeners() {
     // Кнопки добавления
     const addSubjectBtn = document.getElementById('addSubjectBtn');
     if (addSubjectBtn) {
-        addSubjectBtn.addEventListener('click', () => {
+        addSubjectBtn.addEventListener('click', async () => {
             document.getElementById('subjectId').value = '';
             document.getElementById('subjectName').value = '';
             document.getElementById('subjectDescription').value = '';
+            try {
+                await fillSubjectUniversitySelect();
+            } catch (e) {
+                console.error(e);
+            }
             document.getElementById('subjectModalTitle').textContent = 'Добавить предмет';
             document.getElementById('subjectModal').style.display = 'block';
         });
@@ -1725,11 +1756,18 @@ function setupAdminEventListeners() {
                 ]);
                 const select = document.getElementById('testSubjectId');
                 select.innerHTML = '<option value="">Выберите предмет</option>' +
-                    subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+                    subjects.map(s => {
+                        const tag = s.University?.shortName || '';
+                        return `<option value="${s.id}" data-university-id="${s.universityId || ''}">${s.name}${tag ? ` (${tag})` : ''}</option>`;
+                    }).join('');
                 const uniSelect = document.getElementById('testUniversityId');
                 if (uniSelect) {
                     uniSelect.innerHTML = '<option value="">Выберите университет</option>' +
                         universities.map(u => `<option value="${u.id}">${u.shortName} — ${u.name}</option>`).join('');
+                    if (!uniSelect.dataset.boundSubjectFilter) {
+                        uniSelect.dataset.boundSubjectFilter = '1';
+                        uniSelect.addEventListener('change', () => filterTestSubjectsByUniversity());
+                    }
                 }
             } catch (error) {
                 console.error('Ошибка загрузки предметов:', error);
@@ -1928,6 +1966,12 @@ function setupAdminEventListeners() {
     if (testsUniversityFilter) {
         testsUniversityFilter.addEventListener('change', () => {
             loadTests();
+        });
+    }
+    const subjectsUniversityFilter = document.getElementById('subjectsUniversityFilter');
+    if (subjectsUniversityFilter) {
+        subjectsUniversityFilter.addEventListener('change', () => {
+            loadSubjects();
         });
     }
 
@@ -3071,6 +3115,7 @@ function switchTab(tabName) {
             break;
         case 'subjects':
             loadSubjects();
+            loadUniversitiesForSubjectFilters();
             break;
         case 'tests':
             loadTests();
@@ -3570,6 +3615,41 @@ async function loadUniversitiesForFilters() {
     } catch (error) {
         console.error('Ошибка загрузки университетов для фильтра:', error);
     }
+}
+
+async function loadUniversitiesForSubjectFilters() {
+    try {
+        const universities = await fetchAdminUniversitiesCompact();
+        const filter = document.getElementById('subjectsUniversityFilter');
+        if (filter) {
+            const current = filter.value;
+            filter.innerHTML = '<option value="">Все университеты</option>' +
+                universities.map(u => `<option value="${u.id}">${u.shortName}</option>`).join('');
+            if (current) filter.value = current;
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки университетов для фильтра предметов:', error);
+    }
+}
+
+function filterTestSubjectsByUniversity() {
+    const uniSelect = document.getElementById('testUniversityId');
+    const subjectSelect = document.getElementById('testSubjectId');
+    if (!uniSelect || !subjectSelect) return;
+    const uniId = uniSelect.value;
+    const current = subjectSelect.value;
+    Array.from(subjectSelect.options).forEach((opt, idx) => {
+        if (idx === 0) {
+            opt.hidden = false;
+            return;
+        }
+        const optUni = opt.getAttribute('data-university-id') || '';
+        const match = !uniId || !optUni || optUni === uniId;
+        opt.hidden = !match;
+        if (!match && opt.value === current) {
+            subjectSelect.value = '';
+        }
+    });
 }
 
 // Загрузка тестов для фильтров
