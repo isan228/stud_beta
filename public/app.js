@@ -3472,16 +3472,25 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         if (subsPlans) {
             subsPlans.innerHTML = list.map((p) => {
                 const selected = Number(p.months) === pickMonths ? ' selected' : '';
+                const months = Number(p.months);
+                const isBest = months === 12 || (p.oldPrice != null && Number(p.oldPrice) > Number(p.price) * 1.2);
+                const badge = months === 12
+                    ? '<span class="subs-plan-badge">Выгодно</span>'
+                    : (months === 3 ? '<span class="subs-plan-badge">Популярный</span>' : '');
+                const bestClass = isBest ? ' subs-plan--best' : '';
                 return `
-                <div class="subs-plan plan-card${selected}" data-months="${p.months}" data-price="${p.price}" onclick="selectPlan(this)">
-                    <div class="subs-plan-name">${p.title || planDesc(p.months)}</div>
+                <div class="subs-plan${selected}${bestClass}" data-months="${p.months}" data-price="${p.price}" onclick="selectPlan(this)" role="button" tabindex="0">
+                    ${badge}
+                    <div class="subs-plan-name">${p.title || planDesc(months)}</div>
                     <div class="subs-plan-price">${formatPlanPriceHtml(p.price, p.oldPrice)}</div>
-                    <div class="subs-plan-desc">${planDesc(p.months)}</div>
+                    <div class="subs-plan-desc">${planDesc(months)}</div>
+                    <span class="subs-plan-check" aria-hidden="true"></span>
                 </div>`;
             }).join('') + `
-                <div class="subs-plan plan-card disabled">
+                <div class="subs-plan disabled" aria-disabled="true">
+                    <span class="subs-plan-badge soon">Скоро</span>
                     <div class="subs-plan-name">Групповая</div>
-                    <div class="subs-plan-price" style="color: var(--text-muted); font-size: 1.1rem;">В разработке</div>
+                    <div class="subs-plan-price" style="color: var(--text-muted); font-size: 1.15rem;">В разработке</div>
                     <div class="subs-plan-desc">Для групп от 5 человек</div>
                 </div>`;
         }
@@ -3684,13 +3693,30 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             statusBox.classList.toggle('active', active);
             statusBox.classList.toggle('inactive', !active);
 
+            const statusPill = document.getElementById('subsStatusPill');
+            const statusIcon = document.getElementById('subsStatusIcon');
             if (active && end) {
                 const daysLeft = Math.max(0, Math.ceil((end - new Date()) / (1000 * 60 * 60 * 24)));
                 statusText.innerHTML = `Подписка <strong>активна</strong> до <strong>${end.toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' })}</strong> (осталось ${daysLeft} дн.).`;
+                if (statusPill) {
+                    statusPill.textContent = 'Активна';
+                    statusPill.className = 'subs-pill on';
+                }
+                if (statusIcon) statusIcon.textContent = '✓';
             } else if (end) {
                 statusText.innerHTML = `Подписка <strong>истекла</strong> ${end.toLocaleDateString('ru-RU')}. Выберите тариф ниже, чтобы продлить.`;
+                if (statusPill) {
+                    statusPill.textContent = 'Истекла';
+                    statusPill.className = 'subs-pill off';
+                }
+                if (statusIcon) statusIcon.textContent = '!';
             } else {
                 statusText.innerHTML = 'Подписки пока нет. Выберите тариф и оформите доступ.';
+                if (statusPill) {
+                    statusPill.textContent = 'Нет доступа';
+                    statusPill.className = 'subs-pill off';
+                }
+                if (statusIcon) statusIcon.textContent = '⏱';
             }
 
             await loadAndRenderSubscriptionPlans(selectedPlan.months);
