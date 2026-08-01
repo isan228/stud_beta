@@ -20,6 +20,7 @@ const PromoCode = require('./PromoCode');
 const BroadcastMessage = require('./BroadcastMessage');
 const UserBroadcastNotification = require('./UserBroadcastNotification');
 const University = require('./University');
+const SubscriptionPlan = require('./SubscriptionPlan');
 
 // Определение связей
 User.hasMany(TestResult, { foreignKey: 'userId', as: 'TestResults' });
@@ -39,6 +40,9 @@ Test.belongsTo(University, { foreignKey: 'universityId', as: 'University' });
 
 University.hasMany(Subject, { foreignKey: 'universityId', as: 'Subjects' });
 Subject.belongsTo(University, { foreignKey: 'universityId', as: 'University' });
+
+University.hasMany(SubscriptionPlan, { foreignKey: 'universityId', as: 'SubscriptionPlans', onDelete: 'CASCADE' });
+SubscriptionPlan.belongsTo(University, { foreignKey: 'universityId', as: 'University' });
 
 Subject.hasMany(Test, { foreignKey: 'subjectId', as: 'Tests' });
 Test.belongsTo(Subject, { foreignKey: 'subjectId', as: 'Subject' });
@@ -96,6 +100,7 @@ module.exports = {
   PromoCode,
   BroadcastMessage,
   UserBroadcastNotification,
-  University
+  University,
+  SubscriptionPlan
 };
 

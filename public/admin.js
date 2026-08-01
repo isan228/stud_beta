@@ -2135,6 +2135,15 @@ function setupAdminEventListeners() {
         promoResetBtn.addEventListener('click', resetPromoForm);
     }
 
+    const subsAdminUniversity = document.getElementById('subsAdminUniversity');
+    if (subsAdminUniversity) {
+        subsAdminUniversity.addEventListener('change', fillSubscriptionPlansForm);
+    }
+    const subsAdminForm = document.getElementById('subsAdminForm');
+    if (subsAdminForm) {
+        subsAdminForm.addEventListener('submit', saveSubscriptionPlansAdmin);
+    }
+
     const adminChatForm = document.getElementById('adminChatForm');
     if (adminChatForm) {
         adminChatForm.addEventListener('submit', handleAdminChatSubmit);
@@ -2361,6 +2370,109 @@ async function deletePromoCode(id) {
     } catch (error) {
         console.error('Ошибка удаления промокода:', error);
         showNotification('Ошибка удаления промокода', 'error');
+    }
+}
+
+let adminSubscriptionPlansCache = [];
+
+async function loadSubscriptionPlansAdmin() {
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/subscription-plans`, {
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+        });
+        if (!response.ok) throw new Error('Ошибка загрузки тарифов');
+        adminSubscriptionPlansCache = await response.json();
+
+        const select = document.getElementById('subsAdminUniversity');
+        if (!select) return;
+
+        const prev = select.value;
+        select.innerHTML = adminSubscriptionPlansCache.map((u) =>
+            `<option value="${u.universityId}">${u.shortName} — ${u.name}</option>`
+        ).join('');
+
+        if (!adminSubscriptionPlansCache.length) {
+            select.innerHTML = '<option value="">Нет университетов</option>';
+            const hint = document.getElementById('subsAdminHint');
+            if (hint) hint.textContent = 'Сначала создайте университет во вкладке «Университеты».';
+            return;
+        }
+
+        if (prev && adminSubscriptionPlansCache.some((u) => String(u.universityId) === String(prev))) {
+            select.value = prev;
+        }
+        fillSubscriptionPlansForm();
+    } catch (error) {
+        console.error('Ошибка загрузки тарифов:', error);
+        showNotification('Ошибка загрузки тарифов подписок', 'error');
+    }
+}
+
+function fillSubscriptionPlansForm() {
+    const select = document.getElementById('subsAdminUniversity');
+    const hint = document.getElementById('subsAdminHint');
+    if (!select) return;
+
+    const uni = adminSubscriptionPlansCache.find((u) => String(u.universityId) === String(select.value));
+    if (!uni) return;
+
+    [1, 3, 12].forEach((months) => {
+        const plan = (uni.plans || []).find((p) => Number(p.months) === months) || {};
+        const priceEl = document.getElementById(`subsPrice${months}`);
+        const oldEl = document.getElementById(`subsOldPrice${months}`);
+        const activeEl = document.getElementById(`subsActive${months}`);
+        if (priceEl) priceEl.value = plan.price != null ? plan.price : '';
+        if (oldEl) oldEl.value = plan.oldPrice != null ? plan.oldPrice : '';
+        if (activeEl) activeEl.checked = plan.isActive !== false;
+    });
+
+    if (hint) {
+        hint.textContent = `Редактируете тарифы для ${uni.shortName}. Цены сразу применяются на странице «Подписки» для студентов этого университета.`;
+    }
+}
+
+async function saveSubscriptionPlansAdmin(e) {
+    e.preventDefault();
+    const select = document.getElementById('subsAdminUniversity');
+    if (!select || !select.value) {
+        showNotification('Выберите университет', 'error');
+        return;
+    }
+
+    const plans = [1, 3, 12].map((months) => {
+        const price = parseFloat(document.getElementById(`subsPrice${months}`)?.value);
+        const oldRaw = document.getElementById(`subsOldPrice${months}`)?.value;
+        const oldPrice = oldRaw === '' || oldRaw == null ? null : parseFloat(oldRaw);
+        const isActive = !!document.getElementById(`subsActive${months}`)?.checked;
+        return { months, price, oldPrice, isActive };
+    });
+
+    for (const p of plans) {
+        if (!Number.isFinite(p.price) || p.price < 0.01) {
+            showNotification(`Укажите корректную цену для ${p.months} мес.`, 'error');
+            return;
+        }
+    }
+
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/subscription-plans/${select.value}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${currentAdminToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ plans })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            showNotification(result.error || 'Ошибка сохранения тарифов', 'error');
+            return;
+        }
+        showNotification('Цены подписок сохранены', 'success');
+        await loadSubscriptionPlansAdmin();
+    } catch (error) {
+        console.error('Ошибка сохранения тарифов:', error);
+        showNotification('Ошибка сохранения тарифов', 'error');
     }
 }
 
@@ -3174,6 +3286,9 @@ function switchTab(tabName) {
             break;
         case 'promo':
             loadPromoCodes();
+            break;
+        case 'subscriptions':
+            loadSubscriptionPlansAdmin();
             break;
         case 'analytics':
             loadAdminAnalytics();

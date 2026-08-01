@@ -190,34 +190,8 @@
             <span class="close" id="renewalModalClose">&times;</span>
             <h2 style="margin-bottom: 1.5rem; text-align: center;">Продление подписки</h2>
 
-            <div class="subscription-plans">
-                <div class="plan-card selected" data-months="1" data-price="500" onclick="selectPlan(this)">
-                    <div class="plan-header">
-                        <span class="plan-name">1 Месяц</span>
-                        <span class="plan-price">500 сом</span>
-                    </div>
-                </div>
-
-                <div class="plan-card" data-months="3" data-price="950" onclick="selectPlan(this)">
-                    <div class="plan-header">
-                        <span class="plan-name">3 Месяца</span>
-                        <span class="plan-price"><span style="text-decoration: line-through; color: var(--text-muted); margin-right: 0.25rem;">1500</span>950 сом</span>
-                    </div>
-                </div>
-
-                <div class="plan-card" data-months="12" data-price="1950" onclick="selectPlan(this)">
-                    <div class="plan-header">
-                        <span class="plan-name">1 Год</span>
-                        <span class="plan-price"><span style="text-decoration: line-through; color: var(--text-muted); margin-right: 0.25rem;">6000</span>1950 сом</span>
-                    </div>
-                </div>
-
-                <div class="plan-card disabled">
-                    <div class="plan-header">
-                        <span class="plan-name">Групповая</span>
-                        <span class="plan-price" style="color: var(--text-muted);">В разработке</span>
-                    </div>
-                </div>
+            <div class="subscription-plans" id="renewalPlans">
+                <p style="color: var(--text-muted); text-align:center;">Загрузка тарифов…</p>
             </div>
 
             <div class="coins-section" style="margin: 1rem 0; padding: 1rem; background: var(--bg-secondary); border-radius: 8px;">
@@ -364,6 +338,10 @@
                 await window.loadProfile();
             } else {
                 console.error('loadProfile не найдена');
+            }
+
+            if (typeof window.loadAndRenderSubscriptionPlans === 'function') {
+                await window.loadAndRenderSubscriptionPlans();
             }
 
             // Обработчик формы изменения пароля

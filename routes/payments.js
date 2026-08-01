@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
-const auth = require('../middleware/auth');
 const { Transaction, User, PromoCode, University } = require('../models');
 const { validateFinikSignature } = require('../utils/finikValidator');
 const { createPayment } = require('../utils/finikClient');
+const { getPlansForUniversity, getPlanPrice } = require('../utils/subscriptionPlans');
+const auth = require('../middleware/auth');
 
 async function resolvePromoCode(rawCode) {
   const promoCodeRaw = String(rawCode || '').trim();
@@ -709,13 +710,50 @@ router.get('/transactions/:id', auth, async (req, res) => {
 });
 
 /**
+ * Тарифы подписки для университета текущего пользователя
+ * GET /api/payments/plans
+ */
+router.get('/plans', auth, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, {
+      attributes: ['id', 'universityId'],
+      include: [{
+        model: University,
+        as: 'University',
+        attributes: ['id', 'name', 'shortName'],
+        required: false
+      }]
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+    if (!user.universityId) {
+      return res.status(400).json({ error: 'У пользователя не указан университет' });
+    }
+
+    const plans = await getPlansForUniversity(user.universityId);
+    res.json({
+      universityId: user.universityId,
+      university: user.University
+        ? { id: user.University.id, name: user.University.name, shortName: user.University.shortName }
+        : null,
+      plans
+    });
+  } catch (error) {
+    console.error('Error fetching subscription plans:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+/**
  * Создать платеж через Finik API
  * POST /api/payments/create
- * ВРЕМЕННО БЕЗ АВТОРИЗАЦИИ ДЛЯ ТЕСТИРОВАНИЯ
  */
 router.post('/create', [
-  body('amount').isFloat({ min: 0.01 }).withMessage('Сумма должна быть больше 0'),
+  body('amount').optional({ nullable: true }).isFloat({ min: 0.01 }).withMessage('Сумма должна быть больше 0'),
   body('description').optional().isString(),
+  body('subscriptionType').optional(),
   body('coinsToUse').optional().isInt({ min: 0 }).withMessage('Монетки должны быть неотрицательным числом'),
   body('promoCode').optional({ checkFalsy: true }).isString().trim().isLength({ min: 3, max: 64 }).withMessage('Некорректный промокод')
 ], async (req, res) => {
@@ -725,8 +763,8 @@ router.post('/create', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { amount, description, paymentType } = req.body;
-    let rawAmount = parseFloat(amount);
+    const { description, paymentType } = req.body;
+    let rawAmount = req.body.amount != null ? parseFloat(req.body.amount) : null;
 
     // Получаем конфигурацию из .env
     const accountId = process.env.FINIK_ACCOUNT_ID;
@@ -761,6 +799,20 @@ router.post('/create', [
         error: 'Войдите в аккаунт, чтобы оформить подписку'
       });
     }
+
+    const subscriptionType = String(req.body.subscriptionType || '1');
+    const months = parseInt(subscriptionType, 10) || 1;
+
+    if (!user.universityId) {
+      return res.status(400).json({ error: 'Укажите университет, чтобы оформить подписку' });
+    }
+
+    const planPrice = await getPlanPrice(user.universityId, months);
+    if (planPrice == null) {
+      return res.status(400).json({ error: 'Этот тариф недоступен для вашего университета' });
+    }
+    // Цену всегда берём с сервера (нельзя подменить с клиента)
+    rawAmount = planPrice;
 
     // Промокод как процентная скидка
     let promoCodeData = null;
@@ -803,7 +855,8 @@ router.post('/create', [
       customFields: {
         ...(userId && { userId: userId.toString() }),
         paymentType: paymentType || 'subscription',
-        subscriptionType: req.body.subscriptionType || '1',
+        subscriptionType: subscriptionType,
+        universityId: user.universityId,
         testMode: 'true', // Помечаем как тестовый платеж
         ...(promoCodeData && {
           promoCodeId: promoCodeData.id,
@@ -821,7 +874,8 @@ router.post('/create', [
       status: 'PENDING',
       fields: {
         paymentType: paymentType || 'subscription',
-        subscriptionType: req.body.subscriptionType || '1',
+        subscriptionType: subscriptionType,
+        universityId: user.universityId,
         description: description || `Оплата: ${paymentType || 'subscription'}`,
         testMode: true,
         originalAmount: rawAmount,

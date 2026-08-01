@@ -3426,6 +3426,108 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     let selectedPlan = { months: 1, price: 500 };
 
+    function formatPlanPriceHtml(price, oldPrice) {
+        const p = Math.round(Number(price));
+        if (oldPrice != null && Number(oldPrice) > Number(price)) {
+            return `<span class="old">${Math.round(Number(oldPrice))}</span>${p} сом`;
+        }
+        return `${p} сом`;
+    }
+
+    function planDesc(months) {
+        if (months === 12) return 'Максимальная выгода';
+        if (months === 3) return 'Полный доступ на 3 месяца';
+        return 'Полный доступ на 1 месяц';
+    }
+
+    async function fetchSubscriptionPlans() {
+        const token = currentToken || localStorage.getItem('token');
+        if (!token) return null;
+        const response = await fetch('/api/payments/plans', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error || 'Не удалось загрузить тарифы');
+        }
+        return response.json();
+    }
+
+    function renderSubscriptionPlans(plans, { preferMonths } = {}) {
+        const subsPlans = document.getElementById('subsPlans');
+        const renewalPlans = document.getElementById('renewalPlans');
+        const list = Array.isArray(plans) ? plans.filter((p) => p.isActive !== false) : [];
+
+        if (!list.length) {
+            const empty = '<p style="color: var(--text-muted);">Нет доступных тарифов</p>';
+            if (subsPlans) subsPlans.innerHTML = empty;
+            if (renewalPlans) renewalPlans.innerHTML = empty;
+            return;
+        }
+
+        const pickMonths = preferMonths && list.some((p) => Number(p.months) === Number(preferMonths))
+            ? Number(preferMonths)
+            : Number(list[0].months);
+
+        if (subsPlans) {
+            subsPlans.innerHTML = list.map((p) => {
+                const selected = Number(p.months) === pickMonths ? ' selected' : '';
+                return `
+                <div class="subs-plan plan-card${selected}" data-months="${p.months}" data-price="${p.price}" onclick="selectPlan(this)">
+                    <div class="subs-plan-name">${p.title || planDesc(p.months)}</div>
+                    <div class="subs-plan-price">${formatPlanPriceHtml(p.price, p.oldPrice)}</div>
+                    <div class="subs-plan-desc">${planDesc(p.months)}</div>
+                </div>`;
+            }).join('') + `
+                <div class="subs-plan plan-card disabled">
+                    <div class="subs-plan-name">Групповая</div>
+                    <div class="subs-plan-price" style="color: var(--text-muted); font-size: 1.1rem;">В разработке</div>
+                    <div class="subs-plan-desc">Для групп от 5 человек</div>
+                </div>`;
+        }
+
+        if (renewalPlans) {
+            renewalPlans.innerHTML = list.map((p) => {
+                const selected = Number(p.months) === pickMonths ? ' selected' : '';
+                const priceInner = p.oldPrice != null && Number(p.oldPrice) > Number(p.price)
+                    ? `<span style="text-decoration: line-through; color: var(--text-muted); margin-right: 0.25rem;">${Math.round(Number(p.oldPrice))}</span>${Math.round(Number(p.price))} сом`
+                    : `${Math.round(Number(p.price))} сом`;
+                return `
+                <div class="plan-card${selected}" data-months="${p.months}" data-price="${p.price}" onclick="selectPlan(this)">
+                    <div class="plan-header">
+                        <span class="plan-name">${p.title || planDesc(p.months)}</span>
+                        <span class="plan-price">${priceInner}</span>
+                    </div>
+                </div>`;
+            }).join('') + `
+                <div class="plan-card disabled">
+                    <div class="plan-header">
+                        <span class="plan-name">Групповая</span>
+                        <span class="plan-price" style="color: var(--text-muted);">В разработке</span>
+                    </div>
+                </div>`;
+        }
+
+        const first = list.find((p) => Number(p.months) === pickMonths) || list[0];
+        selectedPlan = { months: Number(first.months), price: Math.round(Number(first.price)) };
+        updateRenewalTotal();
+    }
+
+    async function loadAndRenderSubscriptionPlans(preferMonths) {
+        try {
+            const data = await fetchSubscriptionPlans();
+            if (!data) return;
+            renderSubscriptionPlans(data.plans || [], { preferMonths: preferMonths || selectedPlan.months });
+        } catch (error) {
+            console.error('loadAndRenderSubscriptionPlans:', error);
+            const msg = `<p style="color: var(--text-muted);">${error.message || 'Ошибка загрузки тарифов'}</p>`;
+            const subsPlans = document.getElementById('subsPlans');
+            const renewalPlans = document.getElementById('renewalPlans');
+            if (subsPlans) subsPlans.innerHTML = msg;
+            if (renewalPlans) renewalPlans.innerHTML = msg;
+        }
+    }
+
     function updateRenewalTotal() {
         const coinsToUseInput = document.getElementById('renewalCoinsToUse');
         const totalEl = document.getElementById('totalPrice');
@@ -3591,6 +3693,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 statusText.innerHTML = 'Подписки пока нет. Выберите тариф и оформите доступ.';
             }
 
+            await loadAndRenderSubscriptionPlans(selectedPlan.months);
+
             const coinsBalanceEl = document.getElementById('renewalCoinsBalance');
             const coinsToUseInput = document.getElementById('renewalCoinsToUse');
             const userCoins = data.coins ?? currentUser?.coins ?? 0;
@@ -3654,6 +3758,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     // Глобальные функции для onclick
     window.selectPlan = selectPlan;
     window.proceedToPayment = proceedToPayment;
+    window.loadAndRenderSubscriptionPlans = loadAndRenderSubscriptionPlans;
     // Экспорт функций для использования в HTML
     window.loadUser = loadUser;
     window.fetchUser = fetchUser;

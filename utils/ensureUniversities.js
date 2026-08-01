@@ -1,4 +1,5 @@
 const { University, Test, User, Subject } = require('../models');
+const { ensurePlansForUniversity } = require('./subscriptionPlans');
 
 const KGMA = {
   name: 'Кыргызская государственная медицинская академия',
@@ -42,6 +43,11 @@ async function ensureUniversities() {
   );
   if (subjectsUpdated > 0) {
     console.log(`✅ Предметам без университета назначен ${kgma.shortName}: ${subjectsUpdated}`);
+  }
+
+  const allUniversities = await University.findAll({ attributes: ['id', 'shortName'] });
+  for (const uni of allUniversities) {
+    await ensurePlansForUniversity(uni.id);
   }
 
   return kgma;

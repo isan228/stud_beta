@@ -86,6 +86,7 @@
                     <button class="admin-tab" data-tab="chats">Чаты</button>
                     <button class="admin-tab" data-tab="documents">Документы</button>
                     <button class="admin-tab" data-tab="promo">Промокоды</button>
+                    <button class="admin-tab" data-tab="subscriptions">Подписки</button>
                     <button class="admin-tab" data-tab="analytics">Аналитика</button>
                 </div>
 
@@ -427,6 +428,79 @@
                     </form>
                     <div id="promoList" class="admin-list"></div>
                 </div>
+
+                <!-- Тарифы подписок -->
+                <div id="subscriptionsTab" class="admin-tab-content">
+                    <div class="admin-section-header">
+                        <h2>Управление подписками</h2>
+                        <p class="page-description" style="margin:0;">Цены тарифов по университетам (1 / 3 / 12 месяцев)</p>
+                    </div>
+                    <div class="form-group" style="max-width: 360px; margin-bottom: 1.25rem;">
+                        <label for="subsAdminUniversity">Университет</label>
+                        <select id="subsAdminUniversity" class="form-group input" style="width:100%; padding:0.6rem;"></select>
+                    </div>
+                    <form id="subsAdminForm" style="display:grid; gap:1rem; max-width: 720px;">
+                        <div class="admin-subs-plan-row" data-months="1" style="display:grid; grid-template-columns: 110px 1fr 1fr auto; gap:0.75rem; align-items:end;">
+                            <div>
+                                <label>Тариф</label>
+                                <div style="font-weight:600; padding:0.55rem 0;">1 месяц</div>
+                            </div>
+                            <div>
+                                <label for="subsPrice1">Цена, сом</label>
+                                <input type="number" id="subsPrice1" min="0.01" step="0.01" required>
+                            </div>
+                            <div>
+                                <label for="subsOldPrice1">Старая цена (опц.)</label>
+                                <input type="number" id="subsOldPrice1" min="0" step="0.01" placeholder="—">
+                            </div>
+                            <label style="display:flex; align-items:center; gap:0.4rem; padding-bottom:0.55rem;">
+                                <input type="checkbox" id="subsActive1" checked>
+                                <span>Активен</span>
+                            </label>
+                        </div>
+                        <div class="admin-subs-plan-row" data-months="3" style="display:grid; grid-template-columns: 110px 1fr 1fr auto; gap:0.75rem; align-items:end;">
+                            <div>
+                                <label>Тариф</label>
+                                <div style="font-weight:600; padding:0.55rem 0;">3 месяца</div>
+                            </div>
+                            <div>
+                                <label for="subsPrice3">Цена, сом</label>
+                                <input type="number" id="subsPrice3" min="0.01" step="0.01" required>
+                            </div>
+                            <div>
+                                <label for="subsOldPrice3">Старая цена (опц.)</label>
+                                <input type="number" id="subsOldPrice3" min="0" step="0.01" placeholder="—">
+                            </div>
+                            <label style="display:flex; align-items:center; gap:0.4rem; padding-bottom:0.55rem;">
+                                <input type="checkbox" id="subsActive3" checked>
+                                <span>Активен</span>
+                            </label>
+                        </div>
+                        <div class="admin-subs-plan-row" data-months="12" style="display:grid; grid-template-columns: 110px 1fr 1fr auto; gap:0.75rem; align-items:end;">
+                            <div>
+                                <label>Тариф</label>
+                                <div style="font-weight:600; padding:0.55rem 0;">1 год</div>
+                            </div>
+                            <div>
+                                <label for="subsPrice12">Цена, сом</label>
+                                <input type="number" id="subsPrice12" min="0.01" step="0.01" required>
+                            </div>
+                            <div>
+                                <label for="subsOldPrice12">Старая цена (опц.)</label>
+                                <input type="number" id="subsOldPrice12" min="0" step="0.01" placeholder="—">
+                            </div>
+                            <label style="display:flex; align-items:center; gap:0.4rem; padding-bottom:0.55rem;">
+                                <input type="checkbox" id="subsActive12" checked>
+                                <span>Активен</span>
+                            </label>
+                        </div>
+                        <div style="display:flex; gap:0.5rem;">
+                            <button type="submit" class="btn btn-primary">Сохранить цены</button>
+                        </div>
+                    </form>
+                    <p id="subsAdminHint" style="margin-top:1rem; color:var(--text-muted); font-size:0.9rem;"></p>
+                </div>
+
                 <div id="analyticsTab" class="admin-tab-content">
                     <div class="admin-section-header">
                         <h2>Аналитика</h2>

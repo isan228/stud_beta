@@ -3,8 +3,9 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const adminAuth = require('../middleware/adminAuth');
-const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, Editor, EditorAuditLog, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, BroadcastMessage, UserBroadcastNotification, Transaction, University, sequelize } = require('../models');
+const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, Editor, EditorAuditLog, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, BroadcastMessage, UserBroadcastNotification, Transaction, University, SubscriptionPlan, sequelize } = require('../models');
 const { snapshotFromQuestion, logQuestionAudit } = require('../utils/questionAuditLog');
+const { ensurePlansForUniversity, getPlansForUniversity, ALLOWED_MONTHS, planTitle } = require('../utils/subscriptionPlans');
 const { Op, QueryTypes } = require('sequelize');
 const { Sequelize } = require('sequelize');
 
@@ -1135,6 +1136,7 @@ router.post('/universities', adminAuth, [
     }
 
     const university = await University.create({ name, shortName, description, isActive });
+    await ensurePlansForUniversity(university.id);
     res.status(201).json(university);
   } catch (error) {
     console.error('Ошибка создания университета:', error);
@@ -1213,6 +1215,136 @@ router.delete('/universities/:id', adminAuth, async (req, res) => {
     res.json({ message: 'Университет удален' });
   } catch (error) {
     console.error('Ошибка удаления университета:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Тарифы подписок по университетам
+router.get('/subscription-plans', adminAuth, async (req, res) => {
+  try {
+    const universities = await University.findAll({
+      attributes: ['id', 'name', 'shortName', 'isActive'],
+      order: [['shortName', 'ASC']]
+    });
+
+    const result = [];
+    for (const uni of universities) {
+      const plans = await getPlansForUniversity(uni.id, { includeInactive: true });
+      result.push({
+        universityId: uni.id,
+        name: uni.name,
+        shortName: uni.shortName,
+        isActive: uni.isActive,
+        plans
+      });
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error('Ошибка получения тарифов:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.get('/subscription-plans/:universityId', adminAuth, async (req, res) => {
+  try {
+    const university = await University.findByPk(req.params.universityId, {
+      attributes: ['id', 'name', 'shortName', 'isActive']
+    });
+    if (!university) {
+      return res.status(404).json({ error: 'Университет не найден' });
+    }
+
+    const plans = await getPlansForUniversity(university.id, { includeInactive: true });
+    res.json({
+      universityId: university.id,
+      name: university.name,
+      shortName: university.shortName,
+      isActive: university.isActive,
+      plans
+    });
+  } catch (error) {
+    console.error('Ошибка получения тарифов университета:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.put('/subscription-plans/:universityId', adminAuth, [
+  body('plans').isArray({ min: 1 }).withMessage('Нужен массив тарифов')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const university = await University.findByPk(req.params.universityId);
+    if (!university) {
+      return res.status(404).json({ error: 'Университет не найден' });
+    }
+
+    const incoming = Array.isArray(req.body.plans) ? req.body.plans : [];
+    const seenMonths = new Set();
+
+    for (const item of incoming) {
+      const months = parseInt(item.months, 10);
+      if (!ALLOWED_MONTHS.has(months)) {
+        return res.status(400).json({ error: `Недопустимая длительность: ${item.months}. Допустимо: 1, 3, 12` });
+      }
+      if (seenMonths.has(months)) {
+        return res.status(400).json({ error: `Дубликат тарифа на ${months} мес.` });
+      }
+      seenMonths.add(months);
+
+      const price = parseFloat(item.price);
+      if (!Number.isFinite(price) || price < 0.01) {
+        return res.status(400).json({ error: `Некорректная цена для ${months} мес.` });
+      }
+
+      let oldPrice = null;
+      if (item.oldPrice !== undefined && item.oldPrice !== null && item.oldPrice !== '') {
+        oldPrice = parseFloat(item.oldPrice);
+        if (!Number.isFinite(oldPrice) || oldPrice < 0) {
+          return res.status(400).json({ error: `Некорректная старая цена для ${months} мес.` });
+        }
+      }
+
+      const isActive = item.isActive === undefined
+        ? true
+        : (item.isActive === true || item.isActive === 'true');
+      const title = item.title ? String(item.title).trim().slice(0, 100) : planTitle(months);
+
+      const [plan] = await SubscriptionPlan.findOrCreate({
+        where: { universityId: university.id, months },
+        defaults: {
+          universityId: university.id,
+          months,
+          price,
+          oldPrice,
+          title,
+          isActive
+        }
+      });
+
+      plan.price = price;
+      plan.oldPrice = oldPrice;
+      plan.title = title;
+      plan.isActive = isActive;
+      await plan.save();
+    }
+
+    // Добиваем отсутствующие длительности дефолтами (неактивными не делаем — ensure создаст)
+    await ensurePlansForUniversity(university.id);
+
+    const plans = await getPlansForUniversity(university.id, { includeInactive: true });
+    res.json({
+      universityId: university.id,
+      name: university.name,
+      shortName: university.shortName,
+      plans
+    });
+  } catch (error) {
+    console.error('Ошибка сохранения тарифов:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
