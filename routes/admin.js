@@ -1497,6 +1497,13 @@ router.put('/subjects/:id', adminAuth, [
     if (universityId !== undefined) subject.universityId = nextUniversityId;
     await subject.save();
 
+    if (universityId !== undefined) {
+      await Test.update(
+        { universityId: nextUniversityId },
+        { where: { subjectId: subject.id } }
+      );
+    }
+
     res.json(subject);
   } catch (error) {
     console.error('Ошибка обновления предмета:', error);
@@ -1603,7 +1610,22 @@ router.post('/tests', adminAuth, [
 
     const { name, description, subjectId, universityId, isFree, hasExplanations } = req.body;
 
-    const university = await University.findByPk(universityId);
+    const subject = await Subject.findByPk(subjectId);
+    if (!subject) {
+      return res.status(400).json({ error: 'Предмет не найден' });
+    }
+    if (!subject.universityId) {
+      return res.status(400).json({ error: 'У предмета не указан университет' });
+    }
+
+    const requestedUni = universityId != null ? parseInt(universityId, 10) : null;
+    if (requestedUni && Number(requestedUni) !== Number(subject.universityId)) {
+      return res.status(400).json({
+        error: 'Университет теста должен совпадать с университетом предмета'
+      });
+    }
+
+    const university = await University.findByPk(subject.universityId);
     if (!university) {
       return res.status(400).json({ error: 'Университет не найден' });
     }
@@ -1611,8 +1633,8 @@ router.post('/tests', adminAuth, [
     const test = await Test.create({
       name,
       description,
-      subjectId,
-      universityId: parseInt(universityId, 10),
+      subjectId: parseInt(subjectId, 10),
+      universityId: subject.universityId,
       isFree: isFree === true || isFree === 'true',
       hasExplanations: hasExplanations === true || hasExplanations === 'true'
     });
@@ -1641,14 +1663,28 @@ router.put('/tests/:id', adminAuth, [
     const { name, description, subjectId, universityId, isFree, hasExplanations } = req.body;
     test.name = name;
     if (description !== undefined) test.description = description;
-    if (subjectId !== undefined) test.subjectId = parseInt(subjectId, 10);
-    if (universityId !== undefined) {
-      const university = await University.findByPk(universityId);
-      if (!university) {
-        return res.status(400).json({ error: 'Университет не найден' });
-      }
-      test.universityId = parseInt(universityId, 10);
+
+    const nextSubjectId = subjectId !== undefined ? parseInt(subjectId, 10) : test.subjectId;
+    const subject = await Subject.findByPk(nextSubjectId);
+    if (!subject) {
+      return res.status(400).json({ error: 'Предмет не найден' });
     }
+    if (!subject.universityId) {
+      return res.status(400).json({ error: 'У предмета не указан университет' });
+    }
+
+    if (universityId !== undefined) {
+      const requestedUni = parseInt(universityId, 10);
+      if (Number(requestedUni) !== Number(subject.universityId)) {
+        return res.status(400).json({
+          error: 'Университет теста должен совпадать с университетом предмета'
+        });
+      }
+    }
+
+    test.subjectId = nextSubjectId;
+    test.universityId = subject.universityId;
+
     if (isFree !== undefined) test.isFree = isFree === true || isFree === 'true';
     if (hasExplanations !== undefined) {
       test.hasExplanations = hasExplanations === true || hasExplanations === 'true';

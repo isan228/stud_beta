@@ -1,4 +1,5 @@
 const { University, Test, User, Subject } = require('../models');
+const { Op } = require('sequelize');
 const { ensurePlansForUniversity } = require('./subscriptionPlans');
 
 const KGMA = {
@@ -48,6 +49,28 @@ async function ensureUniversities() {
   const allUniversities = await University.findAll({ attributes: ['id', 'shortName'] });
   for (const uni of allUniversities) {
     await ensurePlansForUniversity(uni.id);
+  }
+
+  // Синхронизация universityId тестов с предметом (если расходятся)
+  const subjectsWithUni = await Subject.findAll({
+    attributes: ['id', 'universityId'],
+    where: { universityId: { [Op.ne]: null } }
+  });
+  let testsSynced = 0;
+  for (const subject of subjectsWithUni) {
+    const [updated] = await Test.update(
+      { universityId: subject.universityId },
+      {
+        where: {
+          subjectId: subject.id,
+          universityId: { [Op.or]: [null, { [Op.ne]: subject.universityId }] }
+        }
+      }
+    );
+    testsSynced += updated;
+  }
+  if (testsSynced > 0) {
+    console.log(`✅ universityId тестов синхронизирован с предметами: ${testsSynced}`);
   }
 
   return kgma;

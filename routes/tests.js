@@ -183,33 +183,32 @@ router.get('/subjects', async (req, res) => {
     const universityId = await resolveUserUniversityId(req);
     const isFreeOnly = req.query.free === 'true';
 
-    if (universityId || isFreeOnly) {
-      const testWhere = {};
-      if (universityId) testWhere.universityId = universityId;
-      if (isFreeOnly) testWhere.isFree = true;
+    const where = {};
+    if (universityId) {
+      where.universityId = universityId;
+    }
 
-      const tests = await Test.findAll({
-        where: testWhere,
+    let subjects = await Subject.findAll({
+      where,
+      order: [['name', 'ASC']],
+      include: [universityInclude()]
+    });
+
+    // Режим «только бесплатные»: оставляем предметы, у которых есть бесплатный тест
+    // (для гостей и пользователей без подписки на главной)
+    if (isFreeOnly) {
+      const freeTestWhere = { isFree: true };
+      if (universityId) freeTestWhere.universityId = universityId;
+
+      const freeTests = await Test.findAll({
+        where: freeTestWhere,
         attributes: ['subjectId'],
         raw: true
       });
-      const subjectIds = [...new Set(tests.map((t) => t.subjectId).filter(Boolean))];
-      if (!subjectIds.length) {
-        return res.json([]);
-      }
-      const subjects = await Subject.findAll({
-        where: {
-          id: { [Op.in]: subjectIds },
-          ...(universityId ? { universityId } : {})
-        },
-        order: [['name', 'ASC']]
-      });
-      return res.json(subjects);
+      const subjectIds = new Set(freeTests.map((t) => t.subjectId).filter(Boolean));
+      subjects = subjects.filter((s) => subjectIds.has(s.id));
     }
 
-    const subjects = await Subject.findAll({
-      order: [['name', 'ASC']]
-    });
     res.json(subjects);
   } catch (error) {
     console.error('Ошибка получения предметов:', error);
@@ -217,11 +216,33 @@ router.get('/subjects', async (req, res) => {
   }
 });
 
+async function assertUserCanAccessSubject(subjectId, req) {
+  const universityId = await resolveUserUniversityId(req);
+  if (!universityId) return { ok: true, subject: null };
+
+  const subject = await Subject.findByPk(subjectId, {
+    attributes: ['id', 'name', 'universityId']
+  });
+  if (!subject) {
+    return { ok: false, status: 404, error: 'Предмет не найден' };
+  }
+  if (subject.universityId && Number(subject.universityId) !== Number(universityId)) {
+    return { ok: false, status: 403, error: 'Этот предмет относится к другому университету' };
+  }
+  return { ok: true, subject };
+}
+
 // Получить тесты по предмету
 router.get('/subjects/:subjectId/tests', async (req, res) => {
   try {
+    const access = await assertUserCanAccessSubject(req.params.subjectId, req);
+    if (!access.ok) {
+      return res.status(access.status).json({ error: access.error });
+    }
+
     const where = { subjectId: req.params.subjectId };
     const universityId = await resolveUserUniversityId(req);
+    // Фильтр по вузу теста — доп. защита; предмет уже проверен выше
     if (universityId) {
       where.universityId = universityId;
     }
@@ -246,6 +267,11 @@ router.get('/subjects/:subjectId/tests', async (req, res) => {
 // Получить только бесплатные тесты по предмету (для неавторизованных)
 router.get('/subjects/:subjectId/tests/free', async (req, res) => {
   try {
+    const access = await assertUserCanAccessSubject(req.params.subjectId, req);
+    if (!access.ok) {
+      return res.status(access.status).json({ error: access.error });
+    }
+
     const where = {
       subjectId: req.params.subjectId,
       isFree: true
