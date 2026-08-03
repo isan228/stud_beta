@@ -1,8 +1,9 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
-const { Test, Question, Answer, Subject, Favorite, TestResult, User, University } = require('../models');
+const { Test, Question, Answer, Subject, Favorite, TestResult, User, University, QuestionTag, QuestionTagMap } = require('../models');
 const { Op } = require('sequelize');
+const { isSubscriptionActive } = require('../utils/subscriptionPlans');
 
 function tryGetUserIdFromRequest(req) {
   const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -13,6 +14,11 @@ function tryGetUserIdFromRequest(req) {
   } catch {
     return null;
   }
+}
+
+function resolveProgramType(req) {
+  const raw = String(req.query.program || req.body?.program || 'university').toLowerCase();
+  return raw === 'usmle' ? 'usmle' : 'university';
 }
 
 /** universityId пользователя или null (гость / без вуза — без фильтра по вузу) */
@@ -32,10 +38,26 @@ function universityInclude() {
   };
 }
 
+function tagsInclude() {
+  return {
+    model: QuestionTag,
+    as: 'Tags',
+    attributes: ['id', 'name', 'slug'],
+    through: { attributes: [] },
+    required: false
+  };
+}
+
 async function assertUserCanAccessTest(test, req) {
-  if (!test || !test.universityId) return { ok: true };
+  if (!test) return { ok: true };
+  const programType = test.programType || 'university';
+
+  // USMLE не привязан к университету
+  if (programType === 'usmle') return { ok: true };
+
+  if (!test.universityId) return { ok: true };
   const userId = tryGetUserIdFromRequest(req);
-  if (!userId) return { ok: true }; // гости: дальше решают isFree / подписка
+  if (!userId) return { ok: true };
   const user = await User.findByPk(userId, { attributes: ['id', 'universityId'] });
   if (!user?.universityId) return { ok: true };
   if (Number(user.universityId) !== Number(test.universityId)) {
@@ -43,6 +65,36 @@ async function assertUserCanAccessTest(test, req) {
   }
   return { ok: true };
 }
+
+async function assertPaidAccess(test, req) {
+  if (test.isFree) return { ok: true };
+
+  const token = req.header('Authorization')?.replace('Bearer ', '');
+  if (!token) {
+    return { ok: false, status: 401, error: 'Требуется авторизация для этого теста' };
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findByPk(decoded.userId);
+    if (!user) {
+      return { ok: false, status: 401, error: 'Пользователь не найден' };
+    }
+
+    const programType = test.programType || 'university';
+    if (programType === 'usmle') {
+      if (!isSubscriptionActive(user.usmleSubscriptionEndDate)) {
+        return { ok: false, status: 403, error: 'Требуется активная подписка USMLE' };
+      }
+    } else if (!isSubscriptionActive(user.subscriptionEndDate)) {
+      return { ok: false, status: 403, error: 'Требуется активная подписка для этого теста' };
+    }
+    return { ok: true, user };
+  } catch {
+    return { ok: false, status: 401, error: 'Недействительный токен' };
+  }
+}
+
 
 /** Последний известный исход по каждому вопросу (по всем попыткам по порядку времени). */
 async function getTestQuestionProgressState(testId, userId) {
@@ -148,15 +200,20 @@ function buildQuestionFilterPool(questionFilters, state) {
 router.get('/latest', async (req, res) => {
   try {
     const isFreeOnly = req.query.free === 'true';
-    const whereClause = {};
-    
+    const programType = resolveProgramType(req);
+    const whereClause = { programType };
+
     if (isFreeOnly) {
       whereClause.isFree = true;
     }
 
-    const universityId = await resolveUserUniversityId(req);
-    if (universityId) {
-      whereClause.universityId = universityId;
+    if (programType === 'university') {
+      const universityId = await resolveUserUniversityId(req);
+      if (universityId) {
+        whereClause.universityId = universityId;
+      }
+    } else {
+      whereClause.universityId = null;
     }
 
     const tests = await Test.findAll({
@@ -180,12 +237,17 @@ router.get('/latest', async (req, res) => {
 // Получить все предметы
 router.get('/subjects', async (req, res) => {
   try {
-    const universityId = await resolveUserUniversityId(req);
+    const programType = resolveProgramType(req);
     const isFreeOnly = req.query.free === 'true';
+    const where = { programType };
 
-    const where = {};
-    if (universityId) {
-      where.universityId = universityId;
+    if (programType === 'university') {
+      const universityId = await resolveUserUniversityId(req);
+      if (universityId) {
+        where.universityId = universityId;
+      }
+    } else {
+      where.universityId = null;
     }
 
     let subjects = await Subject.findAll({
@@ -194,11 +256,11 @@ router.get('/subjects', async (req, res) => {
       include: [universityInclude()]
     });
 
-    // Режим «только бесплатные»: оставляем предметы, у которых есть бесплатный тест
-    // (для гостей и пользователей без подписки на главной)
     if (isFreeOnly) {
-      const freeTestWhere = { isFree: true };
-      if (universityId) freeTestWhere.universityId = universityId;
+      const freeTestWhere = { isFree: true, programType };
+      if (programType === 'university' && where.universityId) {
+        freeTestWhere.universityId = where.universityId;
+      }
 
       const freeTests = await Test.findAll({
         where: freeTestWhere,
@@ -216,16 +278,109 @@ router.get('/subjects', async (req, res) => {
   }
 });
 
-async function assertUserCanAccessSubject(subjectId, req) {
-  const universityId = await resolveUserUniversityId(req);
-  if (!universityId) return { ok: true, subject: null };
+/** Теги USMLE (для фильтрации) */
+router.get('/usmle/tags', async (req, res) => {
+  try {
+    const tags = await QuestionTag.findAll({
+      where: { isActive: true },
+      attributes: ['id', 'name', 'slug'],
+      order: [['name', 'ASC']]
+    });
+    res.json(tags);
+  } catch (error) {
+    console.error('Ошибка получения тегов USMLE:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
 
+/**
+ * Тесты USMLE, в которых есть вопросы с выбранными тегами.
+ * ?tagIds=1,2,3 — все выбранные теги (AND) или mode=or
+ */
+router.get('/usmle/tests-by-tags', async (req, res) => {
+  try {
+    const tagIds = String(req.query.tagIds || '')
+      .split(',')
+      .map((x) => parseInt(x, 10))
+      .filter((n) => Number.isFinite(n) && n > 0);
+
+    if (!tagIds.length) {
+      return res.json([]);
+    }
+
+    const maps = await QuestionTagMap.findAll({
+      where: { tagId: { [Op.in]: tagIds } },
+      attributes: ['questionId', 'tagId'],
+      raw: true
+    });
+
+    const mode = String(req.query.mode || 'or').toLowerCase() === 'and' ? 'and' : 'or';
+    let questionIds;
+    if (mode === 'and') {
+      const byQ = new Map();
+      for (const m of maps) {
+        if (!byQ.has(m.questionId)) byQ.set(m.questionId, new Set());
+        byQ.get(m.questionId).add(m.tagId);
+      }
+      questionIds = [...byQ.entries()]
+        .filter(([, set]) => tagIds.every((id) => set.has(id)))
+        .map(([qid]) => qid);
+    } else {
+      questionIds = [...new Set(maps.map((m) => m.questionId))];
+    }
+
+    if (!questionIds.length) {
+      return res.json([]);
+    }
+
+    const questions = await Question.findAll({
+      where: { id: { [Op.in]: questionIds } },
+      attributes: ['id', 'testId'],
+      raw: true
+    });
+    const testIds = [...new Set(questions.map((q) => q.testId))];
+
+    const tests = await Test.findAll({
+      where: {
+        id: { [Op.in]: testIds },
+        programType: 'usmle'
+      },
+      include: [{
+        model: Question,
+        as: 'Questions',
+        attributes: ['id'],
+        required: false
+      }, {
+        model: Subject,
+        as: 'Subject',
+        attributes: ['id', 'name'],
+        required: false
+      }],
+      order: [['name', 'ASC']]
+    });
+
+    res.json(tests);
+  } catch (error) {
+    console.error('Ошибка фильтра тестов USMLE по тегам:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+async function assertUserCanAccessSubject(subjectId, req) {
   const subject = await Subject.findByPk(subjectId, {
-    attributes: ['id', 'name', 'universityId']
+    attributes: ['id', 'name', 'universityId', 'programType']
   });
   if (!subject) {
     return { ok: false, status: 404, error: 'Предмет не найден' };
   }
+
+  if ((subject.programType || 'university') === 'usmle') {
+    return { ok: true, subject };
+  }
+
+  const universityId = await resolveUserUniversityId(req);
+  if (!universityId) return { ok: true, subject };
+
   if (subject.universityId && Number(subject.universityId) !== Number(universityId)) {
     return { ok: false, status: 403, error: 'Этот предмет относится к другому университету' };
   }
@@ -240,14 +395,16 @@ router.get('/subjects/:subjectId/tests', async (req, res) => {
       return res.status(access.status).json({ error: access.error });
     }
 
-    const where = { subjectId: req.params.subjectId };
-    const universityId = await resolveUserUniversityId(req);
-    // Фильтр по вузу теста — доп. защита; предмет уже проверен выше
-    if (universityId) {
-      where.universityId = universityId;
+    const subject = access.subject || await Subject.findByPk(req.params.subjectId);
+    const programType = subject?.programType || 'university';
+    const where = { subjectId: req.params.subjectId, programType };
+
+    if (programType === 'university') {
+      const universityId = await resolveUserUniversityId(req);
+      if (universityId) where.universityId = universityId;
     }
 
-    const tests = await Test.findAll({
+    let tests = await Test.findAll({
       where,
       include: [{
         model: Question,
@@ -257,6 +414,32 @@ router.get('/subjects/:subjectId/tests', async (req, res) => {
       }, universityInclude()],
       order: [['createdAt', 'DESC']]
     });
+
+    // Доп. фильтр USMLE по тегам вопросов: ?tagIds=1,2
+    const tagIds = String(req.query.tagIds || '')
+      .split(',')
+      .map((x) => parseInt(x, 10))
+      .filter((n) => Number.isFinite(n) && n > 0);
+
+    if (programType === 'usmle' && tagIds.length) {
+      const maps = await QuestionTagMap.findAll({
+        where: { tagId: { [Op.in]: tagIds } },
+        attributes: ['questionId'],
+        raw: true
+      });
+      const qIds = [...new Set(maps.map((m) => m.questionId))];
+      if (!qIds.length) {
+        return res.json([]);
+      }
+      const taggedQuestions = await Question.findAll({
+        where: { id: { [Op.in]: qIds } },
+        attributes: ['testId'],
+        raw: true
+      });
+      const allowedTestIds = new Set(taggedQuestions.map((q) => q.testId));
+      tests = tests.filter((t) => allowedTestIds.has(t.id));
+    }
+
     res.json(tests);
   } catch (error) {
     console.error('Ошибка получения тестов:', error);
@@ -272,13 +455,16 @@ router.get('/subjects/:subjectId/tests/free', async (req, res) => {
       return res.status(access.status).json({ error: access.error });
     }
 
+    const subject = access.subject || await Subject.findByPk(req.params.subjectId);
+    const programType = subject?.programType || 'university';
     const where = {
       subjectId: req.params.subjectId,
-      isFree: true
+      isFree: true,
+      programType
     };
-    const universityId = await resolveUserUniversityId(req);
-    if (universityId) {
-      where.universityId = universityId;
+    if (programType === 'university') {
+      const universityId = await resolveUserUniversityId(req);
+      if (universityId) where.universityId = universityId;
     }
 
     const tests = await Test.findAll({
@@ -432,7 +618,7 @@ router.post('/tests/:testId/questions', async (req, res) => {
         include: [{
           model: Answer,
           as: 'Answers'
-        }]
+        }, tagsInclude()]
       }]
     });
 
@@ -445,31 +631,9 @@ router.post('/tests/:testId/questions', async (req, res) => {
       return res.status(access.status).json({ error: access.error });
     }
 
-    // Проверяем доступ: если тест не бесплатный, требуется авторизация
-    if (!test.isFree) {
-      // Проверяем авторизацию для платных тестов
-      const token = req.header('Authorization')?.replace('Bearer ', '');
-      if (!token) {
-        return res.status(401).json({ error: 'Требуется авторизация для этого теста' });
-      }
-      
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findByPk(decoded.userId);
-        
-        if (!user) {
-          return res.status(401).json({ error: 'Пользователь не найден' });
-        }
-        
-        // Проверяем подписку для платных тестов
-        if (user.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date()) {
-          // Подписка активна
-        } else {
-          return res.status(403).json({ error: 'Требуется активная подписка для этого теста' });
-        }
-      } catch (error) {
-        return res.status(401).json({ error: 'Недействительный токен' });
-      }
+    const paid = await assertPaidAccess(test, req);
+    if (!paid.ok) {
+      return res.status(paid.status).json({ error: paid.error });
     }
 
     let filterUserId = tryGetUserIdFromRequest(req);
@@ -571,36 +735,12 @@ router.post('/tests/:testId/check', async (req, res) => {
     if (!access.ok) {
       return res.status(access.status).json({ error: access.error });
     }
-    
-    // Если тест не бесплатный, проверяем авторизацию
-    if (!isFreeTest) {
-      const token = req.header('Authorization')?.replace('Bearer ', '');
-      if (!token) {
-        return res.status(401).json({ error: 'Требуется авторизация для этого теста' });
-      }
-      
-      try {
-        const jwt = require('jsonwebtoken');
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const { User } = require('../models');
-        const user = await User.findByPk(decoded.userId);
-        
-        if (!user) {
-          return res.status(401).json({ error: 'Пользователь не найден' });
-        }
-        
-        userId = user.id;
-        
-        // Проверяем подписку для платных тестов
-        if (user.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date()) {
-          // Подписка активна
-        } else {
-          return res.status(403).json({ error: 'Требуется активная подписка для этого теста' });
-        }
-      } catch (error) {
-        return res.status(401).json({ error: 'Недействительный токен' });
-      }
+
+    const paid = await assertPaidAccess(test, req);
+    if (!paid.ok) {
+      return res.status(paid.status).json({ error: paid.error });
     }
+    if (paid.user) userId = paid.user.id;
   } catch (error) {
     return res.status(500).json({ error: 'Ошибка проверки доступа' });
   }

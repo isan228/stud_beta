@@ -21,6 +21,8 @@ const BroadcastMessage = require('./BroadcastMessage');
 const UserBroadcastNotification = require('./UserBroadcastNotification');
 const University = require('./University');
 const SubscriptionPlan = require('./SubscriptionPlan');
+const QuestionTag = require('./QuestionTag');
+const QuestionTagMap = require('./QuestionTagMap');
 
 // Определение связей
 User.hasMany(TestResult, { foreignKey: 'userId', as: 'TestResults' });
@@ -43,6 +45,23 @@ Subject.belongsTo(University, { foreignKey: 'universityId', as: 'University' });
 
 University.hasMany(SubscriptionPlan, { foreignKey: 'universityId', as: 'SubscriptionPlans', onDelete: 'CASCADE' });
 SubscriptionPlan.belongsTo(University, { foreignKey: 'universityId', as: 'University' });
+
+Question.belongsToMany(QuestionTag, {
+  through: QuestionTagMap,
+  foreignKey: 'questionId',
+  otherKey: 'tagId',
+  as: 'Tags'
+});
+QuestionTag.belongsToMany(Question, {
+  through: QuestionTagMap,
+  foreignKey: 'tagId',
+  otherKey: 'questionId',
+  as: 'Questions'
+});
+Question.hasMany(QuestionTagMap, { foreignKey: 'questionId', as: 'TagMaps', onDelete: 'CASCADE' });
+QuestionTagMap.belongsTo(Question, { foreignKey: 'questionId', as: 'Question' });
+QuestionTag.hasMany(QuestionTagMap, { foreignKey: 'tagId', as: 'TagMaps', onDelete: 'CASCADE' });
+QuestionTagMap.belongsTo(QuestionTag, { foreignKey: 'tagId', as: 'Tag' });
 
 Subject.hasMany(Test, { foreignKey: 'subjectId', as: 'Tests' });
 Test.belongsTo(Subject, { foreignKey: 'subjectId', as: 'Subject' });
@@ -101,6 +120,8 @@ module.exports = {
   BroadcastMessage,
   UserBroadcastNotification,
   University,
-  SubscriptionPlan
+  SubscriptionPlan,
+  QuestionTag,
+  QuestionTagMap
 };
 

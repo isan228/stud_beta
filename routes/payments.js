@@ -4,7 +4,7 @@ const { body, validationResult } = require('express-validator');
 const { Transaction, User, PromoCode, University } = require('../models');
 const { validateFinikSignature } = require('../utils/finikValidator');
 const { createPayment } = require('../utils/finikClient');
-const { getPlansForUniversity, getPlanPrice } = require('../utils/subscriptionPlans');
+const { getPlansForUniversity, getPlanPrice, getPlansForUsmle, getUsmlePlanPrice } = require('../utils/subscriptionPlans');
 const auth = require('../middleware/auth');
 
 async function resolvePromoCode(rawCode) {
@@ -439,6 +439,18 @@ router.post('/webhook', async (req, res) => {
               } else {
                 console.log(`ℹ️ Subscription already applied for user ${transaction.userId}, skipping duplicate update`);
               }
+            } else if (user && paymentType === 'usmle_subscription') {
+              const subscriptionMonths = parseInt(subscriptionType) || 1;
+              let usmleEnd = new Date();
+              if (user.usmleSubscriptionEndDate && new Date(user.usmleSubscriptionEndDate) > new Date()) {
+                usmleEnd = new Date(user.usmleSubscriptionEndDate);
+                usmleEnd.setMonth(usmleEnd.getMonth() + subscriptionMonths);
+              } else {
+                usmleEnd.setMonth(usmleEnd.getMonth() + subscriptionMonths);
+              }
+              user.usmleSubscriptionEndDate = usmleEnd;
+              await user.save();
+              console.log(`✅ USMLE subscription updated for user ${user.id}: ${usmleEnd.toISOString()} (+${subscriptionMonths} months)`);
             } else if (user && (paymentType === 'subscription' || paymentType === 'registration')) {
               const subscriptionMonths = parseInt(subscriptionType) || 1;
               let subscriptionEndDate = new Date();
@@ -632,7 +644,7 @@ router.post('/webhook', async (req, res) => {
 router.get('/transactions', auth, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
-      attributes: ['id', 'subscriptionEndDate', 'coins']
+      attributes: ['id', 'subscriptionEndDate', 'usmleSubscriptionEndDate', 'coins']
     });
 
     const transactions = await Transaction.findAll({
@@ -641,28 +653,31 @@ router.get('/transactions', auth, async (req, res) => {
       limit: 50
     });
 
-    const planLabel = (months) => {
+    const planLabel = (months, paymentType) => {
+      const prefix = paymentType === 'usmle_subscription' ? 'USMLE · ' : '';
       const m = parseInt(months, 10);
-      if (m === 12) return '1 год';
-      if (m === 3) return '3 месяца';
-      if (m === 1) return '1 месяц';
-      if (Number.isFinite(m) && m > 0) return `${m} мес.`;
-      return 'Подписка';
+      if (m === 12) return `${prefix}1 год`;
+      if (m === 3) return `${prefix}3 месяца`;
+      if (m === 1) return `${prefix}1 месяц`;
+      if (Number.isFinite(m) && m > 0) return `${prefix}${m} мес.`;
+      return paymentType === 'usmle_subscription' ? 'USMLE' : 'Подписка';
     };
 
     const items = transactions.map((t) => {
       const json = t.toJSON();
       const fields = json.fields || {};
       const months = fields.subscriptionType || fields.registrationData?.subscription?.type || null;
+      const pType = fields.paymentType || 'subscription';
       return {
         id: json.id,
         status: json.status,
         amount: json.amount,
         createdAt: json.createdAt,
         updatedAt: json.updatedAt,
-        paymentType: fields.paymentType || 'subscription',
+        paymentType: pType,
+        programType: fields.programType || (pType === 'usmle_subscription' ? 'usmle' : 'university'),
         subscriptionType: months,
-        planLabel: planLabel(months),
+        planLabel: planLabel(months, pType),
         promoCode: fields.promoCode || null,
         coinsUsed: fields.coinsToUse || 0,
         description: fields.description || null
@@ -672,10 +687,14 @@ router.get('/transactions', auth, async (req, res) => {
     const end = user?.subscriptionEndDate ? new Date(user.subscriptionEndDate) : null;
     const now = new Date();
     const active = !!(end && end > now);
+    const usmleEnd = user?.usmleSubscriptionEndDate ? new Date(user.usmleSubscriptionEndDate) : null;
+    const usmleActive = !!(usmleEnd && usmleEnd > now);
 
     res.json({
       subscriptionEndDate: user?.subscriptionEndDate || null,
       subscriptionActive: active,
+      usmleSubscriptionEndDate: user?.usmleSubscriptionEndDate || null,
+      usmleSubscriptionActive: usmleActive,
       coins: user?.coins || 0,
       transactions: items
     });
@@ -710,13 +729,17 @@ router.get('/transactions/:id', auth, async (req, res) => {
 });
 
 /**
- * Тарифы подписки для университета текущего пользователя
- * GET /api/payments/plans
+ * Тарифы подписки
+ * GET /api/payments/plans?program=university|usmle
  */
 router.get('/plans', auth, async (req, res) => {
   try {
+    const program = String(req.query.program || 'university').toLowerCase() === 'usmle'
+      ? 'usmle'
+      : 'university';
+
     const user = await User.findByPk(req.user.id, {
-      attributes: ['id', 'universityId'],
+      attributes: ['id', 'universityId', 'subscriptionEndDate', 'usmleSubscriptionEndDate'],
       include: [{
         model: University,
         as: 'University',
@@ -728,17 +751,30 @@ router.get('/plans', auth, async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: 'Пользователь не найден' });
     }
+
+    if (program === 'usmle') {
+      const plans = await getPlansForUsmle();
+      return res.json({
+        programType: 'usmle',
+        plans,
+        usmleSubscriptionEndDate: user.usmleSubscriptionEndDate || null,
+        usmleSubscriptionActive: !!(user.usmleSubscriptionEndDate && new Date(user.usmleSubscriptionEndDate) > new Date())
+      });
+    }
+
     if (!user.universityId) {
       return res.status(400).json({ error: 'У пользователя не указан университет' });
     }
 
     const plans = await getPlansForUniversity(user.universityId);
     res.json({
+      programType: 'university',
       universityId: user.universityId,
       university: user.University
         ? { id: user.University.id, name: user.University.name, shortName: user.University.shortName }
         : null,
-      plans
+      plans,
+      subscriptionEndDate: user.subscriptionEndDate || null
     });
   } catch (error) {
     console.error('Error fetching subscription plans:', error);
@@ -802,17 +838,29 @@ router.post('/create', [
 
     const subscriptionType = String(req.body.subscriptionType || '1');
     const months = parseInt(subscriptionType, 10) || 1;
+    const programType = (req.body.programType === 'usmle' || paymentType === 'usmle_subscription')
+      ? 'usmle'
+      : 'university';
+    const effectivePaymentType = programType === 'usmle'
+      ? 'usmle_subscription'
+      : (paymentType || 'subscription');
 
-    if (!user.universityId) {
-      return res.status(400).json({ error: 'Укажите университет, чтобы оформить подписку' });
+    if (programType === 'usmle') {
+      const planPrice = await getUsmlePlanPrice(months);
+      if (planPrice == null) {
+        return res.status(400).json({ error: 'Этот тариф USMLE недоступен' });
+      }
+      rawAmount = planPrice;
+    } else {
+      if (!user.universityId) {
+        return res.status(400).json({ error: 'Укажите университет, чтобы оформить подписку' });
+      }
+      const planPrice = await getPlanPrice(user.universityId, months);
+      if (planPrice == null) {
+        return res.status(400).json({ error: 'Этот тариф недоступен для вашего университета' });
+      }
+      rawAmount = planPrice;
     }
-
-    const planPrice = await getPlanPrice(user.universityId, months);
-    if (planPrice == null) {
-      return res.status(400).json({ error: 'Этот тариф недоступен для вашего университета' });
-    }
-    // Цену всегда берём с сервера (нельзя подменить с клиента)
-    rawAmount = planPrice;
 
     // Промокод как процентная скидка
     let promoCodeData = null;
@@ -851,13 +899,14 @@ router.post('/create', [
       merchantCategoryCode: merchantCategoryCode,
       nameEn: nameEn,
       webhookUrl: webhookUrl,
-      description: description || `Оплата: ${paymentType || 'subscription'}`,
+      description: description || `Оплата: ${effectivePaymentType}`,
       customFields: {
         ...(userId && { userId: userId.toString() }),
-        paymentType: paymentType || 'subscription',
+        paymentType: effectivePaymentType,
+        programType,
         subscriptionType: subscriptionType,
         universityId: user.universityId,
-        testMode: 'true', // Помечаем как тестовый платеж
+        testMode: 'true',
         ...(promoCodeData && {
           promoCodeId: promoCodeData.id,
           promoCode: promoCodeData.code,
@@ -873,10 +922,11 @@ router.post('/create', [
       amount: amountToCharge,
       status: 'PENDING',
       fields: {
-        paymentType: paymentType || 'subscription',
+        paymentType: effectivePaymentType,
+        programType,
         subscriptionType: subscriptionType,
         universityId: user.universityId,
-        description: description || `Оплата: ${paymentType || 'subscription'}`,
+        description: description || `Оплата: ${effectivePaymentType}`,
         testMode: true,
         originalAmount: rawAmount,
         coinsToUse: coinsToUse,

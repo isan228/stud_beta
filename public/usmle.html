@@ -17,8 +17,48 @@
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <meta name="theme-color" content="#2563eb">
-    <title>Тесты - stud.kg</title>
+    <title>USMLE - stud.kg</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        .usmle-tags-wrap { margin: 0 0 1.25rem; }
+        .usmle-tags-label { font-weight: 700; margin-bottom: 0.5rem; }
+        .usmle-tags-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+        .usmle-tag-chip {
+            border: 1.5px solid var(--border-color);
+            background: var(--card-bg);
+            color: var(--text-color);
+            border-radius: 999px;
+            padding: 0.35rem 0.75rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .usmle-tag-chip.active {
+            border-color: var(--primary-color);
+            background: color-mix(in srgb, var(--primary-color) 12%, var(--card-bg));
+            color: var(--primary-color);
+        }
+        .program-switch {
+            display: inline-flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        .program-switch a {
+            padding: 0.45rem 0.9rem;
+            border-radius: 999px;
+            border: 1.5px solid var(--border-color);
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .program-switch a.active {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+        }
+    </style>
 </head>
 
 <body>
@@ -60,22 +100,23 @@
     <main class="main-content">
         <div class="container">
             <div class="page-header">
-                <div class="program-switch" style="display:inline-flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
-                    <a href="/tests" class="active" style="padding:0.45rem 0.9rem;border-radius:999px;border:1.5px solid var(--primary-color);text-decoration:none;color:var(--primary-color);font-weight:600;font-size:0.9rem;background:color-mix(in srgb, var(--primary-color) 10%, transparent);">Университет</a>
-                    <a href="/usmle" style="padding:0.45rem 0.9rem;border-radius:999px;border:1.5px solid var(--border-color);text-decoration:none;color:var(--text-secondary);font-weight:600;font-size:0.9rem;">USMLE</a>
+                <div class="program-switch">
+                    <a href="/tests">Университет</a>
+                    <a href="/usmle" class="active">USMLE</a>
                 </div>
-                <h1>Выберите предмет</h1>
+                <h1>USMLE</h1>
                 <p class="page-description">
-                    Выберите интересующий вас предмет для начала подготовки.
-                    Каждый предмет содержит множество тестов различной сложности.
+                    Отдельная программа подготовки. Нужна отдельная подписка USMLE.
+                    После покупки можно дополнительно фильтровать тесты по тегам вопросов.
                 </p>
             </div>
 
-            <!-- Поиск по предметам -->
+            <div id="usmleTagFilters" class="usmle-tags-wrap"></div>
+
             <div class="search-container">
                 <div class="search-wrapper">
                     <span class="search-icon">🔍</span>
-                    <input type="text" id="subjectSearch" class="search-input" placeholder="Поиск по предметам..."
+                    <input type="text" id="subjectSearch" class="search-input" placeholder="Поиск по предметам USMLE..."
                         autocomplete="off">
                     <button id="clearSearch" class="clear-search-btn" style="display: none;"
                         aria-label="Очистить поиск">✕</button>
@@ -86,7 +127,7 @@
             <div id="subjectsList" class="subjects-grid">
                 <div style="text-align: center; padding: 3rem; width: 100%; grid-column: 1 / -1;">
                     <div class="loading" style="margin: 0 auto;"></div>
-                    <p style="margin-top: 1rem; color: var(--text-secondary);">Загрузка предметов...</p>
+                    <p style="margin-top: 1rem; color: var(--text-secondary);">Загрузка предметов USMLE...</p>
                 </div>
             </div>
         </div>
@@ -148,12 +189,16 @@
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             window.initTheme();
+            if (typeof window.setProgramType === 'function') window.setProgramType('usmle');
             const userLoaded = await window.loadUser();
             window.setupEventListeners();
 
-            if (typeof window.setProgramType === 'function') window.setProgramType('university');
-            // Загружаем предметы (бесплатные тесты доступны без авторизации)
-            console.log('Загрузка предметов. currentUser:', window.currentUser, 'userLoaded:', userLoaded);
+            if (typeof window.loadUsmleTagFilters === 'function') {
+                window.loadUsmleTagFilters('usmleTagFilters');
+            }
+
+            // Загружаем предметы USMLE
+            console.log('Загрузка предметов USMLE. currentUser:', window.currentUser, 'userLoaded:', userLoaded);
             if (typeof window.loadSubjects === 'function') {
                 window.loadSubjects();
             } else {

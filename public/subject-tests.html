@@ -37,6 +37,7 @@
             <div class="nav-menu" id="navMenu">
                 <a href="/" class="nav-link">Главная</a>
                 <a href="/tests" class="nav-link">Тесты</a>
+                <a href="/usmle" class="nav-link">USMLE</a>
                 <a href="/news" class="nav-link">Новости</a>
                 <a href="/about" class="nav-link">О нас</a>
                 <a href="/favorites" class="nav-link" id="favoritesLink" style="display: none;">Избранное</a>
@@ -56,13 +57,14 @@
 
     <main class="main-content">
         <div class="container">
-            <a href="/tests" class="btn btn-secondary">← Назад к предметам</a>
+            <a href="/tests" class="btn btn-secondary" id="backToSubjectsBtn">← Назад к предметам</a>
             <div class="page-header">
                 <h1 id="subjectName"></h1>
                 <p class="page-description" id="subjectDescription">
                     Выберите тест для прохождения. Каждый тест можно настроить под свои потребности.
                 </p>
             </div>
+            <div id="usmleTagFilters" class="usmle-tags-wrap" style="margin-bottom:1rem;"></div>
             <div id="testsList" class="tests-grid"></div>
         </div>
     </main>
@@ -106,13 +108,20 @@
             await loadUser();
             setupEventListeners();
             const urlParams = new URLSearchParams(window.location.search);
+            const program = urlParams.get('program') === 'usmle' ? 'usmle' : 'university';
+            if (typeof setProgramType === 'function') setProgramType(program);
+            const backBtn = document.getElementById('backToSubjectsBtn');
+            if (backBtn) backBtn.href = program === 'usmle' ? '/usmle' : '/tests';
             const subjectId = urlParams.get('id');
             const subjectName = urlParams.get('name') || '';
             const subjectDesc = urlParams.get('desc') || '';
+            if (program === 'usmle' && typeof loadUsmleTagFilters === 'function') {
+                loadUsmleTagFilters('usmleTagFilters');
+            }
             if (subjectId) {
                 loadSubjectTests(parseInt(subjectId), subjectName, subjectDesc);
             } else {
-                window.location.href = '/tests';
+                window.location.href = program === 'usmle' ? '/usmle' : '/tests';
             }
         });
     </script>

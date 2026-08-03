@@ -3,11 +3,38 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const adminAuth = require('../middleware/adminAuth');
-const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, Editor, EditorAuditLog, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, BroadcastMessage, UserBroadcastNotification, Transaction, University, SubscriptionPlan, sequelize } = require('../models');
+const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, Editor, EditorAuditLog, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, BroadcastMessage, UserBroadcastNotification, Transaction, University, SubscriptionPlan, QuestionTag, QuestionTagMap, sequelize } = require('../models');
 const { snapshotFromQuestion, logQuestionAudit } = require('../utils/questionAuditLog');
-const { ensurePlansForUniversity, getPlansForUniversity, ALLOWED_MONTHS, planTitle } = require('../utils/subscriptionPlans');
+const { ensurePlansForUniversity, getPlansForUniversity, ensurePlansForUsmle, getPlansForUsmle, ALLOWED_MONTHS, planTitle, uniPlanScope, USMLE_PLAN_SCOPE } = require('../utils/subscriptionPlans');
 const { Op, QueryTypes } = require('sequelize');
 const { Sequelize } = require('sequelize');
+
+function slugifyTag(name) {
+  return String(name || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9а-яё]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 120) || `tag-${Date.now()}`;
+}
+
+async function syncQuestionTags(questionId, tagIds) {
+  const ids = [...new Set((Array.isArray(tagIds) ? tagIds : [])
+    .map((x) => parseInt(x, 10))
+    .filter((n) => Number.isFinite(n) && n > 0))];
+
+  await QuestionTagMap.destroy({ where: { questionId } });
+  if (!ids.length) return [];
+
+  const tags = await QuestionTag.findAll({ where: { id: { [Op.in]: ids }, isActive: true } });
+  for (const tag of tags) {
+    await QuestionTagMap.findOrCreate({
+      where: { questionId, tagId: tag.id },
+      defaults: { questionId, tagId: tag.id }
+    });
+  }
+  return tags;
+}
 
 async function attachQuestionCountsToTests(tests) {
   if (!tests.length) return [];
@@ -1313,10 +1340,13 @@ router.put('/subscription-plans/:universityId', adminAuth, [
         ? true
         : (item.isActive === true || item.isActive === 'true');
       const title = item.title ? String(item.title).trim().slice(0, 100) : planTitle(months);
+      const planScope = uniPlanScope(university.id);
 
       const [plan] = await SubscriptionPlan.findOrCreate({
-        where: { universityId: university.id, months },
+        where: { planScope, months },
         defaults: {
+          programType: 'university',
+          planScope,
           universityId: university.id,
           months,
           price,
@@ -1326,6 +1356,9 @@ router.put('/subscription-plans/:universityId', adminAuth, [
         }
       });
 
+      plan.programType = 'university';
+      plan.planScope = planScope;
+      plan.universityId = university.id;
       plan.price = price;
       plan.oldPrice = oldPrice;
       plan.title = title;
@@ -1345,6 +1378,163 @@ router.put('/subscription-plans/:universityId', adminAuth, [
     });
   } catch (error) {
     console.error('Ошибка сохранения тарифов:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Тарифы USMLE
+router.get('/usmle-subscription-plans', adminAuth, async (req, res) => {
+  try {
+    const plans = await getPlansForUsmle({ includeInactive: true });
+    res.json({ programType: 'usmle', plans });
+  } catch (error) {
+    console.error('Ошибка получения тарифов USMLE:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.put('/usmle-subscription-plans', adminAuth, [
+  body('plans').isArray({ min: 1 }).withMessage('Нужен массив тарифов')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    await ensurePlansForUsmle();
+    const incoming = Array.isArray(req.body.plans) ? req.body.plans : [];
+    const seenMonths = new Set();
+
+    for (const item of incoming) {
+      const months = parseInt(item.months, 10);
+      if (!ALLOWED_MONTHS.has(months)) {
+        return res.status(400).json({ error: `Недопустимая длительность: ${item.months}` });
+      }
+      if (seenMonths.has(months)) {
+        return res.status(400).json({ error: `Дубликат тарифа на ${months} мес.` });
+      }
+      seenMonths.add(months);
+
+      const price = parseFloat(item.price);
+      if (!Number.isFinite(price) || price < 0.01) {
+        return res.status(400).json({ error: `Некорректная цена для ${months} мес.` });
+      }
+
+      let oldPrice = null;
+      if (item.oldPrice !== undefined && item.oldPrice !== null && item.oldPrice !== '') {
+        oldPrice = parseFloat(item.oldPrice);
+        if (!Number.isFinite(oldPrice) || oldPrice < 0) {
+          return res.status(400).json({ error: `Некорректная старая цена для ${months} мес.` });
+        }
+      }
+
+      const isActive = item.isActive === undefined
+        ? true
+        : (item.isActive === true || item.isActive === 'true');
+      const title = item.title
+        ? String(item.title).trim().slice(0, 100)
+        : planTitle(months, 'usmle');
+
+      const [plan] = await SubscriptionPlan.findOrCreate({
+        where: { planScope: USMLE_PLAN_SCOPE, months },
+        defaults: {
+          programType: 'usmle',
+          planScope: USMLE_PLAN_SCOPE,
+          universityId: null,
+          months,
+          price,
+          oldPrice,
+          title,
+          isActive
+        }
+      });
+
+      plan.programType = 'usmle';
+      plan.planScope = USMLE_PLAN_SCOPE;
+      plan.universityId = null;
+      plan.price = price;
+      plan.oldPrice = oldPrice;
+      plan.title = title;
+      plan.isActive = isActive;
+      await plan.save();
+    }
+
+    const plans = await getPlansForUsmle({ includeInactive: true });
+    res.json({ programType: 'usmle', plans });
+  } catch (error) {
+    console.error('Ошибка сохранения тарифов USMLE:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Теги вопросов USMLE
+router.get('/question-tags', adminAuth, async (req, res) => {
+  try {
+    const tags = await QuestionTag.findAll({ order: [['name', 'ASC']] });
+    res.json(tags);
+  } catch (error) {
+    console.error('Ошибка получения тегов:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.post('/question-tags', adminAuth, [
+  body('name').trim().notEmpty().withMessage('Название тега обязательно')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    const name = String(req.body.name).trim();
+    const slug = req.body.slug ? slugifyTag(req.body.slug) : slugifyTag(name);
+    const tag = await QuestionTag.create({
+      name,
+      slug,
+      isActive: req.body.isActive === undefined ? true : (req.body.isActive === true || req.body.isActive === 'true')
+    });
+    res.status(201).json(tag);
+  } catch (error) {
+    console.error('Ошибка создания тега:', error);
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(400).json({ error: 'Тег с таким именем уже существует' });
+    }
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.put('/question-tags/:id', adminAuth, [
+  body('name').trim().notEmpty().withMessage('Название тега обязательно')
+], async (req, res) => {
+  try {
+    const tag = await QuestionTag.findByPk(req.params.id);
+    if (!tag) return res.status(404).json({ error: 'Тег не найден' });
+    tag.name = String(req.body.name).trim();
+    if (req.body.slug) tag.slug = slugifyTag(req.body.slug);
+    if (req.body.isActive !== undefined) {
+      tag.isActive = req.body.isActive === true || req.body.isActive === 'true';
+    }
+    await tag.save();
+    res.json(tag);
+  } catch (error) {
+    console.error('Ошибка обновления тега:', error);
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(400).json({ error: 'Тег с таким именем уже существует' });
+    }
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.delete('/question-tags/:id', adminAuth, async (req, res) => {
+  try {
+    const tag = await QuestionTag.findByPk(req.params.id);
+    if (!tag) return res.status(404).json({ error: 'Тег не найден' });
+    await QuestionTagMap.destroy({ where: { tagId: tag.id } });
+    await tag.destroy();
+    res.json({ message: 'Тег удалён' });
+  } catch (error) {
+    console.error('Ошибка удаления тега:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
@@ -1375,11 +1565,16 @@ router.get('/subjects', adminAuth, async (req, res) => {
     if (req.query.universityId) {
       where.universityId = req.query.universityId;
     }
+    if (req.query.programType === 'usmle' || req.query.program === 'usmle') {
+      where.programType = 'usmle';
+    } else if (req.query.programType === 'university' || req.query.program === 'university') {
+      where.programType = 'university';
+    }
 
     if (req.query.compact === '1') {
       const subjects = await Subject.findAll({
         where,
-        attributes: ['id', 'name', 'universityId'],
+        attributes: ['id', 'name', 'universityId', 'programType'],
         include: [{
           model: University,
           as: 'University',
@@ -1413,8 +1608,8 @@ router.get('/subjects', adminAuth, async (req, res) => {
 // Создать предмет
 router.post('/subjects', adminAuth, [
   body('name').trim().notEmpty().withMessage('Название предмета обязательно'),
-  body('universityId').isInt({ min: 1 }).withMessage('Университет обязателен'),
-  body('description').optional()
+  body('description').optional(),
+  body('programType').optional()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -1422,32 +1617,49 @@ router.post('/subjects', adminAuth, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, description, universityId } = req.body;
-    const university = await University.findByPk(universityId);
-    if (!university) {
-      return res.status(400).json({ error: 'Университет не найден' });
+    const programType = String(req.body.programType || 'university').toLowerCase() === 'usmle'
+      ? 'usmle'
+      : 'university';
+    const { name, description } = req.body;
+
+    let universityId = null;
+    if (programType === 'university') {
+      universityId = parseInt(req.body.universityId, 10);
+      if (!Number.isFinite(universityId)) {
+        return res.status(400).json({ error: 'Университет обязателен' });
+      }
+      const university = await University.findByPk(universityId);
+      if (!university) {
+        return res.status(400).json({ error: 'Университет не найден' });
+      }
     }
 
     const existing = await Subject.findOne({
       where: {
-        universityId: university.id,
+        programType,
+        universityId: universityId,
         name: { [Op.iLike]: String(name).trim() }
       }
     });
     if (existing) {
-      return res.status(400).json({ error: 'Предмет с таким названием уже есть у этого университета' });
+      return res.status(400).json({
+        error: programType === 'usmle'
+          ? 'Предмет USMLE с таким названием уже есть'
+          : 'Предмет с таким названием уже есть у этого университета'
+      });
     }
 
     const subject = await Subject.create({
       name: String(name).trim(),
       description,
-      universityId: university.id
+      universityId,
+      programType
     });
     res.status(201).json(subject);
   } catch (error) {
     console.error('Ошибка создания предмета:', error);
     if (error.name === 'SequelizeUniqueConstraintError') {
-      return res.status(400).json({ error: 'Предмет с таким названием уже есть у этого университета' });
+      return res.status(400).json({ error: 'Предмет с таким названием уже существует' });
     }
     res.status(500).json({ error: 'Ошибка сервера' });
   }
@@ -1468,47 +1680,58 @@ router.put('/subjects/:id', adminAuth, [
       return res.status(404).json({ error: 'Предмет не найден' });
     }
 
-    const { name, description, universityId } = req.body;
+    const { name, description, universityId, programType: rawProgram } = req.body;
     const nextName = String(name).trim();
-    const nextUniversityId = universityId !== undefined
-      ? parseInt(universityId, 10)
-      : subject.universityId;
+    const nextProgram = rawProgram !== undefined
+      ? (String(rawProgram).toLowerCase() === 'usmle' ? 'usmle' : 'university')
+      : (subject.programType || 'university');
 
-    if (universityId !== undefined) {
+    let nextUniversityId = subject.universityId;
+    if (nextProgram === 'usmle') {
+      nextUniversityId = null;
+    } else if (universityId !== undefined) {
+      nextUniversityId = parseInt(universityId, 10);
       const university = await University.findByPk(nextUniversityId);
       if (!university) {
         return res.status(400).json({ error: 'Университет не найден' });
       }
     }
 
+    if (nextProgram === 'university' && !nextUniversityId) {
+      return res.status(400).json({ error: 'Университет обязателен' });
+    }
+
     const existing = await Subject.findOne({
       where: {
         id: { [Op.ne]: subject.id },
+        programType: nextProgram,
         universityId: nextUniversityId,
         name: { [Op.iLike]: nextName }
       }
     });
     if (existing) {
-      return res.status(400).json({ error: 'Предмет с таким названием уже есть у этого университета' });
+      return res.status(400).json({ error: 'Предмет с таким названием уже существует' });
     }
 
     subject.name = nextName;
     if (description !== undefined) subject.description = description;
-    if (universityId !== undefined) subject.universityId = nextUniversityId;
+    subject.programType = nextProgram;
+    subject.universityId = nextUniversityId;
     await subject.save();
 
-    if (universityId !== undefined) {
-      await Test.update(
-        { universityId: nextUniversityId },
-        { where: { subjectId: subject.id } }
-      );
-    }
+    await Test.update(
+      {
+        universityId: nextUniversityId,
+        programType: nextProgram
+      },
+      { where: { subjectId: subject.id } }
+    );
 
     res.json(subject);
   } catch (error) {
     console.error('Ошибка обновления предмета:', error);
     if (error.name === 'SequelizeUniqueConstraintError') {
-      return res.status(400).json({ error: 'Предмет с таким названием уже есть у этого университета' });
+      return res.status(400).json({ error: 'Предмет с таким названием уже существует' });
     }
     res.status(500).json({ error: 'Ошибка сервера' });
   }
@@ -1600,7 +1823,7 @@ router.get('/tests', adminAuth, async (req, res) => {
 router.post('/tests', adminAuth, [
   body('name').trim().notEmpty().withMessage('Название теста обязательно'),
   body('subjectId').isInt().withMessage('ID предмета обязателен'),
-  body('universityId').isInt().withMessage('Университет обязателен')
+  body('universityId').optional({ nullable: true })
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -1614,27 +1837,34 @@ router.post('/tests', adminAuth, [
     if (!subject) {
       return res.status(400).json({ error: 'Предмет не найден' });
     }
-    if (!subject.universityId) {
+    if (!subject.universityId && subject.programType !== 'usmle') {
       return res.status(400).json({ error: 'У предмета не указан университет' });
     }
 
     const requestedUni = universityId != null ? parseInt(universityId, 10) : null;
-    if (requestedUni && Number(requestedUni) !== Number(subject.universityId)) {
+    if (
+      subject.programType !== 'usmle' &&
+      requestedUni &&
+      Number(requestedUni) !== Number(subject.universityId)
+    ) {
       return res.status(400).json({
         error: 'Университет теста должен совпадать с университетом предмета'
       });
     }
 
-    const university = await University.findByPk(subject.universityId);
-    if (!university) {
-      return res.status(400).json({ error: 'Университет не найден' });
+    if (subject.programType !== 'usmle') {
+      const university = await University.findByPk(subject.universityId);
+      if (!university) {
+        return res.status(400).json({ error: 'Университет не найден' });
+      }
     }
 
     const test = await Test.create({
       name,
       description,
       subjectId: parseInt(subjectId, 10),
-      universityId: subject.universityId,
+      universityId: subject.programType === 'usmle' ? null : subject.universityId,
+      programType: subject.programType === 'usmle' ? 'usmle' : 'university',
       isFree: isFree === true || isFree === 'true',
       hasExplanations: hasExplanations === true || hasExplanations === 'true'
     });
@@ -1669,11 +1899,11 @@ router.put('/tests/:id', adminAuth, [
     if (!subject) {
       return res.status(400).json({ error: 'Предмет не найден' });
     }
-    if (!subject.universityId) {
+    if (!subject.universityId && subject.programType !== 'usmle') {
       return res.status(400).json({ error: 'У предмета не указан университет' });
     }
 
-    if (universityId !== undefined) {
+    if (universityId !== undefined && subject.programType !== 'usmle') {
       const requestedUni = parseInt(universityId, 10);
       if (Number(requestedUni) !== Number(subject.universityId)) {
         return res.status(400).json({
@@ -1683,7 +1913,8 @@ router.put('/tests/:id', adminAuth, [
     }
 
     test.subjectId = nextSubjectId;
-    test.universityId = subject.universityId;
+    test.universityId = subject.programType === 'usmle' ? null : subject.universityId;
+    test.programType = subject.programType === 'usmle' ? 'usmle' : 'university';
 
     if (isFree !== undefined) test.isFree = isFree === true || isFree === 'true';
     if (hasExplanations !== undefined) {
@@ -1754,10 +1985,15 @@ router.get('/questions/:id', adminAuth, async (req, res) => {
       include: [{
         model: Test,
         as: 'Test',
-        attributes: ['id', 'name', 'subjectId', 'hasExplanations']
+        attributes: ['id', 'name', 'subjectId', 'hasExplanations', 'programType']
       }, {
         model: Answer,
         as: 'Answers'
+      }, {
+        model: QuestionTag,
+        as: 'Tags',
+        attributes: ['id', 'name', 'slug'],
+        through: { attributes: [] }
       }]
     });
     if (!question) {
@@ -1820,7 +2056,7 @@ router.post('/questions', adminAuth, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { text, testId, answers, explanation, setTestWithExplanations } = req.body;
+    const { text, testId, answers, explanation, setTestWithExplanations, tagIds } = req.body;
     const withExplanations = setTestWithExplanations === true || setTestWithExplanations === 'true';
 
     // Проверяем, что есть хотя бы один правильный ответ
@@ -1849,6 +2085,8 @@ router.post('/questions', adminAuth, [
       })
     ));
 
+    await syncQuestionTags(question.id, tagIds);
+
     const questionWithAnswers = await Question.findByPk(question.id, {
       include: [{
         model: Answer,
@@ -1856,7 +2094,12 @@ router.post('/questions', adminAuth, [
       }, {
         model: Test,
         as: 'Test',
-        attributes: ['id', 'name']
+        attributes: ['id', 'name', 'programType']
+      }, {
+        model: QuestionTag,
+        as: 'Tags',
+        attributes: ['id', 'name', 'slug'],
+        through: { attributes: [] }
       }]
     });
 
@@ -1901,7 +2144,7 @@ router.put('/questions/:id', adminAuth, [
     const beforeSnapshot = snapshotFromQuestion(question, question.Answers);
     beforeSnapshot.questionId = question.id;
 
-    const { text, testId, answers, explanation, setTestWithExplanations } = req.body;
+    const { text, testId, answers, explanation, setTestWithExplanations, tagIds } = req.body;
     const withExplanations = setTestWithExplanations === true || setTestWithExplanations === 'true';
     const { deleteQuestionImageFile } = require('../utils/questionImages');
     const { syncTestHasExplanations } = require('../utils/syncTestExplanations');
@@ -1969,6 +2212,10 @@ router.put('/questions/:id', adminAuth, [
       });
     }
 
+    if (tagIds !== undefined) {
+      await syncQuestionTags(question.id, tagIds);
+    }
+
     const questionWithAnswers = await Question.findByPk(question.id, {
       include: [{
         model: Answer,
@@ -1976,7 +2223,12 @@ router.put('/questions/:id', adminAuth, [
       }, {
         model: Test,
         as: 'Test',
-        attributes: ['id', 'name']
+        attributes: ['id', 'name', 'programType']
+      }, {
+        model: QuestionTag,
+        as: 'Tags',
+        attributes: ['id', 'name', 'slug'],
+        through: { attributes: [] }
       }]
     });
 

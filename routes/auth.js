@@ -336,7 +336,7 @@ router.put('/account-alerts/broadcast/:id/dismiss', require('../middleware/auth'
 router.get('/me', require('../middleware/auth'), async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
-      attributes: ['id', 'username', 'email', 'createdAt', 'referralCode', 'coins', 'subscriptionEndDate', 'universityId'],
+      attributes: ['id', 'username', 'email', 'createdAt', 'referralCode', 'coins', 'subscriptionEndDate', 'usmleSubscriptionEndDate', 'universityId'],
       include: [{
         model: University,
         as: 'University',

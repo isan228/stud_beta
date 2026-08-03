@@ -29,7 +29,13 @@ const Test = sequelize.define('Test', {
       model: 'Universities',
       key: 'id'
     },
-    comment: 'Университет, к которому относится тест (тег)'
+    comment: 'Университет (для programType=university)'
+  },
+  programType: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    defaultValue: 'university',
+    comment: 'university | usmle'
   },
   isFree: {
     type: DataTypes.BOOLEAN,

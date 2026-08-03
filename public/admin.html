@@ -443,6 +443,27 @@
                                 <select id="subsAdminUniversity" class="admin-subs-uni-select" aria-label="Университет"></select>
                                 <p id="subsAdminHint" class="admin-subs-hint"></p>
                             </div>
+                            <div class="admin-subs-uni-card" style="margin-top:0;">
+                                <div class="admin-subs-uni-label">Тарифы USMLE</div>
+                                <p class="admin-subs-hint" style="margin-top:0;">Отдельные цены программы USMLE (не привязаны к университету).</p>
+                                <button type="button" class="btn btn-secondary btn-sm" id="loadUsmlePlansBtn" style="margin-top:0.5rem;">Загрузить / показать USMLE</button>
+                                <div id="usmleAdminPlansBox" style="margin-top:0.75rem; display:none;">
+                                    <div class="admin-subs-fields">
+                                        <div class="admin-subs-field"><label>1 мес.</label><input type="number" id="usmlePrice1" min="0.01" step="0.01"></div>
+                                        <div class="admin-subs-field"><label>3 мес.</label><input type="number" id="usmlePrice3" min="0.01" step="0.01"></div>
+                                        <div class="admin-subs-field"><label>1 год</label><input type="number" id="usmlePrice12" min="0.01" step="0.01"></div>
+                                    </div>
+                                    <button type="button" class="btn btn-primary btn-sm" id="saveUsmlePlansBtn" style="margin-top:0.75rem;">Сохранить USMLE</button>
+                                </div>
+                            </div>
+                            <div class="admin-subs-uni-card">
+                                <div class="admin-subs-uni-label">Теги USMLE</div>
+                                <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+                                    <input type="text" id="newQuestionTagName" placeholder="Новый тег" style="flex:1; padding:0.5rem;">
+                                    <button type="button" class="btn btn-primary btn-sm" id="addQuestionTagBtn">+</button>
+                                </div>
+                                <div id="adminQuestionTagsList" style="margin-top:0.75rem;"></div>
+                            </div>
                             <div class="admin-subs-legend">
                                 <div class="admin-subs-legend-item">
                                     <span class="admin-subs-dot price"></span>
@@ -674,8 +695,15 @@
             <form id="subjectForm">
                 <input type="hidden" id="subjectId">
                 <div class="form-group">
+                    <label for="subjectProgramType">Программа</label>
+                    <select id="subjectProgramType">
+                        <option value="university">Университет</option>
+                        <option value="usmle">USMLE</option>
+                    </select>
+                </div>
+                <div class="form-group" id="subjectUniversityGroup">
                     <label for="subjectUniversityId">Университет</label>
-                    <select id="subjectUniversityId" required>
+                    <select id="subjectUniversityId">
                         <option value="">Выберите университет</option>
                     </select>
                 </div>
@@ -898,6 +926,11 @@
                 <div class="form-group">
                     <label for="questionTestId">Тест</label>
                     <select id="questionTestId" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="questionTagIds">Теги USMLE (если тест USMLE)</label>
+                    <select id="questionTagIds" multiple size="5" style="width:100%; min-height: 7rem;"></select>
+                    <p style="margin: 0.35rem 0 0; font-size: 0.8rem; color: var(--text-muted);">Удерживайте Ctrl/Cmd, чтобы выбрать несколько. Теги используются для фильтра тестов у пользователей с подпиской USMLE.</p>
                 </div>
                 <div class="form-group">
                     <label>Ответы</label>

@@ -122,6 +122,7 @@ app.get('/favicon.svg', (req, res) => {
 const pages = {
   '/': 'index.html',
   '/tests': 'tests.html',
+  '/usmle': 'usmle.html',
   '/subject-tests': 'subject-tests.html',
   '/test-settings': 'test-settings.html',
   '/test': 'test.html',

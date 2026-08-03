@@ -1252,6 +1252,18 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     // Предметы и тесты
     let allSubjects = []; // Храним все предметы для фильтрации
+    let currentProgramType = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('programType') === 'usmle')
+        ? 'usmle'
+        : 'university';
+
+    function setProgramType(program) {
+        currentProgramType = program === 'usmle' ? 'usmle' : 'university';
+        try { sessionStorage.setItem('programType', currentProgramType); } catch (_) {}
+    }
+
+    function getProgramType() {
+        return currentProgramType === 'usmle' ? 'usmle' : 'university';
+    }
 
     async function loadSubjects() {
         // Для неавторизованных пользователей показываем предметы с бесплатными тестами
@@ -1259,14 +1271,15 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             const container = document.getElementById('subjectsList');
             if (!container) return;
 
-            const response = await fetch(`${API_URL}/tests/subjects`, {
+            const program = getProgramType();
+            const response = await fetch(`${API_URL}/tests/subjects?program=${encodeURIComponent(program)}`, {
                 headers: currentToken ? { 'Authorization': `Bearer ${currentToken}` } : {}
             });
             allSubjects = await response.json();
 
             // Проверяем количество избранных вопросов (только для авторизованных)
             let favoritesCount = 0;
-            if (currentUser) {
+            if (currentUser && program !== 'usmle') {
                 try {
                     const favoritesResponse = await fetch(`${API_URL}/favorites`, {
                         headers: {
@@ -1326,7 +1339,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 const desc = encodeURIComponent(subject.description || '');
                 const delay = favoritesCount > 0 ? (index + 1) * 0.1 : index * 0.1;
                 return `
-                <div class="subject-card card-animate" style="animation-delay: ${delay}s;" onclick="window.location.href='/subject-tests?id=${subject.id}&name=${name}&desc=${desc}'">
+                <div class="subject-card card-animate" style="animation-delay: ${delay}s;" onclick="window.location.href='/subject-tests?id=${subject.id}&name=${name}&desc=${desc}&program=${getProgramType()}'">
                     <h3>${subject.name}</h3>
                     <p>${subject.description || 'Тесты по данному предмету для подготовки к экзаменам'}</p>
                 </div>
@@ -1404,8 +1417,17 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         return !!(currentUser && currentUser.subscriptionEndDate && new Date(currentUser.subscriptionEndDate) > new Date());
     }
 
+    function hasActiveUsmleSubscription() {
+        return !!(currentUser && currentUser.usmleSubscriptionEndDate && new Date(currentUser.usmleSubscriptionEndDate) > new Date());
+    }
+
     function canAccessTest(test) {
-        return !!(test && (test.isFree || hasActiveSubscription()));
+        if (!test) return false;
+        if (test.isFree) return true;
+        if ((test.programType || 'university') === 'usmle') {
+            return hasActiveUsmleSubscription();
+        }
+        return hasActiveSubscription();
     }
 
     function getTestQuestionCount(test) {
@@ -1442,13 +1464,20 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         showSubscriptionRequiredModal();
     }
 
-    async function loadSubjectTests(subjectId, subjectName, subjectDescription = '') {
+    let selectedUsmleTagIds = [];
+
+    async function loadSubjectTests(subjectId, subjectName, subjectDescription = '', options = {}) {
         currentSubjectId = subjectId;
         currentSubjectName = subjectName;
         currentSubjectDescription = subjectDescription;
 
         try {
-            const response = await fetch(`${API_URL}/tests/subjects/${subjectId}/tests`, {
+            let url = `${API_URL}/tests/subjects/${subjectId}/tests`;
+            const tagIds = options.tagIds || selectedUsmleTagIds;
+            if (getProgramType() === 'usmle' && tagIds && tagIds.length) {
+                url += `?tagIds=${encodeURIComponent(tagIds.join(','))}`;
+            }
+            const response = await fetch(url, {
                 headers: currentToken ? { 'Authorization': `Bearer ${currentToken}` } : {}
             });
             const tests = await response.json();
@@ -1475,6 +1504,54 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         } catch (error) {
             console.error('Ошибка загрузки тестов:', error);
             showNotification('Ошибка загрузки тестов', 'error');
+        }
+    }
+
+    async function loadUsmleTagFilters(containerId) {
+        const el = document.getElementById(containerId || 'usmleTagFilters');
+        if (!el) return;
+        try {
+            const response = await fetch(`${API_URL}/tests/usmle/tags`);
+            const tags = await response.json();
+            if (!Array.isArray(tags) || !tags.length) {
+                el.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem;">Теги пока не добавлены</p>';
+                return;
+            }
+            el.innerHTML = `
+                <div class="usmle-tags-label">Фильтр по тегам</div>
+                <div class="usmle-tags-list">
+                    ${tags.map((t) => `
+                        <button type="button" class="usmle-tag-chip${selectedUsmleTagIds.includes(t.id) ? ' active' : ''}"
+                            data-tag-id="${t.id}" onclick="toggleUsmleTag(${t.id})">${t.name}</button>
+                    `).join('')}
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" style="margin-top:0.5rem;" onclick="clearUsmleTags()">Сбросить теги</button>
+            `;
+        } catch (e) {
+            console.error('loadUsmleTagFilters', e);
+        }
+    }
+
+    function toggleUsmleTag(tagId) {
+        const id = Number(tagId);
+        if (selectedUsmleTagIds.includes(id)) {
+            selectedUsmleTagIds = selectedUsmleTagIds.filter((x) => x !== id);
+        } else {
+            selectedUsmleTagIds = [...selectedUsmleTagIds, id];
+        }
+        loadUsmleTagFilters();
+        if (currentSubjectId) {
+            loadSubjectTests(currentSubjectId, currentSubjectName, currentSubjectDescription, {
+                tagIds: selectedUsmleTagIds
+            });
+        }
+    }
+
+    function clearUsmleTags() {
+        selectedUsmleTagIds = [];
+        loadUsmleTagFilters();
+        if (currentSubjectId) {
+            loadSubjectTests(currentSubjectId, currentSubjectName, currentSubjectDescription);
         }
     }
 
@@ -3161,11 +3238,21 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const primaryBtn = document.getElementById('subscriptionModalPrimaryBtn');
         const secondaryBtn = document.getElementById('subscriptionModalSecondaryBtn');
 
-        if (titleEl) titleEl.textContent = 'Подписка требуется';
+        if (titleEl) {
+            titleEl.textContent = getProgramType() === 'usmle'
+                ? 'Нужна подписка USMLE'
+                : 'Подписка требуется';
+        }
         if (textEl) {
-            textEl.textContent = currentUser
-                ? 'Оформите или продлите подписку во вкладке «Подписки», чтобы открыть платные тесты.'
-                : 'Зарегистрируйтесь бесплатно, затем оформите подписку для доступа ко всем тестам.';
+            if (getProgramType() === 'usmle') {
+                textEl.textContent = currentUser
+                    ? 'USMLE — отдельная подписка. Оформите её во вкладке «Подписки», чтобы открыть платные тесты USMLE.'
+                    : 'Зарегистрируйтесь, затем оформите отдельную подписку USMLE.';
+            } else {
+                textEl.textContent = currentUser
+                    ? 'Оформите или продлите подписку во вкладке «Подписки», чтобы открыть платные тесты.'
+                    : 'Зарегистрируйтесь бесплатно, затем оформите подписку для доступа ко всем тестам.';
+            }
         }
         if (primaryBtn) {
             primaryBtn.href = currentUser ? '/subscriptions' : '/register';
@@ -3424,7 +3511,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         window.location.href = '/subscriptions';
     }
 
-    let selectedPlan = { months: 1, price: 500 };
+    let selectedPlan = { months: 1, price: 500, programType: 'university' };
 
     function formatPlanPriceHtml(price, oldPrice) {
         const p = Math.round(Number(price));
@@ -3440,10 +3527,11 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         return 'Полный доступ на 1 месяц';
     }
 
-    async function fetchSubscriptionPlans() {
+    async function fetchSubscriptionPlans(programType) {
         const token = currentToken || localStorage.getItem('token');
         if (!token) return null;
-        const response = await fetch('/api/payments/plans', {
+        const program = programType || selectedPlan.programType || 'university';
+        const response = await fetch(`/api/payments/plans?program=${encodeURIComponent(program)}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!response.ok) {
@@ -3453,9 +3541,10 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         return response.json();
     }
 
-    function renderSubscriptionPlans(plans, { preferMonths } = {}) {
-        const subsPlans = document.getElementById('subsPlans');
-        const renewalPlans = document.getElementById('renewalPlans');
+    function renderSubscriptionPlans(plans, { preferMonths, programType, containerId } = {}) {
+        const program = programType || selectedPlan.programType || 'university';
+        const subsPlans = document.getElementById(containerId || (program === 'usmle' ? 'usmleSubsPlans' : 'subsPlans'));
+        const renewalPlans = program === 'university' ? document.getElementById('renewalPlans') : null;
         const list = Array.isArray(plans) ? plans.filter((p) => p.isActive !== false) : [];
 
         if (!list.length) {
@@ -3479,20 +3568,14 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                     : (months === 3 ? '<span class="subs-plan-badge">Популярный</span>' : '');
                 const bestClass = isBest ? ' subs-plan--best' : '';
                 return `
-                <div class="subs-plan${selected}${bestClass}" data-months="${p.months}" data-price="${p.price}" onclick="selectPlan(this)" role="button" tabindex="0">
+                <div class="subs-plan${selected}${bestClass}" data-months="${p.months}" data-price="${p.price}" data-program="${program}" onclick="selectPlan(this)" role="button" tabindex="0">
                     ${badge}
                     <div class="subs-plan-name">${p.title || planDesc(months)}</div>
                     <div class="subs-plan-price">${formatPlanPriceHtml(p.price, p.oldPrice)}</div>
                     <div class="subs-plan-desc">${planDesc(months)}</div>
                     <span class="subs-plan-check" aria-hidden="true"></span>
                 </div>`;
-            }).join('') + `
-                <div class="subs-plan disabled" aria-disabled="true">
-                    <span class="subs-plan-badge soon">Скоро</span>
-                    <div class="subs-plan-name">Групповая</div>
-                    <div class="subs-plan-price" style="color: var(--text-muted); font-size: 1.15rem;">В разработке</div>
-                    <div class="subs-plan-desc">Для групп от 5 человек</div>
-                </div>`;
+            }).join('');
         }
 
         if (renewalPlans) {
@@ -3502,46 +3585,50 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                     ? `<span style="text-decoration: line-through; color: var(--text-muted); margin-right: 0.25rem;">${Math.round(Number(p.oldPrice))}</span>${Math.round(Number(p.price))} сом`
                     : `${Math.round(Number(p.price))} сом`;
                 return `
-                <div class="plan-card${selected}" data-months="${p.months}" data-price="${p.price}" onclick="selectPlan(this)">
+                <div class="plan-card${selected}" data-months="${p.months}" data-price="${p.price}" data-program="${program}" onclick="selectPlan(this)">
                     <div class="plan-header">
                         <span class="plan-name">${p.title || planDesc(p.months)}</span>
                         <span class="plan-price">${priceInner}</span>
                     </div>
                 </div>`;
-            }).join('') + `
-                <div class="plan-card disabled">
-                    <div class="plan-header">
-                        <span class="plan-name">Групповая</span>
-                        <span class="plan-price" style="color: var(--text-muted);">В разработке</span>
-                    </div>
-                </div>`;
+            }).join('');
         }
 
         const first = list.find((p) => Number(p.months) === pickMonths) || list[0];
-        selectedPlan = { months: Number(first.months), price: Math.round(Number(first.price)) };
+        selectedPlan = {
+            months: Number(first.months),
+            price: Math.round(Number(first.price)),
+            programType: program
+        };
         updateRenewalTotal();
     }
 
-    async function loadAndRenderSubscriptionPlans(preferMonths) {
+    async function loadAndRenderSubscriptionPlans(preferMonths, programType) {
         try {
-            const data = await fetchSubscriptionPlans();
+            const program = programType || 'university';
+            const data = await fetchSubscriptionPlans(program);
             if (!data) return;
-            renderSubscriptionPlans(data.plans || [], { preferMonths: preferMonths || selectedPlan.months });
+            renderSubscriptionPlans(data.plans || [], {
+                preferMonths: preferMonths || selectedPlan.months,
+                programType: program
+            });
         } catch (error) {
             console.error('loadAndRenderSubscriptionPlans:', error);
             const msg = `<p style="color: var(--text-muted);">${error.message || 'Ошибка загрузки тарифов'}</p>`;
-            const subsPlans = document.getElementById('subsPlans');
-            const renewalPlans = document.getElementById('renewalPlans');
-            if (subsPlans) subsPlans.innerHTML = msg;
-            if (renewalPlans) renewalPlans.innerHTML = msg;
+            const el = document.getElementById(programType === 'usmle' ? 'usmleSubsPlans' : 'subsPlans');
+            if (el) el.innerHTML = msg;
         }
     }
 
     function updateRenewalTotal() {
-        const coinsToUseInput = document.getElementById('renewalCoinsToUse');
-        const totalEl = document.getElementById('totalPrice');
+        const program = selectedPlan.programType === 'usmle' ? 'usmle' : 'university';
+        const coinsToUseInput = document.getElementById(program === 'usmle' ? 'usmleRenewalCoinsToUse' : 'renewalCoinsToUse')
+            || document.getElementById('renewalCoinsToUse');
+        const totalEl = document.getElementById(program === 'usmle' ? 'usmleTotalPrice' : 'totalPrice')
+            || document.getElementById('totalPrice');
         if (!totalEl) return;
         let price = selectedPlan.price;
+        const promoInput = document.getElementById(program === 'usmle' ? 'usmleSubsPromoCode' : 'subsPromoCode');
         const promoHint = document.getElementById('subsPromoHint');
         const discountPercent = Number(document.getElementById('subsPromoDiscount')?.value || 0);
         if (discountPercent > 0 && discountPercent <= 100) {
@@ -3564,12 +3651,17 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     function selectPlan(card) {
         if (card.classList.contains('disabled')) return;
-        document.querySelectorAll('.plan-card, .subs-plan').forEach(c => c.classList.remove('selected'));
+        document.querySelectorAll('.plan-card, .subs-plan').forEach(c => {
+            if (c.dataset.program === (card.dataset.program || 'university') || (!c.dataset.program && !card.dataset.program)) {
+                c.classList.remove('selected');
+            }
+        });
         card.classList.add('selected');
 
         selectedPlan = {
             months: parseInt(card.dataset.months),
-            price: parseInt(card.dataset.price)
+            price: parseInt(card.dataset.price),
+            programType: card.dataset.program === 'usmle' ? 'usmle' : 'university'
         };
 
         const coinsToUseInput = document.getElementById('renewalCoinsToUse');
@@ -3582,14 +3674,17 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     }
 
     async function proceedToPayment() {
-        const paymentType = 'subscription';
+        const programType = selectedPlan.programType === 'usmle' ? 'usmle' : 'university';
+        const paymentType = programType === 'usmle' ? 'usmle_subscription' : 'subscription';
         const planLabel = selectedPlan.months === 12
             ? '1 год'
             : `${selectedPlan.months} ${getMonthDeclension(selectedPlan.months)}`;
-        const description = `Подписка: ${planLabel}`;
+        const description = programType === 'usmle'
+            ? `Подписка USMLE: ${planLabel}`
+            : `Подписка: ${planLabel}`;
         const subscriptionType = selectedPlan.months.toString();
 
-        const payBtn = document.getElementById('subsPayBtn')
+        const payBtn = document.getElementById(programType === 'usmle' ? 'usmleSubsPayBtn' : 'subsPayBtn')
             || document.querySelector('#renewalModal .btn-primary');
         const originalText = payBtn ? payBtn.textContent : '';
         if (payBtn) {
@@ -3610,19 +3705,21 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 return;
             }
 
-            const coinsToUseInput = document.getElementById('renewalCoinsToUse');
+            const coinsInputId = programType === 'usmle' ? 'usmleRenewalCoinsToUse' : 'renewalCoinsToUse';
+            const coinsToUseInput = document.getElementById(coinsInputId) || document.getElementById('renewalCoinsToUse');
             const coinsToUse = Math.min(
                 parseInt(coinsToUseInput?.value, 10) || 0,
                 selectedPlan.price,
                 (currentUser && (currentUser.coins !== undefined)) ? currentUser.coins : 0
             );
 
-            const promoCode = (document.getElementById('subsPromoCode')?.value || '').trim();
+            const promoCode = (document.getElementById(programType === 'usmle' ? 'usmleSubsPromoCode' : 'subsPromoCode')?.value || '').trim();
 
             const body = {
                 amount: selectedPlan.price,
                 description: description,
                 paymentType: paymentType,
+                programType: programType,
                 subscriptionType: subscriptionType,
                 coinsToUse: coinsToUse
             };
@@ -3697,21 +3794,21 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             const statusIcon = document.getElementById('subsStatusIcon');
             if (active && end) {
                 const daysLeft = Math.max(0, Math.ceil((end - new Date()) / (1000 * 60 * 60 * 24)));
-                statusText.innerHTML = `Подписка <strong>активна</strong> до <strong>${end.toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' })}</strong> (осталось ${daysLeft} дн.).`;
+                statusText.innerHTML = `Университет: подписка <strong>активна</strong> до <strong>${end.toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' })}</strong> (осталось ${daysLeft} дн.).`;
                 if (statusPill) {
                     statusPill.textContent = 'Активна';
                     statusPill.className = 'subs-pill on';
                 }
                 if (statusIcon) statusIcon.textContent = '✓';
             } else if (end) {
-                statusText.innerHTML = `Подписка <strong>истекла</strong> ${end.toLocaleDateString('ru-RU')}. Выберите тариф ниже, чтобы продлить.`;
+                statusText.innerHTML = `Университет: подписка <strong>истекла</strong> ${end.toLocaleDateString('ru-RU')}.`;
                 if (statusPill) {
                     statusPill.textContent = 'Истекла';
                     statusPill.className = 'subs-pill off';
                 }
                 if (statusIcon) statusIcon.textContent = '!';
             } else {
-                statusText.innerHTML = 'Подписки пока нет. Выберите тариф и оформите доступ.';
+                statusText.innerHTML = 'Университет: подписки пока нет. Выберите тариф ниже.';
                 if (statusPill) {
                     statusPill.textContent = 'Нет доступа';
                     statusPill.className = 'subs-pill off';
@@ -3719,7 +3816,32 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 if (statusIcon) statusIcon.textContent = '⏱';
             }
 
-            await loadAndRenderSubscriptionPlans(selectedPlan.months);
+            const usmleBox = document.getElementById('usmleSubsStatus');
+            const usmleText = document.getElementById('usmleSubsStatusText');
+            const usmlePill = document.getElementById('usmleSubsStatusPill');
+            const usmleEnd = data.usmleSubscriptionEndDate ? new Date(data.usmleSubscriptionEndDate) : null;
+            const usmleActive = !!data.usmleSubscriptionActive;
+            if (usmleBox) {
+                usmleBox.classList.toggle('active', usmleActive);
+                usmleBox.classList.toggle('inactive', !usmleActive);
+            }
+            if (usmleText) {
+                if (usmleActive && usmleEnd) {
+                    const daysLeft = Math.max(0, Math.ceil((usmleEnd - new Date()) / (1000 * 60 * 60 * 24)));
+                    usmleText.innerHTML = `USMLE: подписка <strong>активна</strong> до <strong>${usmleEnd.toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' })}</strong> (осталось ${daysLeft} дн.).`;
+                } else if (usmleEnd) {
+                    usmleText.innerHTML = `USMLE: подписка <strong>истекла</strong> ${usmleEnd.toLocaleDateString('ru-RU')}.`;
+                } else {
+                    usmleText.innerHTML = 'USMLE: отдельная подписка. Купите тариф ниже, чтобы открыть программу.';
+                }
+            }
+            if (usmlePill) {
+                usmlePill.textContent = usmleActive ? 'Активна' : (usmleEnd ? 'Истекла' : 'Нет доступа');
+                usmlePill.className = usmleActive ? 'subs-pill on' : 'subs-pill off';
+            }
+
+            await loadAndRenderSubscriptionPlans(selectedPlan.months, 'university');
+            await loadAndRenderSubscriptionPlans(1, 'usmle');
 
             const coinsBalanceEl = document.getElementById('renewalCoinsBalance');
             const coinsToUseInput = document.getElementById('renewalCoinsToUse');
@@ -3796,6 +3918,12 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     window.showRegisterModal = showRegisterModal;
     window.loadTestSettings = loadTestSettings;
     window.loadSubjects = loadSubjects;
+    window.setProgramType = setProgramType;
+    window.getProgramType = getProgramType;
+    window.toggleUsmleTag = toggleUsmleTag;
+    window.clearUsmleTags = clearUsmleTags;
+    window.loadUsmleTagFilters = loadUsmleTagFilters;
+    window.hasActiveUsmleSubscription = hasActiveUsmleSubscription;
     window.loadHomepageTests = loadHomepageTests;
     window.loadHomepageStats = loadHomepageStats;
     window.startFavoriteTest = startFavoriteTest;

@@ -21,7 +21,13 @@ const Subject = sequelize.define('Subject', {
       model: 'Universities',
       key: 'id'
     },
-    comment: 'Университет, к которому относится предмет'
+    comment: 'Университет (для programType=university)'
+  },
+  programType: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    defaultValue: 'university',
+    comment: 'university | usmle'
   },
   createdAt: {
     type: DataTypes.DATE,
@@ -32,15 +38,14 @@ const Subject = sequelize.define('Subject', {
     defaultValue: DataTypes.NOW
   }
 }, {
-  // Не ставить unique на колонку name — иначе alter ломает SQL;
-  // уникальность названия в рамках университета
   indexes: [
     {
       unique: true,
-      fields: ['universityId', 'name'],
-      name: 'subjects_university_name_unique'
+      fields: ['programType', 'universityId', 'name'],
+      name: 'subjects_program_university_name_unique'
     },
-    { fields: ['universityId'], name: 'subjects_university_id_idx' }
+    { fields: ['universityId'], name: 'subjects_university_id_idx' },
+    { fields: ['programType'], name: 'subjects_program_type_idx' }
   ]
 });
 

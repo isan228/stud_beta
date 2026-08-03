@@ -1,16 +1,33 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
+/**
+ * Тарифы подписки.
+ * planScope: "uni:{id}" для университета, "usmle" для USMLE
+ * (нужен, т.к. UNIQUE с NULL universityId в PostgreSQL допускает дубликаты)
+ */
 const SubscriptionPlan = sequelize.define('SubscriptionPlan', {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true
   },
+  programType: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    defaultValue: 'university',
+    comment: 'university | usmle'
+  },
+  planScope: {
+    type: DataTypes.STRING(40),
+    allowNull: false,
+    defaultValue: 'legacy',
+    comment: 'uni:{id} или usmle'
+  },
   universityId: {
     type: DataTypes.INTEGER,
-    allowNull: false,
-    comment: 'Университет, для которого задан тариф'
+    allowNull: true,
+    comment: 'Университет (null для USMLE)'
   },
   months: {
     type: DataTypes.INTEGER,
@@ -23,8 +40,7 @@ const SubscriptionPlan = sequelize.define('SubscriptionPlan', {
   },
   oldPrice: {
     type: DataTypes.DECIMAL(10, 2),
-    allowNull: true,
-    comment: 'Зачёркнутая «старая» цена для отображения скидки'
+    allowNull: true
   },
   title: {
     type: DataTypes.STRING(100),
@@ -47,8 +63,8 @@ const SubscriptionPlan = sequelize.define('SubscriptionPlan', {
   indexes: [
     {
       unique: true,
-      fields: ['universityId', 'months'],
-      name: 'subscription_plans_university_months_unique'
+      fields: ['planScope', 'months'],
+      name: 'subscription_plans_scope_months_unique'
     }
   ]
 });

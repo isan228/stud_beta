@@ -1242,7 +1242,11 @@ async function editSubject(subjectId) {
         const subject = await response.json();
 
         if (subject) {
+            const programType = subject.programType === 'usmle' ? 'usmle' : 'university';
+            const programEl = document.getElementById('subjectProgramType');
+            if (programEl) programEl.value = programType;
             await fillSubjectUniversitySelect(subject.universityId);
+            toggleSubjectUniversityField();
             document.getElementById('subjectId').value = subject.id;
             document.getElementById('subjectName').value = subject.name;
             document.getElementById('subjectDescription').value = subject.description || '';
@@ -1253,6 +1257,16 @@ async function editSubject(subjectId) {
         console.error('Ошибка загрузки предмета:', error);
         showNotification('Ошибка загрузки предмета', 'error');
     }
+}
+
+function toggleSubjectUniversityField() {
+    const program = document.getElementById('subjectProgramType')?.value;
+    const group = document.getElementById('subjectUniversityGroup');
+    const select = document.getElementById('subjectUniversityId');
+    if (!group) return;
+    const isUsmle = program === 'usmle';
+    group.style.display = isUsmle ? 'none' : '';
+    if (select) select.required = !isUsmle;
 }
 
 // Редактирование теста
@@ -1336,6 +1350,25 @@ async function applyQuestionExplanationForTestId(testId) {
 }
 
 // Редактирование вопроса
+async function fillQuestionTagsSelect(selectedIds = []) {
+    const select = document.getElementById('questionTagIds');
+    if (!select) return;
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/question-tags`, {
+            headers: adminAuthHeaders()
+        });
+        if (!response.ok) throw new Error('tags');
+        const tags = await response.json();
+        const selected = new Set((selectedIds || []).map(Number));
+        select.innerHTML = (tags || []).map((t) =>
+            `<option value="${t.id}" ${selected.has(t.id) ? 'selected' : ''}>${t.name}</option>`
+        ).join('');
+    } catch (e) {
+        console.error('fillQuestionTagsSelect', e);
+        select.innerHTML = '';
+    }
+}
+
 async function editQuestion(questionId) {
     try {
         const questionResponse = await fetch(`${ADMIN_API_URL}/questions/${questionId}`, {
@@ -1348,6 +1381,7 @@ async function editQuestion(questionId) {
 
         if (question) {
             await populateQuestionTestSelect(question.testId ?? question.Test?.id);
+            await fillQuestionTagsSelect((question.Tags || []).map((t) => t.id));
 
             document.getElementById('questionId').value = question.id;
             document.getElementById('questionText').value = question.text;
@@ -1425,9 +1459,11 @@ async function saveSubject(e) {
     const id = document.getElementById('subjectId').value;
     const name = document.getElementById('subjectName').value;
     const description = document.getElementById('subjectDescription').value;
-    const universityId = parseInt(document.getElementById('subjectUniversityId').value, 10);
+    const programType = document.getElementById('subjectProgramType')?.value === 'usmle' ? 'usmle' : 'university';
+    const universityIdRaw = document.getElementById('subjectUniversityId').value;
+    const universityId = universityIdRaw ? parseInt(universityIdRaw, 10) : null;
 
-    if (!universityId) {
+    if (programType === 'university' && !universityId) {
         showNotification('Выберите университет', 'error');
         return;
     }
@@ -1435,6 +1471,8 @@ async function saveSubject(e) {
     try {
         const url = id ? `${ADMIN_API_URL}/subjects/${id}` : `${ADMIN_API_URL}/subjects`;
         const method = id ? 'PUT' : 'POST';
+        const payload = { name, description, programType };
+        if (programType === 'university') payload.universityId = universityId;
 
         const response = await fetch(url, {
             method,
@@ -1442,7 +1480,7 @@ async function saveSubject(e) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${currentAdminToken}`
             },
-            body: JSON.stringify({ name, description, universityId })
+            body: JSON.stringify(payload)
         });
 
         if (response.ok) {
@@ -1554,7 +1592,8 @@ async function saveQuestion(e) {
                 testId,
                 answers,
                 explanation: withExplanations && explanation ? explanation : null,
-                setTestWithExplanations: withExplanations
+                setTestWithExplanations: withExplanations,
+                tagIds: Array.from(document.getElementById('questionTagIds')?.selectedOptions || []).map((o) => parseInt(o.value, 10))
             })
         });
 
@@ -1742,14 +1781,22 @@ function setupAdminEventListeners() {
             document.getElementById('subjectId').value = '';
             document.getElementById('subjectName').value = '';
             document.getElementById('subjectDescription').value = '';
+            const programEl = document.getElementById('subjectProgramType');
+            if (programEl) programEl.value = 'university';
             try {
                 await fillSubjectUniversitySelect();
             } catch (e) {
                 console.error(e);
             }
+            toggleSubjectUniversityField();
             document.getElementById('subjectModalTitle').textContent = 'Добавить предмет';
             document.getElementById('subjectModal').style.display = 'block';
         });
+    }
+
+    const subjectProgramType = document.getElementById('subjectProgramType');
+    if (subjectProgramType) {
+        subjectProgramType.addEventListener('change', toggleSubjectUniversityField);
     }
 
     const addTestBtn = document.getElementById('addTestBtn');
@@ -1867,6 +1914,7 @@ function setupAdminEventListeners() {
             addAnswer(); // Добавляем первый ответ
             addAnswer(); // Добавляем второй ответ
             document.getElementById('questionModalTitle').textContent = 'Добавить вопрос';
+            await fillQuestionTagsSelect([]);
             document.getElementById('questionModal').style.display = 'block';
         });
     }
@@ -2142,6 +2190,18 @@ function setupAdminEventListeners() {
     const subsAdminForm = document.getElementById('subsAdminForm');
     if (subsAdminForm) {
         subsAdminForm.addEventListener('submit', saveSubscriptionPlansAdmin);
+    }
+    const loadUsmlePlansBtn = document.getElementById('loadUsmlePlansBtn');
+    if (loadUsmlePlansBtn) {
+        loadUsmlePlansBtn.addEventListener('click', loadUsmlePlansAdmin);
+    }
+    const saveUsmlePlansBtn = document.getElementById('saveUsmlePlansBtn');
+    if (saveUsmlePlansBtn) {
+        saveUsmlePlansBtn.addEventListener('click', saveUsmlePlansAdmin);
+    }
+    const addQuestionTagBtn = document.getElementById('addQuestionTagBtn');
+    if (addQuestionTagBtn) {
+        addQuestionTagBtn.addEventListener('click', createQuestionTagAdmin);
     }
 
     const adminChatForm = document.getElementById('adminChatForm');
@@ -2473,6 +2533,126 @@ async function saveSubscriptionPlansAdmin(e) {
     } catch (error) {
         console.error('Ошибка сохранения тарифов:', error);
         showNotification('Ошибка сохранения тарифов', 'error');
+    }
+}
+
+async function loadUsmlePlansAdmin() {
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/usmle-subscription-plans`, {
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+        });
+        if (!response.ok) throw new Error('fail');
+        const data = await response.json();
+        const box = document.getElementById('usmleAdminPlansBox');
+        if (box) box.style.display = 'block';
+        (data.plans || []).forEach((p) => {
+            const el = document.getElementById(`usmlePrice${p.months}`);
+            if (el) el.value = p.price;
+        });
+    } catch (e) {
+        showNotification('Не удалось загрузить тарифы USMLE', 'error');
+    }
+}
+
+async function saveUsmlePlansAdmin() {
+    const plans = [1, 3, 12].map((months) => ({
+        months,
+        price: parseFloat(document.getElementById(`usmlePrice${months}`)?.value),
+        isActive: true
+    }));
+    for (const p of plans) {
+        if (!Number.isFinite(p.price) || p.price < 0.01) {
+            showNotification(`Укажите цену USMLE для ${p.months} мес.`, 'error');
+            return;
+        }
+    }
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/usmle-subscription-plans`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${currentAdminToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ plans })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            showNotification(result.error || 'Ошибка сохранения USMLE', 'error');
+            return;
+        }
+        showNotification('Тарифы USMLE сохранены', 'success');
+    } catch (e) {
+        showNotification('Ошибка сохранения USMLE', 'error');
+    }
+}
+
+async function loadAdminQuestionTags() {
+    const list = document.getElementById('adminQuestionTagsList');
+    if (!list) return;
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/question-tags`, {
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+        });
+        if (!response.ok) throw new Error('fail');
+        const tags = await response.json();
+        if (!tags.length) {
+            list.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">Тегов пока нет</p>';
+            return;
+        }
+        list.innerHTML = tags.map((t) => `
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;padding:0.35rem 0;border-bottom:1px solid var(--border-light);">
+                <span style="font-weight:600;">${t.name}</span>
+                <button type="button" class="btn btn-danger btn-sm" onclick="deleteQuestionTagAdmin(${t.id})">×</button>
+            </div>
+        `).join('');
+    } catch (e) {
+        list.innerHTML = '<p style="color:var(--danger-color);">Ошибка загрузки тегов</p>';
+    }
+}
+
+async function createQuestionTagAdmin() {
+    const input = document.getElementById('newQuestionTagName');
+    const name = (input?.value || '').trim();
+    if (!name) {
+        showNotification('Введите название тега', 'error');
+        return;
+    }
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/question-tags`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${currentAdminToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ name })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            showNotification(result.error || 'Ошибка создания тега', 'error');
+            return;
+        }
+        if (input) input.value = '';
+        showNotification('Тег создан', 'success');
+        await loadAdminQuestionTags();
+    } catch (e) {
+        showNotification('Ошибка создания тега', 'error');
+    }
+}
+
+async function deleteQuestionTagAdmin(id) {
+    if (!confirm('Удалить тег?')) return;
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/question-tags/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+        });
+        if (!response.ok) {
+            showNotification('Не удалось удалить тег', 'error');
+            return;
+        }
+        await loadAdminQuestionTags();
+    } catch (e) {
+        showNotification('Ошибка удаления тега', 'error');
     }
 }
 
@@ -3289,6 +3469,7 @@ function switchTab(tabName) {
             break;
         case 'subscriptions':
             loadSubscriptionPlansAdmin();
+            loadAdminQuestionTags();
             break;
         case 'analytics':
             loadAdminAnalytics();
