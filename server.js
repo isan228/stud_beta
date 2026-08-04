@@ -225,11 +225,18 @@ const PORT = process.env.PORT || 3000;
 const LISTEN_HOST = process.env.LISTEN_HOST || undefined;
 
 sequelize.authenticate()
-  .then(() => {
+  .then(async () => {
     console.log('Подключение к базе данных установлено');
+    const { prepareSubscriptionPlansSchema } = require('./utils/prepareSubscriptionPlansSchema');
+    await prepareSubscriptionPlansSchema();
     return sequelize.sync({ alter: true }).catch(async (syncErr) => {
       console.error('⚠️  sequelize.sync({ alter: true }) не удался:', syncErr.message);
       console.warn('   Пробуем sync без alter…');
+      try {
+        await prepareSubscriptionPlansSchema();
+      } catch (e) {
+        console.warn('prepareSubscriptionPlansSchema (retry):', e.message);
+      }
       return sequelize.sync();
     });
   })
@@ -237,6 +244,13 @@ sequelize.authenticate()
     console.log('Модели синхронизированы');
     const { ensureUniversities } = require('./utils/ensureUniversities');
     await ensureUniversities();
+    // После sync (если таблица только создана) — индекс тарифов
+    try {
+      const { prepareSubscriptionPlansSchema } = require('./utils/prepareSubscriptionPlansSchema');
+      await prepareSubscriptionPlansSchema();
+    } catch (e) {
+      console.warn('prepareSubscriptionPlansSchema (after sync):', e.message);
+    }
     const onListen = () => {
       console.log(`Сервер запущен на порту ${PORT}` + (LISTEN_HOST ? ` (bind: ${LISTEN_HOST})` : ''));
       if (!LISTEN_HOST) {

@@ -73,15 +73,22 @@ async function ensureUniversities() {
 
   // Backfill planScope для старых тарифов вузов
   const uniPlans = await SubscriptionPlan.findAll({
-    where: { universityId: { [Op.ne]: null } }
-  });
-  for (const plan of uniPlans) {
-    const scope = uniPlanScope(plan.universityId);
-    if (plan.planScope !== scope || plan.programType !== 'university') {
-      plan.planScope = scope;
-      plan.programType = 'university';
-      await plan.save();
+    where: {
+      universityId: { [Op.ne]: null },
+      [Op.or]: [
+        { planScope: null },
+        { planScope: '' },
+        { planScope: 'legacy' },
+        { planScope: 'pending' },
+        { planScope: 'university' }
+      ]
     }
+  }).catch(() => []);
+  for (const plan of uniPlans || []) {
+    const scope = uniPlanScope(plan.universityId);
+    plan.planScope = scope;
+    plan.programType = 'university';
+    await plan.save();
   }
 
   const allUniversities = await University.findAll({ attributes: ['id', 'shortName'] });

@@ -4,7 +4,9 @@ const sequelize = require('../config/database');
 /**
  * Тарифы подписки.
  * planScope: "uni:{id}" для университета, "usmle" для USMLE
- * (нужен, т.к. UNIQUE с NULL universityId в PostgreSQL допускает дубликаты)
+ *
+ * Уникальный индекс создаётся в prepareSubscriptionPlansSchema (до sync),
+ * а не через model.indexes — иначе sync падает на дублях legacy/pending.
  */
 const SubscriptionPlan = sequelize.define('SubscriptionPlan', {
   id: {
@@ -20,9 +22,8 @@ const SubscriptionPlan = sequelize.define('SubscriptionPlan', {
   },
   planScope: {
     type: DataTypes.STRING(40),
-    allowNull: false,
-    defaultValue: 'legacy',
-    comment: 'uni:{id} или usmle'
+    allowNull: true,
+    comment: 'uni:{id} или usmle — задаётся явно при создании'
   },
   universityId: {
     type: DataTypes.INTEGER,
@@ -60,13 +61,8 @@ const SubscriptionPlan = sequelize.define('SubscriptionPlan', {
     defaultValue: DataTypes.NOW
   }
 }, {
-  indexes: [
-    {
-      unique: true,
-      fields: ['planScope', 'months'],
-      name: 'subscription_plans_scope_months_unique'
-    }
-  ]
+  // Индекс НЕ здесь — см. utils/prepareSubscriptionPlansSchema.js
+  indexes: []
 });
 
 module.exports = SubscriptionPlan;
