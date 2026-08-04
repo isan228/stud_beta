@@ -73,7 +73,15 @@ async function ensurePlansForUniversity(universityId) {
 }
 
 async function ensurePlansForUsmle() {
+  const sequelize = require('../config/database');
   const planScope = USMLE_PLAN_SCOPE;
+
+  // Колонка могла остаться NOT NULL со старой схемы; sync не всегда снимает ограничение
+  await sequelize.query(`
+    ALTER TABLE "SubscriptionPlans"
+    ALTER COLUMN "universityId" DROP NOT NULL
+  `).catch(() => {});
+
   const existing = await SubscriptionPlan.findAll({
     where: { planScope },
     order: [['months', 'ASC']]
@@ -82,16 +90,46 @@ async function ensurePlansForUsmle() {
 
   for (const def of DEFAULT_USMLE_PLANS) {
     if (have.has(def.months)) continue;
-    await SubscriptionPlan.create({
-      programType: 'usmle',
-      planScope,
-      universityId: null,
-      months: def.months,
-      price: def.price,
-      oldPrice: def.oldPrice,
-      title: def.title,
-      isActive: true
-    });
+    try {
+      // Явный INSERT без universityId — после DROP NOT NULL
+      await sequelize.query(
+        `
+        INSERT INTO "SubscriptionPlans"
+          ("programType", "planScope", "months", "price", "oldPrice", "title", "isActive", "createdAt", "updatedAt")
+        SELECT
+          'usmle', :planScope, :months, :price, :oldPrice, :title, true, NOW(), NOW()
+        WHERE NOT EXISTS (
+          SELECT 1 FROM "SubscriptionPlans"
+          WHERE "planScope" = :planScope AND months = :months
+        )
+        `,
+        {
+          replacements: {
+            planScope,
+            months: def.months,
+            price: def.price,
+            oldPrice: def.oldPrice,
+            title: def.title
+          }
+        }
+      );
+    } catch (err) {
+      console.warn(`⚠️  INSERT USMLE ${def.months} мес.:`, err.message);
+      try {
+        await SubscriptionPlan.create({
+          programType: 'usmle',
+          planScope,
+          universityId: null,
+          months: def.months,
+          price: def.price,
+          oldPrice: def.oldPrice,
+          title: def.title,
+          isActive: true
+        });
+      } catch (err2) {
+        console.warn(`⚠️  Не удалось создать тариф USMLE ${def.months} мес.:`, err2.message);
+      }
+    }
   }
 
   return SubscriptionPlan.findAll({

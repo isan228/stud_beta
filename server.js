@@ -242,6 +242,16 @@ sequelize.authenticate()
   })
   .then(async () => {
     console.log('Модели синхронизированы');
+    // После sync снова снимаем NOT NULL — alter иногда оставляет старое ограничение
+    try {
+      const sequelize = require('./config/database');
+      await sequelize.query(`
+        ALTER TABLE "SubscriptionPlans"
+        ALTER COLUMN "universityId" DROP NOT NULL
+      `);
+    } catch (e) {
+      console.warn('universityId DROP NOT NULL (after sync):', e.message);
+    }
     const { ensureUniversities } = require('./utils/ensureUniversities');
     await ensureUniversities();
     // После sync (если таблица только создана) — индекс тарифов

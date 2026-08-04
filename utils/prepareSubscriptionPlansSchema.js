@@ -37,6 +37,15 @@ async function prepareSubscriptionPlansSchema() {
     console.log('✅ SubscriptionPlans.planScope добавлен');
   }
 
+  // USMLE-тарифы без вуза: universityId должен быть nullable
+  await sequelize.query(`
+    ALTER TABLE "${table}"
+    ALTER COLUMN "universityId" DROP NOT NULL
+  `).catch((err) => {
+    console.warn('⚠️  universityId DROP NOT NULL:', err.message);
+  });
+  console.log('✅ SubscriptionPlans.universityId допускает NULL (USMLE)');
+
   // Снимаем индекс, если он есть / частично создан — пересоберём после бэкфилла
   await sequelize.query(`DROP INDEX IF EXISTS "subscription_plans_scope_months_unique"`);
   await sequelize.query(`DROP INDEX IF EXISTS "subscription_plans_university_months_unique"`);

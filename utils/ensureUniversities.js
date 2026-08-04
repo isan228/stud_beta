@@ -95,7 +95,11 @@ async function ensureUniversities() {
   for (const uni of allUniversities) {
     await ensurePlansForUniversity(uni.id);
   }
-  await ensurePlansForUsmle();
+  try {
+    await ensurePlansForUsmle();
+  } catch (e) {
+    console.warn('⚠️  ensurePlansForUsmle:', e.message);
+  }
 
   // Синхронизация universityId тестов с предметом (только university)
   const subjectsWithUni = await Subject.findAll({
