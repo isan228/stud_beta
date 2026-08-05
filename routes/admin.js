@@ -1588,7 +1588,7 @@ router.get('/subjects', adminAuth, async (req, res) => {
 
     const subjects = await Subject.findAll({
       where,
-      attributes: ['id', 'name', 'description', 'universityId', 'createdAt', 'updatedAt'],
+      attributes: ['id', 'name', 'description', 'universityId', 'programType', 'createdAt', 'updatedAt'],
       include: [{
         model: University,
         as: 'University',
@@ -1788,11 +1788,16 @@ router.get('/tests', adminAuth, async (req, res) => {
     if (universityId) {
       where.universityId = universityId;
     }
+    if (req.query.programType === 'usmle' || req.query.program === 'usmle') {
+      where.programType = 'usmle';
+    } else if (req.query.programType === 'university' || req.query.program === 'university') {
+      where.programType = 'university';
+    }
 
     if (req.query.compact === '1') {
       const tests = await Test.findAll({
         where,
-        attributes: ['id', 'name', 'subjectId', 'universityId', 'hasExplanations'],
+        attributes: ['id', 'name', 'subjectId', 'universityId', 'hasExplanations', 'programType'],
         order: [['name', 'ASC']]
       });
       return res.json(tests);
@@ -1803,11 +1808,12 @@ router.get('/tests', adminAuth, async (req, res) => {
       include: [{
         model: Subject,
         as: 'Subject',
-        attributes: ['id', 'name']
+        attributes: ['id', 'name', 'programType']
       }, {
         model: University,
         as: 'University',
-        attributes: ['id', 'name', 'shortName']
+        attributes: ['id', 'name', 'shortName'],
+        required: false
       }],
       order: [['createdAt', 'DESC']]
     });

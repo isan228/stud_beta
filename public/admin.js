@@ -734,8 +734,12 @@ async function deleteUniversity(id) {
 async function loadSubjects() {
     try {
         const universityId = document.getElementById('subjectsUniversityFilter')?.value || '';
-        const qs = universityId ? `?universityId=${encodeURIComponent(universityId)}` : '';
-        const response = await fetch(`${ADMIN_API_URL}/subjects${qs}`, {
+        const programType = document.getElementById('subjectsProgramFilter')?.value || '';
+        const params = new URLSearchParams();
+        if (universityId) params.set('universityId', universityId);
+        if (programType) params.set('programType', programType);
+        const qs = params.toString();
+        const response = await fetch(`${ADMIN_API_URL}/subjects${qs ? `?${qs}` : ''}`, {
             headers: {
                 'Authorization': `Bearer ${currentAdminToken}`
             }
@@ -749,13 +753,20 @@ async function loadSubjects() {
         const subjectsList = document.getElementById('subjectsList');
 
         if (subjects && subjects.length > 0) {
-            subjectsList.innerHTML = subjects.map(subject => `
+            subjectsList.innerHTML = subjects.map(subject => {
+                const isUsmle = subject.programType === 'usmle';
+                const programBadge = isUsmle
+                    ? '<span style="background:#0f766e;color:white;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.75rem;margin-left:0.5rem;">USMLE</span>'
+                    : (subject.University?.shortName
+                        ? `<span style="background: var(--bg-secondary); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">${subject.University.shortName}</span>`
+                        : '');
+                return `
                 <div class="admin-list-item">
                     <div style="flex: 1;">
-                        <h4>${subject.name} ${subject.University?.shortName ? `<span style="background: var(--bg-secondary); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">${subject.University.shortName}</span>` : ''}</h4>
+                        <h4>${subject.name} ${programBadge}</h4>
                         ${subject.description ? `<p style="color: var(--text-muted); margin: 0.5rem 0;">${subject.description}</p>` : ''}
                         <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
-                            Университет: ${subject.University?.shortName || '—'} | Тестов: ${subject.testCount ?? subject.Tests?.length ?? 0}
+                            ${isUsmle ? 'Программа: USMLE' : `Университет: ${subject.University?.shortName || '—'}`} | Тестов: ${subject.testCount ?? subject.Tests?.length ?? 0}
                         </p>
                     </div>
                     <div style="display: flex; gap: 0.5rem;">
@@ -763,7 +774,8 @@ async function loadSubjects() {
                         <button class="btn btn-danger btn-sm" onclick="deleteSubject(${subject.id})">Удалить</button>
                     </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         } else {
             subjectsList.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 2rem;">Нет предметов</p>';
         }
@@ -787,9 +799,11 @@ async function loadTests() {
     try {
         const subjectId = document.getElementById('testsSubjectFilter')?.value || '';
         const universityId = document.getElementById('testsUniversityFilter')?.value || '';
+        const programType = document.getElementById('testsProgramFilter')?.value || '';
         const params = new URLSearchParams();
         if (subjectId) params.set('subjectId', subjectId);
         if (universityId) params.set('universityId', universityId);
+        if (programType) params.set('programType', programType);
         const qs = params.toString();
         const url = `${ADMIN_API_URL}/tests${qs ? `?${qs}` : ''}`;
         const response = await fetch(url, {
@@ -806,13 +820,20 @@ async function loadTests() {
         const testsList = document.getElementById('testsList');
 
         if (tests && tests.length > 0) {
-            testsList.innerHTML = tests.map(test => `
+            testsList.innerHTML = tests.map(test => {
+                const isUsmle = test.programType === 'usmle' || test.Subject?.programType === 'usmle';
+                const programBadge = isUsmle
+                    ? '<span style="background:#0f766e;color:white;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.75rem;margin-left:0.5rem;">USMLE</span>'
+                    : (test.University?.shortName
+                        ? `<span style="background: var(--bg-secondary); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">${test.University.shortName}</span>`
+                        : '');
+                return `
                 <div class="admin-list-item">
                     <div style="flex: 1;">
-                        <h4>${test.name} ${test.isFree ? '<span style="background: #10b981; color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">БЕСПЛАТНЫЙ</span>' : ''} ${test.University?.shortName ? `<span style="background: var(--bg-secondary); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">${test.University.shortName}</span>` : ''}</h4>
+                        <h4>${test.name} ${test.isFree ? '<span style="background: #10b981; color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">БЕСПЛАТНЫЙ</span>' : ''} ${programBadge}</h4>
                         ${test.description ? `<p style="color: var(--text-muted); margin: 0.5rem 0;">${test.description}</p>` : ''}
                         <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
-                            Предмет: ${test.Subject?.name || 'Неизвестно'} | Университет: ${test.University?.shortName || '—'} | Вопросов: ${test.questionCount ?? test.Questions?.length ?? 0}
+                            Предмет: ${test.Subject?.name || 'Неизвестно'} | ${isUsmle ? 'Программа: USMLE' : `Университет: ${test.University?.shortName || '—'}`} | Вопросов: ${test.questionCount ?? test.Questions?.length ?? 0}
                         </p>
                     </div>
                     <div style="display: flex; gap: 0.5rem;">
@@ -820,7 +841,8 @@ async function loadTests() {
                         <button class="btn btn-danger btn-sm" onclick="deleteTest(${test.id})">Удалить</button>
                     </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         } else {
             testsList.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 2rem;">Нет тестов</p>';
         }
@@ -1083,6 +1105,9 @@ async function deleteSubject(subjectId) {
             invalidateAdminListCache();
             showNotification('Предмет удален', 'success');
             loadSubjects();
+            if (document.getElementById('usmleTab')?.classList.contains('active')) {
+                loadUsmleAdminPanel();
+            }
         } else {
             const result = await response.json();
             showNotification(result.error || 'Ошибка удаления', 'error');
@@ -1111,6 +1136,9 @@ async function deleteTest(testId) {
             invalidateAdminListCache();
             showNotification('Тест удален', 'success');
             loadTests();
+            if (document.getElementById('usmleTab')?.classList.contains('active')) {
+                loadUsmleAdminPanel();
+            }
         } else {
             const result = await response.json();
             showNotification(result.error || 'Ошибка удаления', 'error');
@@ -1269,6 +1297,43 @@ function toggleSubjectUniversityField() {
     if (select) select.required = !isUsmle;
 }
 
+function fillTestSubjectOptions(subjects, selectEl) {
+    if (!selectEl) return;
+    selectEl.innerHTML = '<option value="">Выберите предмет</option>' +
+        subjects.map(s => {
+            const isUsmle = s.programType === 'usmle';
+            const tag = isUsmle ? 'USMLE' : (s.University?.shortName || '');
+            return `<option value="${s.id}" data-university-id="${s.universityId || ''}" data-program-type="${isUsmle ? 'usmle' : 'university'}">${s.name}${tag ? ` (${tag})` : ''}</option>`;
+        }).join('');
+}
+
+function syncTestFormProgramFromSubject() {
+    const subjectSelect = document.getElementById('testSubjectId');
+    const opt = subjectSelect?.selectedOptions?.[0];
+    const isUsmle = opt?.getAttribute('data-program-type') === 'usmle';
+    const uniSelect = document.getElementById('testUniversityId');
+    const uniGroup = document.getElementById('testUniversityGroup');
+    const hint = document.getElementById('testUniversityHint');
+    if (uniSelect) {
+        uniSelect.required = !isUsmle;
+        if (isUsmle) {
+            uniSelect.value = '';
+        } else if (!uniSelect.value && opt?.getAttribute('data-university-id')) {
+            uniSelect.value = opt.getAttribute('data-university-id');
+        }
+    }
+    if (hint) hint.style.display = isUsmle ? 'block' : 'none';
+    if (uniGroup && uniSelect) {
+        uniSelect.disabled = isUsmle;
+    }
+}
+
+function bindTestSubjectProgramSync(subjectSelect) {
+    if (!subjectSelect || subjectSelect.dataset.boundProgramSync) return;
+    subjectSelect.dataset.boundProgramSync = '1';
+    subjectSelect.addEventListener('change', syncTestFormProgramFromSubject);
+}
+
 // Редактирование теста
 async function editTest(testId) {
     try {
@@ -1278,13 +1343,8 @@ async function editTest(testId) {
             fetch(`${ADMIN_API_URL}/tests/${testId}`, { headers: adminAuthHeaders() })
         ]);
         const subjectSelect = document.getElementById('testSubjectId');
-        if (subjectSelect) {
-            subjectSelect.innerHTML = '<option value="">Выберите предмет</option>' +
-                subjects.map(s => {
-                    const tag = s.University?.shortName || '';
-                    return `<option value="${s.id}" data-university-id="${s.universityId || ''}">${s.name}${tag ? ` (${tag})` : ''}</option>`;
-                }).join('');
-        }
+        fillTestSubjectOptions(subjects, subjectSelect);
+        bindTestSubjectProgramSync(subjectSelect);
         const universitySelect = document.getElementById('testUniversityId');
         if (universitySelect) {
             universitySelect.innerHTML = '<option value="">Выберите университет</option>' +
@@ -1307,6 +1367,7 @@ async function editTest(testId) {
             if (universitySelect) universitySelect.value = test.universityId || '';
             filterTestSubjectsByUniversity();
             document.getElementById('testSubjectId').value = test.subjectId;
+            syncTestFormProgramFromSubject();
             document.getElementById('testIsFree').checked = test.isFree || false;
             const testHasExplEl = document.getElementById('testHasExplanations');
             if (testHasExplEl) testHasExplEl.checked = !!test.hasExplanations;
@@ -1489,6 +1550,9 @@ async function saveSubject(e) {
             document.getElementById('subjectModal').style.display = 'none';
             document.getElementById('subjectForm').reset();
             loadSubjects();
+            if (document.getElementById('usmleTab')?.classList.contains('active')) {
+                loadUsmleAdminPanel();
+            }
         } else {
             const result = await response.json();
             showNotification(result.error || 'Ошибка сохранения', 'error');
@@ -1506,11 +1570,18 @@ async function saveTest(e) {
     const name = document.getElementById('testName').value;
     const description = document.getElementById('testDescription').value;
     const subjectId = parseInt(document.getElementById('testSubjectId').value);
-    const universityId = parseInt(document.getElementById('testUniversityId').value);
+    const subjectOpt = document.getElementById('testSubjectId')?.selectedOptions?.[0];
+    const isUsmle = subjectOpt?.getAttribute('data-program-type') === 'usmle';
+    const universityRaw = document.getElementById('testUniversityId')?.value || '';
+    const universityId = universityRaw ? parseInt(universityRaw, 10) : null;
     const isFree = document.getElementById('testIsFree').checked;
     const hasExplanations = document.getElementById('testHasExplanations')?.checked || false;
 
-    if (!universityId) {
+    if (!subjectId) {
+        showNotification('Выберите предмет', 'error');
+        return;
+    }
+    if (!isUsmle && !universityId) {
         showNotification('Выберите университет', 'error');
         return;
     }
@@ -1525,7 +1596,14 @@ async function saveTest(e) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${currentAdminToken}`
             },
-            body: JSON.stringify({ name, description, subjectId, universityId, isFree, hasExplanations })
+            body: JSON.stringify({
+                name,
+                description,
+                subjectId,
+                universityId: isUsmle ? null : universityId,
+                isFree,
+                hasExplanations
+            })
         });
 
         if (response.ok) {
@@ -1534,6 +1612,9 @@ async function saveTest(e) {
             document.getElementById('testModal').style.display = 'none';
             document.getElementById('testForm').reset();
             loadTests();
+            if (document.getElementById('usmleTab')?.classList.contains('active')) {
+                loadUsmleAdminPanel();
+            }
         } else {
             const result = await response.json();
             showNotification(result.error || 'Ошибка сохранения', 'error');
@@ -1809,13 +1890,11 @@ function setupAdminEventListeners() {
                     fetchAdminUniversitiesCompact()
                 ]);
                 const select = document.getElementById('testSubjectId');
-                select.innerHTML = '<option value="">Выберите предмет</option>' +
-                    subjects.map(s => {
-                        const tag = s.University?.shortName || '';
-                        return `<option value="${s.id}" data-university-id="${s.universityId || ''}">${s.name}${tag ? ` (${tag})` : ''}</option>`;
-                    }).join('');
+                fillTestSubjectOptions(subjects, select);
+                bindTestSubjectProgramSync(select);
                 const uniSelect = document.getElementById('testUniversityId');
                 if (uniSelect) {
+                    uniSelect.disabled = false;
                     uniSelect.innerHTML = '<option value="">Выберите университет</option>' +
                         universities.map(u => `<option value="${u.id}">${u.shortName} — ${u.name}</option>`).join('');
                     if (!uniSelect.dataset.boundSubjectFilter) {
@@ -1831,6 +1910,52 @@ function setupAdminEventListeners() {
             document.getElementById('testName').value = '';
             document.getElementById('testDescription').value = '';
             document.getElementById('testModalTitle').textContent = 'Добавить тест';
+            syncTestFormProgramFromSubject();
+            document.getElementById('testModal').style.display = 'block';
+        });
+    }
+
+    const addUsmleSubjectBtn = document.getElementById('addUsmleSubjectBtn');
+    if (addUsmleSubjectBtn) {
+        addUsmleSubjectBtn.addEventListener('click', async () => {
+            document.getElementById('subjectId').value = '';
+            document.getElementById('subjectName').value = '';
+            document.getElementById('subjectDescription').value = '';
+            const programEl = document.getElementById('subjectProgramType');
+            if (programEl) programEl.value = 'usmle';
+            try {
+                await fillSubjectUniversitySelect();
+            } catch (e) {
+                console.error(e);
+            }
+            toggleSubjectUniversityField();
+            document.getElementById('subjectModalTitle').textContent = 'Добавить предмет USMLE';
+            document.getElementById('subjectModal').style.display = 'block';
+        });
+    }
+
+    const addUsmleTestBtn = document.getElementById('addUsmleTestBtn');
+    if (addUsmleTestBtn) {
+        addUsmleTestBtn.addEventListener('click', async () => {
+            try {
+                const subjects = await fetchAdminSubjectsCompact(true);
+                const usmleSubjects = subjects.filter(s => s.programType === 'usmle');
+                const select = document.getElementById('testSubjectId');
+                fillTestSubjectOptions(usmleSubjects, select);
+                bindTestSubjectProgramSync(select);
+                const uniSelect = document.getElementById('testUniversityId');
+                if (uniSelect) {
+                    uniSelect.innerHTML = '<option value="">—</option>';
+                    uniSelect.value = '';
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки предметов USMLE:', error);
+            }
+            document.getElementById('testId').value = '';
+            document.getElementById('testName').value = '';
+            document.getElementById('testDescription').value = '';
+            document.getElementById('testModalTitle').textContent = 'Добавить тест USMLE';
+            syncTestFormProgramFromSubject();
             document.getElementById('testModal').style.display = 'block';
         });
     }
@@ -2024,9 +2149,28 @@ function setupAdminEventListeners() {
             loadTests();
         });
     }
+    const testsProgramFilter = document.getElementById('testsProgramFilter');
+    if (testsProgramFilter) {
+        testsProgramFilter.addEventListener('change', () => {
+            const program = testsProgramFilter.value;
+            const uniFilter = document.getElementById('testsUniversityFilter');
+            if (program === 'usmle' && uniFilter) uniFilter.value = '';
+            loadSubjectsForFilters();
+            loadTests();
+        });
+    }
     const subjectsUniversityFilter = document.getElementById('subjectsUniversityFilter');
     if (subjectsUniversityFilter) {
         subjectsUniversityFilter.addEventListener('change', () => {
+            loadSubjects();
+        });
+    }
+    const subjectsProgramFilter = document.getElementById('subjectsProgramFilter');
+    if (subjectsProgramFilter) {
+        subjectsProgramFilter.addEventListener('change', () => {
+            const program = subjectsProgramFilter.value;
+            const uniFilter = document.getElementById('subjectsUniversityFilter');
+            if (program === 'usmle' && uniFilter) uniFilter.value = '';
             loadSubjects();
         });
     }
@@ -2034,6 +2178,18 @@ function setupAdminEventListeners() {
     if (usersUniversityFilter) {
         usersUniversityFilter.addEventListener('change', () => {
             loadUsers(1);
+        });
+    }
+    const questionsProgramFilter = document.getElementById('questionsProgramFilter');
+    if (questionsProgramFilter) {
+        questionsProgramFilter.addEventListener('change', () => {
+            const program = questionsProgramFilter.value;
+            const uniFilter = document.getElementById('questionsUniversityFilter');
+            if (program === 'usmle' && uniFilter) uniFilter.value = '';
+            const testFilter = document.getElementById('questionsTestFilter');
+            if (testFilter) testFilter.value = '';
+            loadTestsForFilters();
+            renderQuestionsSelectPrompt();
         });
     }
     const questionsUniversityFilter = document.getElementById('questionsUniversityFilter');
@@ -2190,10 +2346,6 @@ function setupAdminEventListeners() {
     const subsAdminForm = document.getElementById('subsAdminForm');
     if (subsAdminForm) {
         subsAdminForm.addEventListener('submit', saveSubscriptionPlansAdmin);
-    }
-    const loadUsmlePlansBtn = document.getElementById('loadUsmlePlansBtn');
-    if (loadUsmlePlansBtn) {
-        loadUsmlePlansBtn.addEventListener('click', loadUsmlePlansAdmin);
     }
     const saveUsmlePlansBtn = document.getElementById('saveUsmlePlansBtn');
     if (saveUsmlePlansBtn) {
@@ -2552,6 +2704,81 @@ async function loadUsmlePlansAdmin() {
     } catch (e) {
         showNotification('Не удалось загрузить тарифы USMLE', 'error');
     }
+}
+
+async function loadUsmleSubjectsAdmin() {
+    const list = document.getElementById('usmleSubjectsList');
+    if (!list) return;
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/subjects?programType=usmle`, {
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+        });
+        if (!response.ok) throw new Error('fail');
+        const subjects = await response.json();
+        if (!subjects.length) {
+            list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1.5rem;">Пока нет предметов USMLE</p>';
+            return;
+        }
+        list.innerHTML = subjects.map(subject => `
+            <div class="admin-list-item">
+                <div style="flex: 1;">
+                    <h4>${subject.name} <span style="background:#0f766e;color:white;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.75rem;margin-left:0.5rem;">USMLE</span></h4>
+                    ${subject.description ? `<p style="color: var(--text-muted); margin: 0.5rem 0;">${subject.description}</p>` : ''}
+                    <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
+                        Тестов: ${subject.testCount ?? 0}
+                    </p>
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-primary btn-sm" onclick="editSubject(${subject.id})">Редактировать</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteSubject(${subject.id})">Удалить</button>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        list.innerHTML = '<p style="color: var(--danger-color);">Ошибка загрузки предметов USMLE</p>';
+    }
+}
+
+async function loadUsmleTestsAdmin() {
+    const list = document.getElementById('usmleTestsList');
+    if (!list) return;
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/tests?programType=usmle`, {
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+        });
+        if (!response.ok) throw new Error('fail');
+        const tests = await response.json();
+        if (!tests.length) {
+            list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1.5rem;">Пока нет тестов USMLE</p>';
+            return;
+        }
+        list.innerHTML = tests.map(test => `
+            <div class="admin-list-item">
+                <div style="flex: 1;">
+                    <h4>${test.name} <span style="background:#0f766e;color:white;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.75rem;margin-left:0.5rem;">USMLE</span></h4>
+                    ${test.description ? `<p style="color: var(--text-muted); margin: 0.5rem 0;">${test.description}</p>` : ''}
+                    <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
+                        Предмет: ${test.Subject?.name || '—'} | Вопросов: ${test.questionCount ?? 0}
+                    </p>
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-primary btn-sm" onclick="editTest(${test.id})">Редактировать</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteTest(${test.id})">Удалить</button>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        list.innerHTML = '<p style="color: var(--danger-color);">Ошибка загрузки тестов USMLE</p>';
+    }
+}
+
+async function loadUsmleAdminPanel() {
+    await Promise.all([
+        loadUsmlePlansAdmin(),
+        loadAdminQuestionTags(),
+        loadUsmleSubjectsAdmin(),
+        loadUsmleTestsAdmin()
+    ]);
 }
 
 async function saveUsmlePlansAdmin() {
@@ -3469,7 +3696,9 @@ function switchTab(tabName) {
             break;
         case 'subscriptions':
             loadSubscriptionPlansAdmin();
-            loadAdminQuestionTags();
+            break;
+        case 'usmle':
+            loadUsmleAdminPanel();
             break;
         case 'analytics':
             loadAdminAnalytics();
@@ -3911,8 +4140,10 @@ async function loadAdminAnalytics() {
 async function loadSubjectsForFilters() {
     try {
         const universityId = document.getElementById('testsUniversityFilter')?.value || '';
+        const programType = document.getElementById('testsProgramFilter')?.value || '';
         const qs = new URLSearchParams({ compact: '1' });
         if (universityId) qs.set('universityId', universityId);
+        if (programType) qs.set('programType', programType);
         const response = await fetch(`${ADMIN_API_URL}/subjects?${qs}`, {
             headers: adminAuthHeaders()
         });
@@ -3922,7 +4153,10 @@ async function loadSubjectsForFilters() {
         if (testsFilter) {
             const current = testsFilter.value;
             testsFilter.innerHTML = '<option value="">Все предметы</option>' +
-                subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+                subjects.map(s => {
+                    const tag = s.programType === 'usmle' ? 'USMLE' : '';
+                    return `<option value="${s.id}">${s.name}${tag ? ` (${tag})` : ''}</option>`;
+                }).join('');
             if (current && subjects.some(s => String(s.id) === String(current))) {
                 testsFilter.value = current;
             } else {
@@ -4006,7 +4240,8 @@ function filterTestSubjectsByUniversity() {
             return;
         }
         const optUni = opt.getAttribute('data-university-id') || '';
-        const match = !uniId || !optUni || optUni === uniId;
+        const isUsmle = opt.getAttribute('data-program-type') === 'usmle';
+        const match = isUsmle ? !uniId : (!uniId || !optUni || optUni === uniId);
         opt.hidden = !match;
         if (!match && opt.value === current) {
             subjectSelect.value = '';
@@ -4018,8 +4253,10 @@ function filterTestSubjectsByUniversity() {
 async function loadTestsForFilters() {
     try {
         const universityId = document.getElementById('questionsUniversityFilter')?.value || '';
+        const programType = document.getElementById('questionsProgramFilter')?.value || '';
         const qs = new URLSearchParams({ compact: '1' });
         if (universityId) qs.set('universityId', universityId);
+        if (programType) qs.set('programType', programType);
         const response = await fetch(`${ADMIN_API_URL}/tests?${qs}`, {
             headers: adminAuthHeaders()
         });
@@ -4029,7 +4266,10 @@ async function loadTestsForFilters() {
         if (questionsFilter) {
             const current = questionsFilter.value;
             questionsFilter.innerHTML = '<option value="">Выберите тест</option>' +
-                tests.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+                tests.map(t => {
+                    const tag = t.programType === 'usmle' ? ' USMLE' : '';
+                    return `<option value="${t.id}">${t.name}${tag}</option>`;
+                }).join('');
             if (current && tests.some(t => String(t.id) === String(current))) {
                 questionsFilter.value = current;
             } else {

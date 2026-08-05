@@ -87,6 +87,7 @@
                     <button class="admin-tab" data-tab="documents">Документы</button>
                     <button class="admin-tab" data-tab="promo">Промокоды</button>
                     <button class="admin-tab" data-tab="subscriptions">Подписки</button>
+                    <button class="admin-tab" data-tab="usmle">USMLE</button>
                     <button class="admin-tab" data-tab="analytics">Аналитика</button>
                 </div>
 
@@ -208,6 +209,11 @@
                     <div class="admin-section-header">
                         <h2>Управление предметами</h2>
                         <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                            <select id="subjectsProgramFilter" class="form-group input">
+                                <option value="">Все программы</option>
+                                <option value="university">Университет</option>
+                                <option value="usmle">USMLE</option>
+                            </select>
                             <select id="subjectsUniversityFilter" class="form-group input">
                                 <option value="">Все университеты</option>
                             </select>
@@ -221,7 +227,12 @@
                 <div id="testsTab" class="admin-tab-content">
                     <div class="admin-section-header">
                         <h2>Управление тестами</h2>
-                        <div style="display: flex; gap: 1rem; align-items: center;">
+                        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                            <select id="testsProgramFilter" class="form-group input">
+                                <option value="">Все программы</option>
+                                <option value="university">Университет</option>
+                                <option value="usmle">USMLE</option>
+                            </select>
                             <select id="testsUniversityFilter" class="form-group input">
                                 <option value="">Все университеты</option>
                             </select>
@@ -239,6 +250,11 @@
                     <div class="admin-section-header">
                         <h2>Управление вопросами</h2>
                         <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                            <select id="questionsProgramFilter" class="form-group input">
+                                <option value="">Все программы</option>
+                                <option value="university">Университет</option>
+                                <option value="usmle">USMLE</option>
+                            </select>
                             <select id="questionsUniversityFilter" class="form-group input">
                                 <option value="">Все университеты</option>
                             </select>
@@ -444,25 +460,8 @@
                                 <p id="subsAdminHint" class="admin-subs-hint"></p>
                             </div>
                             <div class="admin-subs-uni-card" style="margin-top:0;">
-                                <div class="admin-subs-uni-label">Тарифы USMLE</div>
-                                <p class="admin-subs-hint" style="margin-top:0;">Отдельные цены программы USMLE (не привязаны к университету).</p>
-                                <button type="button" class="btn btn-secondary btn-sm" id="loadUsmlePlansBtn" style="margin-top:0.5rem;">Загрузить / показать USMLE</button>
-                                <div id="usmleAdminPlansBox" style="margin-top:0.75rem; display:none;">
-                                    <div class="admin-subs-fields">
-                                        <div class="admin-subs-field"><label>1 мес.</label><input type="number" id="usmlePrice1" min="0.01" step="0.01"></div>
-                                        <div class="admin-subs-field"><label>3 мес.</label><input type="number" id="usmlePrice3" min="0.01" step="0.01"></div>
-                                        <div class="admin-subs-field"><label>1 год</label><input type="number" id="usmlePrice12" min="0.01" step="0.01"></div>
-                                    </div>
-                                    <button type="button" class="btn btn-primary btn-sm" id="saveUsmlePlansBtn" style="margin-top:0.75rem;">Сохранить USMLE</button>
-                                </div>
-                            </div>
-                            <div class="admin-subs-uni-card">
-                                <div class="admin-subs-uni-label">Теги USMLE</div>
-                                <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
-                                    <input type="text" id="newQuestionTagName" placeholder="Новый тег" style="flex:1; padding:0.5rem;">
-                                    <button type="button" class="btn btn-primary btn-sm" id="addQuestionTagBtn">+</button>
-                                </div>
-                                <div id="adminQuestionTagsList" style="margin-top:0.75rem;"></div>
+                                <div class="admin-subs-uni-label">Программа USMLE</div>
+                                <p class="admin-subs-hint" style="margin-top:0;">Тарифы, теги и предметы USMLE — во вкладке <strong>USMLE</strong>.</p>
                             </div>
                             <div class="admin-subs-legend">
                                 <div class="admin-subs-legend-item">
@@ -556,6 +555,54 @@
                                 <button type="submit" class="btn btn-primary btn-large">Сохранить цены</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+
+                <!-- USMLE -->
+                <div id="usmleTab" class="admin-tab-content">
+                    <div class="admin-section-header">
+                        <h2>Программа USMLE</h2>
+                        <p class="page-description" style="margin:0;">Отдельная подписка, предметы, тесты и теги вопросов</p>
+                    </div>
+
+                    <div class="admin-subs-layout">
+                        <aside class="admin-subs-sidebar">
+                            <div class="admin-subs-uni-card">
+                                <div class="admin-subs-uni-label">Тарифы подписки USMLE</div>
+                                <p class="admin-subs-hint" style="margin-top:0;">Цены не привязаны к университету — общие для всей программы.</p>
+                                <div id="usmleAdminPlansBox" style="margin-top:0.75rem;">
+                                    <div class="admin-subs-fields">
+                                        <div class="admin-subs-field"><label for="usmlePrice1">1 мес.</label><input type="number" id="usmlePrice1" min="0.01" step="0.01"></div>
+                                        <div class="admin-subs-field"><label for="usmlePrice3">3 мес.</label><input type="number" id="usmlePrice3" min="0.01" step="0.01"></div>
+                                        <div class="admin-subs-field"><label for="usmlePrice12">1 год</label><input type="number" id="usmlePrice12" min="0.01" step="0.01"></div>
+                                    </div>
+                                    <button type="button" class="btn btn-primary btn-sm" id="saveUsmlePlansBtn" style="margin-top:0.75rem;">Сохранить тарифы</button>
+                                </div>
+                            </div>
+                            <div class="admin-subs-uni-card">
+                                <div class="admin-subs-uni-label">Теги вопросов</div>
+                                <p class="admin-subs-hint" style="margin-top:0;">Студенты с USMLE-подпиской фильтруют тесты по этим тегам.</p>
+                                <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+                                    <input type="text" id="newQuestionTagName" placeholder="Новый тег" style="flex:1; padding:0.5rem;">
+                                    <button type="button" class="btn btn-primary btn-sm" id="addQuestionTagBtn">+</button>
+                                </div>
+                                <div id="adminQuestionTagsList" style="margin-top:0.75rem;"></div>
+                            </div>
+                        </aside>
+
+                        <div style="min-width:0;">
+                            <div class="admin-section-header" style="margin-bottom:1rem;">
+                                <h3 style="margin:0;">Предметы USMLE</h3>
+                                <button type="button" class="btn btn-primary" id="addUsmleSubjectBtn">+ Предмет USMLE</button>
+                            </div>
+                            <div id="usmleSubjectsList" class="admin-list"></div>
+
+                            <div class="admin-section-header" style="margin:1.5rem 0 1rem;">
+                                <h3 style="margin:0;">Тесты USMLE</h3>
+                                <button type="button" class="btn btn-primary" id="addUsmleTestBtn">+ Тест USMLE</button>
+                            </div>
+                            <div id="usmleTestsList" class="admin-list"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -765,9 +812,10 @@
                     <label for="testSubjectId">Предмет</label>
                     <select id="testSubjectId" required></select>
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="testUniversityGroup">
                     <label for="testUniversityId">Университет</label>
-                    <select id="testUniversityId" required></select>
+                    <select id="testUniversityId"></select>
+                    <small id="testUniversityHint" style="display:none; color: var(--text-muted);">Для USMLE университет не нужен — берётся из программы предмета.</small>
                 </div>
                 <div class="form-group">
                     <label for="testDescription">Описание</label>
