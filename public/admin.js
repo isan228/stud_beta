@@ -1972,6 +1972,14 @@ function setupAdminEventListeners() {
     if (addUsmleQuestionBtn) {
         addUsmleQuestionBtn.addEventListener('click', () => openAddUsmleQuestionModal());
     }
+    const uploadUsmleTxtBtn = document.getElementById('uploadUsmleTxtBtn');
+    if (uploadUsmleTxtBtn) {
+        uploadUsmleTxtBtn.addEventListener('click', () => openUsmleTxtUploadModal({ withExplanations: false }));
+    }
+    const uploadUsmleTxtExplainedBtn = document.getElementById('uploadUsmleTxtExplainedBtn');
+    if (uploadUsmleTxtExplainedBtn) {
+        uploadUsmleTxtExplainedBtn.addEventListener('click', () => openUsmleTxtUploadModal({ withExplanations: true }));
+    }
 
     const usmleTestsSubjectFilter = document.getElementById('usmleTestsSubjectFilter');
     if (usmleTestsSubjectFilter) {
@@ -2007,10 +2015,13 @@ function setupAdminEventListeners() {
     if (uploadPdfBtn) {
         uploadPdfBtn.addEventListener('click', async () => {
             try {
+                adminQuestionUploadSource = 'questions';
                 const tests = await fetchAdminTestsCompact();
                 const select = document.getElementById('pdfTestId');
+                const presetTestId = document.getElementById('questionsTestFilter')?.value || '';
                 select.innerHTML = '<option value="">Выберите тест</option>' +
                     tests.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+                if (presetTestId) select.value = String(presetTestId);
                 document.getElementById('pdfUploadModal').style.display = 'block';
             } catch (error) {
                 console.error('Ошибка загрузки тестов:', error);
@@ -2028,10 +2039,13 @@ function setupAdminEventListeners() {
     if (uploadTxtExplainedBtn) {
         uploadTxtExplainedBtn.addEventListener('click', async () => {
             try {
+                adminQuestionUploadSource = 'questions';
                 const tests = await fetchAdminTestsCompact();
                 const select = document.getElementById('txtExplainedTestId');
+                const presetTestId = document.getElementById('questionsTestFilter')?.value || '';
                 select.innerHTML = '<option value="">Выберите тест</option>' +
                     tests.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+                if (presetTestId) select.value = String(presetTestId);
                 document.getElementById('txtExplainedUploadModal').style.display = 'block';
             } catch (error) {
                 console.error('Ошибка загрузки тестов:', error);
@@ -2144,7 +2158,7 @@ function setupAdminEventListeners() {
             if (!modal) return;
             modal.style.display = 'none';
             if (modal.id === 'uploadPreviewModal') {
-                loadQuestions();
+                refreshQuestionsAfterUpload();
             }
         });
     });
@@ -2929,6 +2943,62 @@ async function openAddUsmleQuestionModal() {
     document.getElementById('questionModal').style.display = 'block';
 }
 
+let adminQuestionUploadSource = 'questions'; // 'questions' | 'usmle'
+let lastQuestionUploadTestId = null;
+
+async function fetchUsmleTestsCompact() {
+    const response = await fetch(`${ADMIN_API_URL}/tests?programType=usmle&compact=1`, {
+        headers: adminAuthHeaders()
+    });
+    if (!response.ok) throw new Error('tests');
+    return response.json();
+}
+
+async function openUsmleTxtUploadModal({ withExplanations = false } = {}) {
+    try {
+        const tests = await fetchUsmleTestsCompact();
+        if (!tests.length) {
+            showNotification('Сначала создайте тест USMLE', 'error');
+            return;
+        }
+        const selectId = withExplanations ? 'txtExplainedTestId' : 'pdfTestId';
+        const modalId = withExplanations ? 'txtExplainedUploadModal' : 'pdfUploadModal';
+        const select = document.getElementById(selectId);
+        const presetTestId = document.getElementById('usmleQuestionsTestFilter')?.value || '';
+        if (select) {
+            select.innerHTML = '<option value="">Выберите тест USMLE</option>' +
+                tests.map(t => `<option value="${t.id}">${escapeAdminHtml(t.name)}</option>`).join('');
+            if (presetTestId && tests.some(t => String(t.id) === String(presetTestId))) {
+                select.value = String(presetTestId);
+            }
+        }
+        adminQuestionUploadSource = 'usmle';
+        const modal = document.getElementById(modalId);
+        if (modal) modal.style.display = 'block';
+    } catch (error) {
+        console.error('Ошибка открытия загрузки USMLE:', error);
+        showNotification('Ошибка загрузки тестов USMLE', 'error');
+    }
+}
+
+function refreshQuestionsAfterUpload() {
+    loadQuestions();
+    if (adminQuestionUploadSource === 'usmle' || document.getElementById('usmleTab')?.classList.contains('active')) {
+        const usmleFilter = document.getElementById('usmleQuestionsTestFilter');
+        if (usmleFilter && lastQuestionUploadTestId) {
+            if (![...usmleFilter.options].some(o => o.value === String(lastQuestionUploadTestId))) {
+                const opt = document.createElement('option');
+                opt.value = String(lastQuestionUploadTestId);
+                opt.textContent = `Тест #${lastQuestionUploadTestId}`;
+                usmleFilter.appendChild(opt);
+            }
+            usmleFilter.value = String(lastQuestionUploadTestId);
+        }
+        loadUsmleTestsAdmin().then(() => loadUsmleQuestionsAdmin());
+    }
+    adminQuestionUploadSource = 'questions';
+}
+
 async function loadUsmleAdminPanel() {
     await Promise.all([
         loadUsmlePlansAdmin(),
@@ -3137,6 +3207,9 @@ async function handlePdfUpload(e) {
                 } else {
                     alert(`Успешно загружено ${result.questions.length} вопросов`);
                 }
+                lastQuestionUploadTestId = testId;
+                const questionsFilter = document.getElementById('questionsTestFilter');
+                if (questionsFilter) questionsFilter.value = String(testId);
                 const modal = document.getElementById('pdfUploadModal');
                 if (modal) modal.style.display = 'none';
                 const form = document.getElementById('pdfUploadForm');
@@ -3208,6 +3281,9 @@ async function handleTxtExplainedUpload(e) {
             if (statusText) statusText.textContent = 'Готово!';
             setTimeout(() => {
                 showNotification(`Загружено ${result.questions.length} вопросов с объяснениями`, 'success');
+                lastQuestionUploadTestId = testId;
+                const questionsFilter = document.getElementById('questionsTestFilter');
+                if (questionsFilter) questionsFilter.value = String(testId);
                 const modal = document.getElementById('txtExplainedUploadModal');
                 if (modal) modal.style.display = 'none';
                 const form = document.getElementById('txtExplainedUploadForm');
@@ -3469,7 +3545,7 @@ async function removePreviewAnswerImage(answerId, btn) {
 function closeUploadPreview() {
     const modal = document.getElementById('uploadPreviewModal');
     if (modal) modal.style.display = 'none';
-    loadQuestions();
+    refreshQuestionsAfterUpload();
 }
 
 // Редакторы вопросов
