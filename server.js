@@ -127,7 +127,6 @@ const pages = {
   '/test-settings': 'test-settings.html',
   '/test': 'test.html',
   '/test-result': 'test-result.html',
-  '/news': 'news.html',
   '/about': 'about.html',
   '/favorites': 'favorites.html',
   '/profile': 'profile.html',
@@ -142,6 +141,9 @@ const pages = {
   '/payment/success': 'payment-success.html',
   '/subscriptions': 'subscriptions.html'
 };
+
+// Старый URL новостей → программа USMLE
+app.get('/news', (req, res) => res.redirect(301, '/usmle'));
 
 // Обработка маршрутов страниц
 Object.keys(pages).forEach(route => {
