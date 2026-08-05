@@ -2256,6 +2256,21 @@ router.put('/questions/:id', adminAuth, [
   }
 });
 
+// Обновить только теги вопроса (для предпросмотра загрузки)
+router.put('/questions/:id/tags', adminAuth, async (req, res) => {
+  try {
+    const question = await Question.findByPk(req.params.id);
+    if (!question) {
+      return res.status(404).json({ error: 'Вопрос не найден' });
+    }
+    const tags = await syncQuestionTags(question.id, req.body.tagIds);
+    res.json({ id: question.id, tags });
+  } catch (error) {
+    console.error('Ошибка обновления тегов вопроса:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 // Удалить вопрос
 router.delete('/questions/:id', adminAuth, async (req, res) => {
   try {

@@ -868,6 +868,11 @@
                     <label for="pdfTestId">Тест</label>
                     <select id="pdfTestId" required></select>
                 </div>
+                <div class="form-group" id="pdfUploadTagsGroup">
+                    <label for="pdfUploadTagIds">Теги USMLE</label>
+                    <select id="pdfUploadTagIds" multiple size="5" style="width:100%; min-height: 6.5rem;"></select>
+                    <p style="margin: 0.35rem 0 0; font-size: 0.85rem; color: var(--text-muted);">Выбранные теги применятся ко всем загружаемым вопросам (Ctrl/⌘ — несколько).</p>
+                </div>
                 <div class="form-group">
                     <label for="pdfFile">TXT файл</label>
                     <input type="file" id="pdfFile" accept=".txt" required>
@@ -904,6 +909,11 @@
                     <label for="txtExplainedTestId">Тест</label>
                     <select id="txtExplainedTestId" required></select>
                 </div>
+                <div class="form-group" id="txtExplainedUploadTagsGroup">
+                    <label for="txtExplainedUploadTagIds">Теги USMLE</label>
+                    <select id="txtExplainedUploadTagIds" multiple size="5" style="width:100%; min-height: 6.5rem;"></select>
+                    <p style="margin: 0.35rem 0 0; font-size: 0.85rem; color: var(--text-muted);">Выбранные теги применятся ко всем загружаемым вопросам (Ctrl/⌘ — несколько).</p>
+                </div>
                 <div class="form-group">
                     <label for="txtExplainedFile">TXT файл</label>
                     <input type="file" id="txtExplainedFile" accept=".txt" required>
@@ -937,7 +947,7 @@
             <span class="modal-close">&times;</span>
             <h2 id="uploadPreviewTitle">Предпросмотр загруженных вопросов</h2>
             <p id="uploadPreviewHint" class="upload-preview-hint">
-                Проверьте вопросы и правильные ответы. При желании добавьте фото к вопросу или к вариантам ответов.
+                Проверьте вопросы и правильные ответы. При желании добавьте фото к вопросу или к вариантам ответов. Теги USMLE уже назначены при загрузке — при необходимости поменяйте их ниже.
             </p>
             <div id="uploadPreviewList" class="upload-preview-list"></div>
             <div class="upload-preview-actions">

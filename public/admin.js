@@ -2022,6 +2022,7 @@ function setupAdminEventListeners() {
                 select.innerHTML = '<option value="">Выберите тест</option>' +
                     tests.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
                 if (presetTestId) select.value = String(presetTestId);
+                cachedUploadPreviewTags = await fillUploadTagsSelect('pdfUploadTagIds');
                 document.getElementById('pdfUploadModal').style.display = 'block';
             } catch (error) {
                 console.error('Ошибка загрузки тестов:', error);
@@ -2046,6 +2047,7 @@ function setupAdminEventListeners() {
                 select.innerHTML = '<option value="">Выберите тест</option>' +
                     tests.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
                 if (presetTestId) select.value = String(presetTestId);
+                cachedUploadPreviewTags = await fillUploadTagsSelect('txtExplainedUploadTagIds');
                 document.getElementById('txtExplainedUploadModal').style.display = 'block';
             } catch (error) {
                 console.error('Ошибка загрузки тестов:', error);
@@ -2954,6 +2956,40 @@ async function fetchUsmleTestsCompact() {
     return response.json();
 }
 
+async function fillUploadTagsSelect(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select) return [];
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/question-tags`, {
+            headers: adminAuthHeaders()
+        });
+        if (!response.ok) throw new Error('tags');
+        const tags = await response.json();
+        select.innerHTML = (tags || []).map((t) =>
+            `<option value="${t.id}">${escapeAdminHtml(t.name)}</option>`
+        ).join('');
+        return tags || [];
+    } catch (e) {
+        console.error('fillUploadTagsSelect', e);
+        select.innerHTML = '';
+        return [];
+    }
+}
+
+function getSelectedUploadTagIds(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select) return [];
+    return Array.from(select.selectedOptions || [])
+        .map((o) => parseInt(o.value, 10))
+        .filter((n) => Number.isFinite(n) && n > 0);
+}
+
+function appendTagIdsToFormData(formData, tagIds) {
+    (tagIds || []).forEach((id) => formData.append('tagIds', String(id)));
+}
+
+let cachedUploadPreviewTags = [];
+
 async function openUsmleTxtUploadModal({ withExplanations = false } = {}) {
     try {
         const tests = await fetchUsmleTestsCompact();
@@ -2962,6 +2998,7 @@ async function openUsmleTxtUploadModal({ withExplanations = false } = {}) {
             return;
         }
         const selectId = withExplanations ? 'txtExplainedTestId' : 'pdfTestId';
+        const tagsSelectId = withExplanations ? 'txtExplainedUploadTagIds' : 'pdfUploadTagIds';
         const modalId = withExplanations ? 'txtExplainedUploadModal' : 'pdfUploadModal';
         const select = document.getElementById(selectId);
         const presetTestId = document.getElementById('usmleQuestionsTestFilter')?.value || '';
@@ -2972,6 +3009,7 @@ async function openUsmleTxtUploadModal({ withExplanations = false } = {}) {
                 select.value = String(presetTestId);
             }
         }
+        cachedUploadPreviewTags = await fillUploadTagsSelect(tagsSelectId);
         adminQuestionUploadSource = 'usmle';
         const modal = document.getElementById(modalId);
         if (modal) modal.style.display = 'block';
@@ -3152,6 +3190,7 @@ async function handlePdfUpload(e) {
     
     const testId = document.getElementById('pdfTestId').value;
     const fileInput = document.getElementById('pdfFile');
+    const tagIds = getSelectedUploadTagIds('pdfUploadTagIds');
     
     if (!testId) {
         if (typeof showNotification === 'function') {
@@ -3170,10 +3209,16 @@ async function handlePdfUpload(e) {
         }
         return;
     }
+
+    if (adminQuestionUploadSource === 'usmle' && !tagIds.length) {
+        showNotification('Выберите хотя бы один тег USMLE для загружаемых вопросов', 'error');
+        return;
+    }
     
     const formData = new FormData();
     formData.append('pdf', fileInput.files[0]);
     formData.append('testId', testId);
+    appendTagIdsToFormData(formData, tagIds);
     
     const progressDiv = document.getElementById('pdfUploadProgress');
     const progressBar = document.getElementById('pdfUploadProgressBar');
@@ -3242,6 +3287,7 @@ async function handleTxtExplainedUpload(e) {
 
     const testId = document.getElementById('txtExplainedTestId')?.value;
     const fileInput = document.getElementById('txtExplainedFile');
+    const tagIds = getSelectedUploadTagIds('txtExplainedUploadTagIds');
 
     if (!testId) {
         showNotification('Выберите тест', 'error');
@@ -3251,10 +3297,15 @@ async function handleTxtExplainedUpload(e) {
         showNotification('Выберите TXT файл', 'error');
         return;
     }
+    if (adminQuestionUploadSource === 'usmle' && !tagIds.length) {
+        showNotification('Выберите хотя бы один тег USMLE для загружаемых вопросов', 'error');
+        return;
+    }
 
     const formData = new FormData();
     formData.append('pdf', fileInput.files[0]);
     formData.append('testId', testId);
+    appendTagIdsToFormData(formData, tagIds);
 
     const progressDiv = document.getElementById('txtExplainedUploadProgress');
     const progressBar = document.getElementById('txtExplainedUploadProgressBar');
@@ -3368,6 +3419,20 @@ function openUploadPreview(questions, options = {}) {
             </div>
         `).join('');
 
+        const selectedTagIds = new Set((q.tags || q.Tags || []).map((t) => Number(t.id)));
+        const tagsOptions = (cachedUploadPreviewTags || []).map((t) =>
+            `<option value="${t.id}" ${selectedTagIds.has(Number(t.id)) ? 'selected' : ''}>${escapeUploadPreviewHtml(t.name)}</option>`
+        ).join('');
+        const tagsHtml = `
+            <div class="upload-preview-tags" style="margin-top:0.75rem;">
+                <label style="display:block;font-weight:600;margin-bottom:0.35rem;">Теги USMLE</label>
+                <select multiple size="4" data-preview-tags-for="${q.id}" style="width:100%;min-height:5rem;">
+                    ${tagsOptions || '<option disabled>Нет тегов — создайте во вкладке USMLE</option>'}
+                </select>
+                <button type="button" class="btn btn-secondary btn-sm" data-save-tags-for="${q.id}" style="margin-top:0.5rem;">Сохранить теги</button>
+            </div>
+        `;
+
         return `
             <article class="upload-preview-card" data-question-id="${q.id}">
                 <header class="upload-preview-card-header">
@@ -3391,9 +3456,16 @@ function openUploadPreview(questions, options = {}) {
                     ${answersHtml || '<p class="upload-preview-empty">Нет ответов</p>'}
                 </div>
                 ${explanationHtml}
+                ${tagsHtml}
             </article>
         `;
     }).join('');
+
+    if (!cachedUploadPreviewTags.length) {
+        fillUploadTagsSelect('pdfUploadTagIds').then((tags) => {
+            cachedUploadPreviewTags = tags;
+        }).catch(() => {});
+    }
 
     modal.style.display = 'block';
     bindUploadPreviewEvents();
@@ -3431,6 +3503,34 @@ function bindUploadPreviewEvents() {
     });
 
     list.addEventListener('click', async (e) => {
+        const saveTagsBtn = e.target.closest('[data-save-tags-for]');
+        if (saveTagsBtn) {
+            const questionId = saveTagsBtn.dataset.saveTagsFor;
+            const select = list.querySelector(`select[data-preview-tags-for="${questionId}"]`);
+            const tagIds = Array.from(select?.selectedOptions || [])
+                .map((o) => parseInt(o.value, 10))
+                .filter((n) => Number.isFinite(n) && n > 0);
+            try {
+                const response = await fetch(`${ADMIN_API_URL}/questions/${questionId}/tags`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentAdminToken}`
+                    },
+                    body: JSON.stringify({ tagIds })
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(result.error || 'Не удалось сохранить теги');
+                }
+                showNotification('Теги сохранены', 'success');
+            } catch (error) {
+                console.error('Ошибка сохранения тегов в предпросмотре:', error);
+                showNotification(error.message || 'Ошибка сохранения тегов', 'error');
+            }
+            return;
+        }
+
         const btn = e.target.closest('[data-remove-kind]');
         if (!btn) return;
         const kind = btn.dataset.removeKind;

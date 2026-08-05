@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const adminAuth = require('../middleware/adminAuth');
-const { Question, Answer, Test } = require('../models');
+const { Op } = require('sequelize');
+const { Question, Answer, Test, QuestionTag, QuestionTagMap } = require('../models');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -18,7 +19,45 @@ const upload = multer({
   }
 });
 
-async function saveParsedQuestions(testId, questions) {
+function parseTagIdsFromBody(body) {
+  let raw = body?.tagIds;
+  if (raw == null || raw === '') return [];
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (trimmed.startsWith('[')) {
+      try {
+        raw = JSON.parse(trimmed);
+      } catch (_) {
+        raw = trimmed.split(/[,;\s]+/);
+      }
+    } else {
+      raw = trimmed.split(/[,;\s]+/);
+    }
+  }
+  if (!Array.isArray(raw)) raw = [raw];
+  return [...new Set(raw
+    .map((x) => parseInt(x, 10))
+    .filter((n) => Number.isFinite(n) && n > 0))];
+}
+
+async function syncQuestionTags(questionId, tagIds) {
+  const ids = parseTagIdsFromBody({ tagIds });
+  await QuestionTagMap.destroy({ where: { questionId } });
+  if (!ids.length) return [];
+
+  const tags = await QuestionTag.findAll({
+    where: { id: { [Op.in]: ids }, isActive: true }
+  });
+  for (const tag of tags) {
+    await QuestionTagMap.findOrCreate({
+      where: { questionId, tagId: tag.id },
+      defaults: { questionId, tagId: tag.id }
+    });
+  }
+  return tags.map((t) => ({ id: t.id, name: t.name, slug: t.slug }));
+}
+
+async function saveParsedQuestions(testId, questions, tagIds = []) {
   const createdQuestions = [];
   for (const q of questions) {
     const question = await Question.create({
@@ -42,6 +81,8 @@ async function saveParsedQuestions(testId, questions) {
       });
     }
 
+    const tags = await syncQuestionTags(question.id, tagIds);
+
     createdQuestions.push({
       id: question.id,
       text: question.text,
@@ -49,7 +90,8 @@ async function saveParsedQuestions(testId, questions) {
       imageUrl: question.imageUrl || null,
       answersCount: createdAnswers.length,
       hasExplanation: Boolean(q.explanation),
-      answers: createdAnswers
+      answers: createdAnswers,
+      tags
     });
   }
   return createdQuestions;
@@ -91,10 +133,12 @@ async function handleTxtUpload(req, res, parseOptions) {
     return;
   }
 
-  const createdQuestions = await saveParsedQuestions(testId, questions);
+  const tagIds = parseTagIdsFromBody(req.body);
+  const createdQuestions = await saveParsedQuestions(testId, questions, tagIds);
   res.json({
     message: `Успешно загружено ${createdQuestions.length} вопросов`,
-    questions: createdQuestions
+    questions: createdQuestions,
+    tagIds
   });
 }
 
