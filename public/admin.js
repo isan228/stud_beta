@@ -1972,13 +1972,9 @@ function setupAdminEventListeners() {
     if (addUsmleQuestionBtn) {
         addUsmleQuestionBtn.addEventListener('click', () => openAddUsmleQuestionModal());
     }
-    const uploadUsmleTxtBtn = document.getElementById('uploadUsmleTxtBtn');
-    if (uploadUsmleTxtBtn) {
-        uploadUsmleTxtBtn.addEventListener('click', () => openUsmleTxtUploadModal({ withExplanations: false }));
-    }
     const uploadUsmleTxtExplainedBtn = document.getElementById('uploadUsmleTxtExplainedBtn');
     if (uploadUsmleTxtExplainedBtn) {
-        uploadUsmleTxtExplainedBtn.addEventListener('click', () => openUsmleTxtUploadModal({ withExplanations: true }));
+        uploadUsmleTxtExplainedBtn.addEventListener('click', () => openUsmleTxtExplainedUploadModal());
     }
 
     const usmleTestsSubjectFilter = document.getElementById('usmleTestsSubjectFilter');
@@ -2022,7 +2018,6 @@ function setupAdminEventListeners() {
                 select.innerHTML = '<option value="">Выберите тест</option>' +
                     tests.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
                 if (presetTestId) select.value = String(presetTestId);
-                cachedUploadPreviewTags = await fillUploadTagsSelect('pdfUploadTagIds');
                 document.getElementById('pdfUploadModal').style.display = 'block';
             } catch (error) {
                 console.error('Ошибка загрузки тестов:', error);
@@ -2034,26 +2029,6 @@ function setupAdminEventListeners() {
     const pdfUploadForm = document.getElementById('pdfUploadForm');
     if (pdfUploadForm) {
         pdfUploadForm.addEventListener('submit', handlePdfUpload);
-    }
-
-    const uploadTxtExplainedBtn = document.getElementById('uploadTxtExplainedBtn');
-    if (uploadTxtExplainedBtn) {
-        uploadTxtExplainedBtn.addEventListener('click', async () => {
-            try {
-                adminQuestionUploadSource = 'questions';
-                const tests = await fetchAdminTestsCompact();
-                const select = document.getElementById('txtExplainedTestId');
-                const presetTestId = document.getElementById('questionsTestFilter')?.value || '';
-                select.innerHTML = '<option value="">Выберите тест</option>' +
-                    tests.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
-                if (presetTestId) select.value = String(presetTestId);
-                cachedUploadPreviewTags = await fillUploadTagsSelect('txtExplainedUploadTagIds');
-                document.getElementById('txtExplainedUploadModal').style.display = 'block';
-            } catch (error) {
-                console.error('Ошибка загрузки тестов:', error);
-                showNotification('Ошибка загрузки тестов', 'error');
-            }
-        });
     }
 
     const txtExplainedUploadForm = document.getElementById('txtExplainedUploadForm');
@@ -2958,49 +2933,45 @@ async function fetchUsmleTestsCompact() {
 
 async function fillUploadTagsSelect(selectId) {
     const select = document.getElementById(selectId);
-    if (!select) return [];
     try {
         const response = await fetch(`${ADMIN_API_URL}/question-tags`, {
             headers: adminAuthHeaders()
         });
         if (!response.ok) throw new Error('tags');
         const tags = await response.json();
-        select.innerHTML = (tags || []).map((t) =>
-            `<option value="${t.id}">${escapeAdminHtml(t.name)}</option>`
-        ).join('');
+        if (select) {
+            select.innerHTML = (tags || []).map((t) =>
+                `<option value="${t.id}">${escapeAdminHtml(t.name)}</option>`
+            ).join('');
+        }
         return tags || [];
     } catch (e) {
         console.error('fillUploadTagsSelect', e);
-        select.innerHTML = '';
+        if (select) select.innerHTML = '';
         return [];
     }
 }
 
-function getSelectedUploadTagIds(selectId) {
-    const select = document.getElementById(selectId);
-    if (!select) return [];
-    return Array.from(select.selectedOptions || [])
-        .map((o) => parseInt(o.value, 10))
-        .filter((n) => Number.isFinite(n) && n > 0);
-}
-
-function appendTagIdsToFormData(formData, tagIds) {
-    (tagIds || []).forEach((id) => formData.append('tagIds', String(id)));
+function collectTagsFromUploadResult(questions) {
+    const map = new Map();
+    (questions || []).forEach((q) => {
+        (q.tags || q.Tags || []).forEach((t) => {
+            if (t?.id != null) map.set(Number(t.id), t);
+        });
+    });
+    return Array.from(map.values()).sort((a, b) => String(a.name).localeCompare(String(b.name), 'ru'));
 }
 
 let cachedUploadPreviewTags = [];
 
-async function openUsmleTxtUploadModal({ withExplanations = false } = {}) {
+async function openUsmleTxtExplainedUploadModal() {
     try {
         const tests = await fetchUsmleTestsCompact();
         if (!tests.length) {
             showNotification('Сначала создайте тест USMLE', 'error');
             return;
         }
-        const selectId = withExplanations ? 'txtExplainedTestId' : 'pdfTestId';
-        const tagsSelectId = withExplanations ? 'txtExplainedUploadTagIds' : 'pdfUploadTagIds';
-        const modalId = withExplanations ? 'txtExplainedUploadModal' : 'pdfUploadModal';
-        const select = document.getElementById(selectId);
+        const select = document.getElementById('txtExplainedTestId');
         const presetTestId = document.getElementById('usmleQuestionsTestFilter')?.value || '';
         if (select) {
             select.innerHTML = '<option value="">Выберите тест USMLE</option>' +
@@ -3009,9 +2980,9 @@ async function openUsmleTxtUploadModal({ withExplanations = false } = {}) {
                 select.value = String(presetTestId);
             }
         }
-        cachedUploadPreviewTags = await fillUploadTagsSelect(tagsSelectId);
+        cachedUploadPreviewTags = await fillUploadTagsSelect();
         adminQuestionUploadSource = 'usmle';
-        const modal = document.getElementById(modalId);
+        const modal = document.getElementById('txtExplainedUploadModal');
         if (modal) modal.style.display = 'block';
     } catch (error) {
         console.error('Ошибка открытия загрузки USMLE:', error);
@@ -3190,7 +3161,6 @@ async function handlePdfUpload(e) {
     
     const testId = document.getElementById('pdfTestId').value;
     const fileInput = document.getElementById('pdfFile');
-    const tagIds = getSelectedUploadTagIds('pdfUploadTagIds');
     
     if (!testId) {
         if (typeof showNotification === 'function') {
@@ -3209,16 +3179,10 @@ async function handlePdfUpload(e) {
         }
         return;
     }
-
-    if (adminQuestionUploadSource === 'usmle' && !tagIds.length) {
-        showNotification('Выберите хотя бы один тег USMLE для загружаемых вопросов', 'error');
-        return;
-    }
     
     const formData = new FormData();
     formData.append('pdf', fileInput.files[0]);
     formData.append('testId', testId);
-    appendTagIdsToFormData(formData, tagIds);
     
     const progressDiv = document.getElementById('pdfUploadProgress');
     const progressBar = document.getElementById('pdfUploadProgressBar');
@@ -3287,25 +3251,19 @@ async function handleTxtExplainedUpload(e) {
 
     const testId = document.getElementById('txtExplainedTestId')?.value;
     const fileInput = document.getElementById('txtExplainedFile');
-    const tagIds = getSelectedUploadTagIds('txtExplainedUploadTagIds');
 
     if (!testId) {
-        showNotification('Выберите тест', 'error');
+        showNotification('Выберите тест USMLE', 'error');
         return;
     }
     if (!fileInput?.files?.[0]) {
         showNotification('Выберите TXT файл', 'error');
         return;
     }
-    if (adminQuestionUploadSource === 'usmle' && !tagIds.length) {
-        showNotification('Выберите хотя бы один тег USMLE для загружаемых вопросов', 'error');
-        return;
-    }
 
     const formData = new FormData();
     formData.append('pdf', fileInput.files[0]);
     formData.append('testId', testId);
-    appendTagIdsToFormData(formData, tagIds);
 
     const progressDiv = document.getElementById('txtExplainedUploadProgress');
     const progressBar = document.getElementById('txtExplainedUploadProgressBar');
@@ -3331,10 +3289,19 @@ async function handleTxtExplainedUpload(e) {
             if (progressBar) progressBar.style.width = '100%';
             if (statusText) statusText.textContent = 'Готово!';
             setTimeout(() => {
-                showNotification(`Загружено ${result.questions.length} вопросов с объяснениями`, 'success');
+                showNotification(`Загружено ${result.questions.length} вопросов с объяснениями и тегами`, 'success');
                 lastQuestionUploadTestId = testId;
+                adminQuestionUploadSource = 'usmle';
                 const questionsFilter = document.getElementById('questionsTestFilter');
                 if (questionsFilter) questionsFilter.value = String(testId);
+                cachedUploadPreviewTags = [
+                    ...collectTagsFromUploadResult(result.questions),
+                    ...cachedUploadPreviewTags
+                ].reduce((acc, t) => {
+                    if (!acc.some((x) => Number(x.id) === Number(t.id))) acc.push(t);
+                    return acc;
+                }, []);
+                if (typeof loadAdminQuestionTags === 'function') loadAdminQuestionTags();
                 const modal = document.getElementById('txtExplainedUploadModal');
                 if (modal) modal.style.display = 'none';
                 const form = document.getElementById('txtExplainedUploadForm');
@@ -3343,7 +3310,7 @@ async function handleTxtExplainedUpload(e) {
                 if (progressBar) progressBar.style.width = '0%';
 
                 openUploadPreview(result.questions || [], {
-                    title: `Загружено ${result.questions.length} вопросов с объяснениями`,
+                    title: `Загружено ${result.questions.length} вопросов с объяснениями и тегами`,
                     withExplanations: true
                 });
             }, 500);
@@ -3462,7 +3429,7 @@ function openUploadPreview(questions, options = {}) {
     }).join('');
 
     if (!cachedUploadPreviewTags.length) {
-        fillUploadTagsSelect('pdfUploadTagIds').then((tags) => {
+        fillUploadTagsSelect().then((tags) => {
             cachedUploadPreviewTags = tags;
         }).catch(() => {});
     }

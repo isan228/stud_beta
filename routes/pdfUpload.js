@@ -19,35 +19,72 @@ const upload = multer({
   }
 });
 
-function parseTagIdsFromBody(body) {
-  let raw = body?.tagIds;
-  if (raw == null || raw === '') return [];
-  if (typeof raw === 'string') {
-    const trimmed = raw.trim();
-    if (trimmed.startsWith('[')) {
-      try {
-        raw = JSON.parse(trimmed);
-      } catch (_) {
-        raw = trimmed.split(/[,;\s]+/);
-      }
-    } else {
-      raw = trimmed.split(/[,;\s]+/);
-    }
-  }
-  if (!Array.isArray(raw)) raw = [raw];
-  return [...new Set(raw
-    .map((x) => parseInt(x, 10))
-    .filter((n) => Number.isFinite(n) && n > 0))];
+function slugifyTag(name) {
+  return String(name || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9а-яё]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 120) || `tag-${Date.now()}`;
 }
 
-async function syncQuestionTags(questionId, tagIds) {
-  const ids = parseTagIdsFromBody({ tagIds });
-  await QuestionTagMap.destroy({ where: { questionId } });
-  if (!ids.length) return [];
+function parseTagNames(raw) {
+  if (raw == null) return [];
+  return [...new Set(String(raw)
+    .split(/[,;|]/)
+    .map((s) => s.trim())
+    .filter(Boolean))];
+}
 
-  const tags = await QuestionTag.findAll({
-    where: { id: { [Op.in]: ids }, isActive: true }
-  });
+async function findOrCreateTagsByNames(tagNames) {
+  const names = parseTagNames(Array.isArray(tagNames) ? tagNames.join(',') : tagNames);
+  const result = [];
+  for (const name of names) {
+    const existing = await QuestionTag.findOne({
+      where: {
+        [Op.or]: [
+          { name: { [Op.iLike]: name } },
+          { slug: slugifyTag(name) }
+        ]
+      }
+    });
+    if (existing) {
+      if (!existing.isActive) {
+        existing.isActive = true;
+        await existing.save();
+      }
+      result.push(existing);
+      continue;
+    }
+    try {
+      const created = await QuestionTag.create({
+        name,
+        slug: slugifyTag(name),
+        isActive: true
+      });
+      result.push(created);
+    } catch (error) {
+      if (error.name === 'SequelizeUniqueConstraintError') {
+        const again = await QuestionTag.findOne({
+          where: {
+            [Op.or]: [
+              { name: { [Op.iLike]: name } },
+              { slug: slugifyTag(name) }
+            ]
+          }
+        });
+        if (again) result.push(again);
+      } else {
+        throw error;
+      }
+    }
+  }
+  return result;
+}
+
+async function syncQuestionTagsByModels(questionId, tags) {
+  await QuestionTagMap.destroy({ where: { questionId } });
+  if (!tags.length) return [];
   for (const tag of tags) {
     await QuestionTagMap.findOrCreate({
       where: { questionId, tagId: tag.id },
@@ -57,7 +94,7 @@ async function syncQuestionTags(questionId, tagIds) {
   return tags.map((t) => ({ id: t.id, name: t.name, slug: t.slug }));
 }
 
-async function saveParsedQuestions(testId, questions, tagIds = []) {
+async function saveParsedQuestions(testId, questions, { perQuestionTags = false } = {}) {
   const createdQuestions = [];
   for (const q of questions) {
     const question = await Question.create({
@@ -81,7 +118,11 @@ async function saveParsedQuestions(testId, questions, tagIds = []) {
       });
     }
 
-    const tags = await syncQuestionTags(question.id, tagIds);
+    let tags = [];
+    if (perQuestionTags) {
+      const tagModels = await findOrCreateTagsByNames(q.tagNames || []);
+      tags = await syncQuestionTagsByModels(question.id, tagModels);
+    }
 
     createdQuestions.push({
       id: question.id,
@@ -115,6 +156,16 @@ async function handleTxtUpload(req, res, parseOptions) {
     return;
   }
 
+  if (parseOptions.requireUsmle && test.programType !== 'usmle') {
+    res.status(400).json({ error: 'Загрузка с объяснениями и тегами доступна только для тестов USMLE' });
+    return;
+  }
+
+  if (parseOptions.requireExplanation) {
+    const { syncTestHasExplanations } = require('../utils/syncTestExplanations');
+    await syncTestHasExplanations(test.id, true);
+  }
+
   const text = req.file.buffer.toString('utf8');
   if (!text || text.trim().length === 0) {
     res.status(400).json({
@@ -126,25 +177,27 @@ async function handleTxtUpload(req, res, parseOptions) {
 
   const questions = parseQuestionsFromText(text, parseOptions);
   if (questions.length === 0) {
-    const hint = parseOptions.requireExplanation
-      ? 'Проверьте формат: нужны поля ID, Q, A1–A5, Correct и E (объяснение).'
-      : 'Проверьте формат: нужны поля ID, Q, A1–A5, Correct.';
+    const hint = parseOptions.requireExplanation && parseOptions.requireTags
+      ? 'Проверьте формат: нужны поля ID, Q, A1–A5, Correct, E (объяснение) и Tags (теги через запятую).'
+      : parseOptions.requireExplanation
+        ? 'Проверьте формат: нужны поля ID, Q, A1–A5, Correct и E (объяснение).'
+        : 'Проверьте формат: нужны поля ID, Q, A1–A5, Correct.';
     res.status(400).json({ error: `Не удалось найти вопросы в TXT. ${hint}` });
     return;
   }
 
-  const tagIds = parseTagIdsFromBody(req.body);
-  const createdQuestions = await saveParsedQuestions(testId, questions, tagIds);
+  const createdQuestions = await saveParsedQuestions(testId, questions, {
+    perQuestionTags: Boolean(parseOptions.requireTags || parseOptions.parseTags)
+  });
   res.json({
     message: `Успешно загружено ${createdQuestions.length} вопросов`,
-    questions: createdQuestions,
-    tagIds
+    questions: createdQuestions
   });
 }
 
 router.post('/upload-pdf', adminAuth, upload.single('pdf'), async (req, res) => {
   try {
-    await handleTxtUpload(req, res, { requireExplanation: false });
+    await handleTxtUpload(req, res, { requireExplanation: false, parseTags: false });
   } catch (error) {
     console.error('Ошибка загрузки TXT:', error);
     res.status(500).json({ error: error.message || 'Ошибка обработки TXT файла' });
@@ -153,7 +206,12 @@ router.post('/upload-pdf', adminAuth, upload.single('pdf'), async (req, res) => 
 
 router.post('/upload-txt-explained', adminAuth, upload.single('pdf'), async (req, res) => {
   try {
-    await handleTxtUpload(req, res, { requireExplanation: true });
+    await handleTxtUpload(req, res, {
+      requireExplanation: true,
+      requireTags: true,
+      requireUsmle: true,
+      parseTags: true
+    });
   } catch (error) {
     console.error('Ошибка загрузки TXT с объяснениями:', error);
     res.status(500).json({ error: error.message || 'Ошибка обработки TXT файла' });
@@ -162,10 +220,14 @@ router.post('/upload-txt-explained', adminAuth, upload.single('pdf'), async (req
 
 /**
  * Формат без объяснения: ID, Q, A1–A5, Correct
- * Формат с объяснением: + поле E (обязательно при upload-txt-explained)
+ * Формат USMLE с объяснением и тегами: + E и Tags (или T)
  */
 function parseQuestionsFromText(text, options = {}) {
-  const { requireExplanation = false } = options;
+  const {
+    requireExplanation = false,
+    requireTags = false,
+    parseTags = false
+  } = options;
   const questions = [];
   const blocks = text.split(/"ID"\s*:\s*"/);
 
@@ -211,9 +273,17 @@ function parseQuestionsFromText(text, options = {}) {
         continue;
       }
 
+      const tagsMatch = block.match(/"(?:Tags|T|Tag)"\s*:\s*"([^"]+)"/i);
+      const tagNames = parseTagNames(tagsMatch ? tagsMatch[1] : '');
+      if (requireTags && !tagNames.length) {
+        console.warn(`Вопрос ID ${idMatch[1]}: нет поля Tags`);
+        continue;
+      }
+
       questions.push({
         text: questionText,
         explanation: eMatch ? eMatch[1] : null,
+        tagNames: parseTags || requireTags ? tagNames : [],
         answers: answers.map((a, idx) => ({
           text: a.text,
           isCorrect: idx === correctIndex
@@ -224,7 +294,11 @@ function parseQuestionsFromText(text, options = {}) {
     }
   }
 
-  console.log(`Распарсено вопросов: ${questions.length} (объяснения: ${requireExplanation ? 'обязательны' : 'опционально'})`);
+  console.log(
+    `Распарсено вопросов: ${questions.length}` +
+    ` (объяснения: ${requireExplanation ? 'обязательны' : 'опционально'}` +
+    `, теги: ${requireTags ? 'обязательны' : (parseTags ? 'опционально' : 'нет')})`
+  );
   return questions;
 }
 
