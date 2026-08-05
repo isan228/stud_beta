@@ -1166,6 +1166,9 @@ async function deleteQuestion(questionId) {
         if (response.ok) {
             showNotification('Вопрос удален', 'success');
             loadQuestions();
+            if (document.getElementById('usmleTab')?.classList.contains('active')) {
+                loadUsmleTestsAdmin().then(() => loadUsmleQuestionsAdmin());
+            }
         } else {
             const result = await response.json();
             showNotification(result.error || 'Ошибка удаления', 'error');
@@ -1705,6 +1708,9 @@ async function saveQuestion(e) {
             if (typeof resetQuestionImageUI === 'function') resetQuestionImageUI();
             if (typeof resetQuestionExplanationForm === 'function') resetQuestionExplanationForm();
             loadQuestions();
+            if (document.getElementById('usmleTab')?.classList.contains('active')) {
+                loadUsmleTestsAdmin().then(() => loadUsmleQuestionsAdmin());
+            }
         } else {
             const result = await response.json();
             const validationError = result.errors?.[0]?.msg;
@@ -1943,6 +1949,8 @@ function setupAdminEventListeners() {
                 const select = document.getElementById('testSubjectId');
                 fillTestSubjectOptions(usmleSubjects, select);
                 bindTestSubjectProgramSync(select);
+                const preferredSubject = document.getElementById('usmleTestsSubjectFilter')?.value || '';
+                if (preferredSubject && select) select.value = preferredSubject;
                 const uniSelect = document.getElementById('testUniversityId');
                 if (uniSelect) {
                     uniSelect.innerHTML = '<option value="">—</option>';
@@ -1957,6 +1965,24 @@ function setupAdminEventListeners() {
             document.getElementById('testModalTitle').textContent = 'Добавить тест USMLE';
             syncTestFormProgramFromSubject();
             document.getElementById('testModal').style.display = 'block';
+        });
+    }
+
+    const addUsmleQuestionBtn = document.getElementById('addUsmleQuestionBtn');
+    if (addUsmleQuestionBtn) {
+        addUsmleQuestionBtn.addEventListener('click', () => openAddUsmleQuestionModal());
+    }
+
+    const usmleTestsSubjectFilter = document.getElementById('usmleTestsSubjectFilter');
+    if (usmleTestsSubjectFilter) {
+        usmleTestsSubjectFilter.addEventListener('change', () => {
+            loadUsmleTestsAdmin();
+        });
+    }
+    const usmleQuestionsTestFilter = document.getElementById('usmleQuestionsTestFilter');
+    if (usmleQuestionsTestFilter) {
+        usmleQuestionsTestFilter.addEventListener('change', () => {
+            loadUsmleQuestionsAdmin();
         });
     }
 
@@ -2715,20 +2741,32 @@ async function loadUsmleSubjectsAdmin() {
         });
         if (!response.ok) throw new Error('fail');
         const subjects = await response.json();
+
+        const subjectFilter = document.getElementById('usmleTestsSubjectFilter');
+        if (subjectFilter) {
+            const current = subjectFilter.value;
+            subjectFilter.innerHTML = '<option value="">Все предметы</option>' +
+                subjects.map(s => `<option value="${s.id}">${escapeAdminHtml(s.name)}</option>`).join('');
+            if (current && subjects.some(s => String(s.id) === String(current))) {
+                subjectFilter.value = current;
+            }
+        }
+
         if (!subjects.length) {
-            list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1.5rem;">Пока нет предметов USMLE</p>';
+            list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1.5rem;">Пока нет предметов USMLE — сначала добавьте предмет</p>';
             return;
         }
         list.innerHTML = subjects.map(subject => `
             <div class="admin-list-item">
                 <div style="flex: 1;">
-                    <h4>${subject.name} <span style="background:#0f766e;color:white;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.75rem;margin-left:0.5rem;">USMLE</span></h4>
-                    ${subject.description ? `<p style="color: var(--text-muted); margin: 0.5rem 0;">${subject.description}</p>` : ''}
+                    <h4>${escapeAdminHtml(subject.name)} <span style="background:#0f766e;color:white;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.75rem;margin-left:0.5rem;">USMLE</span></h4>
+                    ${subject.description ? `<p style="color: var(--text-muted); margin: 0.5rem 0;">${escapeAdminHtml(subject.description)}</p>` : ''}
                     <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
                         Тестов: ${subject.testCount ?? 0}
                     </p>
                 </div>
-                <div style="display: flex; gap: 0.5rem;">
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button class="btn btn-secondary btn-sm" onclick="focusUsmleSubjectTests(${subject.id})">Тесты →</button>
                     <button class="btn btn-primary btn-sm" onclick="editSubject(${subject.id})">Редактировать</button>
                     <button class="btn btn-danger btn-sm" onclick="deleteSubject(${subject.id})">Удалить</button>
                 </div>
@@ -2739,29 +2777,67 @@ async function loadUsmleSubjectsAdmin() {
     }
 }
 
+function focusUsmleSubjectTests(subjectId) {
+    const filter = document.getElementById('usmleTestsSubjectFilter');
+    if (filter) filter.value = String(subjectId);
+    loadUsmleTestsAdmin();
+    document.getElementById('usmleTestsList')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function focusUsmleTestQuestions(testId) {
+    const filter = document.getElementById('usmleQuestionsTestFilter');
+    if (filter) filter.value = String(testId);
+    loadUsmleQuestionsAdmin();
+    document.getElementById('usmleQuestionsList')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 async function loadUsmleTestsAdmin() {
     const list = document.getElementById('usmleTestsList');
     if (!list) return;
     try {
-        const response = await fetch(`${ADMIN_API_URL}/tests?programType=usmle`, {
+        const subjectId = document.getElementById('usmleTestsSubjectFilter')?.value || '';
+        const params = new URLSearchParams({ programType: 'usmle' });
+        if (subjectId) params.set('subjectId', subjectId);
+        const response = await fetch(`${ADMIN_API_URL}/tests?${params}`, {
             headers: { 'Authorization': `Bearer ${currentAdminToken}` }
         });
         if (!response.ok) throw new Error('fail');
         const tests = await response.json();
+
+        const questionsFilter = document.getElementById('usmleQuestionsTestFilter');
+        if (questionsFilter) {
+            const current = questionsFilter.value;
+            questionsFilter.innerHTML = '<option value="">Выберите тест</option>' +
+                tests.map(t => {
+                    const subj = t.Subject?.name ? ` — ${t.Subject.name}` : '';
+                    return `<option value="${t.id}">${escapeAdminHtml(t.name)}${escapeAdminHtml(subj)}</option>`;
+                }).join('');
+            if (current && tests.some(t => String(t.id) === String(current))) {
+                questionsFilter.value = current;
+            } else if (current) {
+                questionsFilter.value = '';
+                const qList = document.getElementById('usmleQuestionsList');
+                if (qList) {
+                    qList.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1.5rem;">Выберите тест, чтобы увидеть вопросы</p>';
+                }
+            }
+        }
+
         if (!tests.length) {
-            list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1.5rem;">Пока нет тестов USMLE</p>';
+            list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1.5rem;">Пока нет тестов USMLE — добавьте тест к предмету</p>';
             return;
         }
         list.innerHTML = tests.map(test => `
             <div class="admin-list-item">
                 <div style="flex: 1;">
-                    <h4>${test.name} <span style="background:#0f766e;color:white;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.75rem;margin-left:0.5rem;">USMLE</span></h4>
-                    ${test.description ? `<p style="color: var(--text-muted); margin: 0.5rem 0;">${test.description}</p>` : ''}
+                    <h4>${escapeAdminHtml(test.name)} <span style="background:#0f766e;color:white;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.75rem;margin-left:0.5rem;">USMLE</span></h4>
+                    ${test.description ? `<p style="color: var(--text-muted); margin: 0.5rem 0;">${escapeAdminHtml(test.description)}</p>` : ''}
                     <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
-                        Предмет: ${test.Subject?.name || '—'} | Вопросов: ${test.questionCount ?? 0}
+                        Предмет: ${escapeAdminHtml(test.Subject?.name || '—')} | Вопросов: ${test.questionCount ?? 0}
                     </p>
                 </div>
-                <div style="display: flex; gap: 0.5rem;">
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button class="btn btn-secondary btn-sm" onclick="focusUsmleTestQuestions(${test.id})">Вопросы →</button>
                     <button class="btn btn-primary btn-sm" onclick="editTest(${test.id})">Редактировать</button>
                     <button class="btn btn-danger btn-sm" onclick="deleteTest(${test.id})">Удалить</button>
                 </div>
@@ -2772,13 +2848,95 @@ async function loadUsmleTestsAdmin() {
     }
 }
 
+async function loadUsmleQuestionsAdmin() {
+    const list = document.getElementById('usmleQuestionsList');
+    if (!list) return;
+    const testId = document.getElementById('usmleQuestionsTestFilter')?.value || '';
+    if (!testId) {
+        list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1.5rem;">Выберите тест, чтобы увидеть вопросы</p>';
+        return;
+    }
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/questions?testId=${encodeURIComponent(testId)}`, {
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+        });
+        if (!response.ok) throw new Error('fail');
+        const questions = await response.json();
+        if (!questions.length) {
+            list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1.5rem;">В этом тесте пока нет вопросов</p>';
+            return;
+        }
+        list.innerHTML = questions.map(question => {
+            const correctAnswer = question.Answers?.find(a => a.isCorrect);
+            const tags = Array.isArray(question.Tags) ? question.Tags : (question.QuestionTags || []);
+            const tagLabel = tags.length
+                ? tags.map(t => escapeAdminHtml(t.name)).join(', ')
+                : 'без тегов';
+            return `
+                <div class="admin-list-item">
+                    <div style="flex: 1;">
+                        <h4>${escapeAdminHtml(question.text)}</h4>
+                        <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
+                            Ответов: ${question.Answers?.length || 0}
+                            ${correctAnswer ? ` | Правильный: ${escapeAdminHtml(correctAnswer.text)}` : ''}
+                            | Теги: ${tagLabel}
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-primary btn-sm" onclick="editQuestion(${question.id})">Редактировать</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteQuestion(${question.id})">Удалить</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (e) {
+        list.innerHTML = '<p style="color: var(--danger-color);">Ошибка загрузки вопросов USMLE</p>';
+    }
+}
+
+async function openAddUsmleQuestionModal() {
+    const presetTestId = document.getElementById('usmleQuestionsTestFilter')?.value || '';
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/tests?programType=usmle&compact=1`, {
+            headers: adminAuthHeaders()
+        });
+        if (!response.ok) throw new Error('tests');
+        const tests = await response.json();
+        const select = document.getElementById('questionTestId');
+        if (select) {
+            select.innerHTML = '<option value="">Выберите тест</option>' +
+                tests.map(t => `<option value="${t.id}">${escapeAdminHtml(t.name)}</option>`).join('');
+            if (presetTestId) {
+                select.value = String(presetTestId);
+                await applyQuestionExplanationForTestId(presetTestId);
+            }
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки тестов USMLE:', error);
+        showNotification('Ошибка загрузки списка тестов USMLE', 'error');
+        return;
+    }
+
+    document.getElementById('questionId').value = '';
+    document.getElementById('questionText').value = '';
+    if (typeof resetQuestionExplanationForm === 'function') resetQuestionExplanationForm();
+    if (typeof resetQuestionImageUI === 'function') resetQuestionImageUI();
+    document.getElementById('answersList').innerHTML = '';
+    addAnswer();
+    addAnswer();
+    document.getElementById('questionModalTitle').textContent = 'Добавить вопрос USMLE';
+    await fillQuestionTagsSelect([]);
+    document.getElementById('questionModal').style.display = 'block';
+}
+
 async function loadUsmleAdminPanel() {
     await Promise.all([
         loadUsmlePlansAdmin(),
         loadAdminQuestionTags(),
-        loadUsmleSubjectsAdmin(),
-        loadUsmleTestsAdmin()
+        loadUsmleSubjectsAdmin()
     ]);
+    await loadUsmleTestsAdmin();
+    await loadUsmleQuestionsAdmin();
 }
 
 async function saveUsmlePlansAdmin() {
@@ -4771,6 +4929,8 @@ window.editTest = editTest;
 window.editUniversity = editUniversity;
 window.deleteUniversity = deleteUniversity;
 window.editQuestion = editQuestion;
+window.focusUsmleSubjectTests = focusUsmleSubjectTests;
+window.focusUsmleTestQuestions = focusUsmleTestQuestions;
 window.editNews = editNews;
 window.loadUsers = loadUsers;
 window.addAnswer = addAnswer;
