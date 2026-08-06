@@ -3673,7 +3673,19 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         updateRenewalTotal();
     }
 
-    async function proceedToPayment() {
+    async function proceedToPayment(programTypeArg) {
+        if (programTypeArg === 'usmle' || programTypeArg === 'university') {
+            selectedPlan.programType = programTypeArg;
+            const containerId = programTypeArg === 'usmle' ? 'usmleSubsPlans' : 'subsPlans';
+            const card = document.querySelector(
+                `#${containerId} .subs-plan.selected, #${containerId} .plan-card.selected, #${containerId} [data-months].selected`
+            );
+            if (card?.dataset?.months && card?.dataset?.price) {
+                selectedPlan.months = parseInt(card.dataset.months, 10);
+                selectedPlan.price = parseInt(card.dataset.price, 10);
+            }
+        }
+
         const programType = selectedPlan.programType === 'usmle' ? 'usmle' : 'university';
         const paymentType = programType === 'usmle' ? 'usmle_subscription' : 'subscription';
         const planLabel = selectedPlan.months === 12
