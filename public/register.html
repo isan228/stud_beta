@@ -11,217 +11,1030 @@
     <meta property="og:image" content="https://stud.kg/img/icon-192.png">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <meta name="theme-color" content="#2563eb">
-    <title>Регистрация - stud.kg</title>
+    <title>Регистрация — stud.kg</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        /* ─── Auth page layout ─── */
+        .auth-page {
+            min-height: 100dvh;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        /* Left panel — illustration / brand */
+        .auth-hero {
+            background: linear-gradient(145deg, #1d4ed8 0%, #4f46e5 60%, #7c3aed 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem 2.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .auth-hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(255,255,255,.08) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(255,255,255,.06) 0%, transparent 45%);
+        }
+
+        .auth-hero-inner {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            max-width: 360px;
+        }
+
+        .auth-hero-logo {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: -1px;
+            text-decoration: none;
+            display: inline-block;
+            margin-bottom: 1.5rem;
+        }
+
+        .auth-hero-emoji {
+            font-size: 5rem;
+            line-height: 1;
+            margin-bottom: 1.5rem;
+            display: block;
+            filter: drop-shadow(0 4px 16px rgba(0,0,0,.3));
+        }
+
+        .auth-hero h2 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #fff;
+            margin: 0 0 1rem;
+            line-height: 1.3;
+        }
+
+        .auth-hero p {
+            font-size: 1rem;
+            color: rgba(255,255,255,.8);
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        .auth-hero-steps {
+            list-style: none;
+            padding: 0;
+            margin: 2rem 0 0;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            text-align: left;
+        }
+
+        .auth-hero-steps li {
+            color: rgba(255,255,255,.9);
+            font-size: .95rem;
+            display: flex;
+            align-items: flex-start;
+            gap: .75rem;
+        }
+
+        .auth-hero-steps li .step-num {
+            background: rgba(255,255,255,.2);
+            width: 1.6rem;
+            height: 1.6rem;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .78rem;
+            font-weight: 700;
+            flex-shrink: 0;
+            margin-top: .05rem;
+        }
+
+        /* Right panel — form */
+        .auth-form-panel {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 2.5rem 2rem;
+            background: var(--bg-color);
+            overflow-y: auto;
+        }
+
+        .auth-form-wrap {
+            width: 100%;
+            max-width: 440px;
+            padding-bottom: 2rem;
+        }
+
+        .auth-form-wrap .auth-top-logo {
+            display: none;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .auth-form-wrap .auth-top-logo a {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--primary-color);
+            letter-spacing: -1px;
+            text-decoration: none;
+        }
+
+        .auth-form-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-color);
+            margin: 0 0 .4rem;
+        }
+
+        .auth-form-subtitle {
+            color: var(--text-secondary);
+            margin: 0 0 2rem;
+            font-size: .95rem;
+            line-height: 1.5;
+        }
+
+        /* Progress steps */
+        .auth-steps {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            margin-bottom: 2rem;
+        }
+
+        .auth-step {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            flex: 1;
+        }
+
+        .auth-step-circle {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            border: 2px solid var(--border-color);
+            background: var(--bg-color);
+            color: var(--text-muted);
+            font-size: .8rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all .3s;
+        }
+
+        .auth-step.active .auth-step-circle {
+            border-color: var(--primary-color);
+            background: var(--primary-color);
+            color: #fff;
+        }
+
+        .auth-step.done .auth-step-circle {
+            border-color: #16a34a;
+            background: #16a34a;
+            color: #fff;
+        }
+
+        .auth-step-label {
+            font-size: .78rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        .auth-step.active .auth-step-label { color: var(--primary-color); font-weight: 600; }
+        .auth-step.done .auth-step-label { color: #16a34a; }
+
+        .auth-step-line {
+            flex: 1;
+            height: 2px;
+            background: var(--border-color);
+            transition: background .3s;
+            margin: 0 .25rem;
+            min-width: 1rem;
+        }
+
+        .auth-step-line.done { background: #16a34a; }
+
+        /* Sections */
+        .auth-section {
+            display: none;
+            animation: fadeIn .25s ease;
+        }
+
+        .auth-section.active { display: block; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+        /* Field */
+        .auth-field {
+            display: flex;
+            flex-direction: column;
+            gap: .4rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .auth-field label {
+            font-weight: 600;
+            font-size: .9rem;
+            color: var(--text-color);
+        }
+
+        .auth-field-input {
+            position: relative;
+        }
+
+        .auth-field-input .field-icon {
+            position: absolute;
+            left: .9rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.1rem;
+            pointer-events: none;
+            line-height: 1;
+        }
+
+        .auth-field input,
+        .auth-field select {
+            width: 100%;
+            padding: .85rem 1rem .85rem 2.6rem;
+            border: 1.5px solid var(--border-color);
+            border-radius: .625rem;
+            background: var(--bg-color);
+            color: var(--text-color);
+            font-size: 1rem;
+            transition: border-color .2s, box-shadow .2s;
+            -webkit-appearance: none;
+            appearance: none;
+            box-sizing: border-box;
+        }
+
+        .auth-field select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236b7280' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            padding-right: 2.5rem;
+        }
+
+        .auth-field input:focus,
+        .auth-field select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+        }
+
+        .auth-field input.input-error,
+        .auth-field select.input-error {
+            border-color: var(--danger-color, #dc2626);
+        }
+
+        .auth-field small {
+            font-size: .82rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .field-error-msg {
+            font-size: .82rem;
+            color: var(--danger-color, #dc2626);
+            display: none;
+        }
+
+        .field-error-msg.visible { display: block; }
+
+        /* Password toggle */
+        .auth-field-input .pass-toggle {
+            position: absolute;
+            right: .75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.1rem;
+            line-height: 1;
+            padding: .25rem;
+            color: var(--text-muted);
+            transition: color .2s;
+        }
+
+        .auth-field-input .pass-toggle:hover { color: var(--primary-color); }
+        .auth-field input.has-toggle { padding-right: 2.8rem; }
+
+        /* Password strength */
+        .pass-strength {
+            height: 4px;
+            border-radius: 2px;
+            background: var(--border-color);
+            margin-top: .5rem;
+            overflow: hidden;
+        }
+
+        .pass-strength-bar {
+            height: 100%;
+            width: 0;
+            border-radius: 2px;
+            transition: width .3s, background .3s;
+        }
+
+        .pass-strength-label {
+            font-size: .78rem;
+            color: var(--text-muted);
+            margin-top: .3rem;
+            min-height: 1rem;
+        }
+
+        /* Checkbox */
+        .auth-check {
+            display: flex;
+            align-items: flex-start;
+            gap: .75rem;
+            padding: .9rem 1rem;
+            border-radius: .625rem;
+            border: 1.5px solid var(--border-color);
+            background: var(--bg-secondary);
+            cursor: pointer;
+            transition: border-color .2s, background .2s;
+            user-select: none;
+            margin-bottom: .75rem;
+        }
+
+        .auth-check:hover { border-color: var(--primary-color); }
+
+        .auth-check input[type="checkbox"] {
+            width: 1.25rem;
+            height: 1.25rem;
+            min-width: 1.25rem;
+            margin-top: .15rem;
+            cursor: pointer;
+            flex-shrink: 0;
+            accent-color: var(--primary-color);
+            -webkit-appearance: checkbox;
+            appearance: checkbox;
+            touch-action: manipulation;
+        }
+
+        .auth-check input[type="checkbox"]:checked ~ .auth-check-body {
+            color: var(--text-color);
+        }
+
+        .auth-check-body {
+            font-size: .9rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .auth-check-body a {
+            color: var(--primary-color);
+            font-weight: 500;
+        }
+
+        /* Warning block */
+        .auth-warning {
+            padding: .9rem 1rem;
+            border-radius: .625rem;
+            border-left: 4px solid var(--danger-color, #dc2626);
+            background: color-mix(in srgb, var(--danger-color, #dc2626) 8%, var(--bg-secondary));
+            margin-bottom: 1.25rem;
+        }
+
+        .auth-warning-title {
+            font-weight: 700;
+            color: var(--danger-color, #dc2626);
+            margin: 0 0 .35rem;
+            font-size: .9rem;
+        }
+
+        .auth-warning-text {
+            margin: 0;
+            font-size: .85rem;
+            color: var(--text-color);
+            line-height: 1.5;
+        }
+
+        /* Buttons row */
+        .auth-btns {
+            display: flex;
+            gap: .75rem;
+            margin-top: .75rem;
+        }
+
+        .auth-btn-back {
+            flex: 0 0 auto;
+            padding: .9rem 1.25rem;
+            background: var(--bg-secondary);
+            border: 1.5px solid var(--border-color);
+            border-radius: .625rem;
+            color: var(--text-color);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background .2s, border-color .2s;
+        }
+
+        .auth-btn-back:hover {
+            border-color: var(--primary-color);
+            background: var(--bg-color);
+        }
+
+        .auth-submit {
+            flex: 1;
+            padding: .95rem 1.5rem;
+            background: var(--primary-color);
+            color: #fff;
+            border: none;
+            border-radius: .625rem;
+            font-size: 1.05rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background .2s, transform .1s, box-shadow .2s;
+            box-shadow: 0 2px 12px rgba(37,99,235,.3);
+        }
+
+        .auth-submit:hover:not(:disabled) {
+            background: #1d4ed8;
+            box-shadow: 0 4px 20px rgba(37,99,235,.4);
+        }
+
+        .auth-submit:active:not(:disabled) { transform: scale(.98); }
+
+        .auth-submit:disabled {
+            opacity: .65;
+            cursor: not-allowed;
+        }
+
+        .auth-submit .btn-spinner {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid rgba(255,255,255,.4);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin .7s linear infinite;
+            vertical-align: middle;
+            margin-right: .5rem;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .auth-bottom-link {
+            text-align: center;
+            margin-top: 1.5rem;
+            font-size: .95rem;
+            color: var(--text-secondary);
+        }
+
+        .auth-bottom-link a {
+            color: var(--primary-color);
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .auth-bottom-link a:hover { text-decoration: underline; }
+
+        /* Optional field collapse */
+        .auth-optional-toggle {
+            background: none;
+            border: none;
+            color: var(--primary-color);
+            font-size: .9rem;
+            cursor: pointer;
+            padding: 0;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: .4rem;
+            font-weight: 500;
+        }
+
+        .auth-optional-body {
+            display: none;
+        }
+
+        .auth-optional-body.open { display: block; }
+
+        /* ─── Responsive ─── */
+        @media (max-width: 860px) {
+            .auth-page {
+                grid-template-columns: 1fr;
+                min-height: 100dvh;
+            }
+
+            .auth-hero { display: none; }
+
+            .auth-form-panel {
+                padding: 2rem 1.25rem 3rem;
+                align-items: flex-start;
+            }
+
+            .auth-form-wrap {
+                max-width: 480px;
+                margin: 0 auto;
+            }
+
+            .auth-form-wrap .auth-top-logo { display: block; }
+
+            .auth-form-title { font-size: 1.5rem; }
+        }
+
+        @media (max-width: 480px) {
+            .auth-form-panel { padding: 1.5rem 1rem 2.5rem; }
+
+            .auth-field input,
+            .auth-field select {
+                font-size: 16px;
+                padding: .95rem 1rem .95rem 2.6rem;
+            }
+
+            .auth-submit,
+            .auth-btn-back {
+                padding: 1rem;
+                font-size: 1rem;
+                min-height: 52px;
+            }
+
+            .auth-step-label { display: none; }
+        }
+    </style>
 </head>
 <body>
-    <nav class="navbar">
-        <div class="container">
-            <div class="nav-brand">
-                <a href="/"><h1>stud.kg</h1></a>
-            </div>
-        </div>
-    </nav>
 
-    <main class="main-content">
-        <div class="auth-container" style="max-width: 480px;">
-            <h2>Регистрация</h2>
-            <p style="color: var(--text-secondary); margin: -0.5rem 0 1.5rem; text-align: center;">
-                Создайте аккаунт бесплатно. Подписку можно оформить позже во вкладке «Подписки».
-            </p>
-            <form id="registerForm" class="auth-form">
-                <div class="form-group">
-                    <label for="regUsername">Никнейм</label>
-                    <input type="text" id="regUsername" name="username" required minlength="3" maxlength="50" placeholder="Введите ваш никнейм">
+<div class="auth-page">
+    <!-- Hero / brand panel -->
+    <aside class="auth-hero" aria-hidden="true">
+        <div class="auth-hero-inner">
+            <a href="/" class="auth-hero-logo">stud.kg</a>
+            <span class="auth-hero-emoji">🚀</span>
+            <h2>Присоединяйся бесплатно!</h2>
+            <p>Создай аккаунт за пару минут и начни готовиться к экзаменам уже сегодня.</p>
+            <ol class="auth-hero-steps">
+                <li><span class="step-num">1</span> Заполни основные данные</li>
+                <li><span class="step-num">2</span> Придумай надёжный пароль</li>
+                <li><span class="step-num">3</span> Прими соглашения и готово!</li>
+            </ol>
+        </div>
+    </aside>
+
+    <!-- Form panel -->
+    <section class="auth-form-panel">
+        <div class="auth-form-wrap">
+
+            <!-- Logo shown only when hero is hidden -->
+            <div class="auth-top-logo">
+                <a href="/">stud.kg</a>
+            </div>
+
+            <h1 class="auth-form-title">Создать аккаунт</h1>
+            <p class="auth-form-subtitle">Подписку можно оформить позже — регистрация бесплатна</p>
+
+            <!-- Step indicator -->
+            <div class="auth-steps" id="authSteps" role="progressbar" aria-valuemin="1" aria-valuemax="3">
+                <div class="auth-step active" id="step-indicator-1">
+                    <div class="auth-step-circle">1</div>
+                    <span class="auth-step-label">Профиль</span>
                 </div>
-                <div class="form-group">
-                    <label for="regEmail">Email</label>
-                    <input type="email" id="regEmail" name="email" required placeholder="your@email.com">
+                <div class="auth-step-line" id="line-1-2"></div>
+                <div class="auth-step" id="step-indicator-2">
+                    <div class="auth-step-circle">2</div>
+                    <span class="auth-step-label">Пароль</span>
                 </div>
-                <div class="form-group">
-                    <label for="regUniversity">Университет</label>
-                    <select id="regUniversity" name="universityId" required>
-                        <option value="">Загрузка...</option>
-                    </select>
+                <div class="auth-step-line" id="line-2-3"></div>
+                <div class="auth-step" id="step-indicator-3">
+                    <div class="auth-step-circle">3</div>
+                    <span class="auth-step-label">Согласия</span>
                 </div>
-                <div class="form-group">
-                    <label for="regPassword">Пароль</label>
-                    <input type="password" id="regPassword" name="password" required minlength="6" placeholder="Минимум 6 символов">
+            </div>
+
+            <form id="registerForm" novalidate>
+
+                <!-- ── Step 1: profile ── -->
+                <div class="auth-section active" id="reg-step-1">
+
+                    <div class="auth-field">
+                        <label for="regUsername">Никнейм</label>
+                        <div class="auth-field-input">
+                            <span class="field-icon">👤</span>
+                            <input
+                                type="text"
+                                id="regUsername"
+                                name="username"
+                                required
+                                minlength="3"
+                                maxlength="50"
+                                autocomplete="username"
+                                placeholder="Введите ваш никнейм"
+                            >
+                        </div>
+                        <span class="field-error-msg" id="err-username"></span>
+                    </div>
+
+                    <div class="auth-field">
+                        <label for="regEmail">Email</label>
+                        <div class="auth-field-input">
+                            <span class="field-icon">✉️</span>
+                            <input
+                                type="email"
+                                id="regEmail"
+                                name="email"
+                                required
+                                autocomplete="email"
+                                placeholder="your@email.com"
+                            >
+                        </div>
+                        <span class="field-error-msg" id="err-email"></span>
+                    </div>
+
+                    <div class="auth-field">
+                        <label for="regUniversity">Университет</label>
+                        <div class="auth-field-input">
+                            <span class="field-icon">🏛️</span>
+                            <select id="regUniversity" name="universityId" required>
+                                <option value="">Загрузка…</option>
+                            </select>
+                        </div>
+                        <span class="field-error-msg" id="err-university"></span>
+                    </div>
+
+                    <div class="auth-btns">
+                        <button type="button" class="auth-submit" id="toStep2Btn">Далее →</button>
+                    </div>
+
+                    <p class="auth-bottom-link">Уже есть аккаунт? <a href="/login">Войти</a></p>
                 </div>
-                <div class="form-group">
-                    <label for="regConfirmPassword">Подтвердите пароль</label>
-                    <input type="password" id="regConfirmPassword" name="confirmPassword" required placeholder="Повторите пароль">
+
+                <!-- ── Step 2: password ── -->
+                <div class="auth-section" id="reg-step-2">
+
+                    <div class="auth-field">
+                        <label for="regPassword">Пароль</label>
+                        <div class="auth-field-input">
+                            <span class="field-icon">🔒</span>
+                            <input
+                                type="password"
+                                id="regPassword"
+                                name="password"
+                                required
+                                minlength="6"
+                                autocomplete="new-password"
+                                placeholder="Минимум 6 символов"
+                                class="has-toggle"
+                            >
+                            <button type="button" class="pass-toggle" aria-label="Показать/скрыть пароль" data-target="regPassword">👁</button>
+                        </div>
+                        <div class="pass-strength">
+                            <div class="pass-strength-bar" id="passStrengthBar"></div>
+                        </div>
+                        <div class="pass-strength-label" id="passStrengthLabel"></div>
+                        <span class="field-error-msg" id="err-password"></span>
+                    </div>
+
+                    <div class="auth-field">
+                        <label for="regConfirmPassword">Повторите пароль</label>
+                        <div class="auth-field-input">
+                            <span class="field-icon">🔏</span>
+                            <input
+                                type="password"
+                                id="regConfirmPassword"
+                                name="confirmPassword"
+                                required
+                                autocomplete="new-password"
+                                placeholder="Повторите пароль"
+                                class="has-toggle"
+                            >
+                            <button type="button" class="pass-toggle" aria-label="Показать/скрыть пароль" data-target="regConfirmPassword">👁</button>
+                        </div>
+                        <span class="field-error-msg" id="err-confirm"></span>
+                    </div>
+
+                    <div class="auth-btns">
+                        <button type="button" class="auth-btn-back" id="backTo1Btn">← Назад</button>
+                        <button type="button" class="auth-submit" id="toStep3Btn">Далее →</button>
+                    </div>
                 </div>
-                <div class="form-group" id="promoCodeGroup">
-                    <label for="regPromoCode">Реферальный код (если есть)</label>
-                    <input type="text" id="regPromoCode" name="referralCode" placeholder="Необязательно">
-                    <small id="regPromoCodeHint" style="display: none; color: var(--text-muted); margin-top: 0.4rem;">
-                        Вы уже перешли по бонусной ссылке
-                    </small>
-                </div>
-                <div class="form-group checkbox-group">
-                    <label for="dataConsent">
+
+                <!-- ── Step 3: consents ── -->
+                <div class="auth-section" id="reg-step-3">
+
+                    <!-- Optional: promo code -->
+                    <button type="button" class="auth-optional-toggle" id="promoToggleBtn">
+                        <span id="promoToggleIcon">＋</span> Реферальный код (если есть)
+                    </button>
+                    <div class="auth-optional-body" id="promoBody">
+                        <div class="auth-field" id="promoCodeGroup">
+                            <label for="regPromoCode">Реферальный код</label>
+                            <div class="auth-field-input">
+                                <span class="field-icon">🎟️</span>
+                                <input
+                                    type="text"
+                                    id="regPromoCode"
+                                    name="referralCode"
+                                    placeholder="Введите код"
+                                >
+                            </div>
+                            <small id="regPromoCodeHint" style="display:none; color: var(--success-color, #16a34a);">
+                                ✅ Вы уже перешли по бонусной ссылке
+                            </small>
+                        </div>
+                    </div>
+
+                    <label class="auth-check">
                         <input type="checkbox" id="dataConsent" name="dataConsent" value="true" required>
-                        <span>Согласие на <a href="/contact" data-doc="privacy" target="_blank" rel="noopener">обработку персональных данных</a></span>
+                        <span class="auth-check-body">
+                            Согласен(а) на <a href="/contact" data-doc="privacy" target="_blank" rel="noopener">обработку персональных данных</a>
+                        </span>
                     </label>
-                </div>
-                <div class="form-group checkbox-group">
-                    <label for="publicOffer">
+
+                    <label class="auth-check">
                         <input type="checkbox" id="publicOffer" name="publicOffer" value="true" required>
-                        <span>Согласие с <a href="/contact" data-doc="offer" target="_blank" rel="noopener">публичной офертой</a></span>
+                        <span class="auth-check-body">
+                            Принимаю условия <a href="/contact" data-doc="offer" target="_blank" rel="noopener">публичной оферты</a>
+                        </span>
                     </label>
+
+                    <div class="auth-warning">
+                        <p class="auth-warning-title">⚠️ Внимание</p>
+                        <p class="auth-warning-text">
+                            Передача доступа к аккаунту третьим лицам запрещена. При нарушении —
+                            аккаунт удаляется без возможности восстановления.
+                        </p>
+                    </div>
+
+                    <div class="auth-btns">
+                        <button type="button" class="auth-btn-back" id="backTo2Btn">← Назад</button>
+                        <button type="submit" class="auth-submit" id="registerSubmitBtn">Зарегистрироваться</button>
+                    </div>
+
+                    <p class="auth-bottom-link">Уже есть аккаунт? <a href="/login">Войти</a></p>
                 </div>
-                <div class="account-warning" style="margin-bottom: 1rem;">
-                    <p class="account-warning-title">⚠️ Внимание</p>
-                    <p class="account-warning-text">
-                        Передача доступа к аккаунту третьим лицам запрещена. При нарушении —
-                        аккаунт удаляется без возможности восстановления.
-                    </p>
-                </div>
-                <button type="submit" class="btn btn-primary btn-block" id="registerSubmitBtn">Зарегистрироваться</button>
-                <p class="auth-link">Уже есть аккаунт? <a href="/login">Войти</a></p>
+
             </form>
         </div>
-    </main>
+    </section>
+</div>
 
-    <div id="notification" class="notification"></div>
-    <script src="app.js"></script>
-    <script>
-        let referralCode = null;
+<div id="notification" class="notification"></div>
+<script src="app.js"></script>
+<script>
+    let referralCode = null;
+    let currentStep = 1;
 
-        async function loadUniversitiesForRegister() {
-            const select = document.getElementById('regUniversity');
-            if (!select) return;
-            try {
-                const response = await fetch('/api/universities');
-                if (!response.ok) throw new Error('Не удалось загрузить университеты');
-                const universities = await response.json();
-                if (!universities.length) {
-                    select.innerHTML = '<option value="">Университеты пока не добавлены</option>';
-                    return;
-                }
-                select.innerHTML = '<option value="">Выберите университет</option>' +
-                    universities.map((u) =>
-                        `<option value="${u.id}">${u.shortName} — ${u.name}</option>`
-                    ).join('');
-            } catch (error) {
-                console.error(error);
-                select.innerHTML = '<option value="">Ошибка загрузки</option>';
+    /* ──────────────── helpers ──────────────── */
+
+    function setStep(n) {
+        currentStep = n;
+
+        document.querySelectorAll('.auth-section').forEach(s => s.classList.remove('active'));
+        document.getElementById('reg-step-' + n).classList.add('active');
+
+        [1, 2, 3].forEach(i => {
+            const ind = document.getElementById('step-indicator-' + i);
+            ind.classList.remove('active', 'done');
+            if (i < n) ind.classList.add('done');
+            else if (i === n) ind.classList.add('active');
+
+            if (i < 3) {
+                const line = document.getElementById('line-' + i + '-' + (i + 1));
+                if (i < n) line.classList.add('done');
+                else line.classList.remove('done');
             }
-        }
-
-        function applyReferralLock() {
-            const params = new URLSearchParams(window.location.search);
-            const ref = (params.get('ref') || '').trim().toUpperCase();
-            if (!ref) return;
-            referralCode = ref;
-            const promoGroup = document.getElementById('promoCodeGroup');
-            const promoInput = document.getElementById('regPromoCode');
-            const promoHint = document.getElementById('regPromoCodeHint');
-            if (promoInput) {
-                promoInput.value = ref;
-                promoInput.disabled = true;
-            }
-            if (promoHint) promoHint.style.display = 'block';
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            if (typeof initTheme === 'function') initTheme();
-            loadUniversitiesForRegister();
-            applyReferralLock();
-
-            // Ссылки на документы из настроек
-            fetch('/api/settings/docs').then(r => r.json()).then((docs) => {
-                document.querySelectorAll('a[data-doc="privacy"]').forEach((a) => {
-                    if (docs.privacyPolicyUrl) a.href = docs.privacyPolicyUrl;
-                });
-                document.querySelectorAll('a[data-doc="offer"]').forEach((a) => {
-                    if (docs.publicOfferUrl) a.href = docs.publicOfferUrl;
-                });
-            }).catch(() => {});
-
-            const form = document.getElementById('registerForm');
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                e.stopImmediatePropagation();
-
-                const username = document.getElementById('regUsername').value.trim();
-                const email = document.getElementById('regEmail').value.trim();
-                const universityId = document.getElementById('regUniversity').value;
-                const password = document.getElementById('regPassword').value;
-                const confirmPassword = document.getElementById('regConfirmPassword').value;
-                const dataConsent = document.getElementById('dataConsent').checked;
-                const publicOffer = document.getElementById('publicOffer').checked;
-                const codeFromInput = document.getElementById('regPromoCode').value.trim();
-
-                if (!universityId) {
-                    showNotification('Выберите университет', 'error');
-                    return;
-                }
-                if (password !== confirmPassword) {
-                    showNotification('Пароли не совпадают', 'error');
-                    return;
-                }
-                if (!dataConsent || !publicOffer) {
-                    showNotification('Необходимо принять соглашения', 'error');
-                    return;
-                }
-
-                const btn = document.getElementById('registerSubmitBtn');
-                btn.disabled = true;
-                btn.textContent = 'Регистрация...';
-
-                try {
-                    const response = await fetch('/api/auth/register', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            username,
-                            email,
-                            password,
-                            confirmPassword,
-                            universityId: parseInt(universityId, 10),
-                            referralCode: referralCode || codeFromInput || undefined,
-                            dataConsent: 'true',
-                            publicOffer: 'true'
-                        })
-                    });
-                    const data = await response.json();
-                    if (!response.ok) {
-                        const msg = data.error || data.errors?.[0]?.msg || 'Ошибка регистрации';
-                        showNotification(msg, 'error');
-                        btn.disabled = false;
-                        btn.textContent = 'Зарегистрироваться';
-                        return;
-                    }
-
-                    if (data.token) {
-                        localStorage.setItem('token', data.token);
-                    } else {
-                        // Fallback: логин после регистрации
-                        const loginRes = await fetch('/api/auth/login', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ identifier: email, password })
-                        });
-                        const loginData = await loginRes.json();
-                        if (loginRes.ok && loginData.token) {
-                            localStorage.setItem('token', loginData.token);
-                        }
-                    }
-
-                    showNotification('Аккаунт создан! Переходим к подпискам…', 'success');
-                    setTimeout(() => {
-                        window.location.href = '/subscriptions?welcome=1';
-                    }, 600);
-                } catch (err) {
-                    console.error(err);
-                    showNotification('Ошибка соединения с сервером', 'error');
-                    btn.disabled = false;
-                    btn.textContent = 'Зарегистрироваться';
-                }
-            }, true);
         });
-    </script>
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function showFieldError(id, msg) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = msg;
+        el.classList.toggle('visible', !!msg);
+    }
+
+    function clearFieldErrors() {
+        document.querySelectorAll('.field-error-msg').forEach(el => {
+            el.textContent = '';
+            el.classList.remove('visible');
+        });
+        document.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
+    }
+
+    /* ──────────────── password strength ──────────────── */
+
+    function calcStrength(pass) {
+        let score = 0;
+        if (pass.length >= 6) score++;
+        if (pass.length >= 10) score++;
+        if (/[A-Z]/.test(pass)) score++;
+        if (/[0-9]/.test(pass)) score++;
+        if (/[^A-Za-z0-9]/.test(pass)) score++;
+        return score; // 0-5
+    }
+
+    document.getElementById('regPassword').addEventListener('input', function () {
+        const val = this.value;
+        const score = calcStrength(val);
+        const bar = document.getElementById('passStrengthBar');
+        const label = document.getElementById('passStrengthLabel');
+        const colors = ['', '#dc2626', '#f97316', '#eab308', '#22c55e', '#16a34a'];
+        const labels = ['', 'Очень слабый', 'Слабый', 'Средний', 'Хороший', 'Надёжный'];
+        bar.style.width = (val ? (score / 5 * 100) : 0) + '%';
+        bar.style.background = val ? (colors[score] || colors[1]) : '';
+        label.textContent = val ? (labels[score] || labels[1]) : '';
+        label.style.color = val ? (colors[score] || colors[1]) : '';
+    });
+
+    /* ──────────────── password toggle ──────────────── */
+
+    document.querySelectorAll('.pass-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const inp = document.getElementById(btn.dataset.target);
+            if (!inp) return;
+            const isPass = inp.type === 'password';
+            inp.type = isPass ? 'text' : 'password';
+            btn.textContent = isPass ? '🙈' : '👁';
+        });
+    });
+
+    /* ──────────────── promo code toggle ──────────────── */
+
+    document.getElementById('promoToggleBtn').addEventListener('click', function () {
+        const body = document.getElementById('promoBody');
+        const icon = document.getElementById('promoToggleIcon');
+        const open = body.classList.toggle('open');
+        icon.textContent = open ? '－' : '＋';
+    });
+
+    /* ──────────────── universities ──────────────── */
+
+    async function loadUniversitiesForRegister() {
+        const select = document.getElementById('regUniversity');
+        try {
+            const response = await fetch('/api/universities');
+            if (!response.ok) throw new Error();
+            const universities = await response.json();
+            if (!universities.length) {
+                select.innerHTML = '<option value="">Университеты пока не добавлены</option>';
+                return;
+            }
+            select.innerHTML = '<option value="">Выберите университет</option>' +
+                universities.map(u => `<option value="${u.id}">${u.shortName} — ${u.name}</option>`).join('');
+        } catch {
+            select.innerHTML = '<option value="">Ошибка загрузки</option>';
+        }
+    }
+
+    /* ──────────────── referral lock ──────────────── */
+
+    function applyReferralLock() {
+        const params = new URLSearchParams(window.location.search);
+        const ref = (params.get('ref') || '').trim().toUpperCase();
+        if (!ref) return;
+        referralCode = ref;
+        const promoBody = document.getElementById('promoBody');
+        const promoToggleBtn = document.getElementById('promoToggleBtn');
+        const promoInput = document.getElementById('regPromoCode');
+        const promoHint = document.getElementById('regPromoCodeHint');
+        if (promoInput) { promoInput.value = ref; promoInput.disabled = true; }
+        if (promoHint) promoHint.style.display = 'block';
+        promoBody.classList.add('open');
+        document.getElementById('promoToggleIcon').textContent = '－';
+    }
+
+    /* ──────────────── step navigation ──────────────── */
+
+    document.getElementById('toStep2Btn').addEventListener('click', () => {
+        clearFieldErrors();
+        const username = document.getElementById('regUsername').value.trim();
+        const email = document.getElementById('regEmail').value.trim();
+        const university = document.getElementById('regUniversity').value;
+        let ok = true;
+
+        if (!username || username.length < 3) {
+            showFieldError('err-username', 'Никнейм должен содержать минимум 3 символа');
+            document.getElementById('regUsername').classList.add('input-error');
+            ok = false;
+        }
+        if (!email || !email.includes('@')) {
+            showFieldError('err-email', 'Введите корректный email');
+            document.getElementById('regEmail').classList.add('input-error');
+            ok = false;
+        }
+        if (!university) {
+            showFieldError('err-university', 'Выберите университет');
+            document.getElementById('regUniversity').classList.add('input-error');
+            ok = false;
+        }
+        if (ok) setStep(2);
+    });
+
+    document.getElementById('backTo1Btn').addEventListener('click', () => setStep(1));
+
+    document.getElementById('toStep3Btn').addEventListener('click', () => {
+        clearFieldErrors();
+        const password = document.getElementById('regPassword').value;
+        const confirm = document.getElementById('regConfirmPassword').value;
+        let ok = true;
+
+        if (!password || password.length < 6) {
+            showFieldError('err-password', 'Пароль должен быть не менее 6 символов');
+            document.getElementById('regPassword').classList.add('input-error');
+            ok = false;
+        }
+        if (password !== confirm) {
+            showFieldError('err-confirm', 'Пароли не совпадают');
+            document.getElementById('regConfirmPassword').classList.add('input-error');
+            ok = false;
+        }
+        if (ok) setStep(3);
+    });
+
+    document.getElementById('backTo2Btn').addEventListener('click', () => setStep(2));
+
+    /* ──────────────── form submit ──────────────── */
+
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        const dataConsent = document.getElementById('dataConsent').checked;
+        const publicOffer = document.getElementById('publicOffer').checked;
+        if (!dataConsent || !publicOffer) {
+            if (typeof showNotification === 'function') showNotification('Необходимо принять соглашения', 'error');
+            return;
+        }
+
+        const username = document.getElementById('regUsername').value.trim();
+        const email = document.getElementById('regEmail').value.trim();
+        const universityId = document.getElementById('regUniversity').value;
+        const password = document.getElementById('regPassword').value;
+        const confirmPassword = document.getElementById('regConfirmPassword').value;
+        const codeFromInput = document.getElementById('regPromoCode').value.trim();
+
+        const btn = document.getElementById('registerSubmitBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="btn-spinner"></span>Регистрация…';
+
+        try {
+            const response = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username,
+                    email,
+                    password,
+                    confirmPassword,
+                    universityId: parseInt(universityId, 10),
+                    referralCode: referralCode || codeFromInput || undefined,
+                    dataConsent: 'true',
+                    publicOffer: 'true'
+                })
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                const msg = data.error || data.errors?.[0]?.msg || 'Ошибка регистрации';
+                if (typeof showNotification === 'function') showNotification(msg, 'error');
+                btn.disabled = false;
+                btn.textContent = 'Зарегистрироваться';
+                return;
+            }
+
+            if (data.token) {
+                localStorage.setItem('token', data.token);
+            } else {
+                const loginRes = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ identifier: email, password })
+                });
+                const loginData = await loginRes.json();
+                if (loginRes.ok && loginData.token) localStorage.setItem('token', loginData.token);
+            }
+
+            if (typeof showNotification === 'function') showNotification('Аккаунт создан! Переходим к подпискам…', 'success');
+            setTimeout(() => { window.location.href = '/subscriptions?welcome=1'; }, 600);
+        } catch {
+            if (typeof showNotification === 'function') showNotification('Ошибка соединения с сервером', 'error');
+            btn.disabled = false;
+            btn.textContent = 'Зарегистрироваться';
+        }
+    }, true);
+
+    /* ──────────────── init ──────────────── */
+
+    document.addEventListener('DOMContentLoaded', () => {
+        if (typeof initTheme === 'function') initTheme();
+        loadUniversitiesForRegister();
+        applyReferralLock();
+
+        fetch('/api/settings/docs').then(r => r.json()).then(docs => {
+            document.querySelectorAll('a[data-doc="privacy"]').forEach(a => { if (docs.privacyPolicyUrl) a.href = docs.privacyPolicyUrl; });
+            document.querySelectorAll('a[data-doc="offer"]').forEach(a => { if (docs.publicOfferUrl) a.href = docs.publicOfferUrl; });
+        }).catch(() => {});
+    });
+</script>
 </body>
 </html>

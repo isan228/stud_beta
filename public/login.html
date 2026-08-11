@@ -13,48 +13,426 @@
     <meta property="og:image:width" content="192">
     <meta property="og:image:height" content="192">
     <meta name="twitter:image" content="https://stud.kg/img/icon-192.png">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <meta name="theme-color" content="#2563eb">
-    <title>Вход - stud.kg</title>
+    <title>Вход — stud.kg</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        /* ─── Auth page layout ─── */
+        .auth-page {
+            min-height: 100dvh;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        /* Left panel — illustration / brand */
+        .auth-hero {
+            background: linear-gradient(145deg, #1d4ed8 0%, #4f46e5 60%, #7c3aed 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem 2.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .auth-hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(255,255,255,.08) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(255,255,255,.06) 0%, transparent 45%);
+        }
+
+        .auth-hero-inner {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            max-width: 360px;
+        }
+
+        .auth-hero-logo {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: -1px;
+            text-decoration: none;
+            display: inline-block;
+            margin-bottom: 1.5rem;
+        }
+
+        .auth-hero-emoji {
+            font-size: 5rem;
+            line-height: 1;
+            margin-bottom: 1.5rem;
+            display: block;
+            filter: drop-shadow(0 4px 16px rgba(0,0,0,.3));
+        }
+
+        .auth-hero h2 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #fff;
+            margin: 0 0 1rem;
+            line-height: 1.3;
+        }
+
+        .auth-hero p {
+            font-size: 1rem;
+            color: rgba(255,255,255,.8);
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        .auth-hero-features {
+            list-style: none;
+            padding: 0;
+            margin: 2rem 0 0;
+            display: flex;
+            flex-direction: column;
+            gap: .75rem;
+            text-align: left;
+        }
+
+        .auth-hero-features li {
+            color: rgba(255,255,255,.9);
+            font-size: .95rem;
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+        }
+
+        .auth-hero-features li::before {
+            content: '✓';
+            background: rgba(255,255,255,.2);
+            width: 1.5rem;
+            height: 1.5rem;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .8rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        /* Right panel — form */
+        .auth-form-panel {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2.5rem 2rem;
+            background: var(--bg-color);
+            overflow-y: auto;
+        }
+
+        .auth-form-wrap {
+            width: 100%;
+            max-width: 420px;
+        }
+
+        .auth-form-wrap .auth-top-logo {
+            display: none;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .auth-form-wrap .auth-top-logo a {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--primary-color);
+            letter-spacing: -1px;
+            text-decoration: none;
+        }
+
+        .auth-form-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-color);
+            margin: 0 0 .5rem;
+        }
+
+        .auth-form-subtitle {
+            color: var(--text-secondary);
+            margin: 0 0 2rem;
+            font-size: .95rem;
+            line-height: 1.5;
+        }
+
+        /* Field */
+        .auth-field {
+            display: flex;
+            flex-direction: column;
+            gap: .4rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .auth-field label {
+            font-weight: 600;
+            font-size: .9rem;
+            color: var(--text-color);
+        }
+
+        .auth-field-input {
+            position: relative;
+        }
+
+        .auth-field-input .field-icon {
+            position: absolute;
+            left: .9rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.1rem;
+            pointer-events: none;
+            line-height: 1;
+        }
+
+        .auth-field input {
+            width: 100%;
+            padding: .85rem 1rem .85rem 2.6rem;
+            border: 1.5px solid var(--border-color);
+            border-radius: .625rem;
+            background: var(--bg-color);
+            color: var(--text-color);
+            font-size: 1rem;
+            transition: border-color .2s, box-shadow .2s;
+            -webkit-appearance: none;
+            appearance: none;
+            box-sizing: border-box;
+        }
+
+        .auth-field input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+        }
+
+        .auth-field small {
+            font-size: .82rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        /* Password toggle */
+        .auth-field-input .pass-toggle {
+            position: absolute;
+            right: .75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.1rem;
+            line-height: 1;
+            padding: .25rem;
+            color: var(--text-muted);
+            transition: color .2s;
+        }
+
+        .auth-field-input .pass-toggle:hover { color: var(--primary-color); }
+
+        .auth-field input.has-toggle {
+            padding-right: 2.8rem;
+        }
+
+        /* Submit btn */
+        .auth-submit {
+            width: 100%;
+            padding: .95rem 1.5rem;
+            background: var(--primary-color);
+            color: #fff;
+            border: none;
+            border-radius: .625rem;
+            font-size: 1.05rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background .2s, transform .1s, box-shadow .2s;
+            margin-top: .5rem;
+            box-shadow: 0 2px 12px rgba(37,99,235,.3);
+        }
+
+        .auth-submit:hover:not(:disabled) {
+            background: #1d4ed8;
+            box-shadow: 0 4px 20px rgba(37,99,235,.4);
+        }
+
+        .auth-submit:active:not(:disabled) { transform: scale(.98); }
+
+        .auth-submit:disabled {
+            opacity: .65;
+            cursor: not-allowed;
+        }
+
+        .auth-submit .btn-spinner {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid rgba(255,255,255,.4);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin .7s linear infinite;
+            vertical-align: middle;
+            margin-right: .5rem;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .auth-bottom-link {
+            text-align: center;
+            margin-top: 1.5rem;
+            font-size: .95rem;
+            color: var(--text-secondary);
+        }
+
+        .auth-bottom-link a {
+            color: var(--primary-color);
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .auth-bottom-link a:hover { text-decoration: underline; }
+
+        /* ─── Responsive ─── */
+
+        /* Tablet: hide hero, full-width form */
+        @media (max-width: 860px) {
+            .auth-page {
+                grid-template-columns: 1fr;
+                min-height: 100dvh;
+            }
+
+            .auth-hero { display: none; }
+
+            .auth-form-panel {
+                align-items: flex-start;
+                padding: 2rem 1.25rem 3rem;
+            }
+
+            .auth-form-wrap {
+                max-width: 480px;
+                margin: 0 auto;
+            }
+
+            .auth-form-wrap .auth-top-logo { display: block; }
+
+            .auth-form-title { font-size: 1.5rem; }
+        }
+
+        /* Mobile */
+        @media (max-width: 480px) {
+            .auth-form-panel {
+                padding: 1.5rem 1rem 2.5rem;
+            }
+
+            .auth-field input {
+                padding: .95rem 1rem .95rem 2.6rem;
+                font-size: 16px; /* prevent iOS zoom */
+            }
+
+            .auth-submit {
+                padding: 1rem;
+                font-size: 1.1rem;
+                min-height: 52px;
+            }
+        }
+    </style>
 </head>
 <body>
-    <nav class="navbar">
-        <div class="container">
-            <div class="nav-brand">
-                <a href="/"><h1>stud.kg</h1></a>
-            </div>
-        </div>
-    </nav>
 
-    <main class="main-content">
-        <div class="auth-container">
-            <h2>Вход</h2>
-            <form id="loginForm" class="auth-form">
-                <div class="form-group">
+<div class="auth-page">
+    <!-- Hero / brand panel -->
+    <aside class="auth-hero" aria-hidden="true">
+        <div class="auth-hero-inner">
+            <a href="/" class="auth-hero-logo">stud.kg</a>
+            <span class="auth-hero-emoji">🎓</span>
+            <h2>Готовься к экзаменам эффективно</h2>
+            <p>Тысячи вопросов, умная статистика и прогресс — всё в одном месте.</p>
+            <ul class="auth-hero-features">
+                <li>Тесты по всем предметам</li>
+                <li>Отслеживание прогресса и стриков</li>
+                <li>Избранные вопросы и история</li>
+                <li>Поддержка нескольких университетов</li>
+            </ul>
+        </div>
+    </aside>
+
+    <!-- Form panel -->
+    <section class="auth-form-panel">
+        <div class="auth-form-wrap">
+
+            <!-- Logo shown only when hero is hidden -->
+            <div class="auth-top-logo">
+                <a href="/">stud.kg</a>
+            </div>
+
+            <h1 class="auth-form-title">Вход в аккаунт</h1>
+            <p class="auth-form-subtitle">Введите данные, чтобы продолжить</p>
+
+            <form id="loginForm" novalidate>
+
+                <div class="auth-field">
                     <label for="loginIdentifier">Email или никнейм</label>
-                    <input type="text" id="loginIdentifier" name="identifier" required placeholder="Введите email или никнейм">
-                    <small>Вы можете войти используя email или никнейм</small>
+                    <div class="auth-field-input">
+                        <span class="field-icon">👤</span>
+                        <input
+                            type="text"
+                            id="loginIdentifier"
+                            name="identifier"
+                            required
+                            autocomplete="username"
+                            placeholder="Введите email или никнейм"
+                        >
+                    </div>
+                    <small>Можно войти по email или никнейму</small>
                 </div>
-                <div class="form-group">
+
+                <div class="auth-field">
                     <label for="loginPassword">Пароль</label>
-                    <input type="password" id="loginPassword" name="password" required>
+                    <div class="auth-field-input">
+                        <span class="field-icon">🔒</span>
+                        <input
+                            type="password"
+                            id="loginPassword"
+                            name="password"
+                            required
+                            autocomplete="current-password"
+                            placeholder="Введите пароль"
+                            class="has-toggle"
+                        >
+                        <button type="button" class="pass-toggle" aria-label="Показать/скрыть пароль" data-target="loginPassword">👁</button>
+                    </div>
                 </div>
-                <button type="submit" class="btn btn-primary btn-block">Войти</button>
-                <p class="auth-link">Нет аккаунта? <a href="/register">Зарегистрироваться</a></p>
+
+                <button type="submit" class="auth-submit" id="loginSubmitBtn">Войти</button>
+
+                <p class="auth-bottom-link">
+                    Нет аккаунта? <a href="/register">Зарегистрироваться</a>
+                </p>
             </form>
         </div>
-    </main>
+    </section>
+</div>
 
-    <div id="notification" class="notification"></div>
-    <script src="app.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            initTheme();
-            setupEventListeners();
+<div id="notification" class="notification"></div>
+<script src="app.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (typeof initTheme === 'function') initTheme();
+        if (typeof setupEventListeners === 'function') setupEventListeners();
+
+        // Password visibility toggle
+        document.querySelectorAll('.pass-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const inp = document.getElementById(btn.dataset.target);
+                if (!inp) return;
+                const isPass = inp.type === 'password';
+                inp.type = isPass ? 'text' : 'password';
+                btn.textContent = isPass ? '🙈' : '👁';
+            });
         });
-    </script>
+    });
+</script>
 </body>
 </html>
-
