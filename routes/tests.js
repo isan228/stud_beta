@@ -288,13 +288,23 @@ router.get('/usmle/dashboard', async (req, res) => {
   try {
     const userId = tryGetUserIdFromRequest(req);
 
-    const subjects = await Subject.findAll({
-      where: { programType: 'usmle', universityId: null },
-      attributes: ['id', 'name', 'description', 'stepGroup'],
-      order: [['name', 'ASC']]
-    });
+    let subjects;
+    try {
+      subjects = await Subject.findAll({
+        where: { programType: 'usmle', universityId: null },
+        attributes: ['id', 'name', 'description', 'stepGroup'],
+        order: [['name', 'ASC']]
+      });
+    } catch (colErr) {
+      // Колонка stepGroup ещё не создана в БД
+      console.warn('usmle/dashboard: stepGroup unavailable, fallback:', colErr.message);
+      subjects = await Subject.findAll({
+        where: { programType: 'usmle', universityId: null },
+        attributes: ['id', 'name', 'description'],
+        order: [['name', 'ASC']]
+      });
+    }
 
-    // Все тесты USMLE с количеством вопросов
     const tests = await Test.findAll({
       where: { programType: 'usmle' },
       attributes: ['id', 'subjectId'],
@@ -306,7 +316,6 @@ router.get('/usmle/dashboard', async (req, res) => {
       }]
     });
 
-    // Карта subjectId → totalQuestions, questionIds
     const subjectStats = new Map();
     for (const t of tests) {
       if (!t.subjectId) continue;
@@ -318,23 +327,31 @@ router.get('/usmle/dashboard', async (req, res) => {
         s.qIds.add(q.id);
       }
     }
-    for (const [sid, s] of subjectStats) {
+    for (const [, s] of subjectStats) {
       s.total = s.qIds.size;
     }
 
-    // Прогресс пользователя
-    let userProgress = new Map(); // questionId → { solved, correct }
+    // Прогресс из TestResult.results (JSONB: { [questionId]: { correct: boolean } })
+    const lastOutcome = new Map(); // questionId → boolean
     if (userId) {
-      const results = await TestResult.findAll({
-        where: { userId },
-        attributes: ['questionId', 'isCorrect'],
-        raw: true
-      });
-      for (const r of results) {
-        if (!userProgress.has(r.questionId)) userProgress.set(r.questionId, { solved: 0, correct: 0 });
-        const p = userProgress.get(r.questionId);
-        p.solved++;
-        if (r.isCorrect) p.correct++;
+      const usmleTestIds = tests.map((t) => t.id);
+      if (usmleTestIds.length) {
+        const rows = await TestResult.findAll({
+          where: { userId, testId: { [Op.in]: usmleTestIds } },
+          attributes: ['results', 'createdAt'],
+          order: [['createdAt', 'ASC']]
+        });
+        for (const row of rows) {
+          const r = row.results;
+          if (!r || typeof r !== 'object') continue;
+          for (const [qid, data] of Object.entries(r)) {
+            const id = parseInt(qid, 10);
+            if (!Number.isFinite(id)) continue;
+            if (data && typeof data.correct === 'boolean') {
+              lastOutcome.set(id, data.correct);
+            }
+          }
+        }
       }
     }
 
@@ -345,29 +362,27 @@ router.get('/usmle/dashboard', async (req, res) => {
       let used = 0;
       let correct = 0;
       for (const qId of stats.qIds) {
-        const p = userProgress.get(qId);
-        if (p && p.solved > 0) {
-          used++;
-          if (p.correct > 0) correct++;
-        }
+        if (!lastOutcome.has(qId)) continue;
+        used++;
+        if (lastOutcome.get(qId) === true) correct++;
       }
 
+      const stepGroup = subj.stepGroup || 'step1';
       const item = {
         id: subj.id,
         name: subj.name,
         description: subj.description || '',
-        stepGroup: subj.stepGroup || 'step1',
+        stepGroup,
         totalQuestions: stats.total,
         usedQuestions: used,
         correctCount: correct,
         percentage: stats.total > 0 ? Math.round((used / stats.total) * 100) : 0
       };
 
-      const key = item.stepGroup in grouped ? item.stepGroup : 'other';
+      const key = stepGroup in grouped ? stepGroup : 'other';
       grouped[key].push(item);
     }
 
-    // Свести "other" в step1 если нет явного шага
     grouped.step1 = [...grouped.step1, ...grouped.other];
     delete grouped.other;
 
@@ -522,25 +537,31 @@ router.post('/usmle/custom-test/questions', async (req, res) => {
 
     // Фильтрация по режиму (unsolved / incorrect / etc.)
     if (questionMode && questionMode !== 'all') {
-      const state = {};
-      const results = await TestResult.findAll({
+      const lastOutcome = new Map(); // questionId → boolean
+      const rows = await TestResult.findAll({
         where: { userId },
-        attributes: ['questionId', 'isCorrect'],
-        raw: true
+        attributes: ['results', 'createdAt'],
+        order: [['createdAt', 'ASC']]
       });
-      for (const r of results) {
-        if (!state[r.questionId]) state[r.questionId] = { solved: 0, correct: 0 };
-        state[r.questionId].solved++;
-        if (r.isCorrect) state[r.questionId].correct++;
+      for (const row of rows) {
+        const r = row.results;
+        if (!r || typeof r !== 'object') continue;
+        for (const [qid, data] of Object.entries(r)) {
+          const id = parseInt(qid, 10);
+          if (!Number.isFinite(id)) continue;
+          if (data && typeof data.correct === 'boolean') {
+            lastOutcome.set(id, data.correct);
+          }
+        }
       }
 
       const pool = new Set();
       for (const qId of questionIds) {
-        const s = state[qId];
-        if (questionMode === 'unsolved' && !s) pool.add(qId);
-        else if (questionMode === 'solved' && s) pool.add(qId);
-        else if (questionMode === 'correct' && s && s.correct > 0) pool.add(qId);
-        else if (questionMode === 'incorrect' && s && s.solved > s.correct) pool.add(qId);
+        const outcome = lastOutcome.get(qId);
+        if (questionMode === 'unsolved' && outcome === undefined) pool.add(qId);
+        else if (questionMode === 'solved' && outcome !== undefined) pool.add(qId);
+        else if (questionMode === 'correct' && outcome === true) pool.add(qId);
+        else if (questionMode === 'incorrect' && outcome === false) pool.add(qId);
       }
       questionIds = [...pool];
     }
