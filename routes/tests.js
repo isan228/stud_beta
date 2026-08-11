@@ -279,10 +279,8 @@ router.get('/subjects', async (req, res) => {
 });
 
 /**
- * USMLE: предметы с прогрессом пользователя, сгруппированные по step.
- * GET /usmle/dashboard
- * Возвращает { step1: [...], step2: [...], step3: [...] }
- * Каждый предмет содержит: id, name, stepGroup, totalQuestions, usedQuestions, correctCount
+ * USMLE dashboard: тесты (UWorld и т.п.), сгруппированные по Step предмета.
+ * GET /usmle/dashboard → { step1: [tests...], step2: [...], step3: [...] }
  */
 router.get('/usmle/dashboard', async (req, res) => {
   try {
@@ -292,99 +290,93 @@ router.get('/usmle/dashboard', async (req, res) => {
     try {
       subjects = await Subject.findAll({
         where: { programType: 'usmle', universityId: null },
-        attributes: ['id', 'name', 'description', 'stepGroup'],
+        attributes: ['id', 'name', 'stepGroup'],
         order: [['name', 'ASC']]
       });
     } catch (colErr) {
-      // Колонка stepGroup ещё не создана в БД
       console.warn('usmle/dashboard: stepGroup unavailable, fallback:', colErr.message);
       subjects = await Subject.findAll({
         where: { programType: 'usmle', universityId: null },
-        attributes: ['id', 'name', 'description'],
+        attributes: ['id', 'name'],
         order: [['name', 'ASC']]
       });
     }
 
+    const resolveStep = (subj) => {
+      const sg = String(subj.stepGroup || '').toLowerCase();
+      if (sg === 'step1' || sg === 'step2' || sg === 'step3') return sg;
+      const n = String(subj.name || '').toLowerCase();
+      if (/step\s*1|степ\s*1/.test(n)) return 'step1';
+      if (/step\s*2|степ\s*2/.test(n)) return 'step2';
+      if (/step\s*3|степ\s*3/.test(n)) return 'step3';
+      return 'step1';
+    };
+
+    const subjectStep = new Map();
+    for (const s of subjects) {
+      subjectStep.set(s.id, resolveStep(s));
+    }
+
     const tests = await Test.findAll({
       where: { programType: 'usmle' },
-      attributes: ['id', 'subjectId'],
+      attributes: ['id', 'name', 'description', 'subjectId', 'isFree'],
       include: [{
         model: Question,
         as: 'Questions',
         attributes: ['id'],
         required: false
-      }]
+      }],
+      order: [['name', 'ASC']]
     });
 
-    const subjectStats = new Map();
-    for (const t of tests) {
-      if (!t.subjectId) continue;
-      if (!subjectStats.has(t.subjectId)) {
-        subjectStats.set(t.subjectId, { total: 0, qIds: new Set() });
-      }
-      const s = subjectStats.get(t.subjectId);
-      for (const q of (t.Questions || [])) {
-        s.qIds.add(q.id);
-      }
-    }
-    for (const [, s] of subjectStats) {
-      s.total = s.qIds.size;
-    }
-
-    // Прогресс из TestResult.results (JSONB: { [questionId]: { correct: boolean } })
-    const lastOutcome = new Map(); // questionId → boolean
-    if (userId) {
-      const usmleTestIds = tests.map((t) => t.id);
-      if (usmleTestIds.length) {
-        const rows = await TestResult.findAll({
-          where: { userId, testId: { [Op.in]: usmleTestIds } },
-          attributes: ['results', 'createdAt'],
-          order: [['createdAt', 'ASC']]
-        });
-        for (const row of rows) {
-          const r = row.results;
-          if (!r || typeof r !== 'object') continue;
-          for (const [qid, data] of Object.entries(r)) {
-            const id = parseInt(qid, 10);
-            if (!Number.isFinite(id)) continue;
-            if (data && typeof data.correct === 'boolean') {
-              lastOutcome.set(id, data.correct);
-            }
+    const lastOutcome = new Map();
+    if (userId && tests.length) {
+      const rows = await TestResult.findAll({
+        where: { userId, testId: { [Op.in]: tests.map((t) => t.id) } },
+        attributes: ['results', 'createdAt'],
+        order: [['createdAt', 'ASC']]
+      });
+      for (const row of rows) {
+        const r = row.results;
+        if (!r || typeof r !== 'object') continue;
+        for (const [qid, data] of Object.entries(r)) {
+          const id = parseInt(qid, 10);
+          if (!Number.isFinite(id)) continue;
+          if (data && typeof data.correct === 'boolean') {
+            lastOutcome.set(id, data.correct);
           }
         }
       }
     }
 
-    const grouped = { step1: [], step2: [], step3: [], other: [] };
+    const grouped = { step1: [], step2: [], step3: [] };
 
-    for (const subj of subjects) {
-      const stats = subjectStats.get(subj.id) || { total: 0, qIds: new Set() };
+    for (const t of tests) {
+      const step = subjectStep.get(t.subjectId) || 'step1';
+      const qIds = (t.Questions || []).map((q) => q.id);
       let used = 0;
       let correct = 0;
-      for (const qId of stats.qIds) {
+      for (const qId of qIds) {
         if (!lastOutcome.has(qId)) continue;
         used++;
         if (lastOutcome.get(qId) === true) correct++;
       }
-
-      const stepGroup = subj.stepGroup || 'step1';
+      const total = qIds.length;
       const item = {
-        id: subj.id,
-        name: subj.name,
-        description: subj.description || '',
-        stepGroup,
-        totalQuestions: stats.total,
+        id: t.id,
+        name: t.name,
+        description: t.description || '',
+        subjectId: t.subjectId,
+        stepGroup: step,
+        isFree: !!t.isFree,
+        totalQuestions: total,
         usedQuestions: used,
         correctCount: correct,
-        percentage: stats.total > 0 ? Math.round((used / stats.total) * 100) : 0
+        percentage: total > 0 ? Math.round((used / total) * 1000) / 10 : 0
       };
-
-      const key = stepGroup in grouped ? stepGroup : 'other';
-      grouped[key].push(item);
+      if (grouped[step]) grouped[step].push(item);
+      else grouped.step1.push(item);
     }
-
-    grouped.step1 = [...grouped.step1, ...grouped.other];
-    delete grouped.other;
 
     res.json(grouped);
   } catch (error) {
@@ -399,32 +391,46 @@ router.get('/usmle/dashboard', async (req, res) => {
  */
 router.get('/usmle/tags/grouped', async (req, res) => {
   try {
+    const testId = parseInt(req.query.testId, 10);
+
     const tags = await QuestionTag.findAll({
       where: { isActive: true },
       attributes: ['id', 'name', 'slug'],
       order: [['name', 'ASC']]
     });
 
-    // Считаем только вопросы из USMLE-тестов
+    let allowedQuestionIds = null;
+    if (Number.isFinite(testId) && testId > 0) {
+      const test = await Test.findByPk(testId, {
+        attributes: ['id', 'programType', 'name'],
+        include: [{ model: Question, as: 'Questions', attributes: ['id'], required: false }]
+      });
+      if (!test || test.programType !== 'usmle') {
+        return res.status(404).json({ error: 'USMLE тест не найден' });
+      }
+      allowedQuestionIds = new Set((test.Questions || []).map((q) => q.id));
+    } else {
+      const usmleQuestions = await Question.findAll({
+        attributes: ['id'],
+        include: [{
+          model: Test,
+          as: 'Test',
+          attributes: [],
+          required: true,
+          where: { programType: 'usmle' }
+        }],
+        raw: true
+      });
+      allowedQuestionIds = new Set(usmleQuestions.map((q) => q.id));
+    }
+
     const maps = await QuestionTagMap.findAll({
       attributes: ['tagId', 'questionId'],
       raw: true
     });
-    const usmleQuestions = await Question.findAll({
-      attributes: ['id'],
-      include: [{
-        model: Test,
-        as: 'Test',
-        attributes: [],
-        required: true,
-        where: { programType: 'usmle' }
-      }],
-      raw: true
-    });
-    const usmleSet = new Set(usmleQuestions.map((q) => q.id));
     const countByTag = new Map();
     for (const m of maps) {
-      if (!usmleSet.has(m.questionId)) continue;
+      if (!allowedQuestionIds.has(m.questionId)) continue;
       countByTag.set(m.tagId, (countByTag.get(m.tagId) || 0) + 1);
     }
 
@@ -448,7 +454,40 @@ router.get('/usmle/tags/grouped', async (req, res) => {
       }
     }
 
-    res.json({ subjects, systems });
+    let testMeta = null;
+    if (Number.isFinite(testId) && testId > 0) {
+      try {
+        const t = await Test.findByPk(testId, {
+          attributes: ['id', 'name', 'subjectId'],
+          include: [{ model: Subject, as: 'Subject', attributes: ['id', 'name', 'stepGroup'], required: false }]
+        });
+        if (t) {
+          testMeta = {
+            id: t.id,
+            name: t.name,
+            subjectId: t.subjectId,
+            subjectName: t.Subject?.name || '',
+            stepGroup: t.Subject?.stepGroup || null
+          };
+        }
+      } catch {
+        const t = await Test.findByPk(testId, {
+          attributes: ['id', 'name', 'subjectId'],
+          include: [{ model: Subject, as: 'Subject', attributes: ['id', 'name'], required: false }]
+        });
+        if (t) {
+          testMeta = {
+            id: t.id,
+            name: t.name,
+            subjectId: t.subjectId,
+            subjectName: t.Subject?.name || '',
+            stepGroup: null
+          };
+        }
+      }
+    }
+
+    res.json({ subjects, systems, test: testMeta });
   } catch (error) {
     console.error('Ошибка получения тегов USMLE grouped:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
@@ -456,9 +495,9 @@ router.get('/usmle/tags/grouped', async (req, res) => {
 });
 
 /**
- * Получить вопросы из банка USMLE по выбранным тегам для конструктора.
+ * Получить вопросы из конкретного USMLE-теста по тегам.
  * POST /usmle/custom-test/questions
- * Body: { subjectTagIds, systemTagIds, questionCount, questionMode, randomizeAnswers, instantFeedbackMode }
+ * Body: { testId, subjectTagIds, systemTagIds, questionCount, questionMode, randomizeAnswers, instantFeedbackMode }
  */
 router.post('/usmle/custom-test/questions', async (req, res) => {
   try {
@@ -473,11 +512,9 @@ router.post('/usmle/custom-test/questions', async (req, res) => {
     if (!user) {
       return res.status(401).json({ error: 'Пользователь не найден' });
     }
-    if (!isSubscriptionActive(user.usmleSubscriptionEndDate)) {
-      return res.status(403).json({ error: 'Требуется активная подписка USMLE' });
-    }
 
     const {
+      testId: rawTestId,
       subjectTagIds = [],
       systemTagIds = [],
       questionCount = 40,
@@ -486,35 +523,51 @@ router.post('/usmle/custom-test/questions', async (req, res) => {
       instantFeedbackMode = false
     } = req.body || {};
 
+    const testId = parseInt(rawTestId, 10);
+    if (!Number.isFinite(testId) || testId <= 0) {
+      return res.status(400).json({ error: 'Выберите тест (testId обязателен)' });
+    }
+
+    const test = await Test.findByPk(testId, {
+      attributes: ['id', 'name', 'programType', 'isFree', 'subjectId']
+    });
+    if (!test || test.programType !== 'usmle') {
+      return res.status(404).json({ error: 'USMLE тест не найден' });
+    }
+
+    if (!test.isFree && !isSubscriptionActive(user.usmleSubscriptionEndDate)) {
+      return res.status(403).json({ error: 'Требуется активная подписка USMLE' });
+    }
+
     const subjectIds = [...new Set((Array.isArray(subjectTagIds) ? subjectTagIds : []).map(Number).filter((n) => n > 0))];
     const systemIds = [...new Set((Array.isArray(systemTagIds) ? systemTagIds : []).map(Number).filter((n) => n > 0))];
+
+    // Все вопросы этого теста
+    const testQuestions = await Question.findAll({
+      where: { testId },
+      attributes: ['id'],
+      raw: true
+    });
+    let candidateIds = testQuestions.map((q) => q.id);
+
+    if (!candidateIds.length) {
+      return res.json([]);
+    }
 
     const getQIdsByTags = async (tagIds) => {
       if (!tagIds.length) return null;
       const maps = await QuestionTagMap.findAll({
-        where: { tagId: { [Op.in]: tagIds } },
+        where: {
+          tagId: { [Op.in]: tagIds },
+          questionId: { [Op.in]: candidateIds }
+        },
         attributes: ['questionId'],
         raw: true
       });
       return new Set(maps.map((m) => m.questionId));
     };
 
-    let candidateIds;
-
-    if (!subjectIds.length && !systemIds.length) {
-      const allQ = await Question.findAll({
-        attributes: ['id'],
-        include: [{
-          model: Test,
-          as: 'Test',
-          attributes: [],
-          required: true,
-          where: { programType: 'usmle' }
-        }],
-        raw: true
-      });
-      candidateIds = allQ.map((q) => q.id);
-    } else {
+    if (subjectIds.length || systemIds.length) {
       const subjectSet = await getQIdsByTags(subjectIds);
       const systemSet = await getQIdsByTags(systemIds);
 
@@ -524,44 +577,18 @@ router.post('/usmle/custom-test/questions', async (req, res) => {
       } else {
         combinedSet = subjectSet || systemSet || new Set();
       }
-
-      if (!combinedSet.size) {
-        return res.json([]);
-      }
-
-      const ids = [...combinedSet];
-      // Батчами, чтобы не упереться в лимит IN (...)
-      const usmleIds = [];
-      const BATCH = 2000;
-      for (let i = 0; i < ids.length; i += BATCH) {
-        const chunk = ids.slice(i, i + BATCH);
-        const rows = await Question.findAll({
-          where: { id: { [Op.in]: chunk } },
-          attributes: ['id'],
-          include: [{
-            model: Test,
-            as: 'Test',
-            attributes: [],
-            required: true,
-            where: { programType: 'usmle' }
-          }],
-          raw: true
-        });
-        for (const r of rows) usmleIds.push(r.id);
-      }
-      candidateIds = usmleIds;
+      candidateIds = [...combinedSet];
     }
 
     if (!candidateIds.length) {
       return res.json([]);
     }
 
-    // Фильтрация по режиму через TestResult.results
     let questionIds = candidateIds;
     if (questionMode && questionMode !== 'all') {
       const lastOutcome = new Map();
       const rows = await TestResult.findAll({
-        where: { userId },
+        where: { userId, testId },
         attributes: ['results', 'createdAt'],
         order: [['createdAt', 'ASC']]
       });
@@ -592,7 +619,6 @@ router.post('/usmle/custom-test/questions', async (req, res) => {
       return res.json([]);
     }
 
-    // Shuffle + limit
     for (let i = questionIds.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [questionIds[i], questionIds[j]] = [questionIds[j], questionIds[i]];
@@ -602,10 +628,7 @@ router.post('/usmle/custom-test/questions', async (req, res) => {
 
     const questions = await Question.findAll({
       where: { id: { [Op.in]: shuffled } },
-      include: [
-        { model: Answer, as: 'Answers' },
-        { model: Test, as: 'Test', attributes: ['id', 'name'], required: false }
-      ]
+      include: [{ model: Answer, as: 'Answers' }]
     });
 
     const qMap = new Map(questions.map((q) => [q.id, q]));
@@ -627,7 +650,7 @@ router.post('/usmle/custom-test/questions', async (req, res) => {
         id: qj.id,
         text: qj.text,
         testId: qj.testId,
-        testName: qj.Test?.name || '',
+        testName: test.name,
         imageUrl: qj.imageUrl || null,
         ...(instantFeedbackMode ? {
           explanation: qj.explanation || null,

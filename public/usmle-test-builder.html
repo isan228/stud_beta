@@ -451,13 +451,13 @@
             <nav class="builder-breadcrumb" aria-label="Навигация">
                 <a href="/usmle">USMLE</a>
                 <span class="builder-breadcrumb-sep">/</span>
-                <span>Конструктор теста</span>
+                <span id="builderBreadcrumbName">Конструктор</span>
             </nav>
 
             <!-- Header -->
             <div class="builder-header">
-                <h1>Создать тест</h1>
-                <p>Выберите предметы (Subjects) и системы (Systems) — мы подберём вопросы из банка USMLE по выбранным темам.</p>
+                <h1 id="builderTitle">Создать тест</h1>
+                <p id="builderSubtitle">Выберите Subjects и Systems — вопросы берутся только из выбранного банка.</p>
             </div>
 
             <!-- Skeleton -->
@@ -578,6 +578,13 @@
 <script src="app.js"></script>
 <script>
     const API_URL = '/api';
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentTestId = parseInt(urlParams.get('testId'), 10);
+    const currentTestName = (() => {
+        try { return decodeURIComponent(urlParams.get('name') || ''); }
+        catch { return urlParams.get('name') || ''; }
+    })();
+    const currentStep = urlParams.get('step') || '';
 
     const selectedSubjectIds = new Set();
     const selectedSystemIds  = new Set();
@@ -743,6 +750,7 @@
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
+                    testId: currentTestId,
                     subjectTagIds: [...selectedSubjectIds],
                     systemTagIds:  [...selectedSystemIds],
                     questionCount,
@@ -769,7 +777,7 @@
 
             const useTimer = testMode === 'standard';
             sessionStorage.setItem('testData', JSON.stringify({
-                testId: null,
+                testId: currentTestId,
                 questions,
                 answers: {},
                 questionIndex: 0,
@@ -791,15 +799,34 @@
 
     /* ── Load tags ── */
     async function loadTags() {
+        if (!Number.isFinite(currentTestId) || currentTestId <= 0) {
+            document.getElementById('builderLoading').innerHTML =
+                `<p style="color:var(--danger-color,#dc2626);text-align:center;padding:2rem;">
+                    Сначала выберите банк на странице
+                    <a href="/usmle" style="color:var(--primary-color);">USMLE</a>
+                </p>`;
+            return;
+        }
+
         try {
-            const res = await fetch(`${API_URL}/tests/usmle/tags/grouped`);
+            const res = await fetch(`${API_URL}/tests/usmle/tags/grouped?testId=${currentTestId}`);
             if (!res.ok) throw new Error();
             const data = await res.json();
 
             allSubjectTags = data.subjects || [];
             allSystemTags  = data.systems  || [];
 
-            // Totals
+            const bankName = (data.test && data.test.name) || currentTestName || 'Банк вопросов';
+            const crumb = document.getElementById('builderBreadcrumbName');
+            if (crumb) crumb.textContent = bankName;
+            const title = document.getElementById('builderTitle');
+            if (title) title.textContent = bankName;
+            const sub = document.getElementById('builderSubtitle');
+            if (sub) {
+                const stepLabel = currentStep ? ` · ${currentStep.replace('step', 'Step ')}` : '';
+                sub.textContent = `Конструктор${stepLabel}. Выберите Subjects и Systems — только вопросы этого банка.`;
+            }
+
             const st = document.getElementById('subjectsTotal');
             if (st) st.textContent = `${allSubjectTags.length} тем`;
             const syt = document.getElementById('systemsTotal');

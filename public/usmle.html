@@ -14,20 +14,20 @@
     <title>USMLE — stud.kg</title>
     <link rel="stylesheet" href="styles.css">
     <style>
-        /* ── Step switcher ── */
         .step-switcher {
             display: flex;
             gap: 0;
-            background: var(--bg-secondary);
+            background: var(--card-bg);
             border: 1px solid var(--border-light);
             border-radius: 999px;
-            padding: .25rem;
+            padding: .3rem;
             width: fit-content;
-            margin: 0 auto 2rem;
+            margin: 0 auto 1.75rem;
+            box-shadow: var(--shadow);
         }
 
         .step-btn {
-            padding: .5rem 1.5rem;
+            padding: .55rem 1.6rem;
             border-radius: 999px;
             border: none;
             background: none;
@@ -42,126 +42,100 @@
         .step-btn.active {
             background: var(--primary-color);
             color: #fff;
-            box-shadow: 0 2px 8px rgba(37,99,235,.3);
+            box-shadow: 0 2px 10px rgba(37,99,235,.3);
         }
 
-        .step-btn:hover:not(.active) {
-            color: var(--primary-color);
-        }
+        .step-btn:hover:not(.active) { color: var(--primary-color); }
 
-        /* ── Dashboard action bar ── */
-        .usmle-action-bar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 1rem;
-            margin-bottom: 1.25rem;
-            flex-wrap: wrap;
-        }
-
-        .usmle-action-bar-left {
-            display: flex;
-            align-items: center;
-            gap: .75rem;
-            flex-wrap: wrap;
-        }
-
-        /* ── Subject cards grid ── */
-        .usmle-subjects-grid {
+        .usmle-banks-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
             gap: 1rem;
         }
 
-        .usmle-subject-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-light);
-            border-radius: var(--radius-lg, 1rem);
-            padding: 1.1rem 1.25rem;
+        .usmle-bank-card {
+            border-radius: 1rem;
+            padding: 1.15rem 1.25rem;
             cursor: pointer;
-            transition: border-color .18s, box-shadow .18s, transform .15s;
+            transition: transform .15s, box-shadow .18s;
+            border: 1.5px solid var(--border-light);
+            background: var(--card-bg);
+            color: var(--text-color);
             box-shadow: var(--shadow);
+            min-height: 140px;
+            display: flex;
+            flex-direction: column;
             position: relative;
             overflow: hidden;
         }
 
-        .usmle-subject-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 3px;
-            height: 100%;
-            background: var(--primary-color);
-            opacity: 0;
-            transition: opacity .18s;
-        }
-
-        .usmle-subject-card:hover {
-            border-color: var(--primary-color);
-            box-shadow: 0 4px 20px rgba(37,99,235,.12);
+        .usmle-bank-card:hover {
             transform: translateY(-2px);
+            box-shadow: 0 6px 22px rgba(37,99,235,.14);
+            border-color: var(--primary-color);
         }
 
-        .usmle-subject-card:hover::before { opacity: 1; }
-
-        .usmle-card-name {
-            font-size: .975rem;
-            font-weight: 700;
-            color: var(--text-color);
-            margin: 0 0 .75rem;
-            line-height: 1.3;
+        .usmle-bank-card.active-bank {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            color: #fff;
         }
 
-        .usmle-card-stats {
+        .usmle-bank-card.active-bank:hover {
+            box-shadow: 0 6px 22px rgba(37,99,235,.35);
+        }
+
+        .usmle-bank-top {
             display: flex;
-            flex-direction: column;
-            gap: .3rem;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: .75rem;
             margin-bottom: .85rem;
         }
 
-        .usmle-card-stat {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+        .usmle-bank-name {
+            font-size: 1.05rem;
+            font-weight: 800;
+            margin: 0;
+            line-height: 1.25;
+            letter-spacing: -.01em;
+        }
+
+        .usmle-bank-pct {
             font-size: .8rem;
+            font-weight: 700;
+            opacity: .85;
+            white-space: nowrap;
+        }
+
+        .usmle-bank-stats {
+            display: flex;
+            flex-direction: column;
+            gap: .28rem;
+            margin-top: auto;
+            font-size: .82rem;
+            opacity: .92;
+        }
+
+        .usmle-bank-stat {
+            display: flex;
+            justify-content: space-between;
+            gap: .5rem;
+        }
+
+        .usmle-bank-stat strong {
+            font-weight: 700;
+        }
+
+        .usmle-bank-card:not(.active-bank) .usmle-bank-pct,
+        .usmle-bank-card:not(.active-bank) .usmle-bank-stats {
             color: var(--text-secondary);
         }
 
-        .usmle-card-stat-val {
-            font-weight: 600;
+        .usmle-bank-card:not(.active-bank) .usmle-bank-stat strong {
             color: var(--text-color);
         }
 
-        /* Progress bar */
-        .usmle-progress-wrap {
-            height: 5px;
-            background: var(--border-light);
-            border-radius: 999px;
-            overflow: hidden;
-            margin-bottom: .5rem;
-        }
-
-        .usmle-progress-fill {
-            height: 100%;
-            border-radius: 999px;
-            background: var(--primary-color);
-            transition: width .4s ease;
-            min-width: 0;
-        }
-
-        .usmle-progress-fill.complete {
-            background: #16a34a;
-        }
-
-        .usmle-card-pct {
-            font-size: .75rem;
-            font-weight: 700;
-            color: var(--text-muted);
-            text-align: right;
-        }
-
-        /* ── Empty state ── */
         .usmle-empty {
             text-align: center;
             padding: 3rem 1rem;
@@ -169,17 +143,9 @@
             grid-column: 1 / -1;
         }
 
-        .usmle-empty p { margin: .5rem 0 0; font-size: .9rem; }
-
-        /* ── Search ── */
-        .usmle-search-wrap {
-            margin-bottom: 1.25rem;
-        }
-
-        /* ── Skeleton ── */
         .usmle-skel {
-            height: 130px;
-            border-radius: var(--radius-lg, 1rem);
+            height: 140px;
+            border-radius: 1rem;
             background: var(--border-light);
             animation: blink 1.3s ease-in-out infinite;
         }
@@ -189,54 +155,23 @@
             50% { opacity: .9; }
         }
 
-        /* ── Overall stats bar ── */
-        .usmle-stats-bar {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-            flex-wrap: wrap;
-        }
-
-        .usmle-stat-pill {
-            background: var(--card-bg);
-            border: 1px solid var(--border-light);
-            border-radius: .75rem;
-            padding: .75rem 1.1rem;
-            flex: 1;
-            min-width: 140px;
-            box-shadow: var(--shadow);
-        }
-
-        .usmle-stat-pill-label {
-            font-size: .75rem;
-            color: var(--text-muted);
-            font-weight: 600;
-            letter-spacing: .03em;
-            text-transform: uppercase;
-            margin-bottom: .25rem;
-        }
-
-        .usmle-stat-pill-val {
-            font-size: 1.35rem;
+        .usmle-section-title {
+            font-size: 1.15rem;
             font-weight: 800;
+            margin: 0 0 .35rem;
             color: var(--text-color);
-            line-height: 1;
         }
 
-        .usmle-stat-pill-val span {
-            font-size: .9rem;
-            font-weight: 500;
+        .usmle-section-sub {
+            font-size: .875rem;
             color: var(--text-muted);
-            margin-left: .25rem;
+            margin: 0 0 1.25rem;
         }
 
-        /* ── Responsive ── */
         @media (max-width: 540px) {
-            .step-switcher { width: 100%; justify-content: center; }
+            .step-switcher { width: 100%; justify-content: stretch; }
             .step-btn { flex: 1; text-align: center; padding: .5rem .75rem; }
-            .usmle-subjects-grid { grid-template-columns: 1fr; }
-            .usmle-stat-pill { min-width: 0; }
-            .usmle-action-bar { flex-direction: column; align-items: stretch; }
+            .usmle-banks-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -275,65 +210,24 @@
 <main class="main-content">
     <div class="container">
 
-        <!-- Page header -->
-        <div class="page-header" style="margin-bottom:1.5rem;">
-            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.75rem;">
-                <div>
-                    <h1 style="margin:0 0 .25rem;">USMLE</h1>
-                    <p class="page-description" style="margin:0;">Программа подготовки к USMLE Step 1, Step 2 и Step 3.</p>
-                </div>
-                <a href="/usmle-test-builder" class="btn btn-primary" style="font-weight:700; white-space:nowrap;">
-                    Создать тест
-                </a>
-            </div>
+        <div class="page-header" style="margin-bottom:1.25rem; text-align:center;">
+            <h1 style="margin:0 0 .35rem;">USMLE</h1>
+            <p class="page-description" style="margin:0 auto; max-width:36rem;">
+                Выберите Step, затем банк вопросов — откроется конструктор с тегами Subjects и Systems.
+            </p>
         </div>
 
-        <!-- Step switcher -->
-        <div class="step-switcher" role="tablist" aria-label="Выбор шага USMLE">
+        <div class="step-switcher" role="tablist" aria-label="Выбор Step">
             <button class="step-btn active" data-step="step1" onclick="selectStep('step1')" role="tab" aria-selected="true">Step 1</button>
             <button class="step-btn" data-step="step2" onclick="selectStep('step2')" role="tab" aria-selected="false">Step 2</button>
             <button class="step-btn" data-step="step3" onclick="selectStep('step3')" role="tab" aria-selected="false">Step 3</button>
         </div>
 
-        <!-- Overall stats bar (visible after load) -->
-        <div class="usmle-stats-bar" id="usmleStatsBar" style="display:none;">
-            <div class="usmle-stat-pill">
-                <div class="usmle-stat-pill-label">Всего вопросов</div>
-                <div class="usmle-stat-pill-val" id="statTotal">—</div>
-            </div>
-            <div class="usmle-stat-pill">
-                <div class="usmle-stat-pill-label">Решено</div>
-                <div class="usmle-stat-pill-val" id="statUsed">—</div>
-            </div>
-            <div class="usmle-stat-pill">
-                <div class="usmle-stat-pill-label">Правильных</div>
-                <div class="usmle-stat-pill-val" id="statCorrect">—</div>
-            </div>
-            <div class="usmle-stat-pill">
-                <div class="usmle-stat-pill-label">Прогресс</div>
-                <div class="usmle-stat-pill-val" id="statPct">—</div>
-            </div>
-        </div>
+        <p class="usmle-section-title" id="stepTitle">Question Banks — Step 1</p>
+        <p class="usmle-section-sub" id="stepSub">Нажмите на банк, чтобы собрать тест</p>
 
-        <!-- Action bar -->
-        <div class="usmle-action-bar" id="usmleActionBar" style="display:none;">
-            <div class="usmle-action-bar-left">
-                <!-- Search inline -->
-                <div class="search-wrapper" style="max-width:300px;">
-                    <span class="search-icon">🔍</span>
-                    <input type="text" id="subjectSearch" class="search-input"
-                        placeholder="Поиск по предметам…" autocomplete="off"
-                        oninput="filterUsmleCards(this.value)">
-                </div>
-            </div>
-            <div style="font-size:.85rem; color:var(--text-muted);" id="usmleCardCount"></div>
-        </div>
-
-        <!-- Skeleton -->
         <div id="usmleLoading">
-            <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:1rem;">
-                <div class="usmle-skel"></div>
-                <div class="usmle-skel"></div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:1rem;">
                 <div class="usmle-skel"></div>
                 <div class="usmle-skel"></div>
                 <div class="usmle-skel"></div>
@@ -341,54 +235,29 @@
             </div>
         </div>
 
-        <!-- Cards -->
-        <div class="usmle-subjects-grid" id="usmleSubjectsGrid" style="display:none;"></div>
+        <div class="usmle-banks-grid" id="usmleBanksGrid" style="display:none;"></div>
 
     </div>
 </main>
 
 <footer class="footer">
     <div class="container">
-        <div class="footer-content">
-            <div class="footer-section">
-                <h3>stud.kg</h3>
-                <p>Платформа для подготовки к экзаменам</p>
-                <div class="footer-social">
-                    <a href="https://t.me/stud_kg" target="_blank" rel="noopener noreferrer" class="footer-social-link" aria-label="Telegram">
-                        <img src="/img/Telegram_(software)-Logo.wine.svg" alt="Telegram">
-                    </a>
-                    <a href="https://instagram.com/stud_kgz" target="_blank" rel="noopener noreferrer" class="footer-social-link" aria-label="Instagram">
-                        <img src="/img/Instagram-Logo.wine.svg" alt="Instagram">
-                    </a>
-                </div>
-            </div>
-            <div class="footer-section">
-                <h4>Навигация</h4>
-                <ul class="footer-links">
-                    <li><a href="/">Главная</a></li>
-                    <li><a href="/tests">Тесты</a></li>
-                    <li><a href="/usmle">USMLE</a></li>
-                    <li><a href="/contact">Обратная связь</a></li>
-                </ul>
-            </div>
-        </div>
         <div class="footer-bottom">
             <p>&copy; 2026 stud.kg. Все права защищены.</p>
         </div>
     </div>
 </footer>
 
-<!-- Subscription modal -->
 <div id="registerModal" class="modal" style="display:none;">
     <div class="modal-content">
         <span class="modal-close" id="registerModalClose">&times;</span>
         <h2 id="registerModalTitle">Подписка требуется</h2>
         <p id="registerModalText" style="margin-bottom:1.5rem; color:var(--text-secondary);">
-            Оформите подписку для доступа ко всем тестам.
+            Оформите подписку USMLE для доступа.
         </p>
-        <div id="subscriptionModalActions" style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
-            <a href="/register" id="subscriptionModalPrimaryBtn" class="btn btn-primary" style="flex:1; min-width:150px; text-align:center;">Оформить подписку</a>
-            <a href="/login" id="subscriptionModalSecondaryBtn" class="btn btn-secondary" style="flex:1; min-width:150px; text-align:center;">Войти</a>
+        <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
+            <a href="/subscriptions" class="btn btn-primary" style="flex:1; min-width:150px; text-align:center;">Подписки</a>
+            <a href="/login" class="btn btn-secondary" style="flex:1; min-width:150px; text-align:center;">Войти</a>
         </div>
     </div>
 </div>
@@ -396,141 +265,96 @@
 <div id="notification" class="notification"></div>
 <script src="app.js"></script>
 <script>
-    let dashboardData = null;   // { step1: [], step2: [], step3: [] }
-    let activeStep    = 'step1';
-    let searchQuery   = '';
+    let dashboardData = null;
+    let activeStep = 'step1';
 
-    /* ── Step switcher ── */
+    const STEP_LABELS = { step1: 'Step 1', step2: 'Step 2', step3: 'Step 3' };
+
     function selectStep(step) {
         activeStep = step;
         document.querySelectorAll('.step-btn').forEach(b => {
-            const isActive = b.dataset.step === step;
-            b.classList.toggle('active', isActive);
-            b.setAttribute('aria-selected', isActive);
+            const on = b.dataset.step === step;
+            b.classList.toggle('active', on);
+            b.setAttribute('aria-selected', on);
         });
+        const title = document.getElementById('stepTitle');
+        if (title) title.textContent = `Question Banks — ${STEP_LABELS[step] || step}`;
         renderCards();
     }
 
-    /* ── Filter ── */
-    function filterUsmleCards(q) {
-        searchQuery = (q || '').toLowerCase().trim();
-        renderCards();
+    function openBuilder(test) {
+        const name = encodeURIComponent(test.name || '');
+        window.location.href = `/usmle-test-builder?testId=${test.id}&name=${name}&step=${activeStep}`;
     }
 
-    /* ── Render cards ── */
     function renderCards() {
-        const grid = document.getElementById('usmleSubjectsGrid');
-        const countEl = document.getElementById('usmleCardCount');
+        const grid = document.getElementById('usmleBanksGrid');
         if (!grid || !dashboardData) return;
 
-        let subjects = (dashboardData[activeStep] || []);
-        if (searchQuery) {
-            subjects = subjects.filter(s => s.name.toLowerCase().includes(searchQuery));
-        }
+        const banks = dashboardData[activeStep] || [];
 
-        // Update stats bar for active step
-        const allStep = dashboardData[activeStep] || [];
-        const totalQ  = allStep.reduce((a, s) => a + s.totalQuestions, 0);
-        const usedQ   = allStep.reduce((a, s) => a + s.usedQuestions, 0);
-        const corrQ   = allStep.reduce((a, s) => a + s.correctCount, 0);
-        const pct     = totalQ > 0 ? Math.round(usedQ / totalQ * 100) : 0;
-
-        setEl('statTotal',   totalQ);
-        setEl('statUsed',    usedQ);
-        setEl('statCorrect', corrQ);
-        setEl('statPct',     pct + '%');
-
-        if (countEl) countEl.textContent = subjects.length ? `${subjects.length} предмет${plural(subjects.length)}` : '';
-
-        if (!subjects.length) {
+        if (!banks.length) {
             grid.innerHTML = `
                 <div class="usmle-empty">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:.3; margin-bottom:.75rem;">
-                        <path d="M12 6v6m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    <p>${searchQuery ? 'Предметы не найдены' : 'Предметы для этого Step пока не добавлены'}</p>
+                    <p>Для ${STEP_LABELS[activeStep]} пока нет банков вопросов.</p>
+                    <p style="font-size:.85rem; margin-top:.5rem;">В админке создайте предмет Step с нужным Step и добавьте тесты (UWorld, NBME…).</p>
                 </div>`;
             return;
         }
 
-        grid.innerHTML = subjects.map(s => renderCard(s)).join('');
+        grid.innerHTML = banks.map((t, i) => {
+            const pct = Number(t.percentage) || 0;
+            const active = i === 0;
+            return `
+            <div class="usmle-bank-card${active ? ' active-bank' : ''}"
+                 role="button" tabindex="0"
+                 data-test-id="${t.id}"
+                 data-test-name="${escHtml(t.name)}"
+                 onclick="openBuilderFromCard(this)"
+                 onkeydown="if(event.key==='Enter') this.click()">
+                <div class="usmle-bank-top">
+                    <h3 class="usmle-bank-name">${escHtml(t.name)}</h3>
+                    <span class="usmle-bank-pct">${pct.toFixed(1)}% Used</span>
+                </div>
+                <div class="usmle-bank-stats">
+                    <div class="usmle-bank-stat"><span>Total Questions</span><strong>${t.totalQuestions}</strong></div>
+                    <div class="usmle-bank-stat"><span>Used Questions</span><strong>${t.usedQuestions}</strong></div>
+                    <div class="usmle-bank-stat"><span>Correct</span><strong>${t.correctCount}</strong></div>
+                </div>
+            </div>`;
+        }).join('');
     }
 
-    function renderCard(s) {
-        const pct = s.percentage;
-        const isComplete = pct === 100;
-        const fillClass  = isComplete ? 'usmle-progress-fill complete' : 'usmle-progress-fill';
-        const name = escHtml(s.name);
-        const urlName = encodeURIComponent(s.name);
-        const urlDesc = encodeURIComponent(s.description || '');
-
-        return `
-        <div class="usmle-subject-card"
-             onclick="window.location.href='/subject-tests?id=${s.id}&name=${urlName}&desc=${urlDesc}&program=usmle'"
-             role="button" tabindex="0"
-             onkeydown="if(event.key==='Enter') this.click()">
-            <div class="usmle-card-name">${name}</div>
-            <div class="usmle-card-stats">
-                <div class="usmle-card-stat">
-                    <span>Всего вопросов</span>
-                    <span class="usmle-card-stat-val">${s.totalQuestions}</span>
-                </div>
-                <div class="usmle-card-stat">
-                    <span>Решено</span>
-                    <span class="usmle-card-stat-val">${s.usedQuestions}</span>
-                </div>
-                <div class="usmle-card-stat">
-                    <span>Правильных</span>
-                    <span class="usmle-card-stat-val">${s.correctCount}</span>
-                </div>
-            </div>
-            <div class="usmle-progress-wrap">
-                <div class="${fillClass}" style="width:${pct}%"></div>
-            </div>
-            <div class="usmle-card-pct">${pct}% решено</div>
-        </div>`;
+    function openBuilderFromCard(el) {
+        openBuilder({
+            id: Number(el.dataset.testId),
+            name: el.dataset.testName || ''
+        });
     }
 
     function escHtml(str) {
         return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
 
-    function setEl(id, val) {
-        const el = document.getElementById(id);
-        if (el) el.textContent = val;
-    }
-
-    function plural(n) {
-        const mod10 = n % 10, mod100 = n % 100;
-        if (mod10 === 1 && mod100 !== 11) return '';
-        if ([2,3,4].includes(mod10) && ![12,13,14].includes(mod100)) return 'а';
-        return 'ов';
-    }
-
-    /* ── Load dashboard ── */
     async function loadDashboard() {
         try {
             const token = localStorage.getItem('token');
-            const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+            const headers = token ? { Authorization: `Bearer ${token}` } : {};
             const res = await fetch('/api/tests/usmle/dashboard', { headers });
             if (!res.ok) throw new Error();
             dashboardData = await res.json();
-
-            document.getElementById('usmleLoading').style.display   = 'none';
-            document.getElementById('usmleSubjectsGrid').style.display = '';
-            document.getElementById('usmleStatsBar').style.display   = 'flex';
-            document.getElementById('usmleActionBar').style.display  = 'flex';
-
+            document.getElementById('usmleLoading').style.display = 'none';
+            document.getElementById('usmleBanksGrid').style.display = '';
             renderCards();
-        } catch (e) {
+        } catch {
             document.getElementById('usmleLoading').innerHTML =
-                `<p style="text-align:center; color:var(--danger-color,#dc2626); padding:3rem;">
-                    Ошибка загрузки. <button onclick="loadDashboard()" class="btn btn-secondary btn-sm" style="margin-left:.5rem;">Повторить</button>
+                `<p style="text-align:center;color:var(--danger-color,#dc2626);padding:2rem;">
+                    Ошибка загрузки.
+                    <button onclick="loadDashboard()" class="btn btn-secondary btn-sm" style="margin-left:.5rem;">Повторить</button>
                 </p>`;
         }
     }
 
-    /* ── Init ── */
     document.addEventListener('DOMContentLoaded', async () => {
         if (typeof window.initTheme === 'function') window.initTheme();
         if (typeof window.setProgramType === 'function') window.setProgramType('usmle');
