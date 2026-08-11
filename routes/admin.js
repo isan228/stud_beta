@@ -1382,6 +1382,68 @@ router.put('/subscription-plans/:universityId', adminAuth, [
   }
 });
 
+// Статистика подписок USMLE
+router.get('/usmle-stats', adminAuth, async (req, res) => {
+  try {
+    const now = new Date();
+
+    const [activeSubscribers, expiredSubscribers, everSubscribers, paidTx] = await Promise.all([
+      User.count({
+        where: {
+          usmleSubscriptionEndDate: { [Op.gt]: now }
+        }
+      }),
+      User.count({
+        where: {
+          usmleSubscriptionEndDate: {
+            [Op.and]: [
+              { [Op.ne]: null },
+              { [Op.lte]: now }
+            ]
+          }
+        }
+      }),
+      User.count({
+        where: {
+          usmleSubscriptionEndDate: { [Op.ne]: null }
+        }
+      }),
+      Transaction.findAll({
+        where: { status: 'SUCCEEDED' },
+        attributes: ['id', 'amount', 'userId', 'fields', 'createdAt'],
+        order: [['createdAt', 'DESC']],
+        limit: 5000
+      })
+    ]);
+
+    let paidCount = 0;
+    let revenue = 0;
+    const buyerIds = new Set();
+    for (const tx of paidTx) {
+      const fields = tx.fields || {};
+      const pType = fields.paymentType || '';
+      const program = fields.programType || '';
+      const isUsmle = pType === 'usmle_subscription' || program === 'usmle';
+      if (!isUsmle) continue;
+      paidCount++;
+      revenue += parseFloat(tx.amount) || 0;
+      if (tx.userId) buyerIds.add(tx.userId);
+    }
+
+    res.json({
+      activeSubscribers,
+      expiredSubscribers,
+      everSubscribers,
+      paidTransactions: paidCount,
+      uniqueBuyers: buyerIds.size,
+      revenue: Math.round(revenue * 100) / 100
+    });
+  } catch (error) {
+    console.error('Ошибка статистики USMLE:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 // Тарифы USMLE
 router.get('/usmle-subscription-plans', adminAuth, async (req, res) => {
   try {

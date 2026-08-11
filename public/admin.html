@@ -566,6 +566,30 @@
 
                     <div class="admin-subs-layout">
                         <aside class="admin-subs-sidebar">
+                            <div class="admin-subs-uni-card" id="usmleStatsCard">
+                                <div class="admin-subs-uni-label">Подписки USMLE</div>
+                                <div class="usmle-admin-stats" style="display:grid; grid-template-columns:1fr 1fr; gap:0.65rem; margin-top:0.75rem;">
+                                    <div style="background:var(--bg-secondary); border-radius:0.5rem; padding:0.65rem 0.75rem;">
+                                        <div style="font-size:0.7rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.03em;">Активных</div>
+                                        <div id="usmleStatActive" style="font-size:1.35rem; font-weight:800; color:var(--primary-color); line-height:1.2;">—</div>
+                                    </div>
+                                    <div style="background:var(--bg-secondary); border-radius:0.5rem; padding:0.65rem 0.75rem;">
+                                        <div style="font-size:0.7rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.03em;">Истекло</div>
+                                        <div id="usmleStatExpired" style="font-size:1.35rem; font-weight:800; color:var(--text-color); line-height:1.2;">—</div>
+                                    </div>
+                                    <div style="background:var(--bg-secondary); border-radius:0.5rem; padding:0.65rem 0.75rem;">
+                                        <div style="font-size:0.7rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.03em;">Всего брали</div>
+                                        <div id="usmleStatEver" style="font-size:1.35rem; font-weight:800; color:var(--text-color); line-height:1.2;">—</div>
+                                    </div>
+                                    <div style="background:var(--bg-secondary); border-radius:0.5rem; padding:0.65rem 0.75rem;">
+                                        <div style="font-size:0.7rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.03em;">Оплат</div>
+                                        <div id="usmleStatPaid" style="font-size:1.35rem; font-weight:800; color:var(--text-color); line-height:1.2;">—</div>
+                                    </div>
+                                </div>
+                                <p style="margin:0.75rem 0 0; font-size:0.8rem; color:var(--text-secondary);">
+                                    Выручка USMLE: <strong id="usmleStatRevenue">—</strong> сом
+                                </p>
+                            </div>
                             <div class="admin-subs-uni-card">
                                 <div class="admin-subs-uni-label">Тарифы подписки USMLE</div>
                                 <p class="admin-subs-hint" style="margin-top:0;">Цены не привязаны к университету — общие для всей программы.</p>

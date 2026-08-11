@@ -2711,6 +2711,31 @@ async function saveSubscriptionPlansAdmin(e) {
     }
 }
 
+async function loadUsmleStatsAdmin() {
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/usmle-stats`, {
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+        });
+        if (!response.ok) throw new Error('fail');
+        const data = await response.json();
+        const set = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = String(val ?? '—');
+        };
+        set('usmleStatActive', data.activeSubscribers);
+        set('usmleStatExpired', data.expiredSubscribers);
+        set('usmleStatEver', data.everSubscribers);
+        set('usmleStatPaid', data.paidTransactions);
+        const rev = document.getElementById('usmleStatRevenue');
+        if (rev) {
+            const n = Number(data.revenue) || 0;
+            rev.textContent = n.toLocaleString('ru-RU', { maximumFractionDigits: 2 });
+        }
+    } catch (e) {
+        console.error('loadUsmleStatsAdmin', e);
+    }
+}
+
 async function loadUsmlePlansAdmin() {
     try {
         const response = await fetch(`${ADMIN_API_URL}/usmle-subscription-plans`, {
@@ -3016,6 +3041,7 @@ function refreshQuestionsAfterUpload() {
 
 async function loadUsmleAdminPanel() {
     await Promise.all([
+        loadUsmleStatsAdmin(),
         loadUsmlePlansAdmin(),
         loadAdminQuestionTags(),
         loadUsmleSubjectsAdmin()
