@@ -278,6 +278,198 @@ router.get('/subjects', async (req, res) => {
   }
 });
 
+/**
+ * Теги USMLE сгруппированные по категориям (для конструктора тестов).
+ * Возвращает { subjects: [...], systems: [...] }
+ */
+router.get('/usmle/tags/grouped', async (req, res) => {
+  try {
+    const tags = await QuestionTag.findAll({
+      where: { isActive: true },
+      attributes: ['id', 'name', 'slug'],
+      order: [['name', 'ASC']]
+    });
+
+    const { USMLE_SUBJECTS } = require('../utils/ensureUsmleTagsSeeded');
+    const SUBJECTS = new Set(USMLE_SUBJECTS.map(s => s.toLowerCase()));
+
+    const subjects = [];
+    const systems = [];
+
+    for (const tag of tags) {
+      const lower = tag.name.toLowerCase();
+      if (SUBJECTS.has(lower)) {
+        subjects.push(tag);
+      } else {
+        systems.push(tag);
+      }
+    }
+
+    res.json({ subjects, systems });
+  } catch (error) {
+    console.error('Ошибка получения тегов USMLE grouped:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+/**
+ * Получить вопросы из банка USMLE по выбранным тегам для конструктора.
+ * POST /usmle/custom-test/questions
+ * Body: { subjectTagIds, systemTagIds, questionCount, questionMode, randomizeAnswers, instantFeedbackMode }
+ */
+router.post('/usmle/custom-test/questions', async (req, res) => {
+  try {
+    const userId = tryGetUserIdFromRequest(req);
+
+    // Проверяем подписку USMLE
+    if (userId) {
+      const user = await User.findByPk(userId, { attributes: ['id', 'subscriptionType', 'subscriptionExpiresAt'] });
+      if (!user || !isSubscriptionActive(user)) {
+        return res.status(403).json({ error: 'Требуется активная подписка USMLE' });
+      }
+    } else {
+      return res.status(401).json({ error: 'Требуется авторизация' });
+    }
+
+    const {
+      subjectTagIds = [],
+      systemTagIds = [],
+      questionCount = 40,
+      questionMode = 'unsolved',
+      randomizeAnswers = true,
+      instantFeedbackMode = false
+    } = req.body;
+
+    const allTagIds = [...new Set([...subjectTagIds, ...systemTagIds].map(Number).filter(n => n > 0))];
+
+    let questionIds;
+
+    if (allTagIds.length === 0) {
+      // Нет фильтров — берём все USMLE вопросы
+      const allQ = await Question.findAll({
+        include: [{ model: Test, as: 'Test', where: { programType: 'usmle' }, attributes: ['id'], required: true }],
+        attributes: ['id'],
+        raw: true
+      });
+      questionIds = allQ.map(q => q.id);
+    } else {
+      // Intersection: вопросы должны иметь хотя бы один subject-тег И хотя бы один system-тег (если оба переданы)
+      const getQIds = async (tagIds) => {
+        if (!tagIds.length) return null;
+        const maps = await QuestionTagMap.findAll({
+          where: { tagId: { [Op.in]: tagIds } },
+          attributes: ['questionId'],
+          raw: true
+        });
+        return new Set(maps.map(m => m.questionId));
+      };
+
+      const subjectSet = await getQIds(subjectTagIds.map(Number).filter(n => n > 0));
+      const systemSet = await getQIds(systemTagIds.map(Number).filter(n => n > 0));
+
+      let combinedSet;
+      if (subjectSet && systemSet) {
+        combinedSet = new Set([...subjectSet].filter(id => systemSet.has(id)));
+      } else {
+        combinedSet = subjectSet || systemSet || new Set();
+      }
+
+      // Фильтруем только USMLE вопросы
+      if (combinedSet.size === 0) {
+        return res.json([]);
+      }
+
+      const usmleQ = await Question.findAll({
+        where: { id: { [Op.in]: [...combinedSet] } },
+        include: [{ model: Test, as: 'Test', where: { programType: 'usmle' }, attributes: ['id'], required: true }],
+        attributes: ['id'],
+        raw: true
+      });
+      questionIds = usmleQ.map(q => q.id);
+    }
+
+    if (!questionIds.length) {
+      return res.json([]);
+    }
+
+    // Фильтрация по режиму (unsolved / incorrect / etc.)
+    if (questionMode && questionMode !== 'all') {
+      const state = {};
+      const results = await TestResult.findAll({
+        where: { userId },
+        attributes: ['questionId', 'isCorrect'],
+        raw: true
+      });
+      for (const r of results) {
+        if (!state[r.questionId]) state[r.questionId] = { solved: 0, correct: 0 };
+        state[r.questionId].solved++;
+        if (r.isCorrect) state[r.questionId].correct++;
+      }
+
+      const pool = new Set();
+      for (const qId of questionIds) {
+        const s = state[qId];
+        if (questionMode === 'unsolved' && !s) pool.add(qId);
+        else if (questionMode === 'solved' && s) pool.add(qId);
+        else if (questionMode === 'correct' && s && s.correct > 0) pool.add(qId);
+        else if (questionMode === 'incorrect' && s && s.solved > s.correct) pool.add(qId);
+      }
+      questionIds = [...pool];
+    }
+
+    if (!questionIds.length) {
+      return res.json([]);
+    }
+
+    // Перемешиваем и лимитируем
+    let shuffled = questionIds.sort(() => Math.random() - 0.5);
+    const limit = Math.min(parseInt(questionCount, 10) || 40, shuffled.length);
+    shuffled = shuffled.slice(0, limit);
+
+    // Загружаем вопросы с ответами
+    const questions = await Question.findAll({
+      where: { id: { [Op.in]: shuffled } },
+      include: [
+        { model: Answer, as: 'Answers' },
+        { model: Test, as: 'Test', attributes: ['id', 'name'], required: false }
+      ]
+    });
+
+    // Восстанавливаем порядок перемешивания
+    const qMap = new Map(questions.map(q => [q.id, q]));
+    const ordered = shuffled.map(id => qMap.get(id)).filter(Boolean);
+
+    const result = ordered.map(q => {
+      const qj = q.toJSON();
+      let answers = [...(qj.Answers || [])];
+      if (randomizeAnswers) answers = answers.sort(() => Math.random() - 0.5);
+
+      return {
+        id: qj.id,
+        text: qj.text,
+        testId: qj.testId,
+        testName: qj.Test?.name || '',
+        imageUrl: qj.imageUrl || null,
+        ...(instantFeedbackMode ? {
+          explanation: qj.explanation || null,
+          explanationImageUrl: qj.explanationImageUrl || null
+        } : {}),
+        Answers: answers.map(a => ({
+          id: a.id,
+          text: a.text,
+          ...(a.imageUrl ? { imageUrl: a.imageUrl } : {}),
+          isCorrect: Boolean(a.isCorrect)
+        }))
+      };
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error('Ошибка USMLE custom test:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 /** Теги USMLE (для фильтрации) */
 router.get('/usmle/tags', async (req, res) => {
   try {

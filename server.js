@@ -139,7 +139,8 @@ const pages = {
   '/redact': 'redact.html',
   '/payment': 'payment.html',
   '/payment/success': 'payment-success.html',
-  '/subscriptions': 'subscriptions.html'
+  '/subscriptions': 'subscriptions.html',
+  '/usmle-test-builder': 'usmle-test-builder.html'
 };
 
 // Старый URL новостей → программа USMLE
@@ -256,6 +257,12 @@ sequelize.authenticate()
     }
     const { ensureUniversities } = require('./utils/ensureUniversities');
     await ensureUniversities();
+    try {
+      const { ensureUsmleTagsSeeded } = require('./utils/ensureUsmleTagsSeeded');
+      await ensureUsmleTagsSeeded();
+    } catch (e) {
+      console.warn('ensureUsmleTagsSeeded:', e.message);
+    }
     // После sync (если таблица только создана) — индекс тарифов
     try {
       const { prepareSubscriptionPlansSchema } = require('./utils/prepareSubscriptionPlansSchema');

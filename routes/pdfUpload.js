@@ -178,7 +178,7 @@ async function handleTxtUpload(req, res, parseOptions) {
   const questions = parseQuestionsFromText(text, parseOptions);
   if (questions.length === 0) {
     const hint = parseOptions.requireExplanation && parseOptions.requireTags
-      ? 'Проверьте формат: нужны поля ID, Q, A1–A5, Correct, E (объяснение) и Tags (теги через запятую).'
+      ? 'Проверьте формат: нужны поля ID, Q, A1–A5, Correct, E (объяснение), Subject (тема) и System (система). Теги через запятую.'
       : parseOptions.requireExplanation
         ? 'Проверьте формат: нужны поля ID, Q, A1–A5, Correct и E (объяснение).'
         : 'Проверьте формат: нужны поля ID, Q, A1–A5, Correct.';
@@ -274,9 +274,19 @@ function parseQuestionsFromText(text, options = {}) {
       }
 
       const tagsMatch = block.match(/"(?:Tags|T|Tag)"\s*:\s*"([^"]+)"/i);
-      const tagNames = parseTagNames(tagsMatch ? tagsMatch[1] : '');
+      const subjectMatch = block.match(/"Subject"\s*:\s*"([^"]+)"/i);
+      const systemMatch = block.match(/"System"\s*:\s*"([^"]+)"/i);
+
+      // Объединяем все источники тегов
+      const rawTagStr = [
+        tagsMatch ? tagsMatch[1] : '',
+        subjectMatch ? subjectMatch[1] : '',
+        systemMatch ? systemMatch[1] : ''
+      ].filter(Boolean).join(',');
+
+      const tagNames = parseTagNames(rawTagStr);
       if (requireTags && !tagNames.length) {
-        console.warn(`Вопрос ID ${idMatch[1]}: нет поля Tags`);
+        console.warn(`Вопрос ID ${idMatch[1]}: нет поля Tags/Subject/System`);
         continue;
       }
 
