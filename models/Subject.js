@@ -29,6 +29,12 @@ const Subject = sequelize.define('Subject', {
     defaultValue: 'university',
     comment: 'university | usmle'
   },
+  stepGroup: {
+    type: DataTypes.STRING(10),
+    allowNull: true,
+    defaultValue: null,
+    comment: 'Только для programType=usmle: step1 | step2 | step3'
+  },
   createdAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW

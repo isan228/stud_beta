@@ -279,6 +279,106 @@ router.get('/subjects', async (req, res) => {
 });
 
 /**
+ * USMLE: предметы с прогрессом пользователя, сгруппированные по step.
+ * GET /usmle/dashboard
+ * Возвращает { step1: [...], step2: [...], step3: [...] }
+ * Каждый предмет содержит: id, name, stepGroup, totalQuestions, usedQuestions, correctCount
+ */
+router.get('/usmle/dashboard', async (req, res) => {
+  try {
+    const userId = tryGetUserIdFromRequest(req);
+
+    const subjects = await Subject.findAll({
+      where: { programType: 'usmle', universityId: null },
+      attributes: ['id', 'name', 'description', 'stepGroup'],
+      order: [['name', 'ASC']]
+    });
+
+    // Все тесты USMLE с количеством вопросов
+    const tests = await Test.findAll({
+      where: { programType: 'usmle' },
+      attributes: ['id', 'subjectId'],
+      include: [{
+        model: Question,
+        as: 'Questions',
+        attributes: ['id'],
+        required: false
+      }]
+    });
+
+    // Карта subjectId → totalQuestions, questionIds
+    const subjectStats = new Map();
+    for (const t of tests) {
+      if (!t.subjectId) continue;
+      if (!subjectStats.has(t.subjectId)) {
+        subjectStats.set(t.subjectId, { total: 0, qIds: new Set() });
+      }
+      const s = subjectStats.get(t.subjectId);
+      for (const q of (t.Questions || [])) {
+        s.qIds.add(q.id);
+      }
+    }
+    for (const [sid, s] of subjectStats) {
+      s.total = s.qIds.size;
+    }
+
+    // Прогресс пользователя
+    let userProgress = new Map(); // questionId → { solved, correct }
+    if (userId) {
+      const results = await TestResult.findAll({
+        where: { userId },
+        attributes: ['questionId', 'isCorrect'],
+        raw: true
+      });
+      for (const r of results) {
+        if (!userProgress.has(r.questionId)) userProgress.set(r.questionId, { solved: 0, correct: 0 });
+        const p = userProgress.get(r.questionId);
+        p.solved++;
+        if (r.isCorrect) p.correct++;
+      }
+    }
+
+    const grouped = { step1: [], step2: [], step3: [], other: [] };
+
+    for (const subj of subjects) {
+      const stats = subjectStats.get(subj.id) || { total: 0, qIds: new Set() };
+      let used = 0;
+      let correct = 0;
+      for (const qId of stats.qIds) {
+        const p = userProgress.get(qId);
+        if (p && p.solved > 0) {
+          used++;
+          if (p.correct > 0) correct++;
+        }
+      }
+
+      const item = {
+        id: subj.id,
+        name: subj.name,
+        description: subj.description || '',
+        stepGroup: subj.stepGroup || 'step1',
+        totalQuestions: stats.total,
+        usedQuestions: used,
+        correctCount: correct,
+        percentage: stats.total > 0 ? Math.round((used / stats.total) * 100) : 0
+      };
+
+      const key = item.stepGroup in grouped ? item.stepGroup : 'other';
+      grouped[key].push(item);
+    }
+
+    // Свести "other" в step1 если нет явного шага
+    grouped.step1 = [...grouped.step1, ...grouped.other];
+    delete grouped.other;
+
+    res.json(grouped);
+  } catch (error) {
+    console.error('Ошибка USMLE dashboard:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+/**
  * Теги USMLE сгруппированные по категориям (для конструктора тестов).
  * Возвращает { subjects: [...], systems: [...] }
  */
@@ -290,6 +390,29 @@ router.get('/usmle/tags/grouped', async (req, res) => {
       order: [['name', 'ASC']]
     });
 
+    // Считаем только вопросы из USMLE-тестов
+    const maps = await QuestionTagMap.findAll({
+      attributes: ['tagId', 'questionId'],
+      raw: true
+    });
+    const usmleQuestions = await Question.findAll({
+      attributes: ['id'],
+      include: [{
+        model: Test,
+        as: 'Test',
+        attributes: [],
+        required: true,
+        where: { programType: 'usmle' }
+      }],
+      raw: true
+    });
+    const usmleSet = new Set(usmleQuestions.map((q) => q.id));
+    const countByTag = new Map();
+    for (const m of maps) {
+      if (!usmleSet.has(m.questionId)) continue;
+      countByTag.set(m.tagId, (countByTag.get(m.tagId) || 0) + 1);
+    }
+
     const { USMLE_SUBJECTS } = require('../utils/ensureUsmleTagsSeeded');
     const SUBJECTS = new Set(USMLE_SUBJECTS.map(s => s.toLowerCase()));
 
@@ -297,11 +420,16 @@ router.get('/usmle/tags/grouped', async (req, res) => {
     const systems = [];
 
     for (const tag of tags) {
-      const lower = tag.name.toLowerCase();
-      if (SUBJECTS.has(lower)) {
-        subjects.push(tag);
+      const item = {
+        id: tag.id,
+        name: tag.name,
+        slug: tag.slug,
+        questionCount: countByTag.get(tag.id) || 0
+      };
+      if (SUBJECTS.has(tag.name.toLowerCase())) {
+        subjects.push(item);
       } else {
-        systems.push(tag);
+        systems.push(item);
       }
     }
 

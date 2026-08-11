@@ -1649,11 +1649,16 @@ router.post('/subjects', adminAuth, [
       });
     }
 
+    const stepGroup = (programType === 'usmle' && req.body.stepGroup)
+      ? String(req.body.stepGroup).toLowerCase().replace(/[^a-z0-9]/g, '')
+      : null;
+
     const subject = await Subject.create({
       name: String(name).trim(),
       description,
       universityId,
-      programType
+      programType,
+      stepGroup: stepGroup || null
     });
     res.status(201).json(subject);
   } catch (error) {
@@ -1717,6 +1722,11 @@ router.put('/subjects/:id', adminAuth, [
     if (description !== undefined) subject.description = description;
     subject.programType = nextProgram;
     subject.universityId = nextUniversityId;
+    if (nextProgram === 'usmle' && req.body.stepGroup !== undefined) {
+      subject.stepGroup = String(req.body.stepGroup).toLowerCase().replace(/[^a-z0-9]/g, '') || 'step1';
+    } else if (nextProgram !== 'usmle') {
+      subject.stepGroup = null;
+    }
     await subject.save();
 
     await Test.update(

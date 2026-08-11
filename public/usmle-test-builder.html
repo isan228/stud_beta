@@ -171,6 +171,7 @@
         .tag-item {
             display: flex;
             align-items: center;
+            justify-content: space-between;
             gap: .6rem;
             padding: .5rem .65rem;
             border-radius: .45rem;
@@ -189,6 +190,13 @@
             border-color: color-mix(in srgb, var(--primary-color) 25%, transparent);
         }
 
+        .tag-item-left {
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+            min-width: 0;
+        }
+
         .tag-checkbox {
             width: 1rem;
             height: 1rem;
@@ -202,6 +210,19 @@
             color: var(--text-color);
             line-height: 1.35;
             user-select: none;
+        }
+
+        .tag-count {
+            flex-shrink: 0;
+            font-size: .75rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            background: color-mix(in srgb, var(--primary-color) 12%, var(--card-bg));
+            border-radius: 999px;
+            padding: .15rem .5rem;
+            line-height: 1.2;
+            min-width: 1.6rem;
+            text-align: center;
         }
 
         /* ── Settings panel ── */
@@ -586,11 +607,15 @@
         label.className = 'tag-item' + (selected ? ' selected' : '');
         label.dataset.tagId = tag.id;
 
+        const count = Number(tag.questionCount) || 0;
         label.innerHTML = `
-            <input type="checkbox" class="tag-checkbox"
-                data-id="${tag.id}" data-group="${group}"
-                ${selected ? 'checked' : ''}>
-            <span class="tag-name">${escapeHtml(tag.name)}</span>`;
+            <span class="tag-item-left">
+                <input type="checkbox" class="tag-checkbox"
+                    data-id="${tag.id}" data-group="${group}"
+                    ${selected ? 'checked' : ''}>
+                <span class="tag-name">${escapeHtml(tag.name)}</span>
+            </span>
+            <span class="tag-count">${count}</span>`;
 
         label.querySelector('input').addEventListener('change', e => {
             toggleTag(tag.id, group, e.target.checked, label);

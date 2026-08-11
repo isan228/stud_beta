@@ -1281,6 +1281,8 @@ async function editSubject(subjectId) {
             document.getElementById('subjectId').value = subject.id;
             document.getElementById('subjectName').value = subject.name;
             document.getElementById('subjectDescription').value = subject.description || '';
+            const stepSel = document.getElementById('subjectStepGroupSelect');
+            if (stepSel) stepSel.value = subject.stepGroup || 'step1';
             document.getElementById('subjectModalTitle').textContent = 'Редактировать предмет';
             document.getElementById('subjectModal').style.display = 'block';
         }
@@ -1294,9 +1296,11 @@ function toggleSubjectUniversityField() {
     const program = document.getElementById('subjectProgramType')?.value;
     const group = document.getElementById('subjectUniversityGroup');
     const select = document.getElementById('subjectUniversityId');
+    const stepGroup = document.getElementById('subjectStepGroup');
     if (!group) return;
     const isUsmle = program === 'usmle';
     group.style.display = isUsmle ? 'none' : '';
+    if (stepGroup) stepGroup.style.display = isUsmle ? '' : 'none';
     if (select) select.required = !isUsmle;
 }
 
@@ -1535,8 +1539,10 @@ async function saveSubject(e) {
     try {
         const url = id ? `${ADMIN_API_URL}/subjects/${id}` : `${ADMIN_API_URL}/subjects`;
         const method = id ? 'PUT' : 'POST';
+        const stepGroup = document.getElementById('subjectStepGroupSelect')?.value || 'step1';
         const payload = { name, description, programType };
         if (programType === 'university') payload.universityId = universityId;
+        if (programType === 'usmle') payload.stepGroup = stepGroup;
 
         const response = await fetch(url, {
             method,
