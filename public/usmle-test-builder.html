@@ -14,14 +14,50 @@
     <title>Конструктор теста — USMLE stud.kg</title>
     <link rel="stylesheet" href="styles.css">
     <style>
-        /* ── Builder layout ── */
         .builder-wrap {
-            max-width: 900px;
+            max-width: 860px;
             margin: 0 auto;
         }
 
-        .builder-back {
-            margin-bottom: 1.25rem;
+        /* ── Breadcrumb ── */
+        .builder-breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            font-size: .875rem;
+            color: var(--text-muted);
+            margin-bottom: 1.75rem;
+        }
+
+        .builder-breadcrumb a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .builder-breadcrumb a:hover { text-decoration: underline; }
+
+        .builder-breadcrumb-sep {
+            opacity: .4;
+        }
+
+        /* ── Page header ── */
+        .builder-header {
+            margin-bottom: 2rem;
+        }
+
+        .builder-header h1 {
+            font-size: 1.625rem;
+            font-weight: 700;
+            margin: 0 0 .4rem;
+            color: var(--text-color);
+        }
+
+        .builder-header p {
+            font-size: .9rem;
+            color: var(--text-secondary);
+            margin: 0;
+            line-height: 1.55;
         }
 
         /* ── Tag group card ── */
@@ -30,7 +66,7 @@
             border: 1px solid var(--border-light);
             border-radius: var(--radius-lg, 1rem);
             box-shadow: var(--shadow);
-            margin-bottom: 1.25rem;
+            margin-bottom: 1rem;
             overflow: hidden;
         }
 
@@ -38,109 +74,134 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 1rem 1.25rem;
+            padding: .9rem 1.25rem;
             cursor: pointer;
             user-select: none;
-            border-bottom: 1px solid var(--border-light);
             background: var(--bg-secondary);
             gap: 1rem;
+            transition: background .15s;
         }
 
         .tag-group-header:hover {
             background: color-mix(in srgb, var(--primary-color) 5%, var(--bg-secondary));
         }
 
-        .tag-group-title {
+        .tag-group.open .tag-group-header {
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .tag-group-left {
             display: flex;
             align-items: center;
             gap: .75rem;
-            font-size: 1.05rem;
+            min-width: 0;
+        }
+
+        .master-checkbox {
+            width: 1.1rem;
+            height: 1.1rem;
+            cursor: pointer;
+            accent-color: var(--primary-color);
+            flex-shrink: 0;
+        }
+
+        .tag-group-label {
+            font-size: .95rem;
             font-weight: 700;
             color: var(--text-color);
         }
 
-        .tag-group-master {
-            display: flex;
-            align-items: center;
-            gap: .5rem;
+        .tag-group-badge {
+            font-size: .75rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            background: color-mix(in srgb, var(--primary-color) 12%, var(--card-bg));
+            border-radius: 999px;
+            padding: .15rem .55rem;
+            display: none;
         }
 
-        .master-checkbox {
-            width: 1.15rem;
-            height: 1.15rem;
-            cursor: pointer;
-            accent-color: var(--primary-color);
+        .tag-group-badge.visible { display: inline-block; }
+
+        .tag-group-right {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            flex-shrink: 0;
+        }
+
+        .tag-group-count {
+            font-size: .8rem;
+            color: var(--text-muted);
         }
 
         .tag-group-chevron {
-            font-size: .9rem;
+            width: 1rem;
+            height: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             color: var(--text-muted);
-            transition: transform .25s;
+            transition: transform .22s;
             flex-shrink: 0;
+        }
+
+        .tag-group-chevron svg {
+            width: 12px;
+            height: 12px;
+            fill: currentColor;
         }
 
         .tag-group.open .tag-group-chevron { transform: rotate(180deg); }
 
         .tag-group-body {
             display: none;
-            padding: 1.1rem 1.25rem 1.25rem;
+            padding: 1rem 1.25rem 1.25rem;
         }
 
         .tag-group.open .tag-group-body { display: block; }
 
-        /* ── Tag item row ── */
+        /* ── Tag grid ── */
         .tag-list {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: .5rem .75rem;
+            gap: .25rem .5rem;
         }
 
         .tag-item {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: .5rem;
-            padding: .55rem .75rem;
-            border-radius: .5rem;
+            gap: .6rem;
+            padding: .5rem .65rem;
+            border-radius: .45rem;
             cursor: pointer;
-            transition: background .15s;
+            transition: background .12s;
+            border: 1px solid transparent;
         }
 
-        .tag-item:hover { background: var(--bg-secondary); }
+        .tag-item:hover {
+            background: var(--bg-secondary);
+            border-color: var(--border-light);
+        }
 
         .tag-item.selected {
-            background: color-mix(in srgb, var(--primary-color) 10%, var(--card-bg));
-        }
-
-        .tag-item-left {
-            display: flex;
-            align-items: center;
-            gap: .6rem;
-            min-width: 0;
+            background: color-mix(in srgb, var(--primary-color) 9%, var(--card-bg));
+            border-color: color-mix(in srgb, var(--primary-color) 25%, transparent);
         }
 
         .tag-checkbox {
-            width: 1.1rem;
-            height: 1.1rem;
+            width: 1rem;
+            height: 1rem;
             flex-shrink: 0;
             cursor: pointer;
             accent-color: var(--primary-color);
         }
 
         .tag-name {
-            font-size: .9rem;
+            font-size: .875rem;
             color: var(--text-color);
-            line-height: 1.3;
-        }
-
-        .tag-count {
-            font-size: .8rem;
-            font-weight: 600;
-            color: var(--primary-color);
-            background: color-mix(in srgb, var(--primary-color) 12%, var(--card-bg));
-            border-radius: 999px;
-            padding: .15rem .55rem;
-            flex-shrink: 0;
+            line-height: 1.35;
+            user-select: none;
         }
 
         /* ── Settings panel ── */
@@ -150,20 +211,22 @@
             border-radius: var(--radius-lg, 1rem);
             box-shadow: var(--shadow);
             padding: 1.25rem;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
         }
 
-        .builder-settings-title {
-            font-size: 1rem;
+        .builder-settings-heading {
+            font-size: .8rem;
             font-weight: 700;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            color: var(--text-muted);
             margin: 0 0 1rem;
-            color: var(--text-color);
         }
 
         .builder-settings-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 1rem;
+            gap: 1.25rem 1.5rem;
         }
 
         .builder-field {
@@ -173,76 +236,84 @@
         }
 
         .builder-field label {
-            font-size: .85rem;
+            font-size: .8rem;
             font-weight: 600;
             color: var(--text-secondary);
+            letter-spacing: .02em;
         }
 
-        .builder-field input[type="number"],
-        .builder-field select {
-            padding: .65rem .85rem;
+        .builder-field input[type="number"] {
+            padding: .6rem .85rem;
             border: 1.5px solid var(--border-color);
             border-radius: .5rem;
             background: var(--bg-color);
             color: var(--text-color);
-            font-size: 1rem;
+            font-size: .95rem;
+            font-weight: 600;
+            width: 100%;
+            box-sizing: border-box;
             -webkit-appearance: none;
             appearance: none;
+            transition: border-color .15s, box-shadow .15s;
         }
 
-        .builder-field input[type="number"]:focus,
-        .builder-field select:focus {
+        .builder-field input[type="number"]:focus {
             outline: none;
             border-color: var(--primary-color);
             box-shadow: 0 0 0 3px rgba(37,99,235,.1);
         }
 
-        /* ── Mode toggle ── */
-        .builder-mode-row {
+        /* ── Toggle pill group ── */
+        .toggle-pills {
             display: flex;
-            gap: .5rem;
+            gap: .35rem;
             flex-wrap: wrap;
         }
 
-        .builder-mode-btn {
-            flex: 1;
-            min-width: 100px;
-            padding: .55rem .75rem;
+        .toggle-pill {
+            padding: .45rem .85rem;
             border: 1.5px solid var(--border-color);
-            border-radius: .5rem;
+            border-radius: 999px;
             background: var(--bg-color);
             color: var(--text-secondary);
-            font-size: .85rem;
+            font-size: .8rem;
             font-weight: 600;
             cursor: pointer;
-            text-align: center;
+            white-space: nowrap;
             transition: all .15s;
+            line-height: 1;
         }
 
-        .builder-mode-btn.active {
+        .toggle-pill:hover {
             border-color: var(--primary-color);
-            background: color-mix(in srgb, var(--primary-color) 12%, var(--card-bg));
             color: var(--primary-color);
         }
 
-        /* ── Footer / start ── */
+        .toggle-pill.active {
+            border-color: var(--primary-color);
+            background: var(--primary-color);
+            color: #fff;
+        }
+
+        /* ── Sticky footer ── */
         .builder-footer {
             position: sticky;
             bottom: 0;
             background: var(--bg-color);
             border-top: 1px solid var(--border-light);
-            padding: 1rem 0;
+            padding: .875rem 0;
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 1rem;
             flex-wrap: wrap;
-            z-index: 10;
+            z-index: 20;
         }
 
         .builder-summary {
-            font-size: .9rem;
+            font-size: .875rem;
             color: var(--text-secondary);
+            line-height: 1.4;
         }
 
         .builder-summary strong {
@@ -251,100 +322,76 @@
         }
 
         .builder-start-btn {
-            padding: .85rem 2rem;
+            padding: .8rem 2rem;
             background: var(--primary-color);
             color: #fff;
             border: none;
             border-radius: .625rem;
-            font-size: 1.05rem;
+            font-size: .975rem;
             font-weight: 700;
             cursor: pointer;
             transition: background .2s, box-shadow .2s, transform .1s;
-            box-shadow: 0 2px 12px rgba(37,99,235,.3);
-            min-width: 180px;
+            box-shadow: 0 2px 10px rgba(37,99,235,.28);
+            min-width: 160px;
+            letter-spacing: .01em;
         }
 
         .builder-start-btn:hover:not(:disabled) {
             background: #1d4ed8;
-            box-shadow: 0 4px 20px rgba(37,99,235,.4);
+            box-shadow: 0 4px 18px rgba(37,99,235,.38);
         }
 
         .builder-start-btn:active:not(:disabled) { transform: scale(.98); }
 
         .builder-start-btn:disabled {
-            opacity: .55;
+            opacity: .5;
             cursor: not-allowed;
+            box-shadow: none;
         }
 
-        .builder-start-btn .btn-spinner {
+        .btn-spinner {
             display: inline-block;
-            width: 1rem;
-            height: 1rem;
-            border: 2px solid rgba(255,255,255,.4);
+            width: .9rem;
+            height: .9rem;
+            border: 2px solid rgba(255,255,255,.35);
             border-top-color: #fff;
             border-radius: 50%;
-            animation: spin .7s linear infinite;
+            animation: spin .65s linear infinite;
             vertical-align: middle;
-            margin-right: .5rem;
+            margin-right: .4rem;
         }
 
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* ── Loading skeleton ── */
+        /* ── Skeleton ── */
         .tag-skeleton {
-            height: 2rem;
+            height: 2.25rem;
             border-radius: .5rem;
             background: var(--border-light);
-            animation: pulse 1.2s ease-in-out infinite;
+            animation: blink 1.3s ease-in-out infinite;
         }
 
-        @keyframes pulse {
-            0%, 100% { opacity: .6; }
-            50% { opacity: 1; }
+        @keyframes blink {
+            0%, 100% { opacity: .5; }
+            50% { opacity: .9; }
         }
-
-        /* ── Selected pills summary ── */
-        .selected-pills {
-            display: flex;
-            flex-wrap: wrap;
-            gap: .4rem;
-            margin-top: .75rem;
-            min-height: 1.5rem;
-        }
-
-        .selected-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: .35rem;
-            background: color-mix(in srgb, var(--primary-color) 12%, var(--card-bg));
-            color: var(--primary-color);
-            border: 1px solid color-mix(in srgb, var(--primary-color) 25%, transparent);
-            border-radius: 999px;
-            padding: .25rem .7rem;
-            font-size: .8rem;
-            font-weight: 600;
-        }
-
-        .selected-pill-remove {
-            cursor: pointer;
-            font-size: .9rem;
-            line-height: 1;
-            opacity: .7;
-        }
-
-        .selected-pill-remove:hover { opacity: 1; }
 
         /* ── Responsive ── */
-        @media (max-width: 640px) {
+        @media (max-width: 600px) {
             .tag-list { grid-template-columns: 1fr; }
             .builder-settings-grid { grid-template-columns: 1fr; }
             .builder-footer { flex-direction: column; align-items: stretch; }
-            .builder-start-btn { width: 100%; text-align: center; }
-            .builder-mode-btn { flex: 0 0 auto; }
+            .builder-start-btn { width: 100%; text-align: center; min-width: 0; }
+            .toggle-pill { flex: 1; text-align: center; }
+            .builder-header h1 { font-size: 1.375rem; }
+
+            .tag-item { padding: .6rem .65rem; }
+            .tag-name, .tag-checkbox { font-size: 16px; }
         }
     </style>
 </head>
 <body>
+
 <nav class="navbar">
     <div class="container">
         <div class="nav-brand">
@@ -379,62 +426,73 @@
     <div class="container">
         <div class="builder-wrap">
 
-            <div class="builder-back">
-                <a href="/usmle" class="btn btn-secondary">← Назад к USMLE</a>
+            <!-- Breadcrumb -->
+            <nav class="builder-breadcrumb" aria-label="Навигация">
+                <a href="/usmle">USMLE</a>
+                <span class="builder-breadcrumb-sep">/</span>
+                <span>Конструктор теста</span>
+            </nav>
+
+            <!-- Header -->
+            <div class="builder-header">
+                <h1>Создать тест</h1>
+                <p>Выберите предметы (Subjects) и системы (Systems) — мы подберём вопросы из банка USMLE по выбранным темам.</p>
             </div>
 
-            <div class="page-header" style="margin-bottom:1.5rem;">
-                <h1>Конструктор теста USMLE</h1>
-                <p class="page-description">
-                    Выберите темы и системы — и мы составим тест из подходящих вопросов.
-                    Чем больше фильтров — тем точнее выборка.
-                </p>
-            </div>
-
-            <!-- Loading -->
+            <!-- Skeleton -->
             <div id="builderLoading">
-                <div class="tag-skeleton" style="height:3rem;margin-bottom:1rem;"></div>
-                <div class="tag-list" style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:1rem;">
+                <div class="tag-skeleton" style="height:3rem; margin-bottom:.75rem;"></div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:.4rem; margin-bottom:.75rem;">
                     <div class="tag-skeleton"></div><div class="tag-skeleton"></div>
                     <div class="tag-skeleton"></div><div class="tag-skeleton"></div>
                     <div class="tag-skeleton"></div><div class="tag-skeleton"></div>
                 </div>
-                <div class="tag-skeleton" style="height:3rem;margin-bottom:1rem;"></div>
+                <div class="tag-skeleton" style="height:3rem; margin-bottom:.75rem;"></div>
             </div>
 
-            <!-- Content (hidden until loaded) -->
+            <!-- Main content -->
             <div id="builderContent" style="display:none;">
 
-                <!-- SUBJECTS group -->
+                <!-- Subjects -->
                 <div class="tag-group open" id="groupSubjects">
                     <div class="tag-group-header" onclick="toggleGroup('groupSubjects')">
-                        <div class="tag-group-title">
-                            <label class="tag-group-master" onclick="event.stopPropagation()">
-                                <input type="checkbox" class="master-checkbox" id="masterSubjects"
-                                    onchange="toggleGroupAll('subjects', this.checked)">
-                            </label>
-                            <span>📚 Subjects</span>
-                            <span id="subjectsSelectedCount" style="font-size:.8rem;font-weight:600;color:var(--primary-color);"></span>
+                        <div class="tag-group-left">
+                            <input type="checkbox" class="master-checkbox" id="masterSubjects"
+                                onclick="event.stopPropagation()"
+                                onchange="toggleGroupAll('subjects', this.checked)"
+                                aria-label="Выбрать все Subjects">
+                            <span class="tag-group-label">Subjects</span>
+                            <span class="tag-group-badge" id="subjectsBadge"></span>
                         </div>
-                        <span class="tag-group-chevron">▼</span>
+                        <div class="tag-group-right">
+                            <span class="tag-group-count" id="subjectsTotal"></span>
+                            <span class="tag-group-chevron">
+                                <svg viewBox="0 0 10 6"><path d="M0 0l5 6 5-6z"/></svg>
+                            </span>
+                        </div>
                     </div>
                     <div class="tag-group-body">
                         <div class="tag-list" id="subjectsList"></div>
                     </div>
                 </div>
 
-                <!-- SYSTEMS group -->
+                <!-- Systems -->
                 <div class="tag-group open" id="groupSystems">
                     <div class="tag-group-header" onclick="toggleGroup('groupSystems')">
-                        <div class="tag-group-title">
-                            <label class="tag-group-master" onclick="event.stopPropagation()">
-                                <input type="checkbox" class="master-checkbox" id="masterSystems"
-                                    onchange="toggleGroupAll('systems', this.checked)">
-                            </label>
-                            <span>🫀 Systems</span>
-                            <span id="systemsSelectedCount" style="font-size:.8rem;font-weight:600;color:var(--primary-color);"></span>
+                        <div class="tag-group-left">
+                            <input type="checkbox" class="master-checkbox" id="masterSystems"
+                                onclick="event.stopPropagation()"
+                                onchange="toggleGroupAll('systems', this.checked)"
+                                aria-label="Выбрать все Systems">
+                            <span class="tag-group-label">Systems</span>
+                            <span class="tag-group-badge" id="systemsBadge"></span>
                         </div>
-                        <span class="tag-group-chevron">▼</span>
+                        <div class="tag-group-right">
+                            <span class="tag-group-count" id="systemsTotal"></span>
+                            <span class="tag-group-chevron">
+                                <svg viewBox="0 0 10 6"><path d="M0 0l5 6 5-6z"/></svg>
+                            </span>
+                        </div>
                     </div>
                     <div class="tag-group-body">
                         <div class="tag-list" id="systemsList"></div>
@@ -443,43 +501,48 @@
 
                 <!-- Settings -->
                 <div class="builder-settings">
-                    <p class="builder-settings-title">⚙️ Параметры теста</p>
+                    <p class="builder-settings-heading">Параметры теста</p>
                     <div class="builder-settings-grid">
+
                         <div class="builder-field">
                             <label for="qCountInput">Количество вопросов</label>
                             <input type="number" id="qCountInput" min="1" max="280" value="40">
                         </div>
+
                         <div class="builder-field">
                             <label>Режим вопросов</label>
-                            <div class="builder-mode-row">
-                                <button type="button" class="builder-mode-btn active" data-mode="unsolved" onclick="selectMode(this)">Нерешённые</button>
-                                <button type="button" class="builder-mode-btn" data-mode="all" onclick="selectMode(this)">Все</button>
-                                <button type="button" class="builder-mode-btn" data-mode="incorrect" onclick="selectMode(this)">Неправильные</button>
+                            <div class="toggle-pills">
+                                <button type="button" class="toggle-pill active" data-mode="unsolved" onclick="selectMode(this)">Нерешённые</button>
+                                <button type="button" class="toggle-pill" data-mode="all" onclick="selectMode(this)">Все</button>
+                                <button type="button" class="toggle-pill" data-mode="incorrect" onclick="selectMode(this)">Неправильные</button>
                             </div>
                         </div>
+
                         <div class="builder-field">
                             <label>Режим теста</label>
-                            <div class="builder-mode-row">
-                                <button type="button" class="builder-mode-btn" data-test-mode="instant" onclick="selectTestMode(this)">Ответы сразу</button>
-                                <button type="button" class="builder-mode-btn active" data-test-mode="standard" onclick="selectTestMode(this)">Таймер</button>
+                            <div class="toggle-pills">
+                                <button type="button" class="toggle-pill" data-test-mode="instant" onclick="selectTestMode(this)">Ответы сразу</button>
+                                <button type="button" class="toggle-pill active" data-test-mode="standard" onclick="selectTestMode(this)">С таймером</button>
                             </div>
                         </div>
+
                         <div class="builder-field">
-                            <label>Ответы</label>
-                            <div class="builder-mode-row">
-                                <button type="button" class="builder-mode-btn active" data-rand="true" onclick="selectRandom(this)">Перемешать</button>
-                                <button type="button" class="builder-mode-btn" data-rand="false" onclick="selectRandom(this)">По порядку</button>
+                            <label>Порядок ответов</label>
+                            <div class="toggle-pills">
+                                <button type="button" class="toggle-pill active" data-rand="true" onclick="selectRandom(this)">Перемешать</button>
+                                <button type="button" class="toggle-pill" data-rand="false" onclick="selectRandom(this)">По порядку</button>
                             </div>
                         </div>
+
                     </div>
                 </div>
 
-            </div><!-- /builderContent -->
+            </div>
 
             <!-- Sticky footer -->
             <div class="builder-footer" id="builderFooter" style="display:none;">
                 <div class="builder-summary" id="builderSummary">
-                    Выберите темы для начала
+                    Выберите хотя бы одну тему или систему
                 </div>
                 <button class="builder-start-btn" id="startCustomTestBtn" onclick="startCustomTest()" disabled>
                     Начать тест
@@ -495,100 +558,78 @@
 <script>
     const API_URL = '/api';
 
-    // State
     const selectedSubjectIds = new Set();
-    const selectedSystemIds = new Set();
+    const selectedSystemIds  = new Set();
     let allSubjectTags = [];
-    let allSystemTags = [];
-    let questionMode = 'unsolved';
-    let testMode = 'standard';
+    let allSystemTags  = [];
+    let questionMode   = 'unsolved';
+    let testMode       = 'standard';
     let randomizeAnswers = true;
 
-    /* ──────────── Group toggle ──────────── */
-
-    function toggleGroup(groupId) {
-        const el = document.getElementById(groupId);
-        el.classList.toggle('open');
+    /* ── Group accordion ── */
+    function toggleGroup(id) {
+        document.getElementById(id).classList.toggle('open');
     }
 
-    /* ──────────── Render ──────────── */
+    /* ── Render ── */
+    function escapeHtml(str) {
+        return String(str).replace(/[&<>"']/g, c =>
+            ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
 
     function renderTagItem(tag, group) {
-        const isSelected = group === 'subjects'
+        const selected = group === 'subjects'
             ? selectedSubjectIds.has(tag.id)
             : selectedSystemIds.has(tag.id);
 
-        const div = document.createElement('label');
-        div.className = 'tag-item' + (isSelected ? ' selected' : '');
-        div.dataset.tagId = tag.id;
-        div.dataset.group = group;
+        const label = document.createElement('label');
+        label.className = 'tag-item' + (selected ? ' selected' : '');
+        label.dataset.tagId = tag.id;
 
-        div.innerHTML = `
-            <div class="tag-item-left">
-                <input type="checkbox" class="tag-checkbox" ${isSelected ? 'checked' : ''}
-                    data-id="${tag.id}" data-group="${group}">
-                <span class="tag-name">${escapeHtml(tag.name)}</span>
-            </div>
-        `;
+        label.innerHTML = `
+            <input type="checkbox" class="tag-checkbox"
+                data-id="${tag.id}" data-group="${group}"
+                ${selected ? 'checked' : ''}>
+            <span class="tag-name">${escapeHtml(tag.name)}</span>`;
 
-        div.querySelector('input').addEventListener('change', (e) => {
-            toggleTag(tag.id, group, e.target.checked, div);
+        label.querySelector('input').addEventListener('change', e => {
+            toggleTag(tag.id, group, e.target.checked, label);
         });
-
-        return div;
+        return label;
     }
 
     function renderTagList(containerId, tags, group) {
-        const container = document.getElementById(containerId);
-        container.innerHTML = '';
+        const el = document.getElementById(containerId);
+        el.innerHTML = '';
         if (!tags.length) {
-            container.innerHTML = '<p style="color:var(--text-muted);font-size:.9rem;">Теги не найдены</p>';
+            el.innerHTML = '<p style="color:var(--text-muted);font-size:.875rem;">Теги не найдены</p>';
             return;
         }
-        tags.forEach(tag => container.appendChild(renderTagItem(tag, group)));
+        tags.forEach(t => el.appendChild(renderTagItem(t, group)));
     }
 
-    function escapeHtml(str) {
-        return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    }
-
-    /* ──────────── Toggle logic ──────────── */
-
+    /* ── Toggle ── */
     function toggleTag(tagId, group, checked, labelEl) {
         const set = group === 'subjects' ? selectedSubjectIds : selectedSystemIds;
-        if (checked) {
-            set.add(tagId);
-            labelEl.classList.add('selected');
-        } else {
-            set.delete(tagId);
-            labelEl.classList.remove('selected');
-        }
+        checked ? set.add(tagId) : set.delete(tagId);
+        labelEl.classList.toggle('selected', checked);
         updateUI();
     }
 
     function toggleGroupAll(group, checked) {
         const tags = group === 'subjects' ? allSubjectTags : allSystemTags;
-        const set = group === 'subjects' ? selectedSubjectIds : selectedSystemIds;
-        const containerId = group === 'subjects' ? 'subjectsList' : 'systemsList';
+        const set  = group === 'subjects' ? selectedSubjectIds : selectedSystemIds;
+        const listId = group === 'subjects' ? 'subjectsList' : 'systemsList';
 
-        if (checked) {
-            tags.forEach(t => set.add(t.id));
-        } else {
-            tags.forEach(t => set.delete(t.id));
-        }
-
-        // Re-render checkboxes
-        document.querySelectorAll(`#${containerId} .tag-checkbox`).forEach(cb => {
+        tags.forEach(t => checked ? set.add(t.id) : set.delete(t.id));
+        document.querySelectorAll(`#${listId} .tag-checkbox`).forEach(cb => {
             cb.checked = checked;
-            const item = cb.closest('.tag-item');
-            if (item) item.classList.toggle('selected', checked);
+            cb.closest('.tag-item')?.classList.toggle('selected', checked);
         });
-
         updateUI();
     }
 
-    /* ──────────── Mode selectors ──────────── */
-
+    /* ── Mode pills ── */
     function selectMode(btn) {
         document.querySelectorAll('[data-mode]').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
@@ -607,52 +648,53 @@
         randomizeAnswers = btn.dataset.rand === 'true';
     }
 
-    /* ──────────── Update summary ──────────── */
-
+    /* ── Update UI ── */
     function updateUI() {
-        const totalSelected = selectedSubjectIds.size + selectedSystemIds.size;
+        const total   = selectedSubjectIds.size + selectedSystemIds.size;
         const summary = document.getElementById('builderSummary');
         const startBtn = document.getElementById('startCustomTestBtn');
 
-        // Counters
-        const sc = document.getElementById('subjectsSelectedCount');
-        if (sc) sc.textContent = selectedSubjectIds.size ? `(${selectedSubjectIds.size})` : '';
-        const syc = document.getElementById('systemsSelectedCount');
-        if (syc) syc.textContent = selectedSystemIds.size ? `(${selectedSystemIds.size})` : '';
+        // Badges
+        setBadge('subjectsBadge', selectedSubjectIds.size, allSubjectTags.length);
+        setBadge('systemsBadge',  selectedSystemIds.size,  allSystemTags.length);
 
-        // Master checkboxes indeterminate state
-        updateMaster('masterSubjects', selectedSubjectIds, allSubjectTags);
-        updateMaster('masterSystems', selectedSystemIds, allSystemTags);
+        // Master checkboxes
+        syncMaster('masterSubjects', selectedSubjectIds, allSubjectTags);
+        syncMaster('masterSystems',  selectedSystemIds,  allSystemTags);
 
-        if (totalSelected === 0) {
-            summary.innerHTML = '<span>Выберите хотя бы одну тему или систему</span>';
+        if (total === 0) {
+            summary.innerHTML = 'Выберите хотя бы одну тему или систему';
             startBtn.disabled = true;
         } else {
             const parts = [];
-            if (selectedSubjectIds.size) parts.push(`${selectedSubjectIds.size} subject${selectedSubjectIds.size > 1 ? 's' : ''}`);
-            if (selectedSystemIds.size) parts.push(`${selectedSystemIds.size} system${selectedSystemIds.size > 1 ? 's' : ''}`);
-            summary.innerHTML = `<strong>Выбрано:</strong> ${parts.join(' + ')}`;
+            if (selectedSubjectIds.size) parts.push(`${selectedSubjectIds.size} из ${allSubjectTags.length} Subjects`);
+            if (selectedSystemIds.size)  parts.push(`${selectedSystemIds.size} из ${allSystemTags.length} Systems`);
+            summary.innerHTML = `<strong>Выбрано:</strong> ${parts.join(', ')}`;
             startBtn.disabled = false;
         }
     }
 
-    function updateMaster(masterId, set, tags) {
-        const master = document.getElementById(masterId);
-        if (!master) return;
-        if (set.size === 0) {
-            master.checked = false;
-            master.indeterminate = false;
-        } else if (set.size === tags.length) {
-            master.checked = true;
-            master.indeterminate = false;
+    function setBadge(id, count, total) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (count > 0) {
+            el.textContent = count === total ? 'Все' : count;
+            el.classList.add('visible');
         } else {
-            master.checked = false;
-            master.indeterminate = true;
+            el.classList.remove('visible');
         }
     }
 
-    /* ──────────── Start test ──────────── */
+    function syncMaster(masterId, set, tags) {
+        const m = document.getElementById(masterId);
+        if (!m) return;
+        m.indeterminate = false;
+        if (set.size === 0) { m.checked = false; }
+        else if (set.size === tags.length) { m.checked = true; }
+        else { m.checked = false; m.indeterminate = true; }
+    }
 
+    /* ── Start test ── */
     async function startCustomTest() {
         const token = localStorage.getItem('token');
         if (!token) {
@@ -677,7 +719,7 @@
                 },
                 body: JSON.stringify({
                     subjectTagIds: [...selectedSubjectIds],
-                    systemTagIds: [...selectedSystemIds],
+                    systemTagIds:  [...selectedSystemIds],
                     questionCount,
                     questionMode,
                     randomizeAnswers,
@@ -693,13 +735,13 @@
             const questions = await res.json();
 
             if (!questions.length) {
-                if (typeof showNotification === 'function') showNotification('По выбранным фильтрам нет вопросов', 'error');
+                if (typeof showNotification === 'function')
+                    showNotification('По выбранным фильтрам вопросов нет', 'error');
                 btn.disabled = false;
                 btn.textContent = 'Начать тест';
                 return;
             }
 
-            // Сохраняем в том же формате что обычные тесты
             const useTimer = testMode === 'standard';
             sessionStorage.setItem('testData', JSON.stringify({
                 testId: null,
@@ -707,7 +749,7 @@
                 answers: {},
                 questionIndex: 0,
                 startTime: Date.now(),
-                timer: useTimer ? 60 * 60 : null, // 60 минут по умолчанию
+                timer: useTimer ? 60 * 60 : null,
                 instantFeedbackMode,
                 instantFeedbackLockedQuestions: {},
                 isCustomUsmle: true
@@ -715,39 +757,47 @@
 
             window.location.href = '/test';
         } catch (err) {
-            if (typeof showNotification === 'function') showNotification(err.message || 'Ошибка', 'error');
+            if (typeof showNotification === 'function')
+                showNotification(err.message || 'Ошибка', 'error');
             btn.disabled = false;
             btn.textContent = 'Начать тест';
         }
     }
 
-    /* ──────────── Load ──────────── */
-
+    /* ── Load tags ── */
     async function loadTags() {
         try {
             const res = await fetch(`${API_URL}/tests/usmle/tags/grouped`);
-            if (!res.ok) throw new Error('Ошибка загрузки тегов');
+            if (!res.ok) throw new Error();
             const data = await res.json();
 
             allSubjectTags = data.subjects || [];
-            allSystemTags = data.systems || [];
+            allSystemTags  = data.systems  || [];
+
+            // Totals
+            const st = document.getElementById('subjectsTotal');
+            if (st) st.textContent = `${allSubjectTags.length} тем`;
+            const syt = document.getElementById('systemsTotal');
+            if (syt) syt.textContent = `${allSystemTags.length} систем`;
 
             renderTagList('subjectsList', allSubjectTags, 'subjects');
-            renderTagList('systemsList', allSystemTags, 'systems');
+            renderTagList('systemsList',  allSystemTags,  'systems');
 
-            document.getElementById('builderLoading').style.display = 'none';
-            document.getElementById('builderContent').style.display = 'block';
-            document.getElementById('builderFooter').style.display = 'flex';
+            document.getElementById('builderLoading').style.display  = 'none';
+            document.getElementById('builderContent').style.display  = 'block';
+            document.getElementById('builderFooter').style.display   = 'flex';
 
             updateUI();
-        } catch (e) {
+        } catch {
             document.getElementById('builderLoading').innerHTML =
-                `<p style="color:var(--danger-color,#dc2626);text-align:center;">Ошибка загрузки тегов. <a href="/usmle" style="color:var(--primary-color);">← Вернуться</a></p>`;
+                `<p style="color:var(--danger-color,#dc2626);text-align:center;padding:2rem;">
+                    Не удалось загрузить теги.
+                    <a href="/usmle" style="color:var(--primary-color);">← Вернуться</a>
+                </p>`;
         }
     }
 
-    /* ──────────── Init ──────────── */
-
+    /* ── Init ── */
     document.addEventListener('DOMContentLoaded', async () => {
         if (typeof initTheme === 'function') initTheme();
         if (typeof loadUser === 'function') await loadUser();
