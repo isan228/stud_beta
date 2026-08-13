@@ -116,4 +116,4 @@ flutter build ios --release
 2. Открывается экран Finik SDK (APP / QR / VISA)
 3. Webhook `POST /api/payments/webhook` активирует подписку
 
-На сервере в `.env` должны быть заданы `FINIK_API_KEY`, `FINIK_ACCOUNT_ID`, `FINIK_WEBHOOK_URL`.
+На сервере в `.env`: `FINIK_MOBILE_API_KEY` (или `FINIK_API_KEY`), `FINIK_ACCOUNT_ID`, `FINIK_WEBHOOK_URL`.

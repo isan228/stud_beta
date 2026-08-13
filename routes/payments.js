@@ -820,14 +820,15 @@ router.post('/mobile-prepare', auth, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const accountId = process.env.FINIK_ACCOUNT_ID;
-    const apiKey = process.env.FINIK_API_KEY;
+    const accountId = process.env.FINIK_MOBILE_ACCOUNT_ID || process.env.FINIK_ACCOUNT_ID;
+    // Мобильный SDK может иметь отдельный API key от веб-интеграции
+    const apiKey = process.env.FINIK_MOBILE_API_KEY || process.env.FINIK_API_KEY;
     const nameEn = process.env.FINIK_NAME_EN || 'stud.kg Payment';
     const webhookUrl = process.env.FINIK_WEBHOOK_URL || `${req.protocol}://${req.get('host')}/api/payments/webhook`;
     const isBeta = String(process.env.FINIK_ENV || 'prod').toLowerCase() !== 'prod';
 
     if (!accountId || !apiKey) {
-      return res.status(500).json({ error: 'Finik для мобильного приложения не настроен (API_KEY / ACCOUNT_ID)' });
+      return res.status(500).json({ error: 'Finik для мобильного приложения не настроен (MOBILE_API_KEY / ACCOUNT_ID)' });
     }
 
     const user = await User.findByPk(req.user.id);
