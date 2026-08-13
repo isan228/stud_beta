@@ -1,4 +1,7 @@
-# Downloads for mobile app (APK). Do not commit large binaries if not needed.
+# APK tracked for site download page. Rebuild: flutter build apk --release
+# then copy to stud.kg.apk
+*
+!.gitignore
 !.gitkeep
-*.apk
 !README.txt
+!stud.kg.apk
