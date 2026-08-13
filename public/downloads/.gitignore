@@ -1,0 +1,4 @@
+# Downloads for mobile app (APK). Do not commit large binaries if not needed.
+!.gitkeep
+*.apk
+!README.txt

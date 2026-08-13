@@ -140,7 +140,8 @@ const pages = {
   '/payment': 'payment.html',
   '/payment/success': 'payment-success.html',
   '/subscriptions': 'subscriptions.html',
-  '/usmle-test-builder': 'usmle-test-builder.html'
+  '/usmle-test-builder': 'usmle-test-builder.html',
+  '/download': 'download.html'
 };
 
 // Старый URL новостей → программа USMLE

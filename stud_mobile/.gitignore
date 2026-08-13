@@ -1,0 +1,20 @@
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+*.iml
+.idea/
+.vscode/
+*.lock
+pubspec.lock
+
+# Platform folders (generate with: flutter create .)
+android/.gradle/
+android/local.properties
+ios/Pods/
+ios/.symlinks/
+*.jks
+*.p8
+*.p12
+*.mobileprovision

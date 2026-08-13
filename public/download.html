@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/png" sizes="48x48" href="/img/icon-48.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#2563eb">
+    <title>Скачать приложение — stud.kg</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="/"><h1>stud.kg</h1></a>
+            </div>
+            <div class="nav-menu" id="navMenu">
+                <a href="/" class="nav-link">Главная</a>
+                <a href="/tests" class="nav-link">Тесты</a>
+                <a href="/download" class="nav-link">Приложение</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="container" style="max-width: 640px; padding: 3rem 1.25rem;">
+            <h1 class="section-title" style="text-align: left;">Мобильное приложение</h1>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                Установите stud.kg на Android: тесты, USMLE, рейтинг и подписки — как на сайте.
+            </p>
+
+            <div class="card" style="padding: 1.5rem; margin-bottom: 1.5rem;" id="apkCard">
+                <h2 style="margin-bottom: 0.5rem;">Android (APK)</h2>
+                <p id="apkStatus" style="color: var(--text-muted); margin-bottom: 1rem;">Проверяем файл…</p>
+                <a id="apkDownloadBtn" class="btn btn-large btn-primary" href="/downloads/stud.kg.apk" download style="display: none;">
+                    Скачать APK
+                </a>
+                <p id="apkMissing" style="display: none; color: var(--warning-color);">
+                    APK ещё не загружен на сервер. Скоро появится здесь.
+                </p>
+                <ol style="margin-top: 1.25rem; color: var(--text-secondary); line-height: 1.7; padding-left: 1.25rem;">
+                    <li>Откройте эту страницу на телефоне Android</li>
+                    <li>Нажмите «Скачать APK»</li>
+                    <li>Разрешите установку из этого источника (Настройки → безопасность)</li>
+                    <li>Установите и откройте stud.kg</li>
+                </ol>
+            </div>
+
+            <p style="color: var(--text-muted); font-size: 0.9rem;">
+                iPhone: пока только через сайт в Safari. Версия для App Store — позже.
+            </p>
+            <p style="margin-top: 1rem;">
+                <a href="/" class="btn btn-secondary">На главную</a>
+            </p>
+        </div>
+    </main>
+
+    <script>
+        (async function () {
+            const btn = document.getElementById('apkDownloadBtn');
+            const status = document.getElementById('apkStatus');
+            const missing = document.getElementById('apkMissing');
+            try {
+                const res = await fetch('/downloads/stud.kg.apk', { method: 'HEAD', cache: 'no-store' });
+                if (res.ok) {
+                    const size = Number(res.headers.get('content-length') || 0);
+                    const mb = size > 0 ? ` (${(size / (1024 * 1024)).toFixed(1)} МБ)` : '';
+                    status.textContent = 'Готово к установке' + mb;
+                    btn.style.display = 'inline-flex';
+                } else {
+                    status.style.display = 'none';
+                    missing.style.display = 'block';
+                }
+            } catch (_) {
+                status.style.display = 'none';
+                missing.style.display = 'block';
+            }
+        })();
+    </script>
+</body>
+
+</html>
