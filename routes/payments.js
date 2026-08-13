@@ -160,6 +160,28 @@ router.post('/webhook', async (req, res) => {
       where: { finikTransactionId }
     });
 
+    // Мобильный Finik SDK: транзакция могла остаться с pending id, ищем по mobileRequestId
+    if (!transaction) {
+      const mobileRequestId = payload?.fields?.mobileRequestId || payload?.data?.mobileRequestId;
+      if (mobileRequestId) {
+        const { Op } = require('sequelize');
+        const candidates = await Transaction.findAll({
+          where: {
+            status: 'PENDING',
+            finikTransactionId: { [Op.like]: 'mobile_%' }
+          },
+          order: [['createdAt', 'DESC']],
+          limit: 50
+        });
+        transaction = candidates.find((t) => t.fields?.mobileRequestId === String(mobileRequestId)) || null;
+        if (transaction) {
+          transaction.finikTransactionId = finikTransactionId;
+          await transaction.save();
+          console.log(`🔗 Linked mobile pending transaction ${transaction.id} to Finik id ${finikTransactionId}`);
+        }
+      }
+    }
+
     if (transaction) {
       // Обновляем существующую транзакцию
       // Проверяем статус без учета регистра (может быть "succeeded", "SUCCEEDED", "Succeeded")
@@ -778,6 +800,191 @@ router.get('/plans', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching subscription plans:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+/**
+ * Подготовка оплаты для мобильного Finik SDK
+ * POST /api/payments/mobile-prepare
+ * Не вызывает Finik API — клиент открывает finik_sdk с этими параметрами.
+ */
+router.post('/mobile-prepare', auth, [
+  body('subscriptionType').notEmpty().withMessage('Тип подписки обязателен'),
+  body('coinsToUse').optional().isInt({ min: 0 }).withMessage('Монетки должны быть неотрицательным числом'),
+  body('promoCode').optional({ checkFalsy: true }).isString().trim().isLength({ min: 3, max: 64 }).withMessage('Некорректный промокод')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const accountId = process.env.FINIK_ACCOUNT_ID;
+    const apiKey = process.env.FINIK_API_KEY;
+    const nameEn = process.env.FINIK_NAME_EN || 'stud.kg Payment';
+    const webhookUrl = process.env.FINIK_WEBHOOK_URL || `${req.protocol}://${req.get('host')}/api/payments/webhook`;
+    const isBeta = String(process.env.FINIK_ENV || 'prod').toLowerCase() !== 'prod';
+
+    if (!accountId || !apiKey) {
+      return res.status(500).json({ error: 'Finik для мобильного приложения не настроен (API_KEY / ACCOUNT_ID)' });
+    }
+
+    const user = await User.findByPk(req.user.id);
+    if (!user) {
+      return res.status(401).json({ error: 'Пользователь не найден' });
+    }
+
+    const subscriptionType = String(req.body.subscriptionType || '1');
+    const months = parseInt(subscriptionType, 10) || 1;
+    const programType = String(req.body.programType || req.body.program || 'university').toLowerCase() === 'usmle'
+      ? 'usmle'
+      : 'university';
+    const effectivePaymentType = programType === 'usmle' ? 'usmle_subscription' : 'subscription';
+
+    let rawAmount;
+    if (programType === 'usmle') {
+      const planPrice = await getUsmlePlanPrice(months);
+      if (planPrice == null) {
+        return res.status(400).json({ error: 'Этот тариф USMLE недоступен' });
+      }
+      rawAmount = planPrice;
+    } else {
+      if (!user.universityId) {
+        return res.status(400).json({ error: 'Укажите университет, чтобы оформить подписку' });
+      }
+      const planPrice = await getPlanPrice(user.universityId, months);
+      if (planPrice == null) {
+        return res.status(400).json({ error: 'Этот тариф недоступен для вашего университета' });
+      }
+      rawAmount = planPrice;
+    }
+
+    let promoCodeData = null;
+    let promoDiscountAmount = 0;
+    if (req.body.promoCode) {
+      const { promo, error } = await resolvePromoCode(req.body.promoCode);
+      if (!promo) {
+        return res.status(400).json({ error });
+      }
+      promoCodeData = promo;
+      promoDiscountAmount = parseFloat(((rawAmount * promo.discountPercent) / 100).toFixed(2));
+    }
+
+    const amountAfterPromo = Math.max(0.01, rawAmount - promoDiscountAmount);
+    const requestedCoins = Math.floor(parseInt(req.body.coinsToUse, 10) || 0);
+    const maxCoinsByBalance = user.coins || 0;
+    const maxCoinsByAmount = Math.max(0, Math.floor(amountAfterPromo - 0.01));
+    const coinsToUse = Math.min(requestedCoins, maxCoinsByBalance, maxCoinsByAmount);
+    const amountToCharge = Math.max(0.01, amountAfterPromo - coinsToUse);
+
+    const crypto = require('crypto');
+    const requestId = crypto.randomUUID();
+    const pendingFinikId = `mobile_${requestId}`;
+
+    const fields = {
+      userId: String(user.id),
+      paymentType: effectivePaymentType,
+      programType,
+      subscriptionType,
+      universityId: user.universityId != null ? String(user.universityId) : '',
+      source: 'mobile_sdk',
+      mobileRequestId: requestId,
+      originalAmount: String(rawAmount),
+      coinsToUse: String(coinsToUse),
+      ...(promoCodeData && {
+        promoCodeId: String(promoCodeData.id),
+        promoCode: promoCodeData.code,
+        promoDiscountPercent: String(promoCodeData.discountPercent)
+      })
+    };
+
+    const transaction = await Transaction.create({
+      userId: user.id,
+      finikTransactionId: pendingFinikId,
+      amount: amountToCharge,
+      status: 'PENDING',
+      fields: {
+        ...fields,
+        description: `Мобильная оплата: ${effectivePaymentType}`,
+        originalAmount: rawAmount,
+        coinsToUse,
+        promoCodeId: promoCodeData?.id || null,
+        promoCode: promoCodeData?.code || null,
+        promoDiscountPercent: promoCodeData?.discountPercent || 0,
+        promoDiscountAmount
+      }
+    });
+
+    res.json({
+      success: true,
+      transactionId: transaction.id,
+      requestId,
+      amount: amountToCharge,
+      originalAmount: rawAmount,
+      coinsUsed: coinsToUse,
+      promoCode: promoCodeData?.code || null,
+      promoDiscountPercent: promoCodeData?.discountPercent || 0,
+      sdk: {
+        apiKey,
+        accountId,
+        isBeta,
+        nameEn,
+        callbackUrl: webhookUrl,
+        description: programType === 'usmle'
+          ? `USMLE подписка ${months} мес.`
+          : `Подписка ${months} мес.`,
+        locale: 'RU'
+      },
+      requiredFields: fields
+    });
+  } catch (error) {
+    console.error('Error mobile-prepare:', error);
+    res.status(500).json({ error: 'Ошибка сервера: ' + error.message });
+  }
+});
+
+/**
+ * Привязать Finik payment/item id к локальной транзакции после CreateItem в SDK
+ * POST /api/payments/mobile-bind
+ */
+router.post('/mobile-bind', auth, [
+  body('transactionId').isInt({ min: 1 }).withMessage('transactionId обязателен'),
+  body('finikTransactionId').optional().isString(),
+  body('itemId').optional().isString()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const transaction = await Transaction.findOne({
+      where: {
+        id: req.body.transactionId,
+        userId: req.user.id
+      }
+    });
+    if (!transaction) {
+      return res.status(404).json({ error: 'Транзакция не найдена' });
+    }
+
+    const finikTransactionId = req.body.finikTransactionId || req.body.paymentId || req.body.itemId;
+    if (finikTransactionId) {
+      transaction.finikTransactionId = String(finikTransactionId);
+    }
+    if (req.body.itemId) {
+      transaction.itemId = String(req.body.itemId);
+    }
+    transaction.fields = Object.assign({}, transaction.fields || {}, {
+      mobileBoundAt: new Date().toISOString(),
+      mobileCreatedPayload: req.body.createdPayload || null
+    });
+    await transaction.save();
+
+    res.json({ success: true, transactionId: transaction.id, finikTransactionId: transaction.finikTransactionId });
+  } catch (error) {
+    console.error('Error mobile-bind:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/utils/helpers.dart';
@@ -8,6 +7,7 @@ import '../../core/widgets/state_views.dart';
 import '../../models/subscription.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/payments_service.dart';
+import 'finik_payment_screen.dart';
 
 class SubscriptionsScreen extends ConsumerStatefulWidget {
   const SubscriptionsScreen({super.key, this.program = 'university'});
@@ -83,16 +83,24 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
     setState(() => _paying = true);
     try {
       final user = ref.read(authProvider).user;
-      final response = await ref.read(paymentsServiceProvider).createPayment(
+      final prepare = await ref.read(paymentsServiceProvider).prepareMobilePayment(
             months: plan.months,
             programType: widget.program,
             coinsToUse: _coinsToUse.clamp(0, user?.coins ?? 0).toInt(),
             promoCode: _validatedPromo,
           );
 
-      final uri = Uri.parse(response.paymentUrl);
-      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-        throw ApiException('Не удалось открыть страницу оплаты');
+      if (!mounted) return;
+      final ok = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (_) => FinikPaymentScreen(prepare: prepare),
+          fullscreenDialog: true,
+        ),
+      );
+
+      if (ok == true) {
+        await ref.read(authProvider.notifier).refreshUser();
+        await _load();
       }
     } catch (e) {
       if (!mounted) return;
@@ -186,7 +194,7 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
           ),
         const SizedBox(height: 8),
         const Text(
-          'Оплата откроется в браузере через Finik. После успешной оплаты подписка активируется автоматически.',
+          'Оплата через Finik SDK: приложение, QR или карта. После успешной оплаты подписка активируется автоматически.',
           style: TextStyle(fontSize: 13),
         ),
       ],

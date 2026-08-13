@@ -107,8 +107,13 @@ flutter build ios --release
 
 Мобильный Material 3 UI с нижней навигацией — отличается от веб-версии, но сохраняет бренд stud.kg (синий акцент `#2563EB`, тёмная тема).
 
-## Примечания
+## Оплата (Finik SDK)
 
-- **Админка и редактор** (`/admin`, `/redact`) в мобильное приложение не включены — это веб-панели.
-- **Оплата** открывается во внешнем браузере через Finik (как на сайте).
-- JWT хранится в `flutter_secure_storage`.
+На сайте оплата идёт через redirect URL Finik.
+В мобильном приложении — через пакет [`finik_sdk`](https://pub.dev/packages/finik_sdk):
+
+1. Клиент вызывает `POST /api/payments/mobile-prepare`
+2. Открывается экран Finik SDK (APP / QR / VISA)
+3. Webhook `POST /api/payments/webhook` активирует подписку
+
+На сервере в `.env` должны быть заданы `FINIK_API_KEY`, `FINIK_ACCOUNT_ID`, `FINIK_WEBHOOK_URL`.
