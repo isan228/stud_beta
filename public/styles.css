@@ -1899,6 +1899,29 @@ html[data-theme="dark"] .navbar {
     color: var(--text-secondary);
 }
 
+.usmle-vignette-box {
+    margin: 0 0 1.25rem;
+    padding: 1rem 1.15rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid color-mix(in srgb, var(--primary-color) 28%, var(--border-light));
+    background: color-mix(in srgb, var(--primary-color) 10%, var(--bg-secondary));
+}
+
+.usmle-vignette-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+}
+
+.usmle-vignette-text {
+    font-size: 0.98rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+}
+
 /* Иллюстрация к вопросу (тест, разбор, результаты) */
 figure.question-image-wrap,
 .question-image-wrap {

@@ -1862,6 +1862,37 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         testTimer = setInterval(updateTimer, 1000);
     }
 
+    function parseUsmleLinkedQuestionText(text) {
+        const USMLE_VIGNETTE_MARKER = '<<<USMLE_VIGNETTE>>>';
+        const USMLE_QUESTION_MARKER = '<<<USMLE_QUESTION>>>';
+        const raw = String(text || '');
+        const vignetteIdx = raw.indexOf(USMLE_VIGNETTE_MARKER);
+        const questionIdx = raw.indexOf(USMLE_QUESTION_MARKER);
+        if (vignetteIdx === -1 || questionIdx === -1 || questionIdx < vignetteIdx) {
+            return { isLinked: false, vignette: null, questionText: raw.trim() };
+        }
+        const vignette = raw.slice(vignetteIdx + USMLE_VIGNETTE_MARKER.length, questionIdx).trim();
+        const questionText = raw.slice(questionIdx + USMLE_QUESTION_MARKER.length).trim();
+        if (!vignette || !questionText) {
+            return { isLinked: false, vignette: null, questionText: raw.trim() };
+        }
+        return { isLinked: true, vignette, questionText };
+    }
+
+    function renderUsmleQuestionBodyHtml(text) {
+        const parsed = parseUsmleLinkedQuestionText(text);
+        if (!parsed.isLinked) {
+            return `<h3>${escapeHtmlStr(parsed.questionText).replace(/\n/g, '<br>')}</h3>`;
+        }
+        return `
+            <div class="usmle-vignette-box">
+                <div class="usmle-vignette-label">Клинический случай</div>
+                <div class="usmle-vignette-text">${escapeHtmlStr(parsed.vignette).replace(/\n/g, '<br>')}</div>
+            </div>
+            <h3>${escapeHtmlStr(parsed.questionText).replace(/\n/g, '<br>')}</h3>
+        `;
+    }
+
     function renderQuestionExplanationHtml(explanation, explanationImageUrl) {
         const text = String(explanation || '').trim();
         const imgUrl = explanationImageUrl && String(explanationImageUrl).trim();
@@ -1953,7 +1984,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         content.innerHTML = `
         <div class="question-item">
             ${questionImageHtml}
-            <h3>${question.text.replace(/\n/g, '<br>')}</h3>
+            ${renderUsmleQuestionBodyHtml(question.text)}
             <div class="answers-list">
                 ${question.Answers.map(answer => `
                     <div class="answer-item" data-answer-id="${answer.id}" onclick="selectAnswer(${answer.id})">

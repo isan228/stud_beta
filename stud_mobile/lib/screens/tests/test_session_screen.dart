@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/utils/helpers.dart';
 import '../../core/widgets/cards.dart';
+import '../../core/widgets/linked_question_content.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/test_session.dart';
 import '../../services/favorites_service.dart';
@@ -191,10 +192,20 @@ class _TestSessionScreenState extends ConsumerState<TestSessionScreen> {
       appBar: AppBar(
         title: Text('${session.testName} (${_currentIndex + 1}/${session.questions.length})'),
         actions: [
-          if (_remainingSeconds > 0)
+          if (session.settings.timerMinutes != null && session.settings.timerMinutes! > 0)
             Padding(
               padding: const EdgeInsets.only(right: 12),
-              child: Center(child: Text(formatDuration(_remainingSeconds))),
+              child: Center(
+                child: Text(
+                  formatDuration(_remainingSeconds.clamp(0, 24 * 60 * 60)),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: _remainingSeconds <= 60
+                        ? Theme.of(context).colorScheme.error
+                        : null,
+                  ),
+                ),
+              ),
             ),
           IconButton(
             icon: const Icon(Icons.flag_outlined),
@@ -222,7 +233,10 @@ class _TestSessionScreenState extends ConsumerState<TestSessionScreen> {
                     ),
                   ],
                 ),
-                Text(question.text, style: Theme.of(context).textTheme.titleMedium),
+                LinkedQuestionContent(
+                  text: question.text,
+                  questionStyle: Theme.of(context).textTheme.titleMedium,
+                ),
                 if (question.imageUrl != null) ...[
                   const SizedBox(height: 12),
                   QuestionImage(url: question.imageUrl!),

@@ -4,6 +4,7 @@ const multer = require('multer');
 const adminAuth = require('../middleware/adminAuth');
 const { Op } = require('sequelize');
 const { Question, Answer, Test, QuestionTag, QuestionTagMap } = require('../models');
+const { parseLinkedQuestionsFromText } = require('../utils/usmleLinkedQuestions');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -195,6 +196,64 @@ async function handleTxtUpload(req, res, parseOptions) {
   });
 }
 
+async function handleLinkedTxtUpload(req, res) {
+  if (!req.file) {
+    res.status(400).json({ error: 'TXT файл не загружен' });
+    return;
+  }
+
+  const { testId } = req.body;
+  if (!testId) {
+    res.status(400).json({ error: 'ID теста обязателен' });
+    return;
+  }
+
+  const test = await Test.findByPk(testId);
+  if (!test) {
+    res.status(404).json({ error: 'Тест не найден' });
+    return;
+  }
+
+  if (test.programType !== 'usmle') {
+    res.status(400).json({ error: 'Связанные вопросы доступны только для тестов USMLE' });
+    return;
+  }
+
+  const { syncTestHasExplanations } = require('../utils/syncTestExplanations');
+  await syncTestHasExplanations(test.id, true);
+
+  const text = req.file.buffer.toString('utf8');
+  if (!text || text.trim().length === 0) {
+    res.status(400).json({
+      error: 'TXT файл пуст',
+      message: 'Убедитесь, что файл содержит текст.'
+    });
+    return;
+  }
+
+  const questions = parseLinkedQuestionsFromText(text, {
+    requireExplanation: true,
+    requireTags: true,
+    parseTags: true
+  });
+
+  if (questions.length === 0) {
+    res.status(400).json({
+      error: 'Не удалось найти связанные вопросы в TXT. Проверьте формат: GroupID, V (в первом блоке группы), ID, Q, A1–A5, Correct, E, Subject, System.'
+    });
+    return;
+  }
+
+  const createdQuestions = await saveParsedQuestions(testId, questions, {
+    perQuestionTags: true
+  });
+
+  res.json({
+    message: `Успешно загружено ${createdQuestions.length} связанных USMLE вопросов`,
+    questions: createdQuestions
+  });
+}
+
 router.post('/upload-pdf', adminAuth, upload.single('pdf'), async (req, res) => {
   try {
     await handleTxtUpload(req, res, { requireExplanation: false, parseTags: false });
@@ -214,6 +273,15 @@ router.post('/upload-txt-explained', adminAuth, upload.single('pdf'), async (req
     });
   } catch (error) {
     console.error('Ошибка загрузки TXT с объяснениями:', error);
+    res.status(500).json({ error: error.message || 'Ошибка обработки TXT файла' });
+  }
+});
+
+router.post('/upload-txt-linked', adminAuth, upload.single('pdf'), async (req, res) => {
+  try {
+    await handleLinkedTxtUpload(req, res);
+  } catch (error) {
+    console.error('Ошибка загрузки связанных USMLE вопросов:', error);
     res.status(500).json({ error: error.message || 'Ошибка обработки TXT файла' });
   }
 });

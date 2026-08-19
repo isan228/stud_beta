@@ -1982,6 +1982,10 @@ function setupAdminEventListeners() {
     if (uploadUsmleTxtExplainedBtn) {
         uploadUsmleTxtExplainedBtn.addEventListener('click', () => openUsmleTxtExplainedUploadModal());
     }
+    const uploadUsmleTxtLinkedBtn = document.getElementById('uploadUsmleTxtLinkedBtn');
+    if (uploadUsmleTxtLinkedBtn) {
+        uploadUsmleTxtLinkedBtn.addEventListener('click', () => openUsmleTxtLinkedUploadModal());
+    }
 
     const usmleTestsSubjectFilter = document.getElementById('usmleTestsSubjectFilter');
     if (usmleTestsSubjectFilter) {
@@ -2040,6 +2044,10 @@ function setupAdminEventListeners() {
     const txtExplainedUploadForm = document.getElementById('txtExplainedUploadForm');
     if (txtExplainedUploadForm) {
         txtExplainedUploadForm.addEventListener('submit', handleTxtExplainedUpload);
+    }
+    const txtLinkedUploadForm = document.getElementById('txtLinkedUploadForm');
+    if (txtLinkedUploadForm) {
+        txtLinkedUploadForm.addEventListener('submit', handleTxtLinkedUpload);
     }
 
     const addQuestionBtn = document.getElementById('addQuestionBtn');
@@ -3021,6 +3029,32 @@ async function openUsmleTxtExplainedUploadModal() {
     }
 }
 
+async function openUsmleTxtLinkedUploadModal() {
+    try {
+        const tests = await fetchUsmleTestsCompact();
+        if (!tests.length) {
+            showNotification('Сначала создайте тест USMLE', 'error');
+            return;
+        }
+        const select = document.getElementById('txtLinkedTestId');
+        const presetTestId = document.getElementById('usmleQuestionsTestFilter')?.value || '';
+        if (select) {
+            select.innerHTML = '<option value="">Выберите тест USMLE</option>' +
+                tests.map(t => `<option value="${t.id}">${escapeAdminHtml(t.name)}</option>`).join('');
+            if (presetTestId && tests.some(t => String(t.id) === String(presetTestId))) {
+                select.value = String(presetTestId);
+            }
+        }
+        cachedUploadPreviewTags = await fillUploadTagsSelect();
+        adminQuestionUploadSource = 'usmle';
+        const modal = document.getElementById('txtLinkedUploadModal');
+        if (modal) modal.style.display = 'block';
+    } catch (error) {
+        console.error('Ошибка открытия загрузки связанных USMLE:', error);
+        showNotification('Ошибка загрузки тестов USMLE', 'error');
+    }
+}
+
 function refreshQuestionsAfterUpload() {
     loadQuestions();
     if (adminQuestionUploadSource === 'usmle' || document.getElementById('usmleTab')?.classList.contains('active')) {
@@ -3351,6 +3385,84 @@ async function handleTxtExplainedUpload(e) {
         }
     } catch (error) {
         console.error('Ошибка загрузки TXT с объяснениями:', error);
+        showNotification(error.message || 'Ошибка загрузки TXT', 'error');
+        if (progressDiv) progressDiv.style.display = 'none';
+        if (progressBar) progressBar.style.width = '0%';
+    }
+}
+
+async function handleTxtLinkedUpload(e) {
+    e.preventDefault();
+    const testId = document.getElementById('txtLinkedTestId')?.value;
+    const fileInput = document.getElementById('txtLinkedFile');
+
+    if (!testId) {
+        showNotification('Выберите тест USMLE', 'error');
+        return;
+    }
+    if (!fileInput?.files?.[0]) {
+        showNotification('Выберите TXT файл', 'error');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('pdf', fileInput.files[0]);
+    formData.append('testId', testId);
+
+    const progressDiv = document.getElementById('txtLinkedUploadProgress');
+    const progressBar = document.getElementById('txtLinkedUploadProgressBar');
+    const statusText = document.getElementById('txtLinkedUploadStatus');
+
+    if (progressDiv) progressDiv.style.display = 'block';
+    if (progressBar) progressBar.style.width = '30%';
+    if (statusText) statusText.textContent = 'Загрузка файла...';
+
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/upload-txt-linked`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` },
+            body: formData
+        });
+
+        if (progressBar) progressBar.style.width = '70%';
+        if (statusText) statusText.textContent = 'Обработка TXT...';
+
+        const result = await response.json();
+
+        if (response.ok) {
+            if (progressBar) progressBar.style.width = '100%';
+            if (statusText) statusText.textContent = 'Готово!';
+            setTimeout(() => {
+                showNotification(`Загружено ${result.questions.length} связанных USMLE вопросов`, 'success');
+                lastQuestionUploadTestId = testId;
+                adminQuestionUploadSource = 'usmle';
+                const questionsFilter = document.getElementById('questionsTestFilter');
+                if (questionsFilter) questionsFilter.value = String(testId);
+                cachedUploadPreviewTags = [
+                    ...collectTagsFromUploadResult(result.questions),
+                    ...cachedUploadPreviewTags
+                ].reduce((acc, t) => {
+                    if (!acc.some((x) => Number(x.id) === Number(t.id))) acc.push(t);
+                    return acc;
+                }, []);
+                if (typeof loadAdminQuestionTags === 'function') loadAdminQuestionTags();
+                const modal = document.getElementById('txtLinkedUploadModal');
+                if (modal) modal.style.display = 'none';
+                const form = document.getElementById('txtLinkedUploadForm');
+                if (form) form.reset();
+                if (progressDiv) progressDiv.style.display = 'none';
+                if (progressBar) progressBar.style.width = '0%';
+
+                openUploadPreview(result.questions || [], {
+                    title: `Загружено ${result.questions.length} связанных USMLE вопросов`,
+                    withExplanations: true
+                });
+            }, 500);
+        } else {
+            throw new Error(result.error || 'Ошибка загрузки TXT');
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки связанных USMLE вопросов:', error);
         showNotification(error.message || 'Ошибка загрузки TXT', 'error');
         if (progressDiv) progressDiv.style.display = 'none';
         if (progressBar) progressBar.style.width = '0%';

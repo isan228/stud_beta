@@ -34,6 +34,8 @@ class _UsmleTestBuilderScreenState extends ConsumerState<UsmleTestBuilderScreen>
   String _questionMode = 'unsolved';
   bool _randomizeAnswers = true;
   bool _instantFeedback = false;
+  bool _useTimer = true;
+  int _timerMinutes = 60;
   bool _starting = false;
 
   @override
@@ -70,6 +72,7 @@ class _UsmleTestBuilderScreenState extends ConsumerState<UsmleTestBuilderScreen>
         questionCount: _questionCount,
         randomizeAnswers: _randomizeAnswers,
         instantFeedbackMode: _instantFeedback,
+        timerMinutes: (!_instantFeedback && _useTimer) ? _timerMinutes.clamp(1, 600) : null,
         isUsmleCustom: true,
         usmleSubjectTagIds: _subjectTagIds.toList(),
         usmleSystemTagIds: _systemTagIds.toList(),
@@ -165,11 +168,40 @@ class _UsmleTestBuilderScreenState extends ConsumerState<UsmleTestBuilderScreen>
                       onChanged: (v) => setState(() => _randomizeAnswers = v),
                       title: const Text('Перемешать ответы'),
                     ),
-                    SwitchListTile(
-                      value: _instantFeedback,
-                      onChanged: (v) => setState(() => _instantFeedback = v),
-                      title: const Text('Ответы сразу'),
+                    const SizedBox(height: 8),
+                    Text('Режим теста', style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    SegmentedButton<bool>(
+                      segments: const [
+                        ButtonSegment(value: false, label: Text('С таймером'), icon: Icon(Icons.timer_outlined)),
+                        ButtonSegment(value: true, label: Text('Ответы сразу'), icon: Icon(Icons.bolt_outlined)),
+                      ],
+                      selected: {_instantFeedback},
+                      onSelectionChanged: (selection) {
+                        final instant = selection.first;
+                        setState(() {
+                          _instantFeedback = instant;
+                          _useTimer = !instant;
+                        });
+                      },
                     ),
+                    if (!_instantFeedback && _useTimer) ...[
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        initialValue: '$_timerMinutes',
+                        decoration: const InputDecoration(
+                          labelText: 'Таймер (минуты)',
+                          helperText: 'Время на весь блок',
+                        ),
+                        keyboardType: TextInputType.number,
+                        onChanged: (v) {
+                          final parsed = int.tryParse(v);
+                          if (parsed != null && parsed > 0) {
+                            _timerMinutes = parsed;
+                          }
+                        },
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     FilledButton(
                       onPressed: _starting ? null : _start,
