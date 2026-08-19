@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs');
+const { parseImageUrls } = require('./mediaField');
 
 const QUESTION_IMAGES_DIR = path.join(__dirname, '../public/uploads/questions');
 const ALLOWED_EXT = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp']);
@@ -34,14 +35,15 @@ function answerImageFilename(answerId, ext) {
 }
 
 function deleteQuestionImageFile(imageUrl) {
-  if (!imageUrl || typeof imageUrl !== 'string') return;
-  if (!imageUrl.startsWith('/uploads/questions/')) return;
-  const filePath = path.join(__dirname, '../public', imageUrl.replace(/^\//, ''));
-  if (fs.existsSync(filePath)) {
-    try {
-      fs.unlinkSync(filePath);
-    } catch (err) {
-      console.warn('Не удалось удалить файл изображения вопроса:', filePath, err.message);
+  for (const url of parseImageUrls(imageUrl)) {
+    if (!url.startsWith('/uploads/questions/')) continue;
+    const filePath = path.join(__dirname, '../public', url.replace(/^\//, ''));
+    if (fs.existsSync(filePath)) {
+      try {
+        fs.unlinkSync(filePath);
+      } catch (err) {
+        console.warn('Не удалось удалить файл изображения вопроса:', filePath, err.message);
+      }
     }
   }
 }

@@ -10,8 +10,27 @@ const {
   answerImageFilename,
   deleteQuestionImageFile
 } = require('../utils/questionImages');
+const {
+  parseImageUrls,
+  appendImageUrl,
+  removeImageUrl,
+  stringifyImageUrls
+} = require('../utils/mediaField');
 
-function makeImageUploadHandler(getField, setField, makeFilename) {
+function shouldAppendImage(req) {
+  return String(req.query.append || req.body?.append || '').toLowerCase() === 'true';
+}
+
+function buildImageResponse(fieldValue, message) {
+  const imageUrls = parseImageUrls(fieldValue);
+  return {
+    imageUrl: imageUrls[0] || null,
+    imageUrls,
+    message
+  };
+}
+
+function makeImageUploadHandler(getField) {
   return async (req, res) => {
     try {
       if (!req.file) {
@@ -24,16 +43,22 @@ function makeImageUploadHandler(getField, setField, makeFilename) {
         return res.status(404).json({ error: 'Вопрос не найден' });
       }
 
-      const oldUrl = question[getField];
       const relativePath = '/uploads/questions/' + req.file.filename;
-      question[getField] = relativePath;
+      const oldUrls = parseImageUrls(question[getField]);
+      question[getField] = shouldAppendImage(req)
+        ? appendImageUrl(question[getField], relativePath)
+        : stringifyImageUrls(relativePath);
       await question.save();
 
-      if (oldUrl && oldUrl !== relativePath) {
-        deleteQuestionImageFile(oldUrl);
+      if (!shouldAppendImage(req)) {
+        for (const oldUrl of oldUrls) {
+          if (oldUrl !== relativePath) {
+            deleteQuestionImageFile(oldUrl);
+          }
+        }
       }
 
-      res.json({ imageUrl: relativePath, message: 'Изображение загружено' });
+      res.json(buildImageResponse(question[getField], 'Изображение загружено'));
     } catch (error) {
       console.error('Ошибка загрузки изображения:', error);
       res.status(500).json({ error: 'Ошибка сервера' });
@@ -49,13 +74,24 @@ function makeImageDeleteHandler(getField) {
         return res.status(404).json({ error: 'Вопрос не найден' });
       }
 
-      if (question[getField]) {
-        deleteQuestionImageFile(question[getField]);
+      const currentUrls = parseImageUrls(question[getField]);
+      const targetUrl = String(req.query.url || '').trim();
+
+      if (targetUrl) {
+        if (currentUrls.includes(targetUrl)) {
+          deleteQuestionImageFile(targetUrl);
+          question[getField] = removeImageUrl(question[getField], targetUrl);
+          await question.save();
+        }
+      } else if (currentUrls.length) {
+        for (const url of currentUrls) {
+          deleteQuestionImageFile(url);
+        }
         question[getField] = null;
         await question.save();
       }
 
-      res.json({ message: 'Изображение удалено' });
+      res.json(buildImageResponse(question[getField], 'Изображение удалено'));
     } catch (error) {
       console.error('Ошибка удаления изображения:', error);
       res.status(500).json({ error: 'Ошибка сервера' });
@@ -96,7 +132,7 @@ function createQuestionImageRouter(authMiddleware) {
       }
       next();
     });
-  }, makeImageUploadHandler('imageUrl', 'imageUrl', questionImageFilename));
+  }, makeImageUploadHandler('imageUrl'));
 
   router.delete('/questions/:id/image', authMiddleware, makeImageDeleteHandler('imageUrl'));
 
@@ -120,7 +156,7 @@ function createQuestionImageRouter(authMiddleware) {
       }
       next();
     });
-  }, makeImageUploadHandler('explanationImageUrl', 'explanationImageUrl', explanationImageFilename));
+  }, makeImageUploadHandler('explanationImageUrl'));
 
   router.delete('/questions/:id/explanation-image', authMiddleware, makeImageDeleteHandler('explanationImageUrl'));
 
@@ -156,16 +192,22 @@ function createQuestionImageRouter(authMiddleware) {
         return res.status(404).json({ error: 'Ответ не найден' });
       }
 
-      const oldUrl = answer.imageUrl;
       const relativePath = '/uploads/questions/' + req.file.filename;
-      answer.imageUrl = relativePath;
+      const oldUrls = parseImageUrls(answer.imageUrl);
+      answer.imageUrl = shouldAppendImage(req)
+        ? appendImageUrl(answer.imageUrl, relativePath)
+        : stringifyImageUrls(relativePath);
       await answer.save();
 
-      if (oldUrl && oldUrl !== relativePath) {
-        deleteQuestionImageFile(oldUrl);
+      if (!shouldAppendImage(req)) {
+        for (const oldUrl of oldUrls) {
+          if (oldUrl !== relativePath) {
+            deleteQuestionImageFile(oldUrl);
+          }
+        }
       }
 
-      res.json({ imageUrl: relativePath, message: 'Изображение ответа загружено' });
+      res.json(buildImageResponse(answer.imageUrl, 'Изображение ответа загружено'));
     } catch (error) {
       console.error('Ошибка загрузки изображения ответа:', error);
       res.status(500).json({ error: 'Ошибка сервера' });
@@ -179,13 +221,24 @@ function createQuestionImageRouter(authMiddleware) {
         return res.status(404).json({ error: 'Ответ не найден' });
       }
 
-      if (answer.imageUrl) {
-        deleteQuestionImageFile(answer.imageUrl);
+      const currentUrls = parseImageUrls(answer.imageUrl);
+      const targetUrl = String(req.query.url || '').trim();
+
+      if (targetUrl) {
+        if (currentUrls.includes(targetUrl)) {
+          deleteQuestionImageFile(targetUrl);
+          answer.imageUrl = removeImageUrl(answer.imageUrl, targetUrl);
+          await answer.save();
+        }
+      } else if (currentUrls.length) {
+        for (const url of currentUrls) {
+          deleteQuestionImageFile(url);
+        }
         answer.imageUrl = null;
         await answer.save();
       }
 
-      res.json({ message: 'Изображение ответа удалено' });
+      res.json(buildImageResponse(answer.imageUrl, 'Изображение ответа удалено'));
     } catch (error) {
       console.error('Ошибка удаления изображения ответа:', error);
       res.status(500).json({ error: 'Ошибка сервера' });

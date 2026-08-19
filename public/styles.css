@@ -1813,6 +1813,11 @@ html[data-theme="dark"] .navbar {
     vertical-align: middle;
 }
 
+.answer-option-image-wrap {
+    margin: 0 0 0.5rem;
+    padding: 0.35rem;
+}
+
 .answer-item::before {
     content: '';
     position: absolute;
@@ -2042,6 +2047,12 @@ html[data-theme="dark"] .question-image,
 
 .question-item .question-image-wrap + h3 {
     margin-top: 0;
+}
+
+.question-image-preview-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
 }
 
 .question-image-preview-img {

@@ -4,6 +4,7 @@ const router = express.Router();
 const { Test, Question, Answer, Subject, Favorite, TestResult, User, University, QuestionTag, QuestionTagMap } = require('../models');
 const { Op } = require('sequelize');
 const { isSubscriptionActive } = require('../utils/subscriptionPlans');
+const { parseImageUrls, firstImageUrl } = require('../utils/mediaField');
 
 function tryGetUserIdFromRequest(req) {
   const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -651,15 +652,20 @@ router.post('/usmle/custom-test/questions', async (req, res) => {
         text: qj.text,
         testId: qj.testId,
         testName: test.name,
-        imageUrl: qj.imageUrl || null,
+        imageUrl: firstImageUrl(qj.imageUrl),
+        imageUrls: parseImageUrls(qj.imageUrl),
         ...(instantFeedbackMode ? {
           explanation: qj.explanation || null,
-          explanationImageUrl: qj.explanationImageUrl || null
+          explanationImageUrl: firstImageUrl(qj.explanationImageUrl),
+          explanationImageUrls: parseImageUrls(qj.explanationImageUrl)
         } : {}),
         Answers: answers.map((a) => ({
           id: a.id,
           text: a.text,
-          ...(a.imageUrl ? { imageUrl: a.imageUrl } : {}),
+          ...(firstImageUrl(a.imageUrl) ? {
+            imageUrl: firstImageUrl(a.imageUrl),
+            imageUrls: parseImageUrls(a.imageUrl)
+          } : {}),
           isCorrect: Boolean(a.isCorrect)
         }))
       };
@@ -1071,8 +1077,10 @@ router.post('/tests/:testId/questions', async (req, res) => {
         updatedAt: q.updatedAt,
         Answers: (answersList || []).map((a) => {
           const answerData = { id: a.id, text: a.text };
-          if (a.imageUrl && String(a.imageUrl).trim()) {
-            answerData.imageUrl = String(a.imageUrl).trim();
+          const answerImageUrls = parseImageUrls(a.imageUrl);
+          if (answerImageUrls.length) {
+            answerData.imageUrl = answerImageUrls[0];
+            answerData.imageUrls = answerImageUrls;
           }
           if (instantFeedbackMode) {
             answerData.isCorrect = Boolean(a.isCorrect);
@@ -1085,12 +1093,16 @@ router.post('/tests/:testId/questions', async (req, res) => {
         if (q.explanation && String(q.explanation).trim()) {
           row.explanation = String(q.explanation).trim();
         }
-        if (q.explanationImageUrl && String(q.explanationImageUrl).trim()) {
-          row.explanationImageUrl = String(q.explanationImageUrl).trim();
+        const explanationImageUrls = parseImageUrls(q.explanationImageUrl);
+        if (explanationImageUrls.length) {
+          row.explanationImageUrl = explanationImageUrls[0];
+          row.explanationImageUrls = explanationImageUrls;
         }
       }
-      if (q.imageUrl && String(q.imageUrl).trim()) {
-        row.imageUrl = String(q.imageUrl).trim();
+      const questionImageUrls = parseImageUrls(q.imageUrl);
+      if (questionImageUrls.length) {
+        row.imageUrl = questionImageUrls[0];
+        row.imageUrls = questionImageUrls;
       }
       return row;
     };

@@ -2,6 +2,31 @@
  * UI загрузки изображения к вопросу (админка и редакторы).
  */
 (function (global) {
+    function normalizeImageUrls(value) {
+        if (Array.isArray(value)) {
+            return [...new Set(value.map((item) => String(item || '').trim()).filter(Boolean))];
+        }
+        if (typeof value !== 'string') return [];
+        const trimmed = value.trim();
+        if (!trimmed) return [];
+        if (trimmed.startsWith('[')) {
+            try {
+                const parsed = JSON.parse(trimmed);
+                if (Array.isArray(parsed)) {
+                    return [...new Set(parsed.map((item) => String(item || '').trim()).filter(Boolean))];
+                }
+            } catch (_) { /* ignore */ }
+        }
+        return [trimmed];
+    }
+
+    function renderPreviewImages(urls, altBase) {
+        const items = normalizeImageUrls(urls);
+        return items.map((url, index) =>
+            `<img src="${url}" alt="${altBase} ${index + 1}" class="question-image-preview-img">`
+        ).join('');
+    }
+
     let objectUrl = null;
 
     function revokeObjectUrl() {
@@ -33,8 +58,9 @@
         if (!preview) return;
         revokeObjectUrl();
         if (pending) pending.value = '0';
-        if (imageUrl) {
-            preview.innerHTML = `<img src="${imageUrl}" alt="Изображение к вопросу" class="question-image-preview-img">`;
+        const urls = normalizeImageUrls(imageUrl);
+        if (urls.length) {
+            preview.innerHTML = renderPreviewImages(urls, 'Изображение к вопросу');
             preview.style.display = 'block';
             if (removeBtn) removeBtn.style.display = 'inline-block';
         } else {
@@ -49,16 +75,19 @@
         if (!input || input.dataset.bound === '1') return;
         input.dataset.bound = '1';
         input.addEventListener('change', () => {
-            const file = input.files && input.files[0];
+            const files = Array.from(input.files || []);
             const pending = document.getElementById('questionImagePendingRemove');
-            if (!file) return;
+            if (!files.length) return;
             if (pending) pending.value = '0';
             revokeObjectUrl();
-            objectUrl = URL.createObjectURL(file);
             const preview = document.getElementById('questionImagePreview');
             const removeBtn = document.getElementById('questionImageRemoveBtn');
             if (preview) {
-                preview.innerHTML = `<img src="${objectUrl}" alt="Предпросмотр" class="question-image-preview-img">`;
+                preview.innerHTML = files.map((file) => {
+                    const url = URL.createObjectURL(file);
+                    objectUrl = url;
+                    return `<img src="${url}" alt="Предпросмотр" class="question-image-preview-img">`;
+                }).join('');
                 preview.style.display = 'block';
             }
             if (removeBtn) removeBtn.style.display = 'inline-block';
@@ -98,9 +127,9 @@
         const pending = document.getElementById('questionImagePendingRemove');
         const input = document.getElementById('questionImageFile');
         const shouldRemove = pending && pending.value === '1';
-        const file = input && input.files && input.files[0];
+        const files = Array.from(input?.files || []);
 
-        if (!shouldRemove && !file) return { ok: true };
+        if (!shouldRemove && !files.length) return { ok: true };
 
         const headers = opts.getAuthHeaders() || {};
         const authOnly = {};
@@ -118,16 +147,18 @@
             return { ok: true };
         }
 
-        const formData = new FormData();
-        formData.append('image', file);
-        const res = await fetch(`${opts.apiBase}/questions/${questionId}/image`, {
-            method: 'POST',
-            headers: authOnly,
-            body: formData
-        });
-        if (!res.ok) {
-            const data = await res.json().catch(() => ({}));
-            return { ok: false, error: data.error || 'Не удалось загрузить изображение' };
+        for (let i = 0; i < files.length; i++) {
+            const formData = new FormData();
+            formData.append('image', files[i]);
+            const res = await fetch(`${opts.apiBase}/questions/${questionId}/image${i > 0 ? '?append=true' : ''}`, {
+                method: 'POST',
+                headers: authOnly,
+                body: formData
+            });
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                return { ok: false, error: data.error || 'Не удалось загрузить изображение' };
+            }
         }
         return { ok: true };
     }
@@ -163,8 +194,9 @@
         if (!preview) return;
         revokeExplanationObjectUrl();
         if (pending) pending.value = '0';
-        if (imageUrl) {
-            preview.innerHTML = `<img src="${imageUrl}" alt="Картинка в объяснении" class="question-image-preview-img">`;
+        const urls = normalizeImageUrls(imageUrl);
+        if (urls.length) {
+            preview.innerHTML = renderPreviewImages(urls, 'Картинка в объяснении');
             preview.style.display = 'block';
             if (removeBtn) removeBtn.style.display = 'inline-block';
         } else {
@@ -185,16 +217,19 @@
         if (input && input.dataset.bound !== '1') {
             input.dataset.bound = '1';
             input.addEventListener('change', () => {
-                const file = input.files && input.files[0];
+                const files = Array.from(input.files || []);
                 const pending = document.getElementById('explanationImagePendingRemove');
-                if (!file) return;
+                if (!files.length) return;
                 if (pending) pending.value = '0';
                 revokeExplanationObjectUrl();
-                explanationObjectUrl = URL.createObjectURL(file);
                 const preview = document.getElementById('explanationImagePreview');
                 const removeBtn = document.getElementById('explanationImageRemoveBtn');
                 if (preview) {
-                    preview.innerHTML = `<img src="${explanationObjectUrl}" alt="Предпросмотр" class="question-image-preview-img">`;
+                    preview.innerHTML = files.map((file) => {
+                        const url = URL.createObjectURL(file);
+                        explanationObjectUrl = url;
+                        return `<img src="${url}" alt="Предпросмотр" class="question-image-preview-img">`;
+                    }).join('');
                     preview.style.display = 'block';
                 }
                 if (removeBtn) removeBtn.style.display = 'inline-block';
@@ -255,9 +290,9 @@
         const pending = document.getElementById('explanationImagePendingRemove');
         const input = document.getElementById('explanationImageFile');
         const shouldRemove = !withExpl || (pending && pending.value === '1');
-        const file = input && input.files && input.files[0];
+        const files = Array.from(input?.files || []);
 
-        if (!shouldRemove && !file) return { ok: true };
+        if (!shouldRemove && !files.length) return { ok: true };
 
         const headers = opts.getAuthHeaders() || {};
         const authOnly = {};
@@ -273,12 +308,14 @@
             return { ok: true };
         }
 
-        const formData = new FormData();
-        formData.append('image', file);
-        const res = await fetch(path, { method: 'POST', headers: authOnly, body: formData });
-        if (!res.ok) {
-            const data = await res.json().catch(() => ({}));
-            return { ok: false, error: data.error || 'Не удалось загрузить картинку объяснения' };
+        for (let i = 0; i < files.length; i++) {
+            const formData = new FormData();
+            formData.append('image', files[i]);
+            const res = await fetch(`${path}${i > 0 ? '?append=true' : ''}`, { method: 'POST', headers: authOnly, body: formData });
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                return { ok: false, error: data.error || 'Не удалось загрузить картинку объяснения' };
+            }
         }
         return { ok: true };
     }

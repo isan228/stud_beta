@@ -1893,13 +1893,38 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         `;
     }
 
+    function normalizeImageUrls(value) {
+        if (Array.isArray(value)) {
+            return [...new Set(value.map(item => String(item || '').trim()).filter(Boolean))];
+        }
+        if (typeof value !== 'string') return [];
+        const trimmed = value.trim();
+        if (!trimmed) return [];
+        if (trimmed.startsWith('[')) {
+            try {
+                const parsed = JSON.parse(trimmed);
+                if (Array.isArray(parsed)) {
+                    return [...new Set(parsed.map(item => String(item || '').trim()).filter(Boolean))];
+                }
+            } catch (_) { /* ignore */ }
+        }
+        return [trimmed];
+    }
+
+    function renderImageGalleryHtml(value, altText, extraClass = '') {
+        const urls = normalizeImageUrls(value);
+        if (!urls.length) return '';
+        return urls.map((url, index) => `
+            <figure class="${['question-image-wrap', extraClass].filter(Boolean).join(' ')}">
+                <img src="${String(url).replace(/"/g, '')}" alt="${escapeHtmlStr(urls.length > 1 ? `${altText} ${index + 1}` : altText)}" class="question-image" loading="lazy" decoding="async">
+            </figure>
+        `).join('');
+    }
+
     function renderQuestionExplanationHtml(explanation, explanationImageUrl) {
         const text = String(explanation || '').trim();
-        const imgUrl = explanationImageUrl && String(explanationImageUrl).trim();
-        if (!text && !imgUrl) return '';
-        const imgHtml = imgUrl
-            ? `<figure class="question-image-wrap question-explanation-image-wrap"><img src="${String(imgUrl).replace(/"/g, '')}" alt="Иллюстрация к объяснению" class="question-image" loading="lazy" decoding="async"></figure>`
-            : '';
+        const imgHtml = renderImageGalleryHtml(explanationImageUrl, 'Иллюстрация к объяснению', 'question-explanation-image-wrap');
+        if (!text && !imgHtml) return '';
         const textHtml = text
             ? `<div class="question-explanation-text">${escapeHtmlStr(text).replace(/\n/g, '<br>')}</div>`
             : '';
@@ -1977,9 +2002,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             favoriteContainer.innerHTML = '';
         }
 
-        const questionImageHtml = question.imageUrl
-            ? `<figure class="question-image-wrap"><img src="${String(question.imageUrl).replace(/"/g, '')}" alt="Иллюстрация к вопросу" class="question-image" loading="lazy" decoding="async"></figure>`
-            : '';
+        const questionImageHtml = renderImageGalleryHtml(question.imageUrls || question.imageUrl, 'Иллюстрация к вопросу');
 
         content.innerHTML = `
         <div class="question-item">
@@ -1988,7 +2011,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             <div class="answers-list">
                 ${question.Answers.map(answer => `
                     <div class="answer-item" data-answer-id="${answer.id}" onclick="selectAnswer(${answer.id})">
-                        ${answer.imageUrl ? `<img src="${String(answer.imageUrl).replace(/"/g, '')}" alt="" class="answer-option-image" loading="lazy" decoding="async">` : ''}
+                        ${renderImageGalleryHtml(answer.imageUrls || answer.imageUrl, 'Иллюстрация к ответу', 'answer-option-image-wrap')}
                         <span class="answer-option-text">${answer.text}</span>
                     </div>
                 `).join('')}

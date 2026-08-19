@@ -1059,24 +1059,24 @@
                         <textarea id="questionExplanation" rows="4" placeholder="Пояснение к правильному ответу"></textarea>
                     </div>
                     <div class="form-group">
-                        <label>Картинка в объяснении (опционально)</label>
+                        <label>Картинки в объяснении (опционально)</label>
                         <input type="hidden" id="explanationImagePendingRemove" value="0">
-                        <input type="file" id="explanationImageFile" accept="image/jpeg,image/png,image/gif,image/webp" style="display: none;">
+                        <input type="file" id="explanationImageFile" accept="image/jpeg,image/png,image/gif,image/webp" multiple style="display: none;">
                         <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem;">
-                            <button type="button" class="btn btn-secondary btn-sm" id="explanationImagePickBtn">Загрузить с устройства</button>
-                            <button type="button" class="btn btn-danger btn-sm" id="explanationImageRemoveBtn" style="display: none;">Удалить картинку</button>
+                            <button type="button" class="btn btn-secondary btn-sm" id="explanationImagePickBtn">Загрузить фото с устройства</button>
+                            <button type="button" class="btn btn-danger btn-sm" id="explanationImageRemoveBtn" style="display: none;">Удалить все фото</button>
                         </div>
                         <div id="explanationImagePreview" class="question-image-preview-wrap" style="display: none;"></div>
                         <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted);">JPG, PNG, GIF или WEBP, до 5 МБ</p>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Изображение к вопросу (опционально)</label>
+                    <label>Изображения к вопросу (опционально)</label>
                     <input type="hidden" id="questionImagePendingRemove" value="0">
-                    <input type="file" id="questionImageFile" accept="image/jpeg,image/png,image/gif,image/webp" style="display: none;">
+                    <input type="file" id="questionImageFile" accept="image/jpeg,image/png,image/gif,image/webp" multiple style="display: none;">
                     <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem;">
-                        <button type="button" class="btn btn-secondary btn-sm" id="questionImagePickBtn">Загрузить с устройства</button>
-                        <button type="button" class="btn btn-danger btn-sm" id="questionImageRemoveBtn" style="display: none;">Удалить картинку</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="questionImagePickBtn">Загрузить фото с устройства</button>
+                        <button type="button" class="btn btn-danger btn-sm" id="questionImageRemoveBtn" style="display: none;">Удалить все фото</button>
                     </div>
                     <div id="questionImagePreview" class="question-image-preview-wrap" style="display: none;"></div>
                     <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted);">JPG, PNG, GIF или WEBP, до 5 МБ</p>

@@ -145,6 +145,34 @@
                 .replace(/"/g, '&quot;');
         }
 
+        function normalizeImageUrls(value) {
+            if (Array.isArray(value)) {
+                return [...new Set(value.map(item => String(item || '').trim()).filter(Boolean))];
+            }
+            if (typeof value !== 'string') return [];
+            const trimmed = value.trim();
+            if (!trimmed) return [];
+            if (trimmed.startsWith('[')) {
+                try {
+                    const parsed = JSON.parse(trimmed);
+                    if (Array.isArray(parsed)) {
+                        return [...new Set(parsed.map(item => String(item || '').trim()).filter(Boolean))];
+                    }
+                } catch (_) { /* ignore */ }
+            }
+            return [trimmed];
+        }
+
+        function renderImageGalleryHtml(value, altText, extraClass = '') {
+            const urls = normalizeImageUrls(value);
+            if (!urls.length) return '';
+            return urls.map((url, index) => `
+                <figure class="${['question-image-wrap', extraClass].filter(Boolean).join(' ')}">
+                    <img src="${escHtml(url)}" alt="${escHtml(urls.length > 1 ? `${altText} ${index + 1}` : altText)}" class="question-image" loading="lazy" decoding="async">
+                </figure>
+            `).join('');
+        }
+
         /** Объяснения в конце — только для режима без «Ответы сразу» */
         function renderTestEndExplanationsSection(resultData) {
             const section = document.getElementById('testEndExplanationsSection');
@@ -158,7 +186,7 @@
 
             const items = (resultData.questions || []).filter((q) =>
                 (q.explanation && String(q.explanation).trim())
-                || (q.explanationImageUrl && String(q.explanationImageUrl).trim())
+                || normalizeImageUrls(q.explanationImageUrls || q.explanationImageUrl).length
             );
             if (!items.length) {
                 section.style.display = 'none';
@@ -186,11 +214,11 @@
                             <strong style="color: var(--text-color);">Вопрос ${index + 1}</strong>
                             ${statusLabel ? `<span style="font-size: 0.85rem; font-weight: 600; color: ${statusColor};">${statusLabel}</span>` : ''}
                         </div>
-                        ${question.imageUrl ? `<figure class="question-image-wrap"><img src="${escHtml(question.imageUrl)}" alt="Иллюстрация к вопросу" class="question-image" loading="lazy" decoding="async"></figure>` : ''}
+                        ${renderImageGalleryHtml(question.imageUrls || question.imageUrl, 'Иллюстрация к вопросу')}
                         <p style="margin: 0 0 0.75rem; color: var(--text-color); line-height: 1.45;">${escHtml(question.text).replace(/\n/g, '<br>')}</p>
                         <div class="question-explanation-box" style="margin-top: 0;">
                             <div class="question-explanation-label">Объяснение</div>
-                            ${question.explanationImageUrl ? `<figure class="question-image-wrap question-explanation-image-wrap"><img src="${escHtml(question.explanationImageUrl)}" alt="Иллюстрация к объяснению" class="question-image" loading="lazy" decoding="async"></figure>` : ''}
+                            ${renderImageGalleryHtml(question.explanationImageUrls || question.explanationImageUrl, 'Иллюстрация к объяснению', 'question-explanation-image-wrap')}
                             ${question.explanation ? `<div class="question-explanation-text">${escHtml(question.explanation).replace(/\n/g, '<br>')}</div>` : ''}
                         </div>
                     </div>
@@ -436,7 +464,7 @@
                                     ${index + 1}
                                 </div>
                                 <div style="flex: 1;">
-                                    ${question.imageUrl ? `<figure class="question-image-wrap"><img src="${escHtml(question.imageUrl)}" alt="Иллюстрация к вопросу" class="question-image" loading="lazy" decoding="async"></figure>` : ''}
+                                    ${renderImageGalleryHtml(question.imageUrls || question.imageUrl, 'Иллюстрация к вопросу')}
                                     <div class="test-analysis-question">${question.text}</div>
                                     <div style="margin-top: 0.75rem;">
                                         <span style="padding: 0.25rem 0.75rem; border-radius: 0.25rem; font-size: 0.875rem; font-weight: 600; background-color: ${isCorrect ? 'rgba(16, 185, 129, 0.1)' : 'rgba(220, 38, 38, 0.1)'}; color: ${isCorrect ? 'var(--success-color)' : 'var(--danger-color)'};">
@@ -466,15 +494,16 @@
                                     <div class="test-analysis-label">Все варианты ответов:</div>
                                     ${question.Answers.map(answer => `
                                         <div class="test-analysis-answer" style="border: ${answer.isCorrect ? '2px solid var(--success-color)' : answer.id === parseInt(userAnswerId) ? '2px solid var(--danger-color)' : '1px solid var(--border-light)'}; background: ${answer.isCorrect ? 'rgba(16, 185, 129, 0.1)' : answer.id === parseInt(userAnswerId) ? 'rgba(220, 38, 38, 0.1)' : 'var(--card-bg)'};">
+                                            ${renderImageGalleryHtml(answer.imageUrls || answer.imageUrl, 'Иллюстрация к ответу')}
                                             ${answer.isCorrect ? '✓ ' : answer.id === parseInt(userAnswerId) ? '✗ ' : ''}${answer.text}
                                         </div>
                                     `).join('')}
                                 </div>
                             ` : ''}
-                            ${(question.explanation || question.explanationImageUrl) ? `
+                            ${(question.explanation || normalizeImageUrls(question.explanationImageUrls || question.explanationImageUrl).length) ? `
                                 <div style="margin-top: 1rem; padding: 1rem; background: rgba(37, 99, 235, 0.08); border-radius: 8px; border-left: 4px solid var(--primary-color);">
                                     <div class="test-analysis-label" style="color: var(--primary-color);">Объяснение</div>
-                                    ${question.explanationImageUrl ? `<figure class="question-image-wrap question-explanation-image-wrap" style="margin-top: 0.5rem;"><img src="${escHtml(question.explanationImageUrl)}" alt="Иллюстрация к объяснению" class="question-image" loading="lazy"></figure>` : ''}
+                                    ${renderImageGalleryHtml(question.explanationImageUrls || question.explanationImageUrl, 'Иллюстрация к объяснению', 'question-explanation-image-wrap')}
                                     ${question.explanation ? `<div style="color: var(--text-secondary); line-height: 1.55; margin-top: 0.35rem;">${String(question.explanation).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</div>` : ''}
                                 </div>
                             ` : ''}

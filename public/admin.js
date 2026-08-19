@@ -3478,9 +3478,30 @@ function escapeUploadPreviewHtml(value) {
         .replace(/'/g, '&#39;');
 }
 
+function normalizePreviewImageUrls(value) {
+    if (Array.isArray(value)) {
+        return [...new Set(value.map((item) => String(item || '').trim()).filter(Boolean))];
+    }
+    if (typeof value !== 'string') return [];
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith('[')) {
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) {
+                return [...new Set(parsed.map((item) => String(item || '').trim()).filter(Boolean))];
+            }
+        } catch (_) { /* ignore */ }
+    }
+    return [trimmed];
+}
+
 function renderUploadPreviewMedia(url, emptyLabel) {
-    if (url) {
-        return `<img src="${escapeUploadPreviewHtml(url)}" alt="Превью" class="upload-preview-thumb">`;
+    const urls = normalizePreviewImageUrls(url);
+    if (urls.length) {
+        return urls.map((item, index) =>
+            `<img src="${escapeUploadPreviewHtml(item)}" alt="Превью ${index + 1}" class="upload-preview-thumb">`
+        ).join('');
     }
     return `<span class="upload-preview-media-empty">${escapeUploadPreviewHtml(emptyLabel)}</span>`;
 }
@@ -3507,6 +3528,16 @@ function openUploadPreview(questions, options = {}) {
             ? `<div class="upload-preview-explanation">
                     <strong>Объяснение:</strong>
                     <span>${escapeUploadPreviewHtml(q.explanation || '—')}</span>
+                    <div class="upload-preview-media" data-media-for="explanation" data-question-id="${q.id}" style="margin-top:0.75rem;">
+                        ${renderUploadPreviewMedia(q.explanationImageUrls || q.explanationImageUrl, 'Нет фото в объяснении')}
+                    </div>
+                    <div class="upload-preview-media-actions">
+                        <label class="btn btn-secondary btn-sm upload-preview-file-btn">
+                            📷 Фото объяснения
+                            <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" data-upload-kind="explanation" data-question-id="${q.id}" multiple hidden>
+                        </label>
+                        <button type="button" class="btn btn-secondary btn-sm" data-remove-kind="explanation" data-question-id="${q.id}" ${normalizePreviewImageUrls(q.explanationImageUrls || q.explanationImageUrl).length ? '' : 'style="display:none"'}>Удалить все</button>
+                    </div>
                </div>`
             : '';
 
@@ -3518,14 +3549,14 @@ function openUploadPreview(questions, options = {}) {
                     ${a.isCorrect ? '<span class="upload-preview-correct-badge">правильный</span>' : ''}
                 </div>
                 <div class="upload-preview-media" data-media-for="answer" data-answer-id="${a.id}">
-                    ${renderUploadPreviewMedia(a.imageUrl, 'Нет фото')}
+                    ${renderUploadPreviewMedia(a.imageUrls || a.imageUrl, 'Нет фото')}
                 </div>
                 <div class="upload-preview-media-actions">
                     <label class="btn btn-secondary btn-sm upload-preview-file-btn">
                         📷 Фото ответа
-                        <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" data-upload-kind="answer" data-answer-id="${a.id}" hidden>
+                        <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" data-upload-kind="answer" data-answer-id="${a.id}" multiple hidden>
                     </label>
-                    <button type="button" class="btn btn-secondary btn-sm" data-remove-kind="answer" data-answer-id="${a.id}" ${a.imageUrl ? '' : 'style="display:none"'}>Удалить</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-remove-kind="answer" data-answer-id="${a.id}" ${normalizePreviewImageUrls(a.imageUrls || a.imageUrl).length ? '' : 'style="display:none"'}>Удалить все</button>
                 </div>
             </div>
         `).join('');
@@ -3553,14 +3584,14 @@ function openUploadPreview(questions, options = {}) {
                 <p class="upload-preview-question-text">${escapeUploadPreviewHtml(q.text)}</p>
                 <div class="upload-preview-question-media-row">
                     <div class="upload-preview-media" data-media-for="question" data-question-id="${q.id}">
-                        ${renderUploadPreviewMedia(q.imageUrl, 'Нет фото вопроса')}
+                        ${renderUploadPreviewMedia(q.imageUrls || q.imageUrl, 'Нет фото вопроса')}
                     </div>
                     <div class="upload-preview-media-actions">
                         <label class="btn btn-secondary btn-sm upload-preview-file-btn">
                             📷 Фото вопроса
-                            <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" data-upload-kind="question" data-question-id="${q.id}" hidden>
+                            <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" data-upload-kind="question" data-question-id="${q.id}" multiple hidden>
                         </label>
-                        <button type="button" class="btn btn-secondary btn-sm" data-remove-kind="question" data-question-id="${q.id}" ${q.imageUrl ? '' : 'style="display:none"'}>Удалить</button>
+                        <button type="button" class="btn btn-secondary btn-sm" data-remove-kind="question" data-question-id="${q.id}" ${normalizePreviewImageUrls(q.imageUrls || q.imageUrl).length ? '' : 'style="display:none"'}>Удалить все</button>
                     </div>
                 </div>
                 <div class="upload-preview-answers">
@@ -3595,15 +3626,17 @@ function bindUploadPreviewEvents() {
     list.addEventListener('change', async (e) => {
         const input = e.target;
         if (!(input instanceof HTMLInputElement) || input.type !== 'file') return;
-        const file = input.files && input.files[0];
-        if (!file) return;
+        const files = Array.from(input.files || []);
+        if (!files.length) return;
 
         const kind = input.dataset.uploadKind;
         try {
             if (kind === 'question') {
-                await uploadPreviewQuestionImage(input.dataset.questionId, file, input);
+                await uploadPreviewQuestionImages(input.dataset.questionId, files, input);
+            } else if (kind === 'explanation') {
+                await uploadPreviewExplanationImages(input.dataset.questionId, files, input);
             } else if (kind === 'answer') {
-                await uploadPreviewAnswerImage(input.dataset.answerId, file, input);
+                await uploadPreviewAnswerImages(input.dataset.answerId, files, input);
             }
         } catch (error) {
             console.error('Ошибка загрузки фото в предпросмотре:', error);
@@ -3648,6 +3681,8 @@ function bindUploadPreviewEvents() {
         try {
             if (kind === 'question') {
                 await removePreviewQuestionImage(btn.dataset.questionId, btn);
+            } else if (kind === 'explanation') {
+                await removePreviewExplanationImage(btn.dataset.questionId, btn);
             } else if (kind === 'answer') {
                 await removePreviewAnswerImage(btn.dataset.answerId, btn);
             }
@@ -3668,24 +3703,30 @@ function findPreviewRemoveBtn(kind, id) {
     if (kind === 'question') {
         return document.querySelector(`[data-remove-kind="question"][data-question-id="${id}"]`);
     }
+    if (kind === 'explanation') {
+        return document.querySelector(`[data-remove-kind="explanation"][data-question-id="${id}"]`);
+    }
     return document.querySelector(`[data-remove-kind="answer"][data-answer-id="${id}"]`);
 }
 
-async function uploadPreviewQuestionImage(questionId, file, inputEl) {
-    const formData = new FormData();
-    formData.append('image', file);
-    const response = await fetch(`${ADMIN_API_URL}/questions/${questionId}/image`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${currentAdminToken}` },
-        body: formData
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        throw new Error(result.error || 'Не удалось загрузить фото вопроса');
+async function uploadPreviewQuestionImages(questionId, files, inputEl) {
+    let result = {};
+    for (let i = 0; i < files.length; i++) {
+        const formData = new FormData();
+        formData.append('image', files[i]);
+        const response = await fetch(`${ADMIN_API_URL}/questions/${questionId}/image${i > 0 ? '?append=true' : ''}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` },
+            body: formData
+        });
+        result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || 'Не удалось загрузить фото вопроса');
+        }
     }
     updatePreviewMediaNode(
         `.upload-preview-media[data-media-for="question"][data-question-id="${questionId}"]`,
-        result.imageUrl,
+        result.imageUrls || result.imageUrl,
         'Нет фото вопроса'
     );
     const removeBtn = findPreviewRemoveBtn('question', questionId);
@@ -3694,27 +3735,56 @@ async function uploadPreviewQuestionImage(questionId, file, inputEl) {
     showNotification('Фото вопроса загружено', 'success');
 }
 
-async function uploadPreviewAnswerImage(answerId, file, inputEl) {
-    const formData = new FormData();
-    formData.append('image', file);
-    const response = await fetch(`${ADMIN_API_URL}/answers/${answerId}/image`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${currentAdminToken}` },
-        body: formData
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        throw new Error(result.error || 'Не удалось загрузить фото ответа');
+async function uploadPreviewAnswerImages(answerId, files, inputEl) {
+    let result = {};
+    for (let i = 0; i < files.length; i++) {
+        const formData = new FormData();
+        formData.append('image', files[i]);
+        const response = await fetch(`${ADMIN_API_URL}/answers/${answerId}/image${i > 0 ? '?append=true' : ''}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` },
+            body: formData
+        });
+        result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || 'Не удалось загрузить фото ответа');
+        }
     }
     updatePreviewMediaNode(
         `.upload-preview-media[data-media-for="answer"][data-answer-id="${answerId}"]`,
-        result.imageUrl,
+        result.imageUrls || result.imageUrl,
         'Нет фото'
     );
     const removeBtn = findPreviewRemoveBtn('answer', answerId);
     if (removeBtn) removeBtn.style.display = '';
     if (inputEl) inputEl.value = '';
     showNotification('Фото ответа загружено', 'success');
+}
+
+async function uploadPreviewExplanationImages(questionId, files, inputEl) {
+    let result = {};
+    for (let i = 0; i < files.length; i++) {
+        const formData = new FormData();
+        formData.append('image', files[i]);
+        const response = await fetch(`${ADMIN_API_URL}/questions/${questionId}/explanation-image${i > 0 ? '?append=true' : ''}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` },
+            body: formData
+        });
+        result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || 'Не удалось загрузить фото объяснения');
+        }
+    }
+    updatePreviewMediaNode(
+        `.upload-preview-media[data-media-for="explanation"][data-question-id="${questionId}"]`,
+        result.imageUrls || result.imageUrl,
+        'Нет фото в объяснении'
+    );
+    const removeBtn = findPreviewRemoveBtn('explanation', questionId);
+    if (removeBtn) removeBtn.style.display = '';
+    if (inputEl) inputEl.value = '';
+    showNotification('Фото объяснения загружено', 'success');
 }
 
 async function removePreviewQuestionImage(questionId, btn) {
@@ -3733,6 +3803,24 @@ async function removePreviewQuestionImage(questionId, btn) {
     );
     if (btn) btn.style.display = 'none';
     showNotification('Фото вопроса удалено', 'success');
+}
+
+async function removePreviewExplanationImage(questionId, btn) {
+    const response = await fetch(`${ADMIN_API_URL}/questions/${questionId}/explanation-image`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || 'Не удалось удалить фото объяснения');
+    }
+    updatePreviewMediaNode(
+        `.upload-preview-media[data-media-for="explanation"][data-question-id="${questionId}"]`,
+        null,
+        'Нет фото в объяснении'
+    );
+    if (btn) btn.style.display = 'none';
+    showNotification('Фото объяснения удалено', 'success');
 }
 
 async function removePreviewAnswerImage(answerId, btn) {
