@@ -521,7 +521,6 @@
                                             ${isCorrect ? '✓ Правильно' : '✗ Неправильно'}
                                         </span>
                                         ${isUsmle && qTime ? `<span style="font-size:0.78rem; color:var(--text-muted); background:var(--bg-secondary); padding:0.2rem 0.6rem; border-radius:0.25rem;">⏱ ${fmtSec(qTime)}</span>` : ''}
-                                        ${isUsmle && qTags.length ? qTags.map(t => `<span style="font-size:0.75rem; color:var(--primary-color); background:rgba(37,99,235,0.08); padding:0.18rem 0.55rem; border-radius:0.25rem;">${t}</span>`).join('') : ''}
                                     </div>
                                 </div>
                             </div>
@@ -557,6 +556,11 @@
                                     <div class="test-analysis-label" style="color: var(--primary-color);">Объяснение</div>
                                     ${renderImageGalleryHtml(question.explanationImageUrls || question.explanationImageUrl, 'Иллюстрация к объяснению', 'question-explanation-image-wrap')}
                                     ${question.explanation ? `<div style="color: var(--text-secondary); line-height: 1.55; margin-top: 0.35rem;">${String(question.explanation).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</div>` : ''}
+                                </div>
+                            ` : ''}
+                            ${qTags.length ? `
+                                <div style="display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.85rem; padding-top:0.75rem; border-top:1px solid var(--border-light);">
+                                    ${qTags.map(t => `<span style="font-size:0.75rem; color:var(--primary-color); background:rgba(37,99,235,0.08); padding:0.2rem 0.6rem; border-radius:1rem; border:1px solid rgba(37,99,235,0.15);">${t}</span>`).join('')}
                                 </div>
                             ` : ''}
                         </div>
