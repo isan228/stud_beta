@@ -23,6 +23,7 @@ const University = require('./University');
 const SubscriptionPlan = require('./SubscriptionPlan');
 const QuestionTag = require('./QuestionTag');
 const QuestionTagMap = require('./QuestionTagMap');
+const MedicalImage = require('./MedicalImage');
 
 // Определение связей
 User.hasMany(TestResult, { foreignKey: 'userId', as: 'TestResults' });
@@ -122,6 +123,7 @@ module.exports = {
   University,
   SubscriptionPlan,
   QuestionTag,
-  QuestionTagMap
+  QuestionTagMap,
+  MedicalImage
 };
 

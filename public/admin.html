@@ -611,6 +611,13 @@
                                 </div>
                                 <div id="adminQuestionTagsList" style="margin-top:0.75rem;"></div>
                             </div>
+
+                            <div class="admin-subs-uni-card">
+                                <div class="admin-subs-uni-label">🖼️ Медицинский глоссарий</div>
+                                <p class="admin-subs-hint" style="margin-top:0;">Фото + ключевые слова. Слова автоматически становятся ссылками в тестах.</p>
+                                <button type="button" class="btn btn-primary btn-sm" id="addMedicalImageBtn" style="width:100%; margin-top:0.5rem;">+ Добавить фото</button>
+                                <div id="medicalImagesList" style="margin-top:0.75rem; display:flex; flex-direction:column; gap:0.5rem;"></div>
+                            </div>
                         </aside>
 
                         <div style="min-width:0;">
@@ -1254,6 +1261,55 @@
                 <button type="submit" class="btn btn-primary">Сохранить</button>
                 <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
             </form>
+        </div>
+    </div>
+
+    <!-- Модал: медицинское изображение -->
+    <div id="medicalImageModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:520px;">
+            <div class="modal-header">
+                <h3 id="medicalImageModalTitle">Добавить изображение</h3>
+                <button class="modal-close" onclick="closeMedicalImageModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom:1rem;">
+                    <label style="display:block; margin-bottom:0.4rem; font-weight:600;">Фото *</label>
+                    <input type="file" id="medicalImageFile" accept="image/*" style="display:none;">
+                    <div id="medicalImagePreviewWrap" style="margin-bottom:0.5rem;"></div>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('medicalImageFile').click()">Выбрать фото</button>
+                </div>
+                <div style="margin-bottom:1rem;">
+                    <label style="display:block; margin-bottom:0.4rem; font-weight:600;">Название (необязательно)</label>
+                    <input type="text" id="medicalImageTitle" placeholder="Например: Схема сердца" style="width:100%; padding:0.5rem; box-sizing:border-box;">
+                </div>
+                <div style="margin-bottom:1rem;">
+                    <label style="display:block; margin-bottom:0.4rem; font-weight:600;">Ключевые слова *</label>
+                    <p style="margin:0 0 0.4rem; font-size:0.82rem; color:var(--text-muted);">Через запятую. Эти слова будут ссылками в тестах.</p>
+                    <input type="text" id="medicalImageKeywords" placeholder="myocardial infarction, STEMI, heart attack" style="width:100%; padding:0.5rem; box-sizing:border-box;">
+                </div>
+                <div style="margin-bottom:1rem;">
+                    <label style="display:block; margin-bottom:0.4rem; font-weight:600;">Описание (необязательно)</label>
+                    <textarea id="medicalImageDescription" rows="3" placeholder="Краткое описание изображения" style="width:100%; padding:0.5rem; box-sizing:border-box; resize:vertical;"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeMedicalImageModal()">Отмена</button>
+                <button type="button" class="btn btn-primary" id="saveMedicalImageBtn" onclick="saveMedicalImage()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модал: просмотр медицинского изображения -->
+    <div id="medicalImageViewModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:700px; text-align:center;">
+            <div class="modal-header">
+                <h3 id="medicalImageViewTitle"></h3>
+                <button class="modal-close" onclick="document.getElementById('medicalImageViewModal').style.display='none'">×</button>
+            </div>
+            <div class="modal-body" style="padding:1rem;">
+                <img id="medicalImageViewImg" src="" alt="" style="max-width:100%; max-height:70vh; border-radius:8px;">
+                <p id="medicalImageViewDesc" style="margin-top:0.75rem; color:var(--text-secondary); font-size:0.9rem;"></p>
+            </div>
         </div>
     </div>
 

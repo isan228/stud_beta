@@ -1893,6 +1893,81 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         `;
     }
 
+    // ── Медицинский глоссарий: авто-ссылки в тексте ──
+    let _medicalKeywordsCache = null;
+    let _medicalKeywordsLoading = false;
+
+    async function loadMedicalKeywords() {
+        if (_medicalKeywordsCache !== null) return _medicalKeywordsCache;
+        if (_medicalKeywordsLoading) return [];
+        _medicalKeywordsLoading = true;
+        try {
+            const resp = await fetch('/api/medical-images/keywords');
+            if (!resp.ok) return [];
+            _medicalKeywordsCache = await resp.json();
+        } catch { _medicalKeywordsCache = []; }
+        _medicalKeywordsLoading = false;
+        return _medicalKeywordsCache;
+    }
+
+    function linkifyMedicalTerms(html, keywords) {
+        if (!keywords || !keywords.length) return html;
+        // Сортируем по длине убывая (длинные фразы первыми)
+        const sorted = [...keywords].sort((a, b) => b.keyword.length - a.keyword.length);
+        let result = html;
+        for (const { keyword, imageUrl, title, id } of sorted) {
+            if (!keyword) continue;
+            const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const re = new RegExp(`(?<![\\w<"/])${escaped}(?![\\w>"])`, 'gi');
+            result = result.replace(re, match =>
+                `<a href="#" class="medical-term-link" data-medical-id="${id}" data-img-url="${imageUrl}" data-img-title="${title || match}" onclick="openMedicalImagePopup(event,this)" title="${title || match}">${match}</a>`
+            );
+        }
+        return result;
+    }
+
+    window.openMedicalImagePopup = function(e, el) {
+        e.preventDefault();
+        const imgUrl = el.dataset.imgUrl;
+        const title = el.dataset.imgTitle;
+        let popup = document.getElementById('medicalTermPopup');
+        if (!popup) {
+            popup = document.createElement('div');
+            popup.id = 'medicalTermPopup';
+            popup.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;';
+            popup.innerHTML = `<div style="background:#fff;border-radius:12px;max-width:90vw;max-height:90vh;overflow:auto;padding:1rem;position:relative;">
+                <button onclick="document.getElementById('medicalTermPopup').remove()" style="position:absolute;top:0.5rem;right:0.75rem;font-size:1.5rem;background:none;border:none;cursor:pointer;color:#666;">×</button>
+                <h3 id="medicalTermPopupTitle" style="margin:0 2rem 0.75rem 0;"></h3>
+                <img id="medicalTermPopupImg" src="" alt="" style="max-width:100%;max-height:70vh;border-radius:8px;display:block;">
+            </div>`;
+            popup.addEventListener('click', function(ev) { if (ev.target === popup) popup.remove(); });
+            document.body.appendChild(popup);
+        } else {
+            popup.style.display = 'flex';
+        }
+        document.getElementById('medicalTermPopupTitle').textContent = title || '';
+        document.getElementById('medicalTermPopupImg').src = imgUrl;
+        document.getElementById('medicalTermPopupImg').alt = title || '';
+    };
+
+    // Применяем linkify после рендера вопроса/объяснения
+    async function applyMedicalLinkify() {
+        const kws = await loadMedicalKeywords();
+        if (!kws.length) return;
+        const selectors = [
+            '.question-text',
+            '.question-explanation',
+            '.answer-option-text'
+        ];
+        for (const sel of selectors) {
+            document.querySelectorAll(sel).forEach(el => {
+                if (el.dataset.medicalLinked) return;
+                el.dataset.medicalLinked = '1';
+                el.innerHTML = linkifyMedicalTerms(el.innerHTML, kws);
+            });
+        }
+    }
+
     function normalizeImageUrls(value) {
         if (Array.isArray(value)) {
             return [...new Set(value.map(item => String(item || '').trim()).filter(Boolean))];
@@ -1946,6 +2021,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         if (show) {
             slot.innerHTML = renderQuestionExplanationHtml(question.explanation, question.explanationImageUrl);
             slot.hidden = false;
+            applyMedicalLinkify();
         } else {
             slot.innerHTML = '';
             slot.hidden = true;
@@ -2019,6 +2095,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             <div id="questionExplanationSlot" class="question-explanation-slot" hidden></div>
         </div>
     `;
+
+        applyMedicalLinkify();
 
         const errorQuestionIdEl = document.getElementById('errorQuestionId');
         const errorTestIdEl = document.getElementById('errorTestId');

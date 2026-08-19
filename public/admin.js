@@ -3078,7 +3078,8 @@ async function loadUsmleAdminPanel() {
         loadUsmleStatsAdmin(),
         loadUsmlePlansAdmin(),
         loadAdminQuestionTags(),
-        loadUsmleSubjectsAdmin()
+        loadUsmleSubjectsAdmin(),
+        loadMedicalImages()
     ]);
     await loadUsmleTestsAdmin();
     await loadUsmleQuestionsAdmin();
@@ -5317,6 +5318,174 @@ window.markDeviceAlertRead = markDeviceAlertRead;
 window.openAdminChat = openAdminChat;
 window.editPromoCode = editPromoCode;
 window.deletePromoCode = deletePromoCode;
+
+// ─────────────────────────────────────────────────────
+// Медицинский глоссарий (MedicalImages)
+// ─────────────────────────────────────────────────────
+
+let medicalImages = [];
+let editingMedicalImageId = null;
+let pendingMedicalImageFile = null;
+
+async function loadMedicalImages() {
+    try {
+        const resp = await fetch('/api/medical-images', { headers: adminAuthHeaders() });
+        if (!resp.ok) throw new Error(await resp.text());
+        medicalImages = await resp.json();
+        renderMedicalImagesList();
+    } catch (err) {
+        console.error('Ошибка загрузки медицинских изображений:', err);
+    }
+}
+
+function renderMedicalImagesList() {
+    const container = document.getElementById('medicalImagesList');
+    if (!container) return;
+    if (!medicalImages.length) {
+        container.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem; margin:0;">Нет изображений</p>';
+        return;
+    }
+    container.innerHTML = medicalImages.map(img => {
+        const kws = (img.keywords || []).slice(0, 3).join(', ');
+        const more = img.keywords && img.keywords.length > 3 ? ` +${img.keywords.length - 3}` : '';
+        return `<div style="display:flex; align-items:center; gap:0.6rem; background:var(--bg-secondary); border-radius:8px; padding:0.5rem 0.6rem;">
+            <img src="${img.imageUrl}" alt="" style="width:42px; height:42px; object-fit:cover; border-radius:6px; flex-shrink:0; cursor:pointer;"
+                onclick="viewMedicalImage(${img.id})">
+            <div style="flex:1; min-width:0;">
+                <div style="font-size:0.82rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${img.title || '—'}</div>
+                <div style="font-size:0.75rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${kws}${more}</div>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="openEditMedicalImageModal(${img.id})" style="padding:0.25rem 0.5rem; font-size:0.75rem;">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteMedicalImage(${img.id})" style="padding:0.25rem 0.5rem; font-size:0.75rem;">🗑</button>
+        </div>`;
+    }).join('');
+}
+
+function openAddMedicalImageModal() {
+    editingMedicalImageId = null;
+    pendingMedicalImageFile = null;
+    document.getElementById('medicalImageModalTitle').textContent = 'Добавить изображение';
+    document.getElementById('medicalImageFile').value = '';
+    document.getElementById('medicalImageTitle').value = '';
+    document.getElementById('medicalImageKeywords').value = '';
+    document.getElementById('medicalImageDescription').value = '';
+    document.getElementById('medicalImagePreviewWrap').innerHTML = '';
+    document.getElementById('medicalImageModal').style.display = 'flex';
+}
+
+function openEditMedicalImageModal(id) {
+    const img = medicalImages.find(m => m.id === id);
+    if (!img) return;
+    editingMedicalImageId = id;
+    pendingMedicalImageFile = null;
+    document.getElementById('medicalImageModalTitle').textContent = 'Редактировать изображение';
+    document.getElementById('medicalImageFile').value = '';
+    document.getElementById('medicalImageTitle').value = img.title || '';
+    document.getElementById('medicalImageKeywords').value = (img.keywords || []).join(', ');
+    document.getElementById('medicalImageDescription').value = img.description || '';
+    document.getElementById('medicalImagePreviewWrap').innerHTML =
+        `<img src="${img.imageUrl}" alt="" style="max-height:120px; border-radius:6px; margin-bottom:0.4rem; display:block;">`;
+    document.getElementById('medicalImageModal').style.display = 'flex';
+}
+
+function closeMedicalImageModal() {
+    document.getElementById('medicalImageModal').style.display = 'none';
+    editingMedicalImageId = null;
+    pendingMedicalImageFile = null;
+}
+
+function viewMedicalImage(id) {
+    const img = medicalImages.find(m => m.id === id);
+    if (!img) return;
+    document.getElementById('medicalImageViewTitle').textContent = img.title || 'Изображение';
+    document.getElementById('medicalImageViewImg').src = img.imageUrl;
+    document.getElementById('medicalImageViewImg').alt = img.title || '';
+    document.getElementById('medicalImageViewDesc').textContent = img.description || '';
+    document.getElementById('medicalImageViewModal').style.display = 'flex';
+}
+
+async function saveMedicalImage() {
+    const title = document.getElementById('medicalImageTitle').value.trim();
+    const kwRaw = document.getElementById('medicalImageKeywords').value.trim();
+    const description = document.getElementById('medicalImageDescription').value.trim();
+    const fileInput = document.getElementById('medicalImageFile');
+    const file = fileInput.files[0] || pendingMedicalImageFile;
+
+    if (!editingMedicalImageId && !file) {
+        showNotification('Выберите изображение', 'error'); return;
+    }
+    if (!kwRaw) {
+        showNotification('Введите хотя бы одно ключевое слово', 'error'); return;
+    }
+
+    const keywords = kwRaw.split(',').map(s => s.trim()).filter(Boolean);
+    const formData = new FormData();
+    if (file) formData.append('image', file);
+    formData.append('title', title);
+    formData.append('description', description);
+    formData.append('keywords', JSON.stringify(keywords));
+
+    const btn = document.getElementById('saveMedicalImageBtn');
+    btn.disabled = true;
+    btn.textContent = 'Сохранение...';
+
+    try {
+        const url = editingMedicalImageId
+            ? `/api/admin/medical-images/${editingMedicalImageId}`
+            : '/api/admin/medical-images';
+        const method = editingMedicalImageId ? 'PUT' : 'POST';
+        const resp = await fetch(url, { method, headers: adminAuthHeaders(), body: formData });
+        if (!resp.ok) throw new Error(await resp.text());
+        showNotification(editingMedicalImageId ? 'Обновлено' : 'Добавлено', 'success');
+        closeMedicalImageModal();
+        await loadMedicalImages();
+    } catch (err) {
+        showNotification('Ошибка: ' + err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Сохранить';
+    }
+}
+
+async function deleteMedicalImage(id) {
+    if (!confirm('Удалить изображение и все его ключевые слова?')) return;
+    try {
+        const resp = await fetch(`/api/admin/medical-images/${id}`, { method: 'DELETE', headers: adminAuthHeaders() });
+        if (!resp.ok) throw new Error(await resp.text());
+        showNotification('Удалено', 'success');
+        await loadMedicalImages();
+    } catch (err) {
+        showNotification('Ошибка: ' + err.message, 'error');
+    }
+}
+
+// Предпросмотр выбранного файла
+document.addEventListener('DOMContentLoaded', () => {
+    const fileInput = document.getElementById('medicalImageFile');
+    if (fileInput) {
+        fileInput.addEventListener('change', () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+            pendingMedicalImageFile = file;
+            const reader = new FileReader();
+            reader.onload = e => {
+                document.getElementById('medicalImagePreviewWrap').innerHTML =
+                    `<img src="${e.target.result}" alt="" style="max-height:120px; border-radius:6px; margin-bottom:0.4rem; display:block;">`;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    const addBtn = document.getElementById('addMedicalImageBtn');
+    if (addBtn) addBtn.addEventListener('click', openAddMedicalImageModal);
+});
+
+window.openAddMedicalImageModal = openAddMedicalImageModal;
+window.openEditMedicalImageModal = openEditMedicalImageModal;
+window.closeMedicalImageModal = closeMedicalImageModal;
+window.saveMedicalImage = saveMedicalImage;
+window.deleteMedicalImage = deleteMedicalImage;
+window.viewMedicalImage = viewMedicalImage;
 
 // Загрузка заявок на регистрацию
 

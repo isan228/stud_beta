@@ -102,6 +102,11 @@ try {
 }
 app.use('/api/admin', require('./routes/documentsUpload'));
 
+// Медицинские изображения (глоссарий USMLE)
+const medicalImagesRouter = require('./routes/medicalImages');
+app.use('/api/medical-images', medicalImagesRouter);
+app.use('/api/admin/medical-images', adminAuth, medicalImagesRouter);
+
 // Иконка сайта (вкладка браузера, Google Search, /favicon.ico)
 app.get('/favicon.ico', (req, res) => {
   res.type('image/png');

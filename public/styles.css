@@ -2073,6 +2073,22 @@ html[data-theme="dark"] .question-image-preview-img,
     background: rgba(255, 255, 255, 0.06);
 }
 
+/* Медицинский глоссарий — ссылки на термины */
+.medical-term-link {
+    color: var(--primary-color, #2563eb);
+    text-decoration: underline dotted;
+    text-underline-offset: 2px;
+    cursor: pointer;
+    font-weight: inherit;
+    border: none;
+    background: none;
+    padding: 0;
+}
+.medical-term-link:hover {
+    text-decoration: underline solid;
+    opacity: 0.85;
+}
+
 .test-actions {
     display: flex;
     justify-content: space-between;
