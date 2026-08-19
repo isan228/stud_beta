@@ -55,6 +55,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     let instantFeedbackLockedQuestions = {};
     let testTimer = null;
     let testStartTime = null;
+    // Время на каждый вопрос: { [questionId]: секунды }
+    let questionTimes = {};
+    let _questionViewStart = null;
     let chatPollInterval = null;
     let isChatOpen = false;
     let pendingDeviceAlerts = [];
@@ -1800,6 +1803,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             instantFeedbackMode = instantMode;
             instantFeedbackLockedQuestions = {};
             testStartTime = Date.now();
+            questionTimes = {};
+            _questionViewStart = Date.now();
 
             // Сохраняем данные теста в sessionStorage для загрузки на странице теста
             sessionStorage.setItem('testData', JSON.stringify({
@@ -2044,6 +2049,16 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
 
         const question = currentQuestions[currentQuestionIndex];
+
+        // Сохраняем время на предыдущий вопрос
+        if (_questionViewStart !== null && currentQuestionIndex > 0) {
+            const prevQ = currentQuestions[currentQuestionIndex - 1];
+            if (prevQ) {
+                questionTimes[prevQ.id] = (questionTimes[prevQ.id] || 0) + Math.floor((Date.now() - _questionViewStart) / 1000);
+            }
+        }
+        _questionViewStart = Date.now();
+
         const progress = ((currentQuestionIndex + 1) / currentQuestions.length) * 100;
 
         const progressFillEl = document.getElementById('progressFill');
@@ -2221,6 +2236,13 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
 
         const timeSpent = Math.floor((Date.now() - testStartTime) / 1000);
+
+        // Фиксируем время на текущий (последний просматриваемый) вопрос
+        if (_questionViewStart !== null && currentQuestions[currentQuestionIndex]) {
+            const curQ = currentQuestions[currentQuestionIndex];
+            questionTimes[curQ.id] = (questionTimes[curQ.id] || 0) + Math.floor((Date.now() - _questionViewStart) / 1000);
+        }
+
         const answeredQuestions = currentQuestions.filter(question => {
             const answerId = currentAnswers[question.id];
             return answerId !== undefined && answerId !== null && answerId !== '';
@@ -2612,9 +2634,12 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 total: result.total,
                 percentage: result.percentage || Math.round((result.score / result.total) * 100),
                 results: result.results || {},
-                questions: questionsToSave, // Сохраняем вопросы с нормализованными правильными ответами
+                questions: questionsToSave,
                 answers: currentAnswers,
                 timeSpent,
+                questionTimes,
+                isCustomUsmle: !!(sessionStorage.getItem('testData') && JSON.parse(sessionStorage.getItem('testData') || '{}').isCustomUsmle),
+                programType: currentProgramType || null,
                 testId: currentTestId || window.currentTestId || null,
                 instantFeedbackMode: !!instantFeedbackMode
             }));
@@ -2914,6 +2939,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             instantFeedbackMode = false;
             instantFeedbackLockedQuestions = {};
             testStartTime = Date.now();
+            questionTimes = {};
+            _questionViewStart = Date.now();
             currentTestId = null; // Специальный тест из избранного
 
             // Сохраняем данные теста в sessionStorage для загрузки на странице теста

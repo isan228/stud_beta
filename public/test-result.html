@@ -394,6 +394,57 @@
             const timeSpentMinutes = resultData.timeSpent ? Math.floor(resultData.timeSpent / 60) : 0;
             const timeSpentSeconds = resultData.timeSpent ? resultData.timeSpent % 60 : 0;
             
+            // ── USMLE: статистика по тегам ──
+            const isUsmle = !!(resultData.isCustomUsmle || resultData.programType === 'usmle');
+            const questionTimes = resultData.questionTimes || {};
+
+            function fmtSec(s) {
+                if (!s) return '—';
+                const m = Math.floor(s / 60);
+                const sec = s % 60;
+                return m > 0 ? `${m}м ${sec}с` : `${sec}с`;
+            }
+
+            function buildTagStats(questions, results) {
+                const tagMap = {}; // tagName -> { correct, total }
+                for (const q of questions) {
+                    const res = results[q.id];
+                    if (!res) continue;
+                    const tags = (q.Tags || []).map(t => t.name || t);
+                    if (!tags.length) tags.push('Без тега');
+                    for (const tag of tags) {
+                        if (!tagMap[tag]) tagMap[tag] = { correct: 0, total: 0 };
+                        tagMap[tag].total++;
+                        if (res.correct) tagMap[tag].correct++;
+                    }
+                }
+                return Object.entries(tagMap)
+                    .sort((a, b) => b[1].total - a[1].total);
+            }
+
+            const tagStats = isUsmle ? buildTagStats(resultData.questions, resultData.results) : [];
+
+            const tagStatsHtml = isUsmle && tagStats.length ? `
+                <div style="margin-bottom: 2rem; padding: 1.5rem; background: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--border-light);">
+                    <h3 style="margin: 0 0 1rem; color: var(--text-color);">Статистика по темам</h3>
+                    <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+                        ${tagStats.map(([tag, stat]) => {
+                            const pct = Math.round((stat.correct / stat.total) * 100);
+                            const color = pct >= 80 ? 'var(--success-color)' : pct >= 60 ? 'var(--primary-color)' : 'var(--danger-color)';
+                            return `<div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.25rem;">
+                                    <span style="font-size:0.85rem; font-weight:600; color:var(--text-color);">${tag}</span>
+                                    <span style="font-size:0.82rem; color:${color}; font-weight:700;">${stat.correct}/${stat.total} (${pct}%)</span>
+                                </div>
+                                <div style="height:6px; background:var(--border-light); border-radius:4px; overflow:hidden;">
+                                    <div style="height:100%; width:${pct}%; background:${color}; border-radius:4px; transition:width .4s;"></div>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>
+            ` : '';
+
             content.innerHTML = `
                 <div style="margin-bottom: 2rem; padding: 1.5rem; background: linear-gradient(135deg, var(--card-bg) 0%, var(--bg-secondary) 100%); border-radius: var(--radius-lg); border: 1px solid var(--border-light);">
                     <h3 style="margin-bottom: 1rem; color: var(--text-color);">Общая статистика</h3>
@@ -422,6 +473,8 @@
                         ` : ''}
                     </div>
                 </div>
+
+                ${tagStatsHtml}
                 
                 <h3 style="margin-bottom: 1rem; color: var(--text-color);">Детальный разбор по вопросам</h3>
                 ${resultData.questions.map((question, index) => {
@@ -430,14 +483,12 @@
                     
                     const userAnswerId = resultData.answers[question.id];
                     const userAnswer = question.Answers?.find(a => a.id === parseInt(userAnswerId));
-                    // Ищем правильный ответ: сначала по correctAnswerId из результатов, потом по isCorrect
                     let correctAnswer = null;
                     
                     if (questionResult.correctAnswerId) {
                         correctAnswer = question.Answers?.find(a => a.id === questionResult.correctAnswerId);
                     }
                     if (!correctAnswer) {
-                        // Ищем по isCorrect (проверяем разные форматы)
                         correctAnswer = question.Answers?.find(a => 
                             a.isCorrect === true || 
                             a.isCorrect === 1 || 
@@ -445,17 +496,14 @@
                             String(a.isCorrect).toLowerCase() === 'true'
                         );
                     }
-                    
-                    // Если все еще не найден, пробуем найти первый ответ с isCorrect
                     if (!correctAnswer && question.Answers) {
                         for (const answer of question.Answers) {
-                            if (answer.isCorrect) {
-                                correctAnswer = answer;
-                                break;
-                            }
+                            if (answer.isCorrect) { correctAnswer = answer; break; }
                         }
                     }
                     const isCorrect = questionResult.correct;
+                    const qTime = questionTimes[question.id];
+                    const qTags = (question.Tags || []).map(t => t.name || t).filter(Boolean);
                     
                     return `
                         <div class="test-analysis-item ${isCorrect ? 'correct' : 'incorrect'}">
@@ -466,10 +514,12 @@
                                 <div style="flex: 1;">
                                     ${renderImageGalleryHtml(question.imageUrls || question.imageUrl, 'Иллюстрация к вопросу')}
                                     <div class="test-analysis-question">${question.text}</div>
-                                    <div style="margin-top: 0.75rem;">
+                                    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:0.5rem; margin-top: 0.75rem;">
                                         <span style="padding: 0.25rem 0.75rem; border-radius: 0.25rem; font-size: 0.875rem; font-weight: 600; background-color: ${isCorrect ? 'rgba(16, 185, 129, 0.1)' : 'rgba(220, 38, 38, 0.1)'}; color: ${isCorrect ? 'var(--success-color)' : 'var(--danger-color)'};">
                                             ${isCorrect ? '✓ Правильно' : '✗ Неправильно'}
                                         </span>
+                                        ${isUsmle && qTime ? `<span style="font-size:0.78rem; color:var(--text-muted); background:var(--bg-secondary); padding:0.2rem 0.6rem; border-radius:0.25rem;">⏱ ${fmtSec(qTime)}</span>` : ''}
+                                        ${isUsmle && qTags.length ? qTags.map(t => `<span style="font-size:0.75rem; color:var(--primary-color); background:rgba(37,99,235,0.08); padding:0.18rem 0.55rem; border-radius:0.25rem;">${t}</span>`).join('') : ''}
                                     </div>
                                 </div>
                             </div>
