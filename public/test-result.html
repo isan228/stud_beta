@@ -334,8 +334,10 @@
                 showTestResults(currentResultData);
                 renderTestEndExplanationsSection(currentResultData);
                 
-                // Показываем кнопку разбора если есть вопросы и результаты
+                // Автоматически открываем разбор и привязываем кнопку
                 if (currentResultData.questions && currentResultData.results) {
+                    showTestAnalysisFromSession(currentResultData);
+
                     const showAnalysisBtn = document.getElementById('showAnalysisBtn');
                     if (showAnalysisBtn) {
                         showAnalysisBtn.style.display = 'block';
