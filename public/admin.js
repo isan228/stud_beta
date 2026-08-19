@@ -3131,9 +3131,18 @@ async function loadAdminQuestionTags() {
             return;
         }
         list.innerHTML = tags.map((t) => `
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;padding:0.35rem 0;border-bottom:1px solid var(--border-light);">
-                <span style="font-weight:600;">${t.name}</span>
-                <button type="button" class="btn btn-danger btn-sm" onclick="deleteQuestionTagAdmin(${t.id})">×</button>
+            <div id="qtag-row-${t.id}" style="display:flex;align-items:center;gap:0.4rem;padding:0.35rem 0;border-bottom:1px solid var(--border-light);">
+                <span id="qtag-name-${t.id}" style="flex:1;font-weight:600;font-size:0.87rem;">${t.name}</span>
+                <input id="qtag-input-${t.id}" type="text" value="${t.name.replace(/"/g, '&quot;')}"
+                    style="flex:1;display:none;padding:0.25rem 0.4rem;font-size:0.87rem;border:1px solid var(--border-color);border-radius:6px;">
+                <button type="button" class="btn btn-secondary btn-sm" id="qtag-edit-btn-${t.id}"
+                    onclick="startEditQuestionTag(${t.id})" style="padding:0.2rem 0.5rem;font-size:0.75rem;">✏️</button>
+                <button type="button" class="btn btn-primary btn-sm" id="qtag-save-btn-${t.id}"
+                    onclick="saveEditQuestionTag(${t.id})" style="display:none;padding:0.2rem 0.5rem;font-size:0.75rem;">✓</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="qtag-cancel-btn-${t.id}"
+                    onclick="cancelEditQuestionTag(${t.id})" style="display:none;padding:0.2rem 0.5rem;font-size:0.75rem;">✕</button>
+                <button type="button" class="btn btn-danger btn-sm" id="qtag-del-btn-${t.id}"
+                    onclick="deleteQuestionTagAdmin(${t.id})" style="padding:0.2rem 0.5rem;font-size:0.75rem;">🗑</button>
             </div>
         `).join('');
     } catch (e) {
@@ -3186,6 +3195,47 @@ async function deleteQuestionTagAdmin(id) {
         showNotification('Ошибка удаления тега', 'error');
     }
 }
+
+function startEditQuestionTag(id) {
+    document.getElementById(`qtag-name-${id}`).style.display = 'none';
+    document.getElementById(`qtag-input-${id}`).style.display = '';
+    document.getElementById(`qtag-input-${id}`).focus();
+    document.getElementById(`qtag-edit-btn-${id}`).style.display = 'none';
+    document.getElementById(`qtag-del-btn-${id}`).style.display = 'none';
+    document.getElementById(`qtag-save-btn-${id}`).style.display = '';
+    document.getElementById(`qtag-cancel-btn-${id}`).style.display = '';
+}
+
+function cancelEditQuestionTag(id) {
+    document.getElementById(`qtag-name-${id}`).style.display = '';
+    document.getElementById(`qtag-input-${id}`).style.display = 'none';
+    document.getElementById(`qtag-edit-btn-${id}`).style.display = '';
+    document.getElementById(`qtag-del-btn-${id}`).style.display = '';
+    document.getElementById(`qtag-save-btn-${id}`).style.display = 'none';
+    document.getElementById(`qtag-cancel-btn-${id}`).style.display = 'none';
+}
+
+async function saveEditQuestionTag(id) {
+    const newName = (document.getElementById(`qtag-input-${id}`)?.value || '').trim();
+    if (!newName) { showNotification('Название не может быть пустым', 'error'); return; }
+    try {
+        const resp = await fetch(`${ADMIN_API_URL}/question-tags/${id}`, {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${currentAdminToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: newName })
+        });
+        const result = await resp.json().catch(() => ({}));
+        if (!resp.ok) { showNotification(result.error || 'Ошибка сохранения', 'error'); return; }
+        showNotification('Тег обновлён', 'success');
+        await loadAdminQuestionTags();
+    } catch (e) {
+        showNotification('Ошибка сохранения тега', 'error');
+    }
+}
+
+window.startEditQuestionTag = startEditQuestionTag;
+window.cancelEditQuestionTag = cancelEditQuestionTag;
+window.saveEditQuestionTag = saveEditQuestionTag;
 
 async function savePromoCode(e) {
     e.preventDefault();
