@@ -1882,14 +1882,14 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     function renderUsmleQuestionBodyHtml(text) {
         const parsed = parseUsmleLinkedQuestionText(text);
         if (!parsed.isLinked) {
-            return `<h3>${escapeHtmlStr(parsed.questionText).replace(/\n/g, '<br>')}</h3>`;
+            return `<h3 class="question-text">${escapeHtmlStr(parsed.questionText).replace(/\n/g, '<br>')}</h3>`;
         }
         return `
             <div class="usmle-vignette-box">
                 <div class="usmle-vignette-label">Клинический случай</div>
-                <div class="usmle-vignette-text">${escapeHtmlStr(parsed.vignette).replace(/\n/g, '<br>')}</div>
+                <div class="usmle-vignette-text question-text">${escapeHtmlStr(parsed.vignette).replace(/\n/g, '<br>')}</div>
             </div>
-            <h3>${escapeHtmlStr(parsed.questionText).replace(/\n/g, '<br>')}</h3>
+            <h3 class="question-text">${escapeHtmlStr(parsed.questionText).replace(/\n/g, '<br>')}</h3>
         `;
     }
 
@@ -1956,6 +1956,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         if (!kws.length) return;
         const selectors = [
             '.question-text',
+            '.usmle-vignette-text',
             '.question-explanation',
             '.answer-option-text'
         ];
