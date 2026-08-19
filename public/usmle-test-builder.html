@@ -547,6 +547,12 @@
                             </div>
                         </div>
 
+                        <div class="builder-field" id="timerMinutesField">
+                            <label for="usmleTimerMinutes">Время на блок (минуты)</label>
+                            <input type="number" id="usmleTimerMinutes" min="1" max="600" value="60"
+                                style="width:100px;padding:6px 10px;border:1px solid var(--border-color,#ddd);border-radius:8px;font-size:1rem;">
+                        </div>
+
                         <div class="builder-field">
                             <label>Порядок ответов</label>
                             <div class="toggle-pills">
@@ -592,6 +598,7 @@
     let allSystemTags  = [];
     let questionMode   = 'unsolved';
     let testMode       = 'standard';
+    let usmleTimerMinutes = 60;
     let randomizeAnswers = true;
 
     /* ── Group accordion ── */
@@ -672,6 +679,8 @@
         document.querySelectorAll('[data-test-mode]').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         testMode = btn.dataset.testMode;
+        const timerField = document.getElementById('timerMinutesField');
+        if (timerField) timerField.style.display = testMode === 'standard' ? '' : 'none';
     }
 
     function selectRandom(btn) {
@@ -776,13 +785,14 @@
             }
 
             const useTimer = testMode === 'standard';
+            const timerMins = parseInt(document.getElementById('usmleTimerMinutes')?.value || '60') || 60;
             sessionStorage.setItem('testData', JSON.stringify({
                 testId: currentTestId,
                 questions,
                 answers: {},
                 questionIndex: 0,
                 startTime: Date.now(),
-                timer: useTimer ? 60 * 60 : null,
+                timer: useTimer ? Math.max(1, timerMins) * 60 : null,
                 instantFeedbackMode,
                 instantFeedbackLockedQuestions: {},
                 isCustomUsmle: true
