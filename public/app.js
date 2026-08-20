@@ -1867,35 +1867,17 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         testTimer = setInterval(updateTimer, 1000);
     }
 
+    const usmleLinked = () => window.UsmleLinkedQuestion || {};
+
     function parseUsmleLinkedQuestionText(text) {
-        const USMLE_VIGNETTE_MARKER = '<<<USMLE_VIGNETTE>>>';
-        const USMLE_QUESTION_MARKER = '<<<USMLE_QUESTION>>>';
-        const raw = String(text || '');
-        const vignetteIdx = raw.indexOf(USMLE_VIGNETTE_MARKER);
-        const questionIdx = raw.indexOf(USMLE_QUESTION_MARKER);
-        if (vignetteIdx === -1 || questionIdx === -1 || questionIdx < vignetteIdx) {
-            return { isLinked: false, vignette: null, questionText: raw.trim() };
-        }
-        const vignette = raw.slice(vignetteIdx + USMLE_VIGNETTE_MARKER.length, questionIdx).trim();
-        const questionText = raw.slice(questionIdx + USMLE_QUESTION_MARKER.length).trim();
-        if (!vignette || !questionText) {
-            return { isLinked: false, vignette: null, questionText: raw.trim() };
-        }
-        return { isLinked: true, vignette, questionText };
+        const fn = usmleLinked().parseUsmleLinkedQuestionText;
+        return fn ? fn(text) : { isLinked: false, vignette: null, questionText: String(text || '').trim() };
     }
 
-    function renderUsmleQuestionBodyHtml(text) {
-        const parsed = parseUsmleLinkedQuestionText(text);
-        if (!parsed.isLinked) {
-            return `<h3 class="question-text">${escapeHtmlStr(parsed.questionText).replace(/\n/g, '<br>')}</h3>`;
-        }
-        return `
-            <div class="usmle-vignette-box">
-                <div class="usmle-vignette-label">Клинический случай</div>
-                <div class="usmle-vignette-text question-text">${escapeHtmlStr(parsed.vignette).replace(/\n/g, '<br>')}</div>
-            </div>
-            <h3 class="question-text">${escapeHtmlStr(parsed.questionText).replace(/\n/g, '<br>')}</h3>
-        `;
+    function renderUsmleQuestionBodyHtml(text, options) {
+        const fn = usmleLinked().renderUsmleQuestionBodyHtml;
+        if (fn) return fn(text, options);
+        return `<h3 class="question-text">${escapeHtmlStr(String(text || '')).replace(/\n/g, '<br>')}</h3>`;
     }
 
     // ── Медицинский глоссарий: авто-ссылки в тексте ──
@@ -2099,7 +2081,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         content.innerHTML = `
         <div class="question-item">
             ${questionImageHtml}
-            ${renderUsmleQuestionBodyHtml(question.text)}
+            ${renderUsmleQuestionBodyHtml(question.text, {
+                isFirstInLinkedGroup: usmleLinked().isFirstLinkedQuestionInList?.(currentQuestions, currentQuestionIndex) || false
+            })}
             <div class="answers-list">
                 ${question.Answers.map(answer => `
                     <div class="answer-item" data-answer-id="${answer.id}" onclick="selectAnswer(${answer.id})">
@@ -4029,13 +4013,13 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             }
             updateRenewalTotal();
 
-            const txs = Array.isArray(data.transactions) ? data.transactions : [];
+            const txs = (Array.isArray(data.transactions) ? data.transactions : [])
+                .filter((t) => t.status !== 'PENDING');
             if (!txs.length) {
                 historyEl.innerHTML = '<p style="color: var(--text-muted);">Пока нет оплаченных подписок</p>';
             } else {
                 const statusBadge = (s) => {
                     if (s === 'SUCCEEDED') return '<span class="subs-badge ok">Оплачено</span>';
-                    if (s === 'PENDING') return '<span class="subs-badge pending">Ожидание</span>';
                     return '<span class="subs-badge fail">Ошибка</span>';
                 };
                 historyEl.innerHTML = `
@@ -4289,7 +4273,11 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                             </div>
                             <div style="flex: 1;">
                                 ${question.imageUrl ? `<figure class="question-image-wrap"><img src="${String(question.imageUrl).replace(/"/g, '')}" alt="Иллюстрация к вопросу" class="question-image" loading="lazy" decoding="async"></figure>` : ''}
-                                <div class="test-analysis-question">${question.text}</div>
+                                <div class="test-analysis-question">${usmleLinked().renderUsmleQuestionBodyHtml
+                                    ? usmleLinked().renderUsmleQuestionBodyHtml(question.text, {
+                                        isFirstInLinkedGroup: usmleLinked().isFirstLinkedQuestionInList?.(result.questions, index) || false
+                                    })
+                                    : question.text}</div>
                                 <div style="margin-top: 0.75rem;">
                                     <span style="padding: 0.25rem 0.75rem; border-radius: 0.25rem; font-size: 0.875rem; font-weight: 600; background-color: ${isCorrect ? 'rgba(16, 185, 129, 0.1)' : 'rgba(220, 38, 38, 0.1)'}; color: ${isCorrect ? 'var(--success-color)' : 'var(--danger-color)'};">
                                         ${isCorrect ? '✓ Правильно' : '✗ Неправильно'}

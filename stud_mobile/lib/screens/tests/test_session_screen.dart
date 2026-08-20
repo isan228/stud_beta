@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/utils/helpers.dart';
+import '../../core/utils/usmle_question_parser.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/linked_question_content.dart';
 import '../../providers/auth_provider.dart';
@@ -235,6 +236,10 @@ class _TestSessionScreenState extends ConsumerState<TestSessionScreen> {
                 ),
                 LinkedQuestionContent(
                   text: question.text,
+                  isFirstInLinkedGroup: isFirstLinkedQuestionInList(
+                    session.questions,
+                    _currentIndex,
+                  ),
                   questionStyle: Theme.of(context).textTheme.titleMedium,
                 ),
                 if (question.imageUrl != null) ...[

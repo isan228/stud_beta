@@ -129,6 +129,7 @@
     </style>
 
     <div id="notification" class="notification"></div>
+    <script src="usmle-linked-question.js"></script>
     <script src="app.js"></script>
     <script>
         let currentResultData = null;
@@ -194,8 +195,14 @@
             }
 
             section.style.display = 'block';
-            content.innerHTML = items.map((question, index) => {
+            content.innerHTML = items.map((question) => {
+                const qIndex = (resultData.questions || []).findIndex((q) => q.id === question.id);
                 const questionResult = resultData.results?.[question.id];
+                const questionBodyHtml = window.UsmleLinkedQuestion?.renderUsmleQuestionBodyHtml
+                    ? window.UsmleLinkedQuestion.renderUsmleQuestionBodyHtml(question.text, {
+                        isFirstInLinkedGroup: window.UsmleLinkedQuestion.isFirstLinkedQuestionInList(resultData.questions, qIndex)
+                    })
+                    : escHtml(question.text).replace(/\n/g, '<br>');
                 const isCorrect = questionResult ? questionResult.correct : null;
                 const statusLabel = isCorrect === true
                     ? '✓ Верно'
@@ -211,11 +218,11 @@
                 return `
                     <div class="test-end-explanation-item">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.5rem;">
-                            <strong style="color: var(--text-color);">Вопрос ${index + 1}</strong>
+                            <strong style="color: var(--text-color);">Вопрос ${qIndex >= 0 ? qIndex + 1 : '—'}</strong>
                             ${statusLabel ? `<span style="font-size: 0.85rem; font-weight: 600; color: ${statusColor};">${statusLabel}</span>` : ''}
                         </div>
                         ${renderImageGalleryHtml(question.imageUrls || question.imageUrl, 'Иллюстрация к вопросу')}
-                        <p style="margin: 0 0 0.75rem; color: var(--text-color); line-height: 1.45;">${escHtml(question.text).replace(/\n/g, '<br>')}</p>
+                        <div style="margin: 0 0 0.75rem; color: var(--text-color); line-height: 1.45;">${questionBodyHtml}</div>
                         <div class="question-explanation-box" style="margin-top: 0;">
                             <div class="question-explanation-label">Объяснение</div>
                             ${renderImageGalleryHtml(question.explanationImageUrls || question.explanationImageUrl, 'Иллюстрация к объяснению', 'question-explanation-image-wrap')}
@@ -515,7 +522,11 @@
                                 </div>
                                 <div style="flex: 1;">
                                     ${renderImageGalleryHtml(question.imageUrls || question.imageUrl, 'Иллюстрация к вопросу')}
-                                    <div class="test-analysis-question">${question.text}</div>
+                                    <div class="test-analysis-question">${window.UsmleLinkedQuestion?.renderUsmleQuestionBodyHtml
+                                    ? window.UsmleLinkedQuestion.renderUsmleQuestionBodyHtml(question.text, {
+                                        isFirstInLinkedGroup: window.UsmleLinkedQuestion.isFirstLinkedQuestionInList(resultData.questions, index)
+                                    })
+                                    : question.text}</div>
                                     <div style="display:flex; flex-wrap:wrap; align-items:center; gap:0.5rem; margin-top: 0.75rem;">
                                         <span style="padding: 0.25rem 0.75rem; border-radius: 0.25rem; font-size: 0.875rem; font-weight: 600; background-color: ${isCorrect ? 'rgba(16, 185, 129, 0.1)' : 'rgba(220, 38, 38, 0.1)'}; color: ${isCorrect ? 'var(--success-color)' : 'var(--danger-color)'};">
                                             ${isCorrect ? '✓ Правильно' : '✗ Неправильно'}
