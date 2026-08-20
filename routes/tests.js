@@ -5,6 +5,7 @@ const { Test, Question, Answer, Subject, Favorite, TestResult, User, University,
 const { Op } = require('sequelize');
 const { isSubscriptionActive } = require('../utils/subscriptionPlans');
 const { parseImageUrls, firstImageUrl } = require('../utils/mediaField');
+const { pickQuestionsKeepingLinkedOrder } = require('../utils/usmleLinkedQuestions');
 
 function tryGetUserIdFromRequest(req) {
   const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -620,16 +621,17 @@ router.post('/usmle/custom-test/questions', async (req, res) => {
       return res.json([]);
     }
 
-    for (let i = questionIds.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [questionIds[i], questionIds[j]] = [questionIds[j], questionIds[i]];
-    }
-    const limit = Math.min(Math.max(parseInt(questionCount, 10) || 40, 1), questionIds.length);
-    const shuffled = questionIds.slice(0, limit);
+    const candidateRows = await Question.findAll({
+      where: { id: { [Op.in]: questionIds } },
+      attributes: ['id', 'text', 'createdAt']
+    });
+    const limit = Math.min(Math.max(parseInt(questionCount, 10) || 40, 1), candidateRows.length);
+    const ordered = pickQuestionsKeepingLinkedOrder(candidateRows, limit, { shuffleGroups: true });
+    const shuffled = ordered.map((q) => q.id);
 
     const questions = await Question.findAll({
       where: { id: { [Op.in]: shuffled } },
-      include: [{ model: Answer, as: 'Answers' }]
+      include: [{ model: Answer, as: 'Answers' }, tagsInclude()]
     });
 
     const qMap = new Map(questions.map((q) => [q.id, q]));
@@ -654,6 +656,7 @@ router.post('/usmle/custom-test/questions', async (req, res) => {
         testName: test.name,
         imageUrl: firstImageUrl(qj.imageUrl),
         imageUrls: parseImageUrls(qj.imageUrl),
+        Tags: (qj.Tags || []).map((t) => ({ id: t.id, name: t.name, slug: t.slug })),
         ...(instantFeedbackMode ? {
           explanation: qj.explanation || null,
           explanationImageUrl: firstImageUrl(qj.explanationImageUrl),
@@ -933,7 +936,9 @@ router.get('/tests/:testId', async (req, res) => {
           model: Answer,
           as: 'Answers'
           // Убираем явное указание attributes - Sequelize должен вернуть все поля
-        }]
+        }],
+        separate: true,
+        order: [['createdAt', 'ASC'], ['id', 'ASC']]
       }, universityInclude()]
     });
 
@@ -967,6 +972,11 @@ router.get('/tests/:testId', async (req, res) => {
           });
         }
       });
+      testData.Questions = pickQuestionsKeepingLinkedOrder(
+        testData.Questions,
+        testData.Questions.length,
+        { shuffleGroups: false }
+      );
     }
     
     // Логируем для отладки - проверяем формат isCorrect для всех вопросов
@@ -1021,7 +1031,9 @@ router.post('/tests/:testId/questions', async (req, res) => {
         include: [{
           model: Answer,
           as: 'Answers'
-        }, tagsInclude()]
+        }, tagsInclude()],
+        separate: true,
+        order: [['createdAt', 'ASC'], ['id', 'ASC']]
       }]
     });
 
@@ -1062,10 +1074,12 @@ router.post('/tests/:testId/questions', async (req, res) => {
       questions = questions.filter((q) => pool.has(q.id));
     }
 
-    // Ограничение количества вопросов (лимит из настроек; раньше с клиента при «Ответы сразу» приходил null — тогда отдавались все вопросы)
+    // Ограничение количества: перемешиваются блоки, связанные вопросы остаются подряд в порядке TXT
     const limit = typeof questionCount === 'number' ? questionCount : parseInt(String(questionCount ?? ''), 10);
     if (Number.isFinite(limit) && limit > 0 && questions.length > limit) {
-      questions = questions.sort(() => Math.random() - 0.5).slice(0, limit);
+      questions = pickQuestionsKeepingLinkedOrder(questions, limit, { shuffleGroups: true });
+    } else {
+      questions = pickQuestionsKeepingLinkedOrder(questions, questions.length, { shuffleGroups: false });
     }
 
     const mapQuestionForClient = (q, answersList) => {
