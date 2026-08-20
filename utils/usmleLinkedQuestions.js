@@ -1,3 +1,5 @@
+const { extractTxtAnswers, mapAnswersWithCorrect, isValidCorrectIndex } = require('./txtQuestionAnswers');
+
 const VIGNETTE_MARKER = '<<<USMLE_VIGNETTE>>>';
 const QUESTION_MARKER = '<<<USMLE_QUESTION>>>';
 
@@ -113,13 +115,7 @@ function parseLinkedQuestionsFromText(text, options = {}) {
         ? formatLinkedQuestionText(sharedVignette, questionText)
         : questionText;
 
-      const answers = [];
-      for (let j = 1; j <= 5; j++) {
-        const answerText = extractField(block, `A${j}`);
-        if (answerText) {
-          answers.push({ text: answerText, index: j });
-        }
-      }
+      const answers = extractTxtAnswers(block);
 
       if (answers.length < 2) {
         console.warn(`Связанный вопрос ID ${idMatch[1]}: недостаточно ответов`);
@@ -132,8 +128,7 @@ function parseLinkedQuestionsFromText(text, options = {}) {
         continue;
       }
 
-      const correctIndex = parseInt(correctRaw, 10) - 1;
-      if (correctIndex < 0 || correctIndex >= answers.length) {
+      if (!isValidCorrectIndex(answers, correctRaw)) {
         console.warn(`Связанный вопрос ID ${idMatch[1]}: неверный Correct`);
         continue;
       }
@@ -166,10 +161,7 @@ function parseLinkedQuestionsFromText(text, options = {}) {
         text: finalText,
         explanation: explanation || null,
         tagNames: parseTags || requireTags ? tagNames : [],
-        answers: answers.map((a, idx) => ({
-          text: a.text,
-          isCorrect: idx === correctIndex
-        }))
+        answers: mapAnswersWithCorrect(answers, correctRaw)
       });
     } catch (error) {
       console.error(`Ошибка парсинга связанного блока ${i}:`, error);

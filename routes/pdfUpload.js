@@ -5,6 +5,7 @@ const adminAuth = require('../middleware/adminAuth');
 const { Op } = require('sequelize');
 const { Question, Answer, Test, QuestionTag, QuestionTagMap } = require('../models');
 const { parseLinkedQuestionsFromText } = require('../utils/usmleLinkedQuestions');
+const { extractTxtAnswers, mapAnswersWithCorrect, isValidCorrectIndex } = require('../utils/txtQuestionAnswers');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -179,10 +180,10 @@ async function handleTxtUpload(req, res, parseOptions) {
   const questions = parseQuestionsFromText(text, parseOptions);
   if (questions.length === 0) {
     const hint = parseOptions.requireExplanation && parseOptions.requireTags
-      ? 'Проверьте формат: нужны поля ID, Q, A1–A5, Correct, E (объяснение), Subject (тема) и System (система). Теги через запятую.'
+      ? 'Проверьте формат: нужны поля ID, Q, A1–A30, Correct, E (объяснение), Subject (тема) и System (система). Теги через запятую.'
       : parseOptions.requireExplanation
-        ? 'Проверьте формат: нужны поля ID, Q, A1–A5, Correct и E (объяснение).'
-        : 'Проверьте формат: нужны поля ID, Q, A1–A5, Correct.';
+        ? 'Проверьте формат: нужны поля ID, Q, A1–A30, Correct и E (объяснение).'
+        : 'Проверьте формат: нужны поля ID, Q, A1–A30, Correct.';
     res.status(400).json({ error: `Не удалось найти вопросы в TXT. ${hint}` });
     return;
   }
@@ -239,7 +240,7 @@ async function handleLinkedTxtUpload(req, res) {
 
   if (questions.length === 0) {
     res.status(400).json({
-      error: 'Не удалось найти связанные вопросы в TXT. Проверьте формат: GroupID, V (в первом блоке группы), ID, Q, A1–A5, Correct, E, Subject, System.'
+      error: 'Не удалось найти связанные вопросы в TXT. Проверьте формат: GroupID, V (в первом блоке группы), ID, Q, A1–A30, Correct, E, Subject, System.'
     });
     return;
   }
@@ -287,7 +288,7 @@ router.post('/upload-txt-linked', adminAuth, upload.single('pdf'), async (req, r
 });
 
 /**
- * Формат без объяснения: ID, Q, A1–A5, Correct
+ * Формат без объяснения: ID, Q, A1–A30, Correct
  * Формат USMLE с объяснением и тегами: + E и Tags (или T)
  */
 function parseQuestionsFromText(text, options = {}) {
@@ -310,13 +311,7 @@ function parseQuestionsFromText(text, options = {}) {
       if (!qMatch) continue;
       const questionText = qMatch[1];
 
-      const answers = [];
-      for (let j = 1; j <= 5; j++) {
-        const aMatch = block.match(new RegExp(`"A${j}"\\s*:\\s*"([^"]+)"`));
-        if (aMatch) {
-          answers.push({ text: aMatch[1], index: j });
-        }
-      }
+      const answers = extractTxtAnswers(block);
 
       if (answers.length < 2) {
         console.warn(`Вопрос ID ${idMatch[1]}: недостаточно ответов (минимум 2)`);
@@ -329,8 +324,7 @@ function parseQuestionsFromText(text, options = {}) {
         continue;
       }
 
-      const correctIndex = parseInt(correctMatch[1], 10) - 1;
-      if (correctIndex < 0 || correctIndex >= answers.length) {
+      if (!isValidCorrectIndex(answers, correctMatch[1])) {
         console.warn(`Вопрос ID ${idMatch[1]}: неверный индекс Correct`);
         continue;
       }
@@ -362,10 +356,7 @@ function parseQuestionsFromText(text, options = {}) {
         text: questionText,
         explanation: eMatch ? eMatch[1] : null,
         tagNames: parseTags || requireTags ? tagNames : [],
-        answers: answers.map((a, idx) => ({
-          text: a.text,
-          isCorrect: idx === correctIndex
-        }))
+        answers: mapAnswersWithCorrect(answers, correctMatch[1])
       });
     } catch (error) {
       console.error(`Ошибка парсинга блока ${i}:`, error);
