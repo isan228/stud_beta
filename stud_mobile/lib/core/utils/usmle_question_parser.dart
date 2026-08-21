@@ -31,30 +31,38 @@ ParsedUsmleQuestion parseUsmleQuestionText(String? text) {
     groupId = value.isEmpty ? null : value;
   }
 
-  if (vignetteIdx == -1 || questionIdx == -1 || questionIdx < vignetteIdx) {
+  if (groupId != null && questionIdx != -1) {
+    final questionText = raw.substring(questionIdx + _questionMarker.length).trim();
     return ParsedUsmleQuestion(
-      isLinked: false,
-      questionText: raw.trim(),
+      isLinked: questionText.isNotEmpty,
       groupId: groupId,
+      vignette: null,
+      questionText: questionText.isEmpty ? raw.trim() : questionText,
     );
   }
 
-  final vignette = raw.substring(vignetteIdx + _vignetteMarker.length, questionIdx).trim();
-  final questionText = raw.substring(questionIdx + _questionMarker.length).trim();
-
-  if (vignette.isEmpty || questionText.isEmpty) {
+  if (vignetteIdx != -1 && questionIdx != -1 && questionIdx > vignetteIdx) {
+    final questionText = raw.substring(questionIdx + _questionMarker.length).trim();
     return ParsedUsmleQuestion(
-      isLinked: false,
-      questionText: raw.trim(),
+      isLinked: questionText.isNotEmpty || groupId != null,
       groupId: groupId,
+      vignette: null,
+      questionText: questionText.isEmpty ? raw.trim() : questionText,
+    );
+  }
+
+  if (groupId != null) {
+    return ParsedUsmleQuestion(
+      isLinked: true,
+      groupId: groupId,
+      vignette: null,
+      questionText: raw.replaceFirst('$_groupMarker$groupId', '').trim(),
     );
   }
 
   return ParsedUsmleQuestion(
-    isLinked: true,
-    groupId: groupId,
-    vignette: vignette,
-    questionText: questionText,
+    isLinked: false,
+    questionText: raw.trim(),
   );
 }
 
@@ -62,9 +70,6 @@ String? linkedClusterKey(String? text) {
   final parsed = parseUsmleQuestionText(text);
   if (parsed.groupId != null && parsed.groupId!.isNotEmpty) {
     return 'g:${parsed.groupId}';
-  }
-  if (parsed.isLinked && parsed.vignette != null && parsed.vignette!.isNotEmpty) {
-    return 'v:${parsed.vignette}';
   }
   return null;
 }

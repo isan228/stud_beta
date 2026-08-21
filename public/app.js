@@ -1943,7 +1943,6 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         if (!kws.length) return;
         const selectors = [
             '.question-text',
-            '.usmle-vignette-text',
             '.question-explanation',
             '.answer-option-text'
         ];

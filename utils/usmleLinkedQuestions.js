@@ -12,12 +12,11 @@ function parseTagNames(raw) {
     .filter(Boolean))];
 }
 
-function formatLinkedQuestionText(vignette, questionText, groupId) {
-  const v = String(vignette || '').trim();
+/** Связанный вопрос: только GroupID + текст Q (без поля V). */
+function formatLinkedQuestionText(questionText, groupId) {
   const q = String(questionText || '').trim();
-  if (!v) return q;
-  const groupLine = groupId ? `${GROUP_MARKER}${String(groupId)}\n` : '';
-  return `${groupLine}${VIGNETTE_MARKER}\n${v}\n${QUESTION_MARKER}\n${q}`;
+  if (!groupId) return q;
+  return `${GROUP_MARKER}${String(groupId)}\n${QUESTION_MARKER}\n${q}`;
 }
 
 function parseLinkedQuestionText(text) {
@@ -33,28 +32,45 @@ function parseLinkedQuestionText(text) {
     groupId = (end === -1 ? after : after.slice(0, end)).trim() || null;
   }
 
-  if (vignetteIdx === -1 || questionIdx === -1 || questionIdx < vignetteIdx) {
+  // Новый формат: Group + Question без виньетки
+  if (groupId && questionIdx !== -1 && (vignetteIdx === -1 || vignetteIdx > questionIdx)) {
+    const questionText = raw.slice(questionIdx + QUESTION_MARKER.length).trim();
     return {
-      isLinked: false,
+      isLinked: Boolean(questionText),
       groupId,
       vignette: null,
-      questionText: raw.trim(),
+      questionText: questionText || raw.trim(),
       rawText: raw
     };
   }
 
-  const vignette = raw
-    .slice(vignetteIdx + VIGNETTE_MARKER.length, questionIdx)
-    .trim();
-  const questionText = raw
-    .slice(questionIdx + QUESTION_MARKER.length)
-    .trim();
+  // Старый формат с виньеткой — читаем Q, виньетку не показываем
+  if (vignetteIdx !== -1 && questionIdx !== -1 && questionIdx > vignetteIdx) {
+    const questionText = raw.slice(questionIdx + QUESTION_MARKER.length).trim();
+    return {
+      isLinked: Boolean(questionText || groupId),
+      groupId,
+      vignette: null,
+      questionText: questionText || raw.trim(),
+      rawText: raw
+    };
+  }
+
+  if (groupId) {
+    return {
+      isLinked: true,
+      groupId,
+      vignette: null,
+      questionText: raw.replace(GROUP_MARKER + groupId, '').trim() || raw.trim(),
+      rawText: raw
+    };
+  }
 
   return {
-    isLinked: Boolean(vignette && questionText),
-    groupId,
-    vignette: vignette || null,
-    questionText: questionText || raw.trim(),
+    isLinked: false,
+    groupId: null,
+    vignette: null,
+    questionText: raw.trim(),
     rawText: raw
   };
 }
@@ -62,7 +78,6 @@ function parseLinkedQuestionText(text) {
 function getLinkedClusterKey(question) {
   const parsed = parseLinkedQuestionText(question && question.text);
   if (parsed.groupId) return `g:${parsed.groupId}`;
-  if (parsed.isLinked && parsed.vignette) return `v:${parsed.vignette}`;
   return `q:${question && question.id}`;
 }
 
@@ -73,7 +88,6 @@ function compareQuestionTxtOrder(a, b) {
   return (a.id || 0) - (b.id || 0);
 }
 
-/** Группы связанных вопросов идут подряд, внутри — как в TXT (createdAt/id). */
 function clusterQuestionsInTxtOrder(questions) {
   const sorted = [...(questions || [])].sort(compareQuestionTxtOrder);
   const clusters = [];
@@ -102,11 +116,6 @@ function flattenQuestionClusters(clusters) {
   return clusters.flatMap((c) => c.items);
 }
 
-/**
- * Перемешивает блоки (группы связанных + одиночные),
- * но связанные вопросы внутри блока остаются в порядке TXT.
- * Если лимит попадает внутрь группы — берётся вся группа.
- */
 function pickQuestionsKeepingLinkedOrder(questions, limit, { shuffleGroups = true } = {}) {
   const clusters = clusterQuestionsInTxtOrder(questions);
   if (shuffleGroups) shuffleInPlace(clusters);
@@ -130,21 +139,18 @@ function extractField(block, field) {
 }
 
 /**
- * USMLE: связанные вопросы (один клинический случай — несколько Q).
+ * USMLE: связанные вопросы (несколько Q с одним GroupID).
  *
- * Формат TXT:
  * "GroupID":"1";
- * "V":"Общий клинический случай...";
  * "ID":"101";
  * "Q":"Первый вопрос?";
- * "A1"..."Correct":"2"; "E":"..."; "Subject":"..."; "System":"...";
+ * ...
  *
  * "GroupID":"1";
  * "ID":"102";
- * "Q":"Второй вопрос по тому же случаю?";
- * ...
+ * "Q":"Второй вопрос?";
  *
- * Поле V задаётся один раз на группу (в первом блоке). Дальше только GroupID + ID + Q.
+ * Поле V больше не используется (игнорируется, если есть в файле).
  */
 function parseLinkedQuestionsFromText(text, options = {}) {
   const {
@@ -154,19 +160,6 @@ function parseLinkedQuestionsFromText(text, options = {}) {
   } = options;
 
   const questions = [];
-  const groupVignettes = new Map();
-
-  // Сначала собираем случаи (V) по GroupID — они часто идут до "ID"
-  for (const chunk of text.split(/(?="GroupID"\s*:\s*")/i)) {
-    const groupId = extractField(chunk, 'GroupID') || extractField(chunk, 'Group');
-    const vignetteInChunk = extractField(chunk, 'V')
-      || extractField(chunk, 'Vignette')
-      || extractField(chunk, 'Case');
-    if (groupId && vignetteInChunk) {
-      groupVignettes.set(String(groupId), vignetteInChunk);
-    }
-  }
-
   const blocks = text.split(/"ID"\s*:\s*"/);
 
   for (let i = 1; i < blocks.length; i++) {
@@ -186,11 +179,12 @@ function parseLinkedQuestionsFromText(text, options = {}) {
       const questionText = extractField(block, 'Q');
       if (!questionText) continue;
 
-      const sharedVignette = groupId ? groupVignettes.get(String(groupId)) : null;
-      const finalText = sharedVignette
-        ? formatLinkedQuestionText(sharedVignette, questionText, groupId)
-        : questionText;
+      if (!groupId) {
+        console.warn(`Связанный вопрос ID ${idMatch[1]}: нет GroupID`);
+        continue;
+      }
 
+      const finalText = formatLinkedQuestionText(questionText, groupId);
       const answers = extractTxtAnswers(block);
 
       if (answers.length < 2) {
@@ -226,14 +220,9 @@ function parseLinkedQuestionsFromText(text, options = {}) {
         continue;
       }
 
-      if (groupId && !sharedVignette) {
-        console.warn(`Связанный вопрос ID ${idMatch[1]}: GroupID ${groupId} без поля V`);
-        continue;
-      }
-
       questions.push({
         sourceId: idMatch[1],
-        linkedGroupId: groupId ? String(groupId) : null,
+        linkedGroupId: String(groupId),
         text: finalText,
         explanation: explanation || null,
         tagNames: parseTags || requireTags ? tagNames : [],

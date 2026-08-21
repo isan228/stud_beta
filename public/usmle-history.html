@@ -45,14 +45,14 @@
 
         tbody.innerHTML = rows.map((item) => `
             <tr>
-                <td>${scoreRing(item.percentage)}</td>
-                <td><strong>${window.UsmleApp.escHtml(item.testName)}</strong></td>
-                <td>${fmtDate(item.createdAt)}</td>
-                <td>${window.UsmleApp.escHtml(item.mode)}</td>
-                <td>${window.UsmleApp.escHtml(item.subjectsLabel)}</td>
-                <td>${window.UsmleApp.escHtml(item.systemsLabel)}</td>
-                <td>${item.totalQuestions}</td>
-                <td>
+                <td data-label="Результат">${scoreRing(item.percentage)}</td>
+                <td data-label="Название"><strong>${window.UsmleApp.escHtml(item.testName)}</strong></td>
+                <td data-label="Дата">${fmtDate(item.createdAt)}</td>
+                <td data-label="Режим">${window.UsmleApp.escHtml(item.mode)}</td>
+                <td data-label="Предмет">${window.UsmleApp.escHtml(item.subjectsLabel)}</td>
+                <td data-label="Система">${window.UsmleApp.escHtml(item.systemsLabel)}</td>
+                <td data-label="Вопросов">${item.totalQuestions}</td>
+                <td data-label="Действия">
                     <div class="usmle-action-btns">
                         <button type="button" class="usmle-action-btn" title="Разбор" onclick="openReview(${item.id})">${window.UsmleApp.ICONS.review}</button>
                     </div>

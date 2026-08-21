@@ -240,7 +240,7 @@ async function handleLinkedTxtUpload(req, res) {
 
   if (questions.length === 0) {
     res.status(400).json({
-      error: 'Не удалось найти связанные вопросы в TXT. Проверьте формат: GroupID, V (в первом блоке группы), ID, Q, A1–A30, Correct, E, Subject, System.'
+      error: 'Не удалось найти связанные вопросы в TXT. Проверьте формат: GroupID, ID, Q, A1–A30, Correct, E, Subject, System.'
     });
     return;
   }

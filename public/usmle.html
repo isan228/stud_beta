@@ -40,10 +40,18 @@
         .usmle-empty { text-align:center; padding:3rem 1rem; color:var(--text-secondary); grid-column:1/-1; }
         .usmle-skel { height:140px; border-radius:1rem; background:var(--border-light); animation:blink 1.3s ease-in-out infinite; }
         @keyframes blink { 0%,100%{opacity:.5} 50%{opacity:.9} }
-        @media (max-width:540px) {
-            .step-switcher { width:100%; }
-            .step-btn { flex:1; text-align:center; padding:.5rem .75rem; }
-            .usmle-banks-grid { grid-template-columns:1fr; }
+        @media (max-width: 768px) {
+            .step-switcher { width: 100%; max-width: 420px; }
+            .step-btn { flex: 1; text-align: center; padding: .5rem .9rem; font-size: .85rem; }
+            .usmle-banks-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+            .page-header h1 { font-size: 1.5rem; }
+        }
+        @media (max-width: 540px) {
+            .step-switcher { width: 100%; }
+            .step-btn { flex: 1; text-align: center; padding: .5rem .65rem; }
+            .usmle-banks-grid { grid-template-columns: 1fr; }
+            .usmle-bank-card { min-height: 120px; padding: 1rem; }
+            .main-content .container { padding-left: 0.85rem; padding-right: 0.85rem; }
         }
     </style>
 </head>

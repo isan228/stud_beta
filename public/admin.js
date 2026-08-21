@@ -286,6 +286,38 @@ async function loadDashboard() {
         document.getElementById('statTotalQuestions').textContent = stats.totalQuestions || 0;
         document.getElementById('statTotalResults').textContent = stats.totalResults || 0;
 
+        const breakdown = data.usersBreakdown || {};
+        const freeEl = document.getElementById('statFreeRegistration');
+        const uniPaidEl = document.getElementById('statUniversityPaid');
+        const usmlePaidEl = document.getElementById('statUsmlePaid');
+        const activeUniEl = document.getElementById('statActiveUniversity');
+        const activeUsmleEl = document.getElementById('statActiveUsmle');
+        if (freeEl) freeEl.textContent = breakdown.freeRegistration ?? stats.freeRegistrationCount ?? 0;
+        if (uniPaidEl) uniPaidEl.textContent = breakdown.universityPaid ?? stats.universityPaidUsers ?? 0;
+        if (usmlePaidEl) usmlePaidEl.textContent = breakdown.usmlePaid ?? stats.usmlePaidUsers ?? 0;
+        if (activeUniEl) activeUniEl.textContent = breakdown.activeUniversity ?? stats.activeUniversitySubscriptions ?? 0;
+        if (activeUsmleEl) activeUsmleEl.textContent = breakdown.activeUsmle ?? stats.activeUsmleSubscriptions ?? 0;
+
+        const uniBreakdownList = document.getElementById('universityPaidBreakdown');
+        if (uniBreakdownList) {
+            const rows = Array.isArray(breakdown.byUniversity) ? breakdown.byUniversity : [];
+            if (rows.length) {
+                uniBreakdownList.innerHTML = rows.map((uni) => `
+                    <div class="admin-list-item">
+                        <div>
+                            <strong>${uni.shortName || uni.name || 'Университет'}</strong>
+                            <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0.25rem 0 0;">
+                                ${uni.name && uni.shortName && uni.name !== uni.shortName ? uni.name : ''}
+                            </p>
+                        </div>
+                        <span style="font-weight: 700; font-size: 1.1rem;">${uni.paidUsers || 0}</span>
+                    </div>
+                `).join('');
+            } else {
+                uniBreakdownList.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1.5rem;">Пока нет оплативших университет</p>';
+            }
+        }
+
         if (contactStatsResponse.ok) {
             const contactStats = await contactStatsResponse.json();
             document.getElementById('statNewMessages').textContent = contactStats.newMessages || 0;

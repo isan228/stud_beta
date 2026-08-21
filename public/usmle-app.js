@@ -149,6 +149,7 @@
 
         return `
         <div class="usmle-app" id="usmleAppRoot">
+            <button type="button" class="usmle-sidebar-backdrop" id="usmleSidebarBackdrop" aria-label="Закрыть меню"></button>
             <aside class="usmle-sidebar" id="usmleSidebar">
                 <div class="usmle-sidebar-brand">
                     <div class="usmle-sidebar-logo">${ICONS.logo}</div>
@@ -170,7 +171,7 @@
                     <div class="usmle-topbar-actions">
                         <button type="button" class="theme-toggle usmle-icon-btn" id="usmleThemeToggle" aria-label="Тема">${ICONS.moon}</button>
                         <a href="/usmle" class="btn btn-secondary btn-sm">Банки</a>
-                        <a href="/" class="btn btn-secondary btn-sm">На сайт</a>
+                        <a href="/" class="btn btn-secondary btn-sm btn-hide-sm">На сайт</a>
                     </div>
                 </header>
                 <div class="usmle-content" id="usmlePageContent"></div>
@@ -178,12 +179,35 @@
         </div>`;
     }
 
+    function setSidebarOpen(open) {
+        const sidebar = document.getElementById('usmleSidebar');
+        const backdrop = document.getElementById('usmleSidebarBackdrop');
+        if (!sidebar) return;
+        sidebar.classList.toggle('open', open);
+        if (backdrop) backdrop.classList.toggle('show', open);
+        document.body.classList.toggle('usmle-nav-open', open);
+    }
+
     function bindShellEvents() {
         const toggle = document.getElementById('usmleSidebarToggle');
         const sidebar = document.getElementById('usmleSidebar');
+        const backdrop = document.getElementById('usmleSidebarBackdrop');
         if (toggle && sidebar) {
-            toggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+            toggle.addEventListener('click', () => {
+                setSidebarOpen(!sidebar.classList.contains('open'));
+            });
         }
+        if (backdrop) {
+            backdrop.addEventListener('click', () => setSidebarOpen(false));
+        }
+        if (sidebar) {
+            sidebar.querySelectorAll('a.usmle-nav-link:not(.disabled)').forEach((link) => {
+                link.addEventListener('click', () => setSidebarOpen(false));
+            });
+        }
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') setSidebarOpen(false);
+        });
         const themeBtn = document.getElementById('usmleThemeToggle');
         if (themeBtn && typeof window.initTheme === 'function') {
             const cur = document.documentElement.getAttribute('data-theme') || localStorage.getItem('theme') || 'light';

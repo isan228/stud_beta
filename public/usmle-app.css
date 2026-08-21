@@ -385,15 +385,27 @@
     border: 1px solid var(--border-light);
     background: var(--bg-secondary);
     border-radius: 6px;
-    padding: 0.3rem 0.45rem;
+    padding: 0.4rem 0.5rem;
     cursor: pointer;
-    font-size: 0.85rem;
     line-height: 1;
+    color: var(--text-color);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.usmle-action-btn .usmle-ico {
+    width: 1.05rem;
+    height: 1.05rem;
 }
 
 .usmle-action-btn:hover {
     border-color: var(--primary-color);
     color: var(--primary-color);
+}
+
+.usmle-sidebar-backdrop {
+    display: none;
 }
 
 .usmle-banks-grid {
@@ -428,27 +440,68 @@
     color: #fff;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1100px) {
     .usmle-stats-span-3,
-    .usmle-stats-span-4,
-    .usmle-stats-span-6 {
+    .usmle-stats-span-4 {
         grid-column: span 6;
     }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
     .usmle-sidebar {
         position: fixed;
-        left: -260px;
-        transition: left 0.25s;
+        left: 0;
+        top: 0;
+        width: min(280px, 86vw);
+        transform: translateX(-105%);
+        transition: transform 0.25s ease;
+        box-shadow: none;
     }
 
     .usmle-sidebar.open {
-        left: 0;
+        transform: translateX(0);
+        box-shadow: 8px 0 28px rgba(15, 23, 42, 0.28);
+    }
+
+    .usmle-sidebar-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.45);
+        z-index: 90;
+        border: none;
+        padding: 0;
+        margin: 0;
+        cursor: pointer;
+    }
+
+    .usmle-sidebar-backdrop.show {
+        display: block;
     }
 
     .usmle-topbar-toggle {
         display: inline-flex;
+    }
+
+    .usmle-topbar {
+        padding: 0.75rem 1rem;
+        position: sticky;
+        top: 0;
+        z-index: 50;
+    }
+
+    .usmle-topbar h1 {
+        font-size: 1rem;
+        line-height: 1.3;
+    }
+
+    .usmle-topbar-actions .btn {
+        padding: 0.35rem 0.65rem;
+        font-size: 0.8rem;
+    }
+
+    .usmle-content {
+        padding: 1rem;
     }
 
     .usmle-stats-span-3,
@@ -458,7 +511,117 @@
         grid-column: span 12;
     }
 
+    .usmle-curve-box {
+        min-height: 160px;
+    }
+
+    .usmle-curve-svg {
+        height: 130px;
+    }
+
+    .usmle-table-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .usmle-table-toolbar label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        width: 100%;
+    }
+
+    .usmle-table-toolbar input[type="search"] {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* History: card layout on tablet/mobile */
+    .usmle-table thead {
+        display: none;
+    }
+
+    .usmle-table,
+    .usmle-table tbody,
+    .usmle-table tr,
+    .usmle-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .usmle-table tr {
+        padding: 0.85rem 1rem;
+        border-bottom: 1px solid var(--border-light);
+    }
+
+    .usmle-table td {
+        padding: 0.35rem 0;
+        border-bottom: none;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .usmle-table td::before {
+        content: attr(data-label);
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: var(--text-muted);
+        flex-shrink: 0;
+    }
+
+    .usmle-table td:first-child {
+        justify-content: flex-start;
+        gap: 0.85rem;
+        margin-bottom: 0.35rem;
+    }
+
+    .usmle-table td:first-child::before {
+        content: none;
+    }
+
+    .usmle-banks-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 560px) {
+    .usmle-topbar-actions .btn-hide-sm {
+        display: none;
+    }
+
+    .usmle-topbar {
+        gap: 0.5rem;
+        padding: 0.65rem 0.75rem;
+    }
+
     .usmle-content {
+        padding: 0.75rem;
+    }
+
+    .usmle-stat-card {
         padding: 1rem;
     }
+
+    .usmle-donut {
+        width: 72px;
+        height: 72px;
+    }
+
+    .usmle-sidebar-step {
+        font-size: 0.72rem;
+        line-height: 1.35;
+        padding: 0 0.25rem;
+    }
+
+    .usmle-app {
+        min-height: 100dvh;
+    }
+}
+
+body.usmle-nav-open {
+    overflow: hidden;
 }

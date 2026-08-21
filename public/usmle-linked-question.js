@@ -24,23 +24,42 @@
             groupId = (end === -1 ? after : after.slice(0, end)).trim() || null;
         }
 
-        if (vignetteIdx === -1 || questionIdx === -1 || questionIdx < vignetteIdx) {
-            return { isLinked: false, groupId, vignette: null, questionText: raw.trim() };
+        if (groupId && questionIdx !== -1) {
+            const questionText = raw.slice(questionIdx + QUESTION_MARKER.length).trim();
+            return {
+                isLinked: Boolean(questionText),
+                groupId,
+                vignette: null,
+                questionText: questionText || raw.trim()
+            };
         }
 
-        const vignette = raw.slice(vignetteIdx + VIGNETTE_MARKER.length, questionIdx).trim();
-        const questionText = raw.slice(questionIdx + QUESTION_MARKER.length).trim();
-        if (!vignette || !questionText) {
-            return { isLinked: false, groupId, vignette: null, questionText: raw.trim() };
+        // Старые записи с виньеткой — берём только текст вопроса
+        if (vignetteIdx !== -1 && questionIdx !== -1 && questionIdx > vignetteIdx) {
+            const questionText = raw.slice(questionIdx + QUESTION_MARKER.length).trim();
+            return {
+                isLinked: Boolean(questionText || groupId),
+                groupId,
+                vignette: null,
+                questionText: questionText || raw.trim()
+            };
         }
 
-        return { isLinked: true, groupId, vignette, questionText };
+        if (groupId) {
+            return {
+                isLinked: true,
+                groupId,
+                vignette: null,
+                questionText: raw.replace(GROUP_MARKER + groupId, '').trim() || raw.trim()
+            };
+        }
+
+        return { isLinked: false, groupId: null, vignette: null, questionText: raw.trim() };
     }
 
     function getLinkedClusterKey(text) {
         const parsed = parseUsmleLinkedQuestionText(text);
         if (parsed.groupId) return `g:${parsed.groupId}`;
-        if (parsed.isLinked && parsed.vignette) return `v:${parsed.vignette}`;
         return null;
     }
 
@@ -57,23 +76,13 @@
     function renderUsmleQuestionBodyHtml(text, options = {}) {
         const { isFirstInLinkedGroup = false } = options;
         const parsed = parseUsmleLinkedQuestionText(text);
-
-        if (!parsed.isLinked) {
-            return `<h3 class="question-text">${escapeHtmlStr(parsed.questionText).replace(/\n/g, '<br>')}</h3>`;
-        }
-
         const questionHtml = `<h3 class="question-text">${escapeHtmlStr(parsed.questionText).replace(/\n/g, '<br>')}</h3>`;
 
-        if (!isFirstInLinkedGroup) {
-            return questionHtml;
-        }
+        if (!parsed.isLinked) return questionHtml;
+        if (!isFirstInLinkedGroup) return questionHtml;
 
         return `
-            <div class="usmle-linked-notice">Связанный вопрос: далее несколько вопросов по одному клиническому случаю.</div>
-            <div class="usmle-vignette-box">
-                <div class="usmle-vignette-label">Клинический случай</div>
-                <div class="usmle-vignette-text question-text">${escapeHtmlStr(parsed.vignette).replace(/\n/g, '<br>')}</div>
-            </div>
+            <div class="usmle-linked-notice">Связанный вопрос: далее несколько вопросов идут подряд в одной связке.</div>
             ${questionHtml}
         `;
     }

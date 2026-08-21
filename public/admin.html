@@ -146,6 +146,49 @@
                     </div>
 
                     <div class="admin-recent-section">
+                        <h3>Пользователи: регистрации и оплаты</h3>
+                        <div class="admin-stats-grid" style="margin-bottom: 1rem;">
+                            <div class="admin-stat-card">
+                                <div class="admin-stat-icon">🆓</div>
+                                <div class="admin-stat-info">
+                                    <div class="admin-stat-value" id="statFreeRegistration">0</div>
+                                    <div class="admin-stat-label">Бесплатная регистрация</div>
+                                </div>
+                            </div>
+                            <div class="admin-stat-card">
+                                <div class="admin-stat-icon">🏫</div>
+                                <div class="admin-stat-info">
+                                    <div class="admin-stat-value" id="statUniversityPaid">0</div>
+                                    <div class="admin-stat-label">Оплатили университет</div>
+                                </div>
+                            </div>
+                            <div class="admin-stat-card">
+                                <div class="admin-stat-icon">🩺</div>
+                                <div class="admin-stat-info">
+                                    <div class="admin-stat-value" id="statUsmlePaid">0</div>
+                                    <div class="admin-stat-label">Оплатили USMLE</div>
+                                </div>
+                            </div>
+                            <div class="admin-stat-card">
+                                <div class="admin-stat-icon">✅</div>
+                                <div class="admin-stat-info">
+                                    <div class="admin-stat-value" id="statActiveUniversity">0</div>
+                                    <div class="admin-stat-label">Активна подписка универа</div>
+                                </div>
+                            </div>
+                            <div class="admin-stat-card">
+                                <div class="admin-stat-icon">✅</div>
+                                <div class="admin-stat-info">
+                                    <div class="admin-stat-value" id="statActiveUsmle">0</div>
+                                    <div class="admin-stat-label">Активна подписка USMLE</div>
+                                </div>
+                            </div>
+                        </div>
+                        <h4 style="margin: 0 0 0.75rem; font-size: 1rem;">По университетам (кто оплатил)</h4>
+                        <div id="universityPaidBreakdown" class="admin-list"></div>
+                    </div>
+
+                    <div class="admin-recent-section">
                         <h3>Заявки на регистрацию</h3>
                         <div id="pendingUsersList" class="admin-list"></div>
                     </div>
@@ -988,9 +1031,8 @@
                     <label for="txtLinkedFile">TXT файл</label>
                     <input type="file" id="txtLinkedFile" accept=".txt" required>
                     <div style="background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius); margin-top: 0.5rem;">
-                        <p style="margin: 0 0 0.5rem 0; font-weight: 600; color: var(--text-primary);">Формат TXT (несколько вопросов на один случай):</p>
+                        <p style="margin: 0 0 0.5rem 0; font-weight: 600; color: var(--text-primary);">Формат TXT (связанные вопросы):</p>
                         <pre style="margin: 0; font-size: 0.875rem; white-space: pre-wrap; word-wrap: break-word; color: var(--text-secondary); font-family: 'Courier New', monospace;">"GroupID":"1";
-"V":"Общий клинический случай...";
 "ID":"101";
 "Q":"Первый вопрос?";
 "A1":"Ответ 1";
@@ -1004,7 +1046,7 @@
 
 "GroupID":"1";
 "ID":"102";
-"Q":"Второй вопрос по тому же случаю?";
+"Q":"Второй вопрос той же связки?";
 "A1":"Ответ 1";
 "A2":"Ответ 2";
 "A3":"Ответ 3";
@@ -1014,7 +1056,7 @@
 "Subject":"Pathology";
 "System":"Cardiovascular";</pre>
                         <p style="margin: 0.75rem 0 0; font-size: 0.85rem; color: var(--text-muted);">
-                            Поле <strong>V</strong> задаётся один раз в начале группы. Дальше в группе — только <strong>GroupID</strong>, <strong>ID</strong> и <strong>Q</strong>.
+                            Вопросы с одним <strong>GroupID</strong> идут подряд. Поле <strong>V</strong> не нужно.
                             Вариантов ответов можно больше пяти: <strong>A6</strong>, <strong>A7</strong> и т.д. (до 30).
                         </p>
                     </div>

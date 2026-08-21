@@ -623,6 +623,7 @@ router.get('/analytics', adminAuth, async (req, res) => {
 // Статистика для админки
 router.get('/dashboard/stats', adminAuth, async (req, res) => {
   try {
+    const now = new Date();
     const [
       totalUsers,
       totalSubjects,
@@ -630,7 +631,11 @@ router.get('/dashboard/stats', adminAuth, async (req, res) => {
       totalQuestions,
       totalResults,
       recentUsers,
-      recentResults
+      recentResults,
+      universities,
+      paidTransactions,
+      activeUniversitySubs,
+      activeUsmleSubs
     ] = await Promise.all([
       User.count(),
       Subject.count(),
@@ -643,22 +648,98 @@ router.get('/dashboard/stats', adminAuth, async (req, res) => {
         attributes: ['id', 'username', 'email', 'createdAt', 'status']
       }),
       TestResult.findAll({
-      include: [{
-        model: Test,
-        as: 'Test',
         include: [{
-          model: Subject,
-          as: 'Subject'
-        }]
-      }, {
-        model: User,
-        as: 'User',
-        attributes: ['id', 'username']
-      }],
-      order: [['createdAt', 'DESC']],
-      limit: 10
+          model: Test,
+          as: 'Test',
+          include: [{
+            model: Subject,
+            as: 'Subject'
+          }]
+        }, {
+          model: User,
+          as: 'User',
+          attributes: ['id', 'username']
+        }],
+        order: [['createdAt', 'DESC']],
+        limit: 10
+      }),
+      University.findAll({
+        attributes: ['id', 'name', 'shortName', 'isActive'],
+        order: [['name', 'ASC']]
+      }),
+      Transaction.findAll({
+        where: {
+          status: 'SUCCEEDED',
+          userId: { [Op.ne]: null }
+        },
+        attributes: ['userId', 'fields']
+      }),
+      User.count({
+        where: { subscriptionEndDate: { [Op.gt]: now } }
+      }),
+      User.count({
+        where: { usmleSubscriptionEndDate: { [Op.gt]: now } }
       })
     ]);
+
+    const uniPaidUserIds = new Set();
+    const usmlePaidUserIds = new Set();
+    for (const row of paidTransactions) {
+      const fields = row.fields || {};
+      const paymentType = String(fields.paymentType || '').toLowerCase();
+      const programType = String(fields.programType || '').toLowerCase();
+      const uid = Number(row.userId);
+      if (!Number.isFinite(uid) || uid <= 0) continue;
+
+      if (paymentType === 'usmle_subscription' || programType === 'usmle') {
+        usmlePaidUserIds.add(uid);
+      } else if (
+        paymentType === 'registration'
+        || paymentType === 'subscription'
+        || fields.registrationData
+      ) {
+        uniPaidUserIds.add(uid);
+      }
+    }
+
+    const everPaidUserIds = new Set([...uniPaidUserIds, ...usmlePaidUserIds]);
+    const freeRegistrationCount = Math.max(0, totalUsers - everPaidUserIds.size);
+
+    const uniPaidList = [...uniPaidUserIds];
+    let byUniversity = [];
+    if (uniPaidList.length) {
+      const paidUsers = await User.findAll({
+        where: { id: { [Op.in]: uniPaidList } },
+        attributes: ['id', 'universityId']
+      });
+      const countByUni = new Map();
+      let withoutUniversity = 0;
+      for (const u of paidUsers) {
+        if (u.universityId) {
+          countByUni.set(u.universityId, (countByUni.get(u.universityId) || 0) + 1);
+        } else {
+          withoutUniversity += 1;
+        }
+      }
+      byUniversity = universities.map((uni) => ({
+        id: uni.id,
+        name: uni.name,
+        shortName: uni.shortName || uni.name,
+        isActive: uni.isActive !== false,
+        paidUsers: countByUni.get(uni.id) || 0
+      })).filter((u) => u.paidUsers > 0)
+        .sort((a, b) => b.paidUsers - a.paidUsers);
+
+      if (withoutUniversity > 0) {
+        byUniversity.push({
+          id: null,
+          name: 'Без университета',
+          shortName: '—',
+          isActive: true,
+          paidUsers: withoutUniversity
+        });
+      }
+    }
 
     res.json({
       stats: {
@@ -667,6 +748,19 @@ router.get('/dashboard/stats', adminAuth, async (req, res) => {
         totalTests,
         totalQuestions,
         totalResults,
+        freeRegistrationCount,
+        universityPaidUsers: uniPaidUserIds.size,
+        usmlePaidUsers: usmlePaidUserIds.size,
+        activeUniversitySubscriptions: activeUniversitySubs,
+        activeUsmleSubscriptions: activeUsmleSubs
+      },
+      usersBreakdown: {
+        freeRegistration: freeRegistrationCount,
+        universityPaid: uniPaidUserIds.size,
+        usmlePaid: usmlePaidUserIds.size,
+        byUniversity,
+        activeUniversity: activeUniversitySubs,
+        activeUsmle: activeUsmleSubs
       },
       recentUsers,
       recentResults
