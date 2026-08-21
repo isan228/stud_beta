@@ -8,6 +8,30 @@
         }[c]));
     }
 
+    function svgIcon(paths, viewBox = '0 0 24 24') {
+        return `<svg class="usmle-ico" viewBox="${viewBox}" aria-hidden="true" focusable="false">${paths}</svg>`;
+    }
+
+    const ICONS = {
+        banks: svgIcon('<path d="M3 7h18M3 12h18M3 17h12" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>'),
+        welcome: svgIcon('<path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5Z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>'),
+        create: svgIcon('<path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>'),
+        history: svgIcon('<circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M12 8v4.5l3 1.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>'),
+        performance: svgIcon('<path d="M5 19V10M12 19V5M19 19v-7" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>'),
+        library: svgIcon('<path d="M5 4h4v16H5V4Zm5 0h4v16h-4V4Zm5 0h4v16h-4V4Z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>'),
+        search: svgIcon('<circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="m16 16 4 4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>'),
+        notes: svgIcon('<path d="M7 3h8l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/><path d="M15 3v5h5M9 13h6M9 17h6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>'),
+        flashcards: svgIcon('<rect x="4" y="6" width="14" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M8 4h10a2 2 0 0 1 2 2v10" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>'),
+        notebook: svgIcon('<path d="M7 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M9 7h7M9 11h7M9 15h5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>'),
+        help: svgIcon('<circle cx="12" cy="12" r="8.25" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.4 2.3c-.7.35-1.15.9-1.15 1.7V14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><circle cx="12" cy="17" r="1" fill="currentColor"/>'),
+        settings: svgIcon('<circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M12 3.5v2.2M12 18.3v2.2M4.9 6.4l1.6 1.6M17.5 16l1.6 1.6M3.5 12h2.2M18.3 12h2.2M4.9 17.6l1.6-1.6M17.5 8l1.6-1.6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>'),
+        logo: svgIcon('<path d="M6 5h8.5a3.5 3.5 0 0 1 0 7H9v7M9 12h6.5a3.5 3.5 0 0 1 0 7H6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>'),
+        menu: svgIcon('<path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>'),
+        moon: svgIcon('<path d="M18 13.5A7 7 0 0 1 10.5 6 6.5 6.5 0 1 0 18 13.5Z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>'),
+        sun: svgIcon('<circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M12 3v2.2M12 18.8V21M4.2 12H6.4M17.6 12h2.2M6.2 6.2l1.6 1.6M16.2 16.2l1.6 1.6M6.2 17.8l1.6-1.6M16.2 7.8l1.6-1.6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>'),
+        review: svgIcon('<path d="M7 4h10a1 1 0 0 1 1 1v15l-3-2-3 2-3-2-3 2V5a1 1 0 0 1 1-1Z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/><path d="M9 9h6M9 13h4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>')
+    };
+
     function getStoredStep() {
         try { return localStorage.getItem('usmleActiveStep') || 'step1'; }
         catch { return 'step1'; }
@@ -75,19 +99,24 @@
 
     function buildNav(bank) {
         return [
-            { id: 'banks', href: '/usmle', icon: '📂', label: 'Сменить банк' },
-            { id: 'welcome', href: navHref('welcome', bank), icon: '🏠', label: 'Добро пожаловать' },
-            { id: 'create', href: navHref('create', bank), icon: '➕', label: 'Создать тест' },
-            { id: 'history', href: navHref('history', bank), icon: '🕐', label: 'История тестов' },
-            { id: 'performance', href: '#', icon: '📊', label: 'Производительность', soon: true },
-            { id: 'library', href: '#', icon: '📚', label: 'Мед. библиотека', soon: true },
-            { id: 'search', href: '#', icon: '🔍', label: 'Поиск', soon: true },
-            { id: 'notes', href: '#', icon: '📝', label: 'Заметки', soon: true },
-            { id: 'flashcards', href: '#', icon: '⚡', label: 'Карточки', soon: true },
-            { id: 'notebook', href: '#', icon: '📒', label: 'Мой блокнот', soon: true },
-            { id: 'help', href: '/contact', icon: '❓', label: 'Помощь' },
-            { id: 'settings', href: '/profile', icon: '⚙️', label: 'Настройки' }
+            { id: 'banks', href: '/usmle', icon: ICONS.banks, label: 'Сменить банк' },
+            { id: 'welcome', href: navHref('welcome', bank), icon: ICONS.welcome, label: 'Добро пожаловать' },
+            { id: 'create', href: navHref('create', bank), icon: ICONS.create, label: 'Создать тест' },
+            { id: 'history', href: navHref('history', bank), icon: ICONS.history, label: 'История тестов' },
+            { id: 'performance', href: '#', icon: ICONS.performance, label: 'Производительность', soon: true },
+            { id: 'library', href: '#', icon: ICONS.library, label: 'Мед. библиотека', soon: true },
+            { id: 'search', href: '#', icon: ICONS.search, label: 'Поиск', soon: true },
+            { id: 'notes', href: '#', icon: ICONS.notes, label: 'Заметки', soon: true },
+            { id: 'flashcards', href: '#', icon: ICONS.flashcards, label: 'Карточки', soon: true },
+            { id: 'notebook', href: '#', icon: ICONS.notebook, label: 'Мой блокнот', soon: true },
+            { id: 'help', href: '/contact', icon: ICONS.help, label: 'Помощь' },
+            { id: 'settings', href: '/profile', icon: ICONS.settings, label: 'Настройки' }
         ];
+    }
+
+    function setThemeButton(btn, theme) {
+        if (!btn) return;
+        btn.innerHTML = theme === 'dark' ? ICONS.sun : ICONS.moon;
     }
 
     function renderShell(options = {}) {
@@ -122,7 +151,7 @@
         <div class="usmle-app" id="usmleAppRoot">
             <aside class="usmle-sidebar" id="usmleSidebar">
                 <div class="usmle-sidebar-brand">
-                    <div class="usmle-sidebar-logo">📘</div>
+                    <div class="usmle-sidebar-logo">${ICONS.logo}</div>
                     <h2>stud.kg</h2>
                     <div class="usmle-sidebar-step">${escHtml(bankLabel)}</div>
                 </div>
@@ -135,11 +164,11 @@
             <div class="usmle-main">
                 <header class="usmle-topbar">
                     <div class="usmle-topbar-left">
-                        <button type="button" class="usmle-topbar-toggle" id="usmleSidebarToggle" aria-label="Меню">☰</button>
+                        <button type="button" class="usmle-topbar-toggle" id="usmleSidebarToggle" aria-label="Меню">${ICONS.menu}</button>
                         <h1>${escHtml(pageTitle)}</h1>
                     </div>
                     <div class="usmle-topbar-actions">
-                        <button type="button" class="theme-toggle" id="usmleThemeToggle" aria-label="Тема">🌙</button>
+                        <button type="button" class="theme-toggle usmle-icon-btn" id="usmleThemeToggle" aria-label="Тема">${ICONS.moon}</button>
                         <a href="/usmle" class="btn btn-secondary btn-sm">Банки</a>
                         <a href="/" class="btn btn-secondary btn-sm">На сайт</a>
                     </div>
@@ -157,15 +186,15 @@
         }
         const themeBtn = document.getElementById('usmleThemeToggle');
         if (themeBtn && typeof window.initTheme === 'function') {
+            const cur = document.documentElement.getAttribute('data-theme') || localStorage.getItem('theme') || 'light';
+            setThemeButton(themeBtn, cur);
             themeBtn.addEventListener('click', () => {
                 const html = document.documentElement;
                 const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
                 html.setAttribute('data-theme', next);
                 localStorage.setItem('theme', next);
-                themeBtn.textContent = next === 'dark' ? '☀️' : '🌙';
+                setThemeButton(themeBtn, next);
             });
-            const cur = document.documentElement.getAttribute('data-theme') || localStorage.getItem('theme') || 'light';
-            themeBtn.textContent = cur === 'dark' ? '☀️' : '🌙';
         }
     }
 
@@ -225,6 +254,7 @@
         syncBankFromUrl,
         bankQuery,
         STEP_LABELS,
+        ICONS,
         escHtml,
         donutHtml,
         statRows
