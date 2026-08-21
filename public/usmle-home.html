@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" href="/img/icon.svg" type="image/svg+xml">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#2563eb">
+    <title>USMLE — Добро пожаловать</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="usmle-app.css">
+</head>
+<body>
+<div id="usmleAppMount"></div>
+<div id="notification" class="notification"></div>
+<script src="app.js"></script>
+<script src="usmle-app.js"></script>
+<script>
+    async function loadWelcomeStats(box, bank) {
+        try {
+            const token = localStorage.getItem('token');
+            const headers = token ? { Authorization: `Bearer ${token}` } : {};
+            const res = await fetch(`/api/tests/usmle/welcome-stats?testId=${bank.id}`, { headers });
+            if (!res.ok) throw new Error();
+            const s = await res.json();
+            const U = window.UsmleApp;
+            const createHref = `/usmle-test-builder?${U.bankQuery(bank)}`;
+            const historyHref = `/usmle-history?${U.bankQuery(bank)}`;
+
+            box.innerHTML = `
+                <div class="usmle-stat-card usmle-stats-span-12" style="padding:0.85rem 1.1rem;">
+                    <p style="margin:0;color:var(--text-secondary);">
+                        Банк: <strong style="color:var(--text-color);">${U.escHtml(s.testName || bank.name)}</strong>
+                        · статистика только по этому банку
+                    </p>
+                </div>
+                <div class="usmle-stat-card usmle-stats-span-3">
+                    <h3>Ваш результат</h3>
+                    ${U.donutHtml(s.correctPercent, 'Верно')}
+                    ${U.statRows([
+                        ['Верно', s.correctCount],
+                        ['Неверно', s.incorrectCount],
+                        ['Пропущено', s.omittedCount]
+                    ])}
+                </div>
+                <div class="usmle-stat-card usmle-stats-span-3">
+                    <h3>Банк вопросов</h3>
+                    ${U.donutHtml(s.usedPercent, 'Использовано')}
+                    ${U.statRows([
+                        ['Использовано', s.usedQuestions],
+                        ['Не использовано', s.unusedQuestions],
+                        ['Всего', s.totalQuestions]
+                    ])}
+                </div>
+                <div class="usmle-stat-card usmle-stats-span-3">
+                    <h3>Тесты</h3>
+                    ${U.statRows([
+                        ['Создано / пройдено', s.testsCompleted],
+                        ['Приостановлено', s.suspendedTests]
+                    ])}
+                </div>
+                <div class="usmle-stat-card usmle-stats-span-3">
+                    <h3>Быстрые действия</h3>
+                    <div style="display:flex; flex-direction:column; gap:0.5rem; margin-top:0.5rem;">
+                        <a href="${createHref}" class="btn btn-primary btn-block">Создать тест</a>
+                        <a href="${historyHref}" class="btn btn-secondary btn-block">История тестов</a>
+                        <a href="/usmle" class="btn btn-secondary btn-block">Сменить банк</a>
+                    </div>
+                </div>
+                <div class="usmle-stat-card usmle-stats-span-12">
+                    <h3>Процентиль (ориентир)</h3>
+                    <div class="usmle-curve-box">
+                        <svg class="usmle-curve-svg" viewBox="0 0 400 120" preserveAspectRatio="none">
+                            <path d="M0,110 Q100,110 200,40 T400,110" fill="none" stroke="var(--border-light)" stroke-width="2"/>
+                            <path d="M0,110 Q100,110 200,40 T400,110 L400,120 L0,120 Z" fill="color-mix(in srgb, var(--primary-color) 12%, transparent)"/>
+                        </svg>
+                        <div class="usmle-curve-marker" style="left:49%;">49-й</div>
+                    </div>
+                    <div style="display:flex; flex-wrap:wrap; gap:1.5rem; margin-top:1rem; font-size:0.88rem; color:var(--text-secondary);">
+                        <span><strong style="color:var(--success-color);">●</strong> Ваш результат: ${s.correctPercent}% (${s.percentileRank}-й процентиль)</span>
+                        <span><strong style="color:var(--primary-color);">●</strong> Медиана: ${s.medianScorePercent}%</span>
+                    </div>
+                </div>`;
+
+            if (s.requiresAuth) {
+                box.insertAdjacentHTML('afterbegin',
+                    `<div class="usmle-stat-card usmle-stats-span-12" style="border-color:var(--primary-color);">
+                        <p style="margin:0;">Войдите, чтобы видеть персональную статистику. <a href="/login">Войти</a></p>
+                    </div>`);
+            }
+        } catch {
+            box.innerHTML = '<p style="color:var(--danger-color);">Не удалось загрузить статистику.</p>';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        if (typeof window.initTheme === 'function') window.initTheme();
+        if (typeof window.setProgramType === 'function') window.setProgramType('usmle');
+        if (typeof window.loadUser === 'function') await window.loadUser();
+
+        const userName = window.currentUser?.username;
+        window.UsmleApp.mountUsmlePage({
+            activeNav: 'welcome',
+            pageTitle: userName ? `Добро пожаловать, ${userName}` : 'Добро пожаловать'
+        }, (content, bank) => {
+            content.innerHTML = `
+                <p style="margin:0 0 1.25rem; color:var(--text-secondary);">
+                    Статистика по выбранному банку вопросов.
+                </p>
+                <div class="usmle-stats-grid" id="usmleWelcomeStats">
+                    <div class="usmle-stat-card usmle-stats-span-12"><p>Загрузка…</p></div>
+                </div>`;
+            loadWelcomeStats(document.getElementById('usmleWelcomeStats'), bank);
+        });
+    });
+</script>
+</body>
+</html>

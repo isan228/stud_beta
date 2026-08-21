@@ -389,29 +389,32 @@ router.get('/usmle/dashboard', async (req, res) => {
 
 /**
  * Статистика для экрана «Добро пожаловать» USMLE.
- * GET /usmle/welcome-stats
+ * GET /usmle/welcome-stats?testId=123
  */
 router.get('/usmle/welcome-stats', async (req, res) => {
   try {
     const userId = tryGetUserIdFromRequest(req);
+    const testId = parseInt(req.query.testId, 10);
 
-    const usmleTests = await Test.findAll({
-      where: { programType: 'usmle' },
-      attributes: ['id'],
-      include: [{ model: Question, as: 'Questions', attributes: ['id'], required: false }]
-    });
-    const usmleTestIds = usmleTests.map((t) => t.id);
-    const allQuestionIds = new Set();
-    for (const t of usmleTests) {
-      for (const q of t.Questions || []) allQuestionIds.add(q.id);
+    if (!Number.isFinite(testId) || testId <= 0) {
+      return res.status(400).json({ error: 'Выберите банк вопросов (testId)' });
     }
 
+    const test = await Test.findByPk(testId, {
+      attributes: ['id', 'name', 'programType'],
+      include: [{ model: Question, as: 'Questions', attributes: ['id'], required: false }]
+    });
+    if (!test || test.programType !== 'usmle') {
+      return res.status(404).json({ error: 'USMLE банк не найден' });
+    }
+
+    const allQuestionIds = new Set((test.Questions || []).map((q) => q.id));
     const lastOutcome = new Map();
     let testsCompleted = 0;
 
-    if (userId && usmleTestIds.length) {
+    if (userId) {
       const rows = await TestResult.findAll({
-        where: { userId, testId: { [Op.in]: usmleTestIds } },
+        where: { userId, testId },
         attributes: ['id', 'results', 'score', 'totalQuestions', 'createdAt'],
         order: [['createdAt', 'ASC']]
       });
@@ -421,7 +424,7 @@ router.get('/usmle/welcome-stats', async (req, res) => {
         if (!r || typeof r !== 'object') continue;
         for (const [qid, data] of Object.entries(r)) {
           const id = parseInt(qid, 10);
-          if (!Number.isFinite(id)) continue;
+          if (!Number.isFinite(id) || !allQuestionIds.has(id)) continue;
           if (data && typeof data.correct === 'boolean') {
             lastOutcome.set(id, data.correct);
           }
@@ -445,6 +448,8 @@ router.get('/usmle/welcome-stats', async (req, res) => {
     const usedPct = totalQuestions > 0 ? Math.round((used / totalQuestions) * 1000) / 10 : 0;
 
     res.json({
+      testId: test.id,
+      testName: test.name,
       totalQuestions,
       usedQuestions: used,
       unusedQuestions,
@@ -468,7 +473,7 @@ router.get('/usmle/welcome-stats', async (req, res) => {
 
 /**
  * История USMLE-тестов пользователя.
- * GET /usmle/history
+ * GET /usmle/history?testId=123
  */
 router.get('/usmle/history', async (req, res) => {
   try {
@@ -477,16 +482,24 @@ router.get('/usmle/history', async (req, res) => {
       return res.status(401).json({ error: 'Требуется авторизация' });
     }
 
+    const testId = parseInt(req.query.testId, 10);
     const { USMLE_SUBJECTS } = require('../utils/ensureUsmleTagsSeeded');
     const subjectSet = new Set(USMLE_SUBJECTS.map((s) => s.toLowerCase()));
 
+    const where = { userId };
+    const testWhere = { programType: 'usmle' };
+    if (Number.isFinite(testId) && testId > 0) {
+      where.testId = testId;
+      testWhere.id = testId;
+    }
+
     const rows = await TestResult.findAll({
-      where: { userId },
+      where,
       include: [{
         model: Test,
         as: 'Test',
         required: true,
-        where: { programType: 'usmle' },
+        where: testWhere,
         attributes: ['id', 'name', 'programType']
       }],
       order: [['createdAt', 'DESC']],
@@ -524,7 +537,7 @@ router.get('/usmle/history', async (req, res) => {
       };
     });
 
-    res.json({ items });
+    res.json({ items, testId: Number.isFinite(testId) ? testId : null });
   } catch (error) {
     console.error('Ошибка USMLE history:', error);
     res.status(500).json({ error: 'Ошибка сервера' });

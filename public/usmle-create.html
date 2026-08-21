@@ -2,121 +2,23 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <link rel="icon" href="/img/icon.svg" type="image/svg+xml">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>USMLE — Создать тест</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="usmle-app.css">
-    <style>
-        .step-switcher {
-            display: flex; gap: 0; background: var(--card-bg); border: 1px solid var(--border-light);
-            border-radius: 999px; padding: .3rem; width: fit-content; margin-bottom: 1.25rem;
+    <script>
+        // Старый URL: если банк уже выбран — в конструктор, иначе — к выбору банка
+        try {
+            const raw = localStorage.getItem('usmleSelectedBank');
+            const bank = raw ? JSON.parse(raw) : null;
+            if (bank && bank.id) {
+                const name = encodeURIComponent(bank.name || '');
+                location.replace(`/usmle-test-builder?testId=${bank.id}&name=${name}&step=${bank.step || 'step1'}`);
+            } else {
+                location.replace('/usmle');
+            }
+        } catch {
+            location.replace('/usmle');
         }
-        .step-btn {
-            padding: .55rem 1.4rem; border-radius: 999px; border: none; background: none;
-            color: var(--text-secondary); font-weight: 600; cursor: pointer;
-        }
-        .step-btn.active { background: var(--primary-color); color: #fff; }
-        .usmle-bank-top { display:flex; justify-content:space-between; gap:.75rem; margin-bottom:.85rem; }
-        .usmle-bank-name { font-size:1.05rem; font-weight:800; margin:0; }
-        .usmle-bank-pct { font-size:.8rem; font-weight:700; opacity:.85; }
-        .usmle-bank-stats { display:flex; flex-direction:column; gap:.28rem; margin-top:auto; font-size:.82rem; }
-        .usmle-bank-stat { display:flex; justify-content:space-between; }
-    </style>
+    </script>
 </head>
-<body>
-<div id="usmleAppMount"></div>
-<div id="notification" class="notification"></div>
-<script src="app.js"></script>
-<script src="usmle-app.js"></script>
-<script>
-    let dashboardData = null;
-    let activeStep = window.UsmleApp?.getStoredStep?.() || 'step1';
-    const STEP_LABELS = { step1: 'Step 1', step2: 'Step 2', step3: 'Step 3' };
-
-    function selectStep(step) {
-        activeStep = step;
-        window.UsmleApp.setStoredStep(step);
-        document.querySelectorAll('.step-btn').forEach(b => {
-            b.classList.toggle('active', b.dataset.step === step);
-        });
-        renderBanks();
-    }
-
-    function openBuilder(test) {
-        const name = encodeURIComponent(test.name || '');
-        window.location.href = `/usmle-test-builder?testId=${test.id}&name=${name}&step=${activeStep}`;
-    }
-
-    function renderBanks() {
-        const grid = document.getElementById('usmleBanksGrid');
-        if (!grid || !dashboardData) return;
-        const banks = dashboardData[activeStep] || [];
-        const esc = window.UsmleApp.escHtml;
-
-        if (!banks.length) {
-            grid.innerHTML = `<p style="color:var(--text-muted);">Для ${STEP_LABELS[activeStep]} пока нет банков. Добавьте тесты в админке.</p>`;
-            return;
-        }
-
-        grid.innerHTML = banks.map((t, i) => {
-            const pct = Number(t.percentage) || 0;
-            const active = i === 0 ? ' active-bank' : '';
-            return `<div class="usmle-bank-card${active}" role="button" tabindex="0"
-                onclick="openBuilder({id:${t.id},name:${JSON.stringify(t.name)}})"
-                onkeydown="if(event.key==='Enter') this.click()">
-                <div class="usmle-bank-top">
-                    <h3 class="usmle-bank-name">${esc(t.name)}</h3>
-                    <span class="usmle-bank-pct">${pct.toFixed(1)}% использовано</span>
-                </div>
-                <div class="usmle-bank-stats">
-                    <div class="usmle-bank-stat"><span>Всего вопросов</span><strong>${t.totalQuestions}</strong></div>
-                    <div class="usmle-bank-stat"><span>Использовано</span><strong>${t.usedQuestions}</strong></div>
-                    <div class="usmle-bank-stat"><span>Верно</span><strong>${t.correctCount}</strong></div>
-                </div>
-            </div>`;
-        }).join('');
-    }
-
-    async function loadDashboard() {
-        const token = localStorage.getItem('token');
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        const res = await fetch('/api/tests/usmle/dashboard', { headers });
-        if (!res.ok) throw new Error();
-        dashboardData = await res.json();
-        renderBanks();
-    }
-
-    document.addEventListener('DOMContentLoaded', async () => {
-        if (typeof window.initTheme === 'function') window.initTheme();
-        if (typeof window.setProgramType === 'function') window.setProgramType('usmle');
-        if (typeof window.loadUser === 'function') await window.loadUser();
-
-        window.UsmleApp.mountUsmlePage({
-            activeNav: 'create',
-            pageTitle: 'Создать тест',
-            step: activeStep
-        }, (content) => {
-            content.innerHTML = `
-                <p style="margin:0 0 1rem; color:var(--text-secondary);">Выберите Step и банк вопросов — откроется конструктор теста.</p>
-                <div class="step-switcher">
-                    <button type="button" class="step-btn active" data-step="step1" onclick="selectStep('step1')">Step 1</button>
-                    <button type="button" class="step-btn" data-step="step2" onclick="selectStep('step2')">Step 2</button>
-                    <button type="button" class="step-btn" data-step="step3" onclick="selectStep('step3')">Step 3</button>
-                </div>
-                <div class="usmle-banks-grid" id="usmleBanksGrid"><p>Загрузка…</p></div>`;
-            document.querySelectorAll('.step-btn').forEach(b => {
-                b.classList.toggle('active', b.dataset.step === activeStep);
-            });
-            loadDashboard().catch(() => {
-                document.getElementById('usmleBanksGrid').innerHTML =
-                    '<p style="color:var(--danger-color);">Ошибка загрузки банков.</p>';
-            });
-        });
-    });
-
-    window.selectStep = selectStep;
-    window.openBuilder = openBuilder;
-</script>
-</body>
+<body><p>Переход…</p></body>
 </html>

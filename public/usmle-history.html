@@ -15,6 +15,7 @@
 <script src="usmle-app.js"></script>
 <script>
     let historyItems = [];
+    let currentBank = null;
 
     function fmtDate(iso) {
         const d = new Date(iso);
@@ -38,7 +39,7 @@
         );
 
         if (!rows.length) {
-            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:2rem;">Нет тестов</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:2rem;">Нет тестов по этому банку</td></tr>`;
             return;
         }
 
@@ -64,7 +65,7 @@
         window.location.href = '/test-result';
     }
 
-    async function loadHistory() {
+    async function loadHistory(bank) {
         const token = localStorage.getItem('token');
         if (!token) {
             document.getElementById('usmleHistoryBody').innerHTML =
@@ -73,7 +74,7 @@
                 </td></tr>`;
             return;
         }
-        const res = await fetch('/api/tests/usmle/history', {
+        const res = await fetch(`/api/tests/usmle/history?testId=${bank.id}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) throw new Error();
@@ -86,14 +87,14 @@
         if (typeof window.initTheme === 'function') window.initTheme();
         if (typeof window.loadUser === 'function') await window.loadUser();
 
-        window.UsmleApp.mountUsmlePage({
+        currentBank = window.UsmleApp.mountUsmlePage({
             activeNav: 'history',
             pageTitle: 'История тестов'
-        }, (content) => {
+        }, (content, bank) => {
             content.innerHTML = `
                 <div class="usmle-table-toolbar">
-                    <label>Поиск: <input type="search" id="usmleHistorySearch" placeholder="Название, предмет…" style="padding:0.45rem 0.65rem;border:1px solid var(--border-light);border-radius:8px;"></label>
-                    <span style="color:var(--text-muted);font-size:0.85rem;">Завершённые USMLE-тесты</span>
+                    <label>Поиск: <input type="search" id="usmleHistorySearch" placeholder="Предмет, система…" style="padding:0.45rem 0.65rem;border:1px solid var(--border-light);border-radius:8px;"></label>
+                    <span style="color:var(--text-muted);font-size:0.85rem;">История банка: <strong>${window.UsmleApp.escHtml(bank.name || '—')}</strong></span>
                 </div>
                 <div class="usmle-table-wrap">
                     <table class="usmle-table">
@@ -119,7 +120,7 @@
                 renderTable(e.target.value);
             });
 
-            loadHistory().catch(() => {
+            loadHistory(bank).catch(() => {
                 document.getElementById('usmleHistoryBody').innerHTML =
                     '<tr><td colspan="8" style="color:var(--danger-color);text-align:center;padding:2rem;">Ошибка загрузки</td></tr>';
             });

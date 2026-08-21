@@ -128,6 +128,7 @@ const pages = {
   '/': 'index.html',
   '/tests': 'tests.html',
   '/usmle': 'usmle.html',
+  '/usmle-home': 'usmle-home.html',
   '/usmle-create': 'usmle-create.html',
   '/usmle-history': 'usmle-history.html',
   '/subject-tests': 'subject-tests.html',
