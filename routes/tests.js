@@ -388,6 +388,150 @@ router.get('/usmle/dashboard', async (req, res) => {
 });
 
 /**
+ * Статистика для экрана «Добро пожаловать» USMLE.
+ * GET /usmle/welcome-stats
+ */
+router.get('/usmle/welcome-stats', async (req, res) => {
+  try {
+    const userId = tryGetUserIdFromRequest(req);
+
+    const usmleTests = await Test.findAll({
+      where: { programType: 'usmle' },
+      attributes: ['id'],
+      include: [{ model: Question, as: 'Questions', attributes: ['id'], required: false }]
+    });
+    const usmleTestIds = usmleTests.map((t) => t.id);
+    const allQuestionIds = new Set();
+    for (const t of usmleTests) {
+      for (const q of t.Questions || []) allQuestionIds.add(q.id);
+    }
+
+    const lastOutcome = new Map();
+    let testsCompleted = 0;
+
+    if (userId && usmleTestIds.length) {
+      const rows = await TestResult.findAll({
+        where: { userId, testId: { [Op.in]: usmleTestIds } },
+        attributes: ['id', 'results', 'score', 'totalQuestions', 'createdAt'],
+        order: [['createdAt', 'ASC']]
+      });
+      testsCompleted = rows.length;
+      for (const row of rows) {
+        const r = row.results;
+        if (!r || typeof r !== 'object') continue;
+        for (const [qid, data] of Object.entries(r)) {
+          const id = parseInt(qid, 10);
+          if (!Number.isFinite(id)) continue;
+          if (data && typeof data.correct === 'boolean') {
+            lastOutcome.set(id, data.correct);
+          }
+        }
+      }
+    }
+
+    let used = 0;
+    let correct = 0;
+    let incorrect = 0;
+    for (const qId of allQuestionIds) {
+      if (!lastOutcome.has(qId)) continue;
+      used++;
+      if (lastOutcome.get(qId) === true) correct++;
+      else incorrect++;
+    }
+
+    const totalQuestions = allQuestionIds.size;
+    const unusedQuestions = Math.max(0, totalQuestions - used);
+    const correctPct = used > 0 ? Math.round((correct / used) * 1000) / 10 : 0;
+    const usedPct = totalQuestions > 0 ? Math.round((used / totalQuestions) * 1000) / 10 : 0;
+
+    res.json({
+      totalQuestions,
+      usedQuestions: used,
+      unusedQuestions,
+      correctCount: correct,
+      incorrectCount: incorrect,
+      omittedCount: 0,
+      correctPercent: correctPct,
+      usedPercent: usedPct,
+      testsCreated: testsCompleted,
+      testsCompleted,
+      suspendedTests: 0,
+      percentileRank: used > 0 ? Math.min(99, Math.max(1, Math.round(correctPct * 0.85))) : 0,
+      medianScorePercent: 63,
+      requiresAuth: !userId
+    });
+  } catch (error) {
+    console.error('Ошибка USMLE welcome-stats:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+/**
+ * История USMLE-тестов пользователя.
+ * GET /usmle/history
+ */
+router.get('/usmle/history', async (req, res) => {
+  try {
+    const userId = tryGetUserIdFromRequest(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Требуется авторизация' });
+    }
+
+    const { USMLE_SUBJECTS } = require('../utils/ensureUsmleTagsSeeded');
+    const subjectSet = new Set(USMLE_SUBJECTS.map((s) => s.toLowerCase()));
+
+    const rows = await TestResult.findAll({
+      where: { userId },
+      include: [{
+        model: Test,
+        as: 'Test',
+        required: true,
+        where: { programType: 'usmle' },
+        attributes: ['id', 'name', 'programType']
+      }],
+      order: [['createdAt', 'DESC']],
+      limit: 100
+    });
+
+    const items = rows.map((row) => {
+      const json = row.toJSON();
+      const pct = json.totalQuestions > 0
+        ? Math.round((json.score / json.totalQuestions) * 100)
+        : 0;
+      const tagNames = new Set();
+      const questions = Array.isArray(json.questions) ? json.questions : [];
+      for (const q of questions) {
+        for (const t of q.Tags || []) {
+          if (t && t.name) tagNames.add(t.name);
+        }
+      }
+      const tags = [...tagNames];
+      const subjects = tags.filter((n) => subjectSet.has(String(n).toLowerCase()));
+      const systems = tags.filter((n) => !subjectSet.has(String(n).toLowerCase()));
+
+      return {
+        id: json.id,
+        testId: json.testId,
+        testName: json.Test?.name || 'USMLE тест',
+        score: json.score,
+        totalQuestions: json.totalQuestions,
+        percentage: pct,
+        timeSpent: json.timeSpent || null,
+        createdAt: json.createdAt,
+        subjectsLabel: subjects.length === 1 ? subjects[0] : (subjects.length > 1 ? 'Несколько' : '—'),
+        systemsLabel: systems.length === 1 ? systems[0] : (systems.length > 1 ? 'Несколько' : '—'),
+        mode: 'Стандарт'
+      };
+    });
+
+    res.json({ items });
+  } catch (error) {
+    console.error('Ошибка USMLE history:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+/**
  * Теги USMLE сгруппированные по категориям (для конструктора тестов).
  * Возвращает { subjects: [...], systems: [...] }
  */

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" href="/img/icon.svg" type="image/svg+xml">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USMLE — История тестов</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="usmle-app.css">
+</head>
+<body>
+<div id="usmleAppMount"></div>
+<div id="notification" class="notification"></div>
+<script src="app.js"></script>
+<script src="usmle-app.js"></script>
+<script>
+    let historyItems = [];
+
+    function fmtDate(iso) {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return '—';
+        return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    function scoreRing(pct) {
+        const p = Math.max(0, Math.min(100, pct || 0));
+        return `<div class="usmle-score-ring" style="--pct:${p * 3.6}deg"><span>${p}%</span></div>`;
+    }
+
+    function renderTable(filter = '') {
+        const tbody = document.getElementById('usmleHistoryBody');
+        if (!tbody) return;
+        const q = filter.trim().toLowerCase();
+        const rows = historyItems.filter((item) =>
+            !q || String(item.testName).toLowerCase().includes(q)
+                || String(item.subjectsLabel).toLowerCase().includes(q)
+                || String(item.systemsLabel).toLowerCase().includes(q)
+        );
+
+        if (!rows.length) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:2rem;">Нет тестов</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = rows.map((item) => `
+            <tr>
+                <td>${scoreRing(item.percentage)}</td>
+                <td><strong>${window.UsmleApp.escHtml(item.testName)}</strong></td>
+                <td>${fmtDate(item.createdAt)}</td>
+                <td>${window.UsmleApp.escHtml(item.mode)}</td>
+                <td>${window.UsmleApp.escHtml(item.subjectsLabel)}</td>
+                <td>${window.UsmleApp.escHtml(item.systemsLabel)}</td>
+                <td>${item.totalQuestions}</td>
+                <td>
+                    <div class="usmle-action-btns">
+                        <button type="button" class="usmle-action-btn" title="Разбор" onclick="openReview(${item.id})">📋</button>
+                    </div>
+                </td>
+            </tr>`).join('');
+    }
+
+    function openReview(resultId) {
+        sessionStorage.setItem('usmleReviewResultId', String(resultId));
+        window.location.href = '/test-result';
+    }
+
+    async function loadHistory() {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            document.getElementById('usmleHistoryBody').innerHTML =
+                `<tr><td colspan="8" style="text-align:center;padding:2rem;">
+                    <a href="/login">Войдите</a>, чтобы видеть историю тестов.
+                </td></tr>`;
+            return;
+        }
+        const res = await fetch('/api/tests/usmle/history', {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        historyItems = data.items || [];
+        renderTable();
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        if (typeof window.initTheme === 'function') window.initTheme();
+        if (typeof window.loadUser === 'function') await window.loadUser();
+
+        window.UsmleApp.mountUsmlePage({
+            activeNav: 'history',
+            pageTitle: 'История тестов'
+        }, (content) => {
+            content.innerHTML = `
+                <div class="usmle-table-toolbar">
+                    <label>Поиск: <input type="search" id="usmleHistorySearch" placeholder="Название, предмет…" style="padding:0.45rem 0.65rem;border:1px solid var(--border-light);border-radius:8px;"></label>
+                    <span style="color:var(--text-muted);font-size:0.85rem;">Завершённые USMLE-тесты</span>
+                </div>
+                <div class="usmle-table-wrap">
+                    <table class="usmle-table">
+                        <thead>
+                            <tr>
+                                <th>Результат</th>
+                                <th>Название</th>
+                                <th>Дата</th>
+                                <th>Режим</th>
+                                <th>Предмет</th>
+                                <th>Система</th>
+                                <th>Вопросов</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usmleHistoryBody">
+                            <tr><td colspan="8" style="text-align:center;padding:2rem;">Загрузка…</td></tr>
+                        </tbody>
+                    </table>
+                </div>`;
+
+            document.getElementById('usmleHistorySearch')?.addEventListener('input', (e) => {
+                renderTable(e.target.value);
+            });
+
+            loadHistory().catch(() => {
+                document.getElementById('usmleHistoryBody').innerHTML =
+                    '<tr><td colspan="8" style="color:var(--danger-color);text-align:center;padding:2rem;">Ошибка загрузки</td></tr>';
+            });
+        });
+    });
+
+    window.openReview = openReview;
+</script>
+</body>
+</html>
