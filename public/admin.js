@@ -867,9 +867,9 @@ async function fillSubjectFacultyCheckboxes(universityId, selectedIds = []) {
             return;
         }
         box.innerHTML = faculties.map((f) => `
-            <label style="display:inline-flex;align-items:center;gap:0.35rem;">
+            <label class="admin-check-chip">
                 <input type="checkbox" name="subjectFaculty" value="${f.id}" ${selected.has(f.id) ? 'checked' : ''}>
-                ${f.shortName}
+                <span>${f.shortName}</span>
             </label>
         `).join('');
     } catch (e) {
