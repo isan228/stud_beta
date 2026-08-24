@@ -260,6 +260,18 @@
                             <select id="subjectsUniversityFilter" class="form-group input">
                                 <option value="">Все университеты</option>
                             </select>
+                            <select id="subjectsFacultyFilter" class="form-group input">
+                                <option value="">Все факультеты</option>
+                            </select>
+                            <select id="subjectsCourseFilter" class="form-group input">
+                                <option value="">Все курсы</option>
+                                <option value="1">1 курс</option>
+                                <option value="2">2 курс</option>
+                                <option value="3">3 курс</option>
+                                <option value="4">4 курс</option>
+                                <option value="5">5 курс</option>
+                                <option value="6">6 курс</option>
+                            </select>
                             <button class="btn btn-primary" id="addSubjectBtn">+ Добавить предмет</button>
                         </div>
                     </div>
@@ -847,6 +859,23 @@
                         <option value="">Выберите университет</option>
                     </select>
                 </div>
+                <div class="form-group" id="subjectFacultiesGroup">
+                    <label>Факультеты (можно несколько)</label>
+                    <div id="subjectFacultiesCheckboxes" style="display:flex;flex-wrap:wrap;gap:0.5rem 1rem;"></div>
+                    <small style="color: var(--text-muted);">Если не выбрать — будет Лечфак</small>
+                </div>
+                <div class="form-group" id="subjectCoursesGroup">
+                    <label>Курсы (можно несколько)</label>
+                    <div id="subjectCoursesCheckboxes" style="display:flex;flex-wrap:wrap;gap:0.5rem 1rem;">
+                        <label><input type="checkbox" name="subjectCourse" value="1"> 1</label>
+                        <label><input type="checkbox" name="subjectCourse" value="2"> 2</label>
+                        <label><input type="checkbox" name="subjectCourse" value="3"> 3</label>
+                        <label><input type="checkbox" name="subjectCourse" value="4"> 4</label>
+                        <label><input type="checkbox" name="subjectCourse" value="5"> 5</label>
+                        <label><input type="checkbox" name="subjectCourse" value="6"> 6</label>
+                    </div>
+                    <small style="color: var(--text-muted);">Если не выбрать — 1 курс</small>
+                </div>
                 <div class="form-group" id="subjectStepGroup" style="display:none;">
                     <label for="subjectStepGroupSelect">Step (только для USMLE)</label>
                     <select id="subjectStepGroupSelect">
@@ -896,6 +925,39 @@
                 <button type="submit" class="btn btn-primary">Сохранить</button>
                 <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
             </form>
+        </div>
+    </div>
+
+    <div id="facultyModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 640px;">
+            <span class="modal-close">&times;</span>
+            <h2 id="facultyModalTitle">Факультеты</h2>
+            <p id="facultyModalUniversityLabel" style="color: var(--text-muted); margin-top: -0.5rem;"></p>
+            <form id="facultyForm" style="margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                <input type="hidden" id="facultyId">
+                <input type="hidden" id="facultyUniversityId">
+                <div class="form-group">
+                    <label for="facultyName">Название</label>
+                    <input type="text" id="facultyName" required maxlength="200" placeholder="Лечебный факультет">
+                </div>
+                <div class="form-group">
+                    <label for="facultyShortName">Краткое название</label>
+                    <input type="text" id="facultyShortName" required maxlength="50" placeholder="Лечфак">
+                </div>
+                <div class="form-group">
+                    <label for="facultySortOrder">Порядок</label>
+                    <input type="number" id="facultySortOrder" value="0" min="0" step="1">
+                </div>
+                <div class="form-group checkbox-group">
+                    <label>
+                        <input type="checkbox" id="facultyIsActive" checked>
+                        <span>Активен</span>
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-primary" id="facultyFormSubmitBtn">Добавить факультет</button>
+                <button type="button" class="btn btn-secondary" id="facultyFormResetBtn">Сброс</button>
+            </form>
+            <div id="facultiesList" class="admin-list"></div>
         </div>
     </div>
 

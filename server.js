@@ -267,6 +267,12 @@ sequelize.authenticate()
     const { ensureUniversities } = require('./utils/ensureUniversities');
     await ensureUniversities();
     try {
+      const { ensureFaculties } = require('./utils/ensureFaculties');
+      await ensureFaculties();
+    } catch (e) {
+      console.warn('ensureFaculties:', e.message);
+    }
+    try {
       const { ensureUsmleTagsSeeded } = require('./utils/ensureUsmleTagsSeeded');
       await ensureUsmleTagsSeeded();
     } catch (e) {

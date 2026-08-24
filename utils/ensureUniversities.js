@@ -96,6 +96,14 @@ async function ensureUniversities() {
     await ensurePlansForUniversity(uni.id);
   }
   try {
+    const { ensureLechfakForUniversity } = require('./ensureFaculties');
+    for (const uni of allUniversities) {
+      await ensureLechfakForUniversity(uni.id);
+    }
+  } catch (e) {
+    console.warn('⚠️  ensureLechfakForUniversity:', e.message);
+  }
+  try {
     await ensurePlansForUsmle();
   } catch (e) {
     console.warn('⚠️  ensurePlansForUsmle:', e.message);

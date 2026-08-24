@@ -1,11 +1,12 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
-const { Test, Question, Answer, Subject, Favorite, TestResult, User, University, QuestionTag, QuestionTagMap } = require('../models');
+const { Test, Question, Answer, Subject, Favorite, TestResult, User, University, Faculty, SubjectCourse, QuestionTag, QuestionTagMap } = require('../models');
 const { Op } = require('sequelize');
 const { isSubscriptionActive } = require('../utils/subscriptionPlans');
 const { parseImageUrls, firstImageUrl } = require('../utils/mediaField');
 const { pickQuestionsKeepingLinkedOrder } = require('../utils/usmleLinkedQuestions');
+const { ALLOWED_COURSES } = require('../utils/ensureFaculties');
 
 function tryGetUserIdFromRequest(req) {
   const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -38,6 +39,35 @@ function universityInclude() {
     attributes: ['id', 'name', 'shortName'],
     required: false
   };
+}
+
+function facultyInclude(facultyId) {
+  const include = {
+    model: Faculty,
+    as: 'Faculties',
+    attributes: ['id', 'name', 'shortName', 'universityId'],
+    through: { attributes: [] },
+    required: false
+  };
+  if (Number.isFinite(facultyId) && facultyId > 0) {
+    include.where = { id: facultyId };
+    include.required = true;
+  }
+  return include;
+}
+
+function courseInclude(course) {
+  const include = {
+    model: SubjectCourse,
+    as: 'Courses',
+    attributes: ['id', 'course'],
+    required: false
+  };
+  if (Number.isFinite(course) && ALLOWED_COURSES.includes(course)) {
+    include.where = { course };
+    include.required = true;
+  }
+  return include;
 }
 
 function tagsInclude() {
@@ -242,6 +272,8 @@ router.get('/subjects', async (req, res) => {
     const programType = resolveProgramType(req);
     const isFreeOnly = req.query.free === 'true';
     const where = { programType };
+    const facultyId = parseInt(req.query.facultyId, 10);
+    const course = parseInt(req.query.course, 10);
 
     if (programType === 'university') {
       const universityId = await resolveUserUniversityId(req);
@@ -252,10 +284,17 @@ router.get('/subjects', async (req, res) => {
       where.universityId = null;
     }
 
+    const include = [universityInclude()];
+    if (programType === 'university') {
+      include.push(facultyInclude(facultyId));
+      include.push(courseInclude(course));
+    }
+
     let subjects = await Subject.findAll({
       where,
       order: [['name', 'ASC']],
-      include: [universityInclude()]
+      include,
+      distinct: true
     });
 
     if (isFreeOnly) {
@@ -273,9 +312,38 @@ router.get('/subjects', async (req, res) => {
       subjects = subjects.filter((s) => subjectIds.has(s.id));
     }
 
-    res.json(subjects);
+    res.json(subjects.map((s) => {
+      const json = s.toJSON();
+      json.courses = Array.isArray(json.Courses)
+        ? json.Courses.map((c) => Number(c.course)).filter((n) => Number.isFinite(n)).sort((a, b) => a - b)
+        : [];
+      return json;
+    }));
   } catch (error) {
     console.error('Ошибка получения предметов:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+/** Факультеты вуза пользователя (или ?universityId=) */
+router.get('/faculties', async (req, res) => {
+  try {
+    let universityId = parseInt(req.query.universityId, 10);
+    if (!Number.isFinite(universityId) || universityId <= 0) {
+      universityId = await resolveUserUniversityId(req);
+    }
+    if (!universityId) {
+      return res.json([]);
+    }
+
+    const faculties = await Faculty.findAll({
+      where: { universityId, isActive: true },
+      attributes: ['id', 'name', 'shortName', 'universityId', 'sortOrder'],
+      order: [['sortOrder', 'ASC'], ['name', 'ASC']]
+    });
+    res.json(faculties);
+  } catch (error) {
+    console.error('Ошибка получения факультетов:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

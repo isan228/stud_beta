@@ -3,11 +3,46 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const adminAuth = require('../middleware/adminAuth');
-const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, Editor, EditorAuditLog, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, BroadcastMessage, UserBroadcastNotification, Transaction, University, SubscriptionPlan, QuestionTag, QuestionTagMap, sequelize } = require('../models');
+const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, Editor, EditorAuditLog, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, BroadcastMessage, UserBroadcastNotification, Transaction, University, Faculty, SubjectFaculty, SubjectCourse, SubscriptionPlan, QuestionTag, QuestionTagMap, sequelize } = require('../models');
 const { snapshotFromQuestion, logQuestionAudit } = require('../utils/questionAuditLog');
 const { ensurePlansForUniversity, getPlansForUniversity, ensurePlansForUsmle, getPlansForUsmle, ALLOWED_MONTHS, planTitle, uniPlanScope, USMLE_PLAN_SCOPE } = require('../utils/subscriptionPlans');
+const {
+  ALLOWED_COURSES,
+  normalizeCourseList,
+  normalizeFacultyIds,
+  ensureLechfakForUniversity,
+  setSubjectFaculties,
+  setSubjectCourses
+} = require('../utils/ensureFaculties');
 const { Op, QueryTypes } = require('sequelize');
 const { Sequelize } = require('sequelize');
+
+function subjectFacultyInclude() {
+  return {
+    model: Faculty,
+    as: 'Faculties',
+    attributes: ['id', 'name', 'shortName', 'universityId', 'isActive'],
+    through: { attributes: [] },
+    required: false
+  };
+}
+
+function subjectCourseInclude() {
+  return {
+    model: SubjectCourse,
+    as: 'Courses',
+    attributes: ['id', 'course'],
+    required: false
+  };
+}
+
+function serializeSubjectCourses(subjectJson) {
+  const courses = Array.isArray(subjectJson.Courses)
+    ? subjectJson.Courses.map((c) => Number(c.course)).filter((n) => Number.isFinite(n)).sort((a, b) => a - b)
+    : [];
+  subjectJson.courses = courses;
+  return subjectJson;
+}
 
 function slugifyTag(name) {
   return String(name || '')
@@ -1258,6 +1293,7 @@ router.post('/universities', adminAuth, [
 
     const university = await University.create({ name, shortName, description, isActive });
     await ensurePlansForUniversity(university.id);
+    await ensureLechfakForUniversity(university.id);
     res.status(201).json(university);
   } catch (error) {
     console.error('Ошибка создания университета:', error);
@@ -1336,6 +1372,147 @@ router.delete('/universities/:id', adminAuth, async (req, res) => {
     res.json({ message: 'Университет удален' });
   } catch (error) {
     console.error('Ошибка удаления университета:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// ——— Факультеты ———
+router.get('/faculties', adminAuth, async (req, res) => {
+  try {
+    const where = {};
+    if (req.query.universityId) {
+      where.universityId = parseInt(req.query.universityId, 10);
+    }
+    const faculties = await Faculty.findAll({
+      where,
+      include: [{
+        model: University,
+        as: 'University',
+        attributes: ['id', 'name', 'shortName']
+      }],
+      order: [['sortOrder', 'ASC'], ['name', 'ASC']]
+    });
+    res.json(faculties);
+  } catch (error) {
+    console.error('Ошибка получения факультетов:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.post('/faculties', adminAuth, [
+  body('name').trim().notEmpty().withMessage('Название обязательно'),
+  body('shortName').trim().isLength({ min: 2, max: 50 }).withMessage('Краткое название: 2–50 символов'),
+  body('universityId').notEmpty().withMessage('Университет обязателен')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const universityId = parseInt(req.body.universityId, 10);
+    const university = await University.findByPk(universityId);
+    if (!university) {
+      return res.status(400).json({ error: 'Университет не найден' });
+    }
+
+    const name = String(req.body.name).trim();
+    const shortName = String(req.body.shortName).trim();
+    const sortOrder = parseInt(req.body.sortOrder, 10);
+    const isActive = req.body.isActive === undefined
+      ? true
+      : (req.body.isActive === true || req.body.isActive === 'true');
+
+    const existing = await Faculty.findOne({
+      where: {
+        universityId,
+        shortName: { [Op.iLike]: shortName }
+      }
+    });
+    if (existing) {
+      return res.status(400).json({ error: 'Факультет с таким кратким названием уже есть у этого вуза' });
+    }
+
+    const faculty = await Faculty.create({
+      universityId,
+      name,
+      shortName,
+      sortOrder: Number.isFinite(sortOrder) ? sortOrder : 0,
+      isActive
+    });
+    res.status(201).json(faculty);
+  } catch (error) {
+    console.error('Ошибка создания факультета:', error);
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(400).json({ error: 'Факультет с таким кратким названием уже существует' });
+    }
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.put('/faculties/:id', adminAuth, [
+  body('name').trim().notEmpty().withMessage('Название обязательно'),
+  body('shortName').trim().isLength({ min: 2, max: 50 }).withMessage('Краткое название: 2–50 символов')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const faculty = await Faculty.findByPk(req.params.id);
+    if (!faculty) {
+      return res.status(404).json({ error: 'Факультет не найден' });
+    }
+
+    const name = String(req.body.name).trim();
+    const shortName = String(req.body.shortName).trim();
+    const existing = await Faculty.findOne({
+      where: {
+        id: { [Op.ne]: faculty.id },
+        universityId: faculty.universityId,
+        shortName: { [Op.iLike]: shortName }
+      }
+    });
+    if (existing) {
+      return res.status(400).json({ error: 'Факультет с таким кратким названием уже есть у этого вуза' });
+    }
+
+    faculty.name = name;
+    faculty.shortName = shortName;
+    if (req.body.sortOrder !== undefined) {
+      const sortOrder = parseInt(req.body.sortOrder, 10);
+      if (Number.isFinite(sortOrder)) faculty.sortOrder = sortOrder;
+    }
+    if (req.body.isActive !== undefined) {
+      faculty.isActive = req.body.isActive === true || req.body.isActive === 'true';
+    }
+    await faculty.save();
+    res.json(faculty);
+  } catch (error) {
+    console.error('Ошибка обновления факультета:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.delete('/faculties/:id', adminAuth, async (req, res) => {
+  try {
+    const faculty = await Faculty.findByPk(req.params.id);
+    if (!faculty) {
+      return res.status(404).json({ error: 'Факультет не найден' });
+    }
+
+    const linked = await SubjectFaculty.count({ where: { facultyId: faculty.id } });
+    if (linked > 0) {
+      return res.status(400).json({
+        error: `Нельзя удалить: к факультету привязано предметов: ${linked}. Сначала отвяжите предметы.`
+      });
+    }
+
+    await faculty.destroy();
+    res.json({ message: 'Факультет удален' });
+  } catch (error) {
+    console.error('Ошибка удаления факультета:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
@@ -1703,12 +1880,12 @@ router.get('/subjects/:id', adminAuth, async (req, res) => {
         model: University,
         as: 'University',
         attributes: ['id', 'name', 'shortName']
-      }]
+      }, subjectFacultyInclude(), subjectCourseInclude()]
     });
     if (!subject) {
       return res.status(404).json({ error: 'Предмет не найден' });
     }
-    res.json(subject);
+    res.json(serializeSubjectCourses(subject.toJSON()));
   } catch (error) {
     console.error('Ошибка получения предмета:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
@@ -1725,6 +1902,30 @@ router.get('/subjects', adminAuth, async (req, res) => {
       where.programType = 'usmle';
     } else if (req.query.programType === 'university' || req.query.program === 'university') {
       where.programType = 'university';
+    }
+
+    const facultyId = parseInt(req.query.facultyId, 10);
+    const courseFilter = parseInt(req.query.course, 10);
+    const include = [{
+      model: University,
+      as: 'University',
+      attributes: ['id', 'name', 'shortName'],
+      required: false
+    }, subjectFacultyInclude(), subjectCourseInclude()];
+
+    if (Number.isFinite(facultyId) && facultyId > 0) {
+      include[1] = {
+        ...subjectFacultyInclude(),
+        where: { id: facultyId },
+        required: true
+      };
+    }
+    if (Number.isFinite(courseFilter) && ALLOWED_COURSES.includes(courseFilter)) {
+      include[2] = {
+        ...subjectCourseInclude(),
+        where: { course: courseFilter },
+        required: true
+      };
     }
 
     if (req.query.compact === '1') {
@@ -1745,21 +1946,53 @@ router.get('/subjects', adminAuth, async (req, res) => {
     const subjects = await Subject.findAll({
       where,
       attributes: ['id', 'name', 'description', 'universityId', 'programType', 'createdAt', 'updatedAt'],
-      include: [{
-        model: University,
-        as: 'University',
-        attributes: ['id', 'name', 'shortName'],
-        required: false
-      }],
-      order: [['createdAt', 'DESC']]
+      include,
+      order: [['createdAt', 'DESC']],
+      distinct: true
     });
 
-    res.json(await attachTestCountsToSubjects(subjects));
+    const withCounts = await attachTestCountsToSubjects(subjects);
+    res.json(withCounts.map((s) => serializeSubjectCourses(s)));
   } catch (error) {
     console.error('Ошибка получения предметов:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
+
+async function applySubjectFacultyAndCourses(subject, body) {
+  if (subject.programType !== 'university' || !subject.universityId) {
+    await setSubjectFaculties(subject.id, []);
+    await setSubjectCourses(subject.id, []);
+    return;
+  }
+
+  let facultyIds = normalizeFacultyIds(body.facultyIds);
+  if (!facultyIds.length && body.facultyId != null) {
+    facultyIds = normalizeFacultyIds([body.facultyId]);
+  }
+  if (!facultyIds.length) {
+    const lechfak = await ensureLechfakForUniversity(subject.universityId);
+    facultyIds = [lechfak.id];
+  } else {
+    const valid = await Faculty.findAll({
+      where: { id: { [Op.in]: facultyIds }, universityId: subject.universityId },
+      attributes: ['id']
+    });
+    facultyIds = valid.map((f) => f.id);
+    if (!facultyIds.length) {
+      const lechfak = await ensureLechfakForUniversity(subject.universityId);
+      facultyIds = [lechfak.id];
+    }
+  }
+  await setSubjectFaculties(subject.id, facultyIds);
+
+  let courses = normalizeCourseList(body.courses);
+  if (!courses.length && body.course != null) {
+    courses = normalizeCourseList([body.course]);
+  }
+  if (!courses.length) courses = [1];
+  await setSubjectCourses(subject.id, courses);
+}
 
 // Создать предмет
 router.post('/subjects', adminAuth, [
@@ -1816,7 +2049,17 @@ router.post('/subjects', adminAuth, [
       programType,
       stepGroup: stepGroup || null
     });
-    res.status(201).json(subject);
+
+    await applySubjectFacultyAndCourses(subject, req.body);
+
+    const full = await Subject.findByPk(subject.id, {
+      include: [{
+        model: University,
+        as: 'University',
+        attributes: ['id', 'name', 'shortName']
+      }, subjectFacultyInclude(), subjectCourseInclude()]
+    });
+    res.status(201).json(serializeSubjectCourses(full.toJSON()));
   } catch (error) {
     console.error('Ошибка создания предмета:', error);
     if (error.name === 'SequelizeUniqueConstraintError') {
@@ -1893,7 +2136,40 @@ router.put('/subjects/:id', adminAuth, [
       { where: { subjectId: subject.id } }
     );
 
-    res.json(subject);
+    if (req.body.facultyIds !== undefined || req.body.facultyId !== undefined
+      || req.body.courses !== undefined || req.body.course !== undefined) {
+      await applySubjectFacultyAndCourses(subject, req.body);
+    } else if (nextProgram === 'university') {
+      // Если связей ещё нет (старые записи) — проставим Лечфак + курс 1
+      const [facCount, courseCount] = await Promise.all([
+        SubjectFaculty.count({ where: { subjectId: subject.id } }),
+        SubjectCourse.count({ where: { subjectId: subject.id } })
+      ]);
+      if (facCount === 0 || courseCount === 0) {
+        await applySubjectFacultyAndCourses(subject, {
+          facultyIds: facCount === 0 ? undefined : (await SubjectFaculty.findAll({
+            where: { subjectId: subject.id },
+            attributes: ['facultyId']
+          })).map((r) => r.facultyId),
+          courses: courseCount === 0 ? undefined : (await SubjectCourse.findAll({
+            where: { subjectId: subject.id },
+            attributes: ['course']
+          })).map((r) => r.course)
+        });
+      }
+    } else if (nextProgram === 'usmle') {
+      await setSubjectFaculties(subject.id, []);
+      await setSubjectCourses(subject.id, []);
+    }
+
+    const full = await Subject.findByPk(subject.id, {
+      include: [{
+        model: University,
+        as: 'University',
+        attributes: ['id', 'name', 'shortName']
+      }, subjectFacultyInclude(), subjectCourseInclude()]
+    });
+    res.json(serializeSubjectCourses(full.toJSON()));
   } catch (error) {
     console.error('Ошибка обновления предмета:', error);
     if (error.name === 'SequelizeUniqueConstraintError') {
@@ -1911,6 +2187,8 @@ router.delete('/subjects/:id', adminAuth, async (req, res) => {
       return res.status(404).json({ error: 'Предмет не найден' });
     }
 
+    await SubjectFaculty.destroy({ where: { subjectId: subject.id } });
+    await SubjectCourse.destroy({ where: { subjectId: subject.id } });
     await subject.destroy();
     res.json({ message: 'Предмет удален' });
   } catch (error) {

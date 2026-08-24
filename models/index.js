@@ -20,6 +20,9 @@ const PromoCode = require('./PromoCode');
 const BroadcastMessage = require('./BroadcastMessage');
 const UserBroadcastNotification = require('./UserBroadcastNotification');
 const University = require('./University');
+const Faculty = require('./Faculty');
+const SubjectFaculty = require('./SubjectFaculty');
+const SubjectCourse = require('./SubjectCourse');
 const SubscriptionPlan = require('./SubscriptionPlan');
 const QuestionTag = require('./QuestionTag');
 const QuestionTagMap = require('./QuestionTagMap');
@@ -43,6 +46,29 @@ Test.belongsTo(University, { foreignKey: 'universityId', as: 'University' });
 
 University.hasMany(Subject, { foreignKey: 'universityId', as: 'Subjects' });
 Subject.belongsTo(University, { foreignKey: 'universityId', as: 'University' });
+
+University.hasMany(Faculty, { foreignKey: 'universityId', as: 'Faculties', onDelete: 'CASCADE' });
+Faculty.belongsTo(University, { foreignKey: 'universityId', as: 'University' });
+
+Subject.belongsToMany(Faculty, {
+  through: SubjectFaculty,
+  foreignKey: 'subjectId',
+  otherKey: 'facultyId',
+  as: 'Faculties'
+});
+Faculty.belongsToMany(Subject, {
+  through: SubjectFaculty,
+  foreignKey: 'facultyId',
+  otherKey: 'subjectId',
+  as: 'Subjects'
+});
+Subject.hasMany(SubjectFaculty, { foreignKey: 'subjectId', as: 'FacultyMaps', onDelete: 'CASCADE' });
+SubjectFaculty.belongsTo(Subject, { foreignKey: 'subjectId', as: 'Subject' });
+Faculty.hasMany(SubjectFaculty, { foreignKey: 'facultyId', as: 'SubjectMaps', onDelete: 'CASCADE' });
+SubjectFaculty.belongsTo(Faculty, { foreignKey: 'facultyId', as: 'Faculty' });
+
+Subject.hasMany(SubjectCourse, { foreignKey: 'subjectId', as: 'Courses', onDelete: 'CASCADE' });
+SubjectCourse.belongsTo(Subject, { foreignKey: 'subjectId', as: 'Subject' });
 
 University.hasMany(SubscriptionPlan, { foreignKey: 'universityId', as: 'SubscriptionPlans', onDelete: 'CASCADE' });
 SubscriptionPlan.belongsTo(University, { foreignKey: 'universityId', as: 'University' });
@@ -121,6 +147,9 @@ module.exports = {
   BroadcastMessage,
   UserBroadcastNotification,
   University,
+  Faculty,
+  SubjectFaculty,
+  SubjectCourse,
   SubscriptionPlan,
   QuestionTag,
   QuestionTagMap,

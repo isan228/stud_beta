@@ -665,7 +665,8 @@ async function loadUniversities() {
                             Тестов: ${uni.testCount ?? 0}
                         </p>
                     </div>
-                    <div style="display: flex; gap: 0.5rem;">
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <button class="btn btn-secondary btn-sm" onclick="openFacultiesModal(${uni.id}, '${String(uni.shortName || '').replace(/'/g, "\\'")}')">Факультеты</button>
                         <button class="btn btn-primary btn-sm" onclick="editUniversity(${uni.id})">Редактировать</button>
                         <button class="btn btn-danger btn-sm" onclick="deleteUniversity(${uni.id})">Удалить</button>
                     </div>
@@ -767,9 +768,13 @@ async function loadSubjects() {
     try {
         const universityId = document.getElementById('subjectsUniversityFilter')?.value || '';
         const programType = document.getElementById('subjectsProgramFilter')?.value || '';
+        const facultyId = document.getElementById('subjectsFacultyFilter')?.value || '';
+        const course = document.getElementById('subjectsCourseFilter')?.value || '';
         const params = new URLSearchParams();
         if (universityId) params.set('universityId', universityId);
         if (programType) params.set('programType', programType);
+        if (facultyId) params.set('facultyId', facultyId);
+        if (course) params.set('course', course);
         const qs = params.toString();
         const response = await fetch(`${ADMIN_API_URL}/subjects${qs ? `?${qs}` : ''}`, {
             headers: {
@@ -792,13 +797,18 @@ async function loadSubjects() {
                     : (subject.University?.shortName
                         ? `<span style="background: var(--bg-secondary); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">${subject.University.shortName}</span>`
                         : '');
+                const facultyNames = (subject.Faculties || []).map((f) => f.shortName || f.name).join(', ');
+                const courses = (subject.courses || []).join(', ');
                 return `
                 <div class="admin-list-item">
                     <div style="flex: 1;">
                         <h4>${subject.name} ${programBadge}</h4>
                         ${subject.description ? `<p style="color: var(--text-muted); margin: 0.5rem 0;">${subject.description}</p>` : ''}
                         <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
-                            ${isUsmle ? 'Программа: USMLE' : `Университет: ${subject.University?.shortName || '—'}`} | Тестов: ${subject.testCount ?? subject.Tests?.length ?? 0}
+                            ${isUsmle
+                                ? 'Программа: USMLE'
+                                : `Университет: ${subject.University?.shortName || '—'} | Факультеты: ${facultyNames || '—'} | Курсы: ${courses || '—'}`}
+                            | Тестов: ${subject.testCount ?? subject.Tests?.length ?? 0}
                         </p>
                     </div>
                     <div style="display: flex; gap: 0.5rem;">
@@ -814,6 +824,182 @@ async function loadSubjects() {
     } catch (error) {
         console.error('Ошибка загрузки предметов:', error);
         showNotification('Ошибка загрузки предметов', 'error');
+    }
+}
+
+async function fetchAdminFaculties(universityId) {
+    if (!universityId) return [];
+    const response = await fetch(`${ADMIN_API_URL}/faculties?universityId=${encodeURIComponent(universityId)}`, {
+        headers: adminAuthHeaders()
+    });
+    if (!response.ok) throw new Error('Ошибка загрузки факультетов');
+    return response.json();
+}
+
+async function fillSubjectsFacultyFilter() {
+    const uniId = document.getElementById('subjectsUniversityFilter')?.value || '';
+    const select = document.getElementById('subjectsFacultyFilter');
+    if (!select) return;
+    select.innerHTML = '<option value="">Все факультеты</option>';
+    if (!uniId) return;
+    try {
+        const faculties = await fetchAdminFaculties(uniId);
+        select.innerHTML += faculties.map((f) =>
+            `<option value="${f.id}">${f.shortName} — ${f.name}</option>`
+        ).join('');
+    } catch (e) {
+        console.warn(e);
+    }
+}
+
+async function fillSubjectFacultyCheckboxes(universityId, selectedIds = []) {
+    const box = document.getElementById('subjectFacultiesCheckboxes');
+    if (!box) return;
+    const selected = new Set((selectedIds || []).map(Number));
+    if (!universityId) {
+        box.innerHTML = '<span style="color:var(--text-muted);font-size:0.875rem;">Сначала выберите университет</span>';
+        return;
+    }
+    try {
+        const faculties = await fetchAdminFaculties(universityId);
+        if (!faculties.length) {
+            box.innerHTML = '<span style="color:var(--text-muted);font-size:0.875rem;">Нет факультетов</span>';
+            return;
+        }
+        box.innerHTML = faculties.map((f) => `
+            <label style="display:inline-flex;align-items:center;gap:0.35rem;">
+                <input type="checkbox" name="subjectFaculty" value="${f.id}" ${selected.has(f.id) ? 'checked' : ''}>
+                ${f.shortName}
+            </label>
+        `).join('');
+    } catch (e) {
+        box.innerHTML = '<span style="color:var(--danger-color);">Ошибка загрузки факультетов</span>';
+    }
+}
+
+function setSubjectCourseCheckboxes(courses = [1]) {
+    const set = new Set((courses || []).map(Number));
+    document.querySelectorAll('input[name="subjectCourse"]').forEach((el) => {
+        el.checked = set.has(Number(el.value));
+    });
+}
+
+function getSelectedSubjectFacultyIds() {
+    return [...document.querySelectorAll('input[name="subjectFaculty"]:checked')].map((el) => Number(el.value));
+}
+
+function getSelectedSubjectCourses() {
+    return [...document.querySelectorAll('input[name="subjectCourse"]:checked')].map((el) => Number(el.value));
+}
+
+async function openFacultiesModal(universityId, shortName) {
+    document.getElementById('facultyUniversityId').value = universityId;
+    document.getElementById('facultyModalUniversityLabel').textContent = shortName || '';
+    resetFacultyForm();
+    document.getElementById('facultyModal').style.display = 'block';
+    await loadFacultiesForModal(universityId);
+}
+
+function resetFacultyForm() {
+    document.getElementById('facultyId').value = '';
+    document.getElementById('facultyName').value = '';
+    document.getElementById('facultyShortName').value = '';
+    document.getElementById('facultySortOrder').value = '0';
+    document.getElementById('facultyIsActive').checked = true;
+    document.getElementById('facultyFormSubmitBtn').textContent = 'Добавить факультет';
+}
+
+async function loadFacultiesForModal(universityId) {
+    const list = document.getElementById('facultiesList');
+    if (!list) return;
+    try {
+        const faculties = await fetchAdminFaculties(universityId);
+        window.__adminFacultiesCache = faculties;
+        if (!faculties.length) {
+            list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:1rem;">Нет факультетов</p>';
+            return;
+        }
+        list.innerHTML = faculties.map((f) => `
+            <div class="admin-list-item">
+                <div style="flex:1;">
+                    <strong>${f.shortName}</strong> ${f.isActive ? '' : '<span style="color:#ef4444;font-size:0.75rem;">выкл</span>'}
+                    <p style="margin:0.25rem 0 0;color:var(--text-muted);font-size:0.875rem;">${f.name}</p>
+                </div>
+                <div style="display:flex;gap:0.5rem;">
+                    <button type="button" class="btn btn-primary btn-sm" onclick="editFacultyInModal(${f.id})">Изменить</button>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="deleteFaculty(${f.id})">Удалить</button>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        list.innerHTML = '<p style="color:var(--danger-color);">Ошибка загрузки</p>';
+    }
+}
+
+function editFacultyInModal(facultyId) {
+    const faculty = (window.__adminFacultiesCache || []).find((f) => Number(f.id) === Number(facultyId));
+    if (!faculty) return;
+    document.getElementById('facultyId').value = faculty.id;
+    document.getElementById('facultyUniversityId').value = faculty.universityId;
+    document.getElementById('facultyName').value = faculty.name || '';
+    document.getElementById('facultyShortName').value = faculty.shortName || '';
+    document.getElementById('facultySortOrder').value = faculty.sortOrder ?? 0;
+    document.getElementById('facultyIsActive').checked = faculty.isActive !== false;
+    document.getElementById('facultyFormSubmitBtn').textContent = 'Сохранить факультет';
+}
+
+async function saveFaculty(e) {
+    e.preventDefault();
+    const id = document.getElementById('facultyId').value;
+    const universityId = parseInt(document.getElementById('facultyUniversityId').value, 10);
+    const payload = {
+        name: document.getElementById('facultyName').value.trim(),
+        shortName: document.getElementById('facultyShortName').value.trim(),
+        sortOrder: parseInt(document.getElementById('facultySortOrder').value, 10) || 0,
+        isActive: document.getElementById('facultyIsActive').checked,
+        universityId
+    };
+    try {
+        const url = id ? `${ADMIN_API_URL}/faculties/${id}` : `${ADMIN_API_URL}/faculties`;
+        const method = id ? 'PUT' : 'POST';
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                ...adminAuthHeaders()
+            },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) {
+            const result = await response.json().catch(() => ({}));
+            throw new Error(result.error || 'Ошибка сохранения');
+        }
+        showNotification(id ? 'Факультет обновлён' : 'Факультет создан', 'success');
+        resetFacultyForm();
+        await loadFacultiesForModal(universityId);
+        fillSubjectsFacultyFilter();
+    } catch (error) {
+        showNotification(error.message || 'Ошибка сохранения факультета', 'error');
+    }
+}
+
+async function deleteFaculty(id) {
+    if (!confirm('Удалить факультет?')) return;
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/faculties/${id}`, {
+            method: 'DELETE',
+            headers: adminAuthHeaders()
+        });
+        if (!response.ok) {
+            const result = await response.json().catch(() => ({}));
+            throw new Error(result.error || 'Ошибка удаления');
+        }
+        showNotification('Факультет удалён', 'success');
+        const universityId = document.getElementById('facultyUniversityId').value;
+        await loadFacultiesForModal(universityId);
+        fillSubjectsFacultyFilter();
+    } catch (error) {
+        showNotification(error.message || 'Ошибка удаления факультета', 'error');
     }
 }
 
@@ -1315,6 +1501,9 @@ async function editSubject(subjectId) {
             document.getElementById('subjectDescription').value = subject.description || '';
             const stepSel = document.getElementById('subjectStepGroupSelect');
             if (stepSel) stepSel.value = subject.stepGroup || 'step1';
+            const facultyIds = (subject.Faculties || []).map((f) => f.id);
+            await fillSubjectFacultyCheckboxes(subject.universityId, facultyIds);
+            setSubjectCourseCheckboxes(subject.courses?.length ? subject.courses : [1]);
             document.getElementById('subjectModalTitle').textContent = 'Редактировать предмет';
             document.getElementById('subjectModal').style.display = 'block';
         }
@@ -1329,11 +1518,18 @@ function toggleSubjectUniversityField() {
     const group = document.getElementById('subjectUniversityGroup');
     const select = document.getElementById('subjectUniversityId');
     const stepGroup = document.getElementById('subjectStepGroup');
+    const facultiesGroup = document.getElementById('subjectFacultiesGroup');
+    const coursesGroup = document.getElementById('subjectCoursesGroup');
     if (!group) return;
     const isUsmle = program === 'usmle';
     group.style.display = isUsmle ? 'none' : '';
     if (stepGroup) stepGroup.style.display = isUsmle ? '' : 'none';
+    if (facultiesGroup) facultiesGroup.style.display = isUsmle ? 'none' : '';
+    if (coursesGroup) coursesGroup.style.display = isUsmle ? 'none' : '';
     if (select) select.required = !isUsmle;
+    if (!isUsmle && select?.value) {
+        fillSubjectFacultyCheckboxes(select.value, getSelectedSubjectFacultyIds());
+    }
 }
 
 function fillTestSubjectOptions(subjects, selectEl) {
@@ -1573,7 +1769,11 @@ async function saveSubject(e) {
         const method = id ? 'PUT' : 'POST';
         const stepGroup = document.getElementById('subjectStepGroupSelect')?.value || 'step1';
         const payload = { name, description, programType };
-        if (programType === 'university') payload.universityId = universityId;
+        if (programType === 'university') {
+            payload.universityId = universityId;
+            payload.facultyIds = getSelectedSubjectFacultyIds();
+            payload.courses = getSelectedSubjectCourses();
+        }
         if (programType === 'usmle') payload.stepGroup = stepGroup;
 
         const response = await fetch(url, {
@@ -1914,6 +2114,8 @@ function setupAdminEventListeners() {
                 console.error(e);
             }
             toggleSubjectUniversityField();
+            await fillSubjectFacultyCheckboxes(document.getElementById('subjectUniversityId')?.value || '', []);
+            setSubjectCourseCheckboxes([1]);
             document.getElementById('subjectModalTitle').textContent = 'Добавить предмет';
             document.getElementById('subjectModal').style.display = 'block';
         });
@@ -1922,6 +2124,13 @@ function setupAdminEventListeners() {
     const subjectProgramType = document.getElementById('subjectProgramType');
     if (subjectProgramType) {
         subjectProgramType.addEventListener('change', toggleSubjectUniversityField);
+    }
+
+    const subjectUniversityId = document.getElementById('subjectUniversityId');
+    if (subjectUniversityId) {
+        subjectUniversityId.addEventListener('change', () => {
+            fillSubjectFacultyCheckboxes(subjectUniversityId.value, []);
+        });
     }
 
     const addTestBtn = document.getElementById('addTestBtn');
@@ -2152,6 +2361,15 @@ function setupAdminEventListeners() {
         subjectForm.addEventListener('submit', saveSubject);
     }
 
+    const facultyForm = document.getElementById('facultyForm');
+    if (facultyForm) {
+        facultyForm.addEventListener('submit', saveFaculty);
+    }
+    const facultyFormResetBtn = document.getElementById('facultyFormResetBtn');
+    if (facultyFormResetBtn) {
+        facultyFormResetBtn.addEventListener('click', resetFacultyForm);
+    }
+
     const testForm = document.getElementById('testForm');
     if (testForm) {
         testForm.addEventListener('submit', saveTest);
@@ -2224,18 +2442,28 @@ function setupAdminEventListeners() {
     }
     const subjectsUniversityFilter = document.getElementById('subjectsUniversityFilter');
     if (subjectsUniversityFilter) {
-        subjectsUniversityFilter.addEventListener('change', () => {
+        subjectsUniversityFilter.addEventListener('change', async () => {
+            await fillSubjectsFacultyFilter();
             loadSubjects();
         });
     }
     const subjectsProgramFilter = document.getElementById('subjectsProgramFilter');
     if (subjectsProgramFilter) {
-        subjectsProgramFilter.addEventListener('change', () => {
+        subjectsProgramFilter.addEventListener('change', async () => {
             const program = subjectsProgramFilter.value;
             const uniFilter = document.getElementById('subjectsUniversityFilter');
             if (program === 'usmle' && uniFilter) uniFilter.value = '';
+            await fillSubjectsFacultyFilter();
             loadSubjects();
         });
+    }
+    const subjectsFacultyFilter = document.getElementById('subjectsFacultyFilter');
+    if (subjectsFacultyFilter) {
+        subjectsFacultyFilter.addEventListener('change', () => loadSubjects());
+    }
+    const subjectsCourseFilter = document.getElementById('subjectsCourseFilter');
+    if (subjectsCourseFilter) {
+        subjectsCourseFilter.addEventListener('change', () => loadSubjects());
     }
     const usersUniversityFilter = document.getElementById('usersUniversityFilter');
     if (usersUniversityFilter) {
