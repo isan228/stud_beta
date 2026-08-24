@@ -1,4 +1,5 @@
-const { University, Faculty, Subject, SubjectFaculty, SubjectCourse } = require('../models');
+const { University, Faculty, Subject, SubjectFaculty, SubjectCourse, User } = require('../models');
+const { Op } = require('sequelize');
 
 const LECHFAK = {
   name: 'Лечебный факультет',
@@ -109,7 +110,40 @@ async function ensureFaculties() {
     console.log(`✅ Факультеты/курсы предметов: лечфак=${linkedFaculties}, курс1=${linkedCourses}`);
   }
 
-  return { universities: universities.length, linkedFaculties, linkedCourses };
+  // Пользователям без направления — Лечфак + 1 курс их вуза
+  const usersNeedDirection = await User.findAll({
+    where: {
+      universityId: { [Op.ne]: null },
+      [Op.or]: [
+        { facultyId: null },
+        { course: null }
+      ]
+    },
+    attributes: ['id', 'universityId', 'facultyId', 'course']
+  });
+  let usersPatched = 0;
+  for (const user of usersNeedDirection) {
+    const lechfak = lechfakByUni.get(user.universityId)
+      || await ensureLechfakForUniversity(user.universityId);
+    let changed = false;
+    if (!user.facultyId) {
+      user.facultyId = lechfak.id;
+      changed = true;
+    }
+    if (!user.course) {
+      user.course = 1;
+      changed = true;
+    }
+    if (changed) {
+      await user.save();
+      usersPatched += 1;
+    }
+  }
+  if (usersPatched > 0) {
+    console.log(`✅ Направление пользователям (Лечфак + 1 курс): ${usersPatched}`);
+  }
+
+  return { universities: universities.length, linkedFaculties, linkedCourses, usersPatched };
 }
 
 module.exports = {

@@ -5315,3 +5315,24 @@ html[data-theme="dark"] .question-image-preview-img,
     resize: none;
     min-height: 42px;
 }
+
+/* Catalog favorites (subjects/tests) */
+.catalog-fav-star {
+    color: var(--text-muted);
+    line-height: 1;
+}
+.catalog-fav-star.is-on,
+.catalog-fav-star:hover {
+    color: #f59e0b;
+}
+.test-card .catalog-fav-star {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 2;
+    background: transparent;
+    border: none;
+    font-size: 1.25rem;
+    cursor: pointer;
+    padding: 0.25rem;
+}

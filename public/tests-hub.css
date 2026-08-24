@@ -1,0 +1,321 @@
+/* Страница /tests — хаб предметов / избранное / статистика */
+
+.tests-hub {
+  padding-bottom: 3rem;
+}
+
+.tests-hub-header h1 {
+  margin-bottom: 1.25rem;
+}
+
+.tests-direction {
+  margin-bottom: 1.5rem;
+}
+
+.tests-direction-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+}
+
+.tests-direction-field {
+  flex: 1 1 180px;
+  min-width: 140px;
+  max-width: 280px;
+}
+
+.tests-direction-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+
+.tests-direction-value {
+  display: block;
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg, #fff);
+  color: var(--text-color);
+  font-weight: 600;
+  font-size: 0.95rem;
+  pointer-events: none;
+  user-select: none;
+}
+
+.tests-direction-change {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.7rem 0.25rem;
+  color: var(--primary-color);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.tests-direction-change:hover {
+  text-decoration: underline;
+}
+
+.tests-direction-hint {
+  margin: 0.65rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.tests-hub-tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 1.25rem;
+  overflow-x: auto;
+}
+
+.tests-hub-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.75rem 1rem;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+}
+
+.tests-hub-tab:hover {
+  color: var(--primary-color);
+}
+
+.tests-hub-tab.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+}
+
+.tests-hub-panel[hidden] {
+  display: none !important;
+}
+
+.tests-hub-search {
+  margin-bottom: 1.25rem;
+}
+
+.tests-hub-search .search-wrapper {
+  background: var(--card-bg, #fff);
+}
+
+.tests-subject-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+@media (max-width: 1100px) {
+  .tests-subject-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 800px) {
+  .tests-subject-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .tests-subject-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tests-subject-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border-color);
+  border-radius: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  text-align: left;
+  width: 100%;
+  color: inherit;
+  font: inherit;
+}
+
+.tests-subject-card:hover {
+  border-color: color-mix(in srgb, var(--primary-color) 45%, var(--border-color));
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.08);
+  transform: translateY(-1px);
+}
+
+.tests-subject-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.tests-subject-card-title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-color);
+  line-height: 1.3;
+}
+
+.tests-subject-card-meta {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.tests-subject-card-chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.tests-subject-card-star {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.tests-subject-card-star:hover,
+.tests-subject-card-star.is-on {
+  color: #f59e0b;
+}
+
+.tests-subject-card.has-star {
+  padding-right: 2.4rem;
+}
+
+.tests-fav-subtabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.tests-fav-subtab {
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg, #fff);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.tests-fav-subtab.active {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+}
+
+.tests-stats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.tests-stats-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.15rem;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border-color);
+  border-radius: 0.85rem;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tests-stats-card:hover {
+  border-color: color-mix(in srgb, var(--primary-color) 45%, var(--border-color));
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.08);
+}
+
+.tests-stats-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.tests-stats-card-title {
+  margin: 0 0 0.25rem;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.tests-stats-card-meta {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.tests-stats-card-score {
+  flex-shrink: 0;
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: var(--primary-color);
+}
+
+.tests-hub-loading,
+.tests-hub-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .tests-direction-value,
+[data-theme="dark"] .tests-subject-card,
+[data-theme="dark"] .tests-stats-card,
+[data-theme="dark"] .tests-fav-subtab {
+  background: var(--bg-secondary);
+}
+
+.catalog-fav-star {
+    color: var(--text-muted);
+    line-height: 1;
+}
+.catalog-fav-star.is-on,
+.catalog-fav-star:hover {
+    color: #f59e0b;
+}
+.test-card .catalog-fav-star {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 2;
+    background: transparent;
+    border: none;
+    font-size: 1.25rem;
+    cursor: pointer;
+    padding: 0.25rem;
+}

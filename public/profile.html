@@ -92,6 +92,36 @@
                         </p>
                     </div>
                 </div>
+
+                <div class="settings-card" id="direction">
+                    <h3>Направление обучения</h3>
+                    <div class="settings-content">
+                        <p style="color: var(--text-secondary); margin: 0 0 1rem; font-size: 0.9rem;">
+                            Факультет и курс определяют список предметов на странице «Тесты».
+                        </p>
+                        <form id="directionForm">
+                            <div class="form-group">
+                                <label for="profileFacultyId">Факультет</label>
+                                <select id="profileFacultyId" required>
+                                    <option value="">Загрузка...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="profileCourse">Курс</label>
+                                <select id="profileCourse" required>
+                                    <option value="1">1 курс</option>
+                                    <option value="2">2 курс</option>
+                                    <option value="3">3 курс</option>
+                                    <option value="4">4 курс</option>
+                                    <option value="5">5 курс</option>
+                                    <option value="6">6 курс</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Сохранить направление</button>
+                        </form>
+                    </div>
+                </div>
+
                 <div class="settings-card">
                     <h3>Реферальная программа</h3>
                     <div class="settings-content">
@@ -338,6 +368,11 @@
                 await window.loadProfile();
             } else {
                 console.error('loadProfile не найдена');
+            }
+
+            if (location.hash === '#direction') {
+                const el = document.getElementById('direction');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
 
             if (typeof window.loadAndRenderSubscriptionPlans === 'function') {

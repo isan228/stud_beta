@@ -14,25 +14,21 @@
     <meta property="og:image:width" content="192">
     <meta property="og:image:height" content="192">
     <meta name="twitter:image" content="https://stud.kg/img/icon-192.png">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <meta name="theme-color" content="#2563eb">
     <title>Тесты - stud.kg</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="tests-hub.css">
 </head>
 
 <body>
     <nav class="navbar">
         <div class="container">
             <div class="nav-brand">
-                <a href="/">
-                    <h1>stud.kg</h1>
-                </a>
+                <a href="/"><h1>stud.kg</h1></a>
             </div>
             <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Меню">
-                <span></span>
-                <span></span>
-                <span></span>
+                <span></span><span></span><span></span>
             </button>
             <div class="nav-menu" id="navMenu">
                 <a href="/" class="nav-link">Главная</a>
@@ -56,38 +52,74 @@
         </div>
     </nav>
 
-    <main class="main-content">
+    <main class="main-content tests-hub">
         <div class="container">
-            <div class="page-header">
-                <div class="program-switch" style="display:inline-flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
-                    <a href="/tests" class="active" style="padding:0.45rem 0.9rem;border-radius:999px;border:1.5px solid var(--primary-color);text-decoration:none;color:var(--primary-color);font-weight:600;font-size:0.9rem;background:color-mix(in srgb, var(--primary-color) 10%, transparent);">Университет</a>
-                    <a href="/usmle" style="padding:0.45rem 0.9rem;border-radius:999px;border:1.5px solid var(--border-color);text-decoration:none;color:var(--text-secondary);font-weight:600;font-size:0.9rem;">USMLE</a>
-                </div>
-                <h1>Выберите предмет</h1>
-                <p class="page-description">
-                    Выберите интересующий вас предмет для начала подготовки.
-                    Каждый предмет содержит множество тестов различной сложности.
-                </p>
+            <div class="page-header tests-hub-header">
+                <h1>Тесты</h1>
             </div>
 
-            <!-- Поиск по предметам -->
-            <div class="search-container">
-                <div class="search-wrapper">
-                    <span class="search-icon">🔍</span>
-                    <input type="text" id="subjectSearch" class="search-input" placeholder="Поиск по предметам..."
-                        autocomplete="off">
-                    <button id="clearSearch" class="clear-search-btn" style="display: none;"
-                        aria-label="Очистить поиск">✕</button>
+            <section class="tests-direction" id="testsDirection" aria-label="Направление">
+                <div class="tests-direction-fields">
+                    <div class="tests-direction-field">
+                        <span class="tests-direction-label">Факультет</span>
+                        <div class="tests-direction-value" id="directionFaculty">—</div>
+                    </div>
+                    <div class="tests-direction-field">
+                        <span class="tests-direction-label">Курс</span>
+                        <div class="tests-direction-value" id="directionCourse">—</div>
+                    </div>
+                    <a href="/profile#direction" class="tests-direction-change" id="directionChangeLink">
+                        Изменить направление
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    </a>
                 </div>
-                <div id="searchResultsCount" class="search-results-count" style="display: none;"></div>
-            </div>
+                <p class="tests-direction-hint">Вы можете изменить факультет и курс в личном кабинете. Выбранное направление сохраняется.</p>
+            </section>
 
-            <div id="subjectsList" class="subjects-grid">
-                <div style="text-align: center; padding: 3rem; width: 100%; grid-column: 1 / -1;">
-                    <div class="loading" style="margin: 0 auto;"></div>
-                    <p style="margin-top: 1rem; color: var(--text-secondary);">Загрузка предметов...</p>
+            <nav class="tests-hub-tabs" role="tablist" aria-label="Разделы">
+                <button type="button" class="tests-hub-tab active" data-tab="subjects" role="tab" aria-selected="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                    Все предметы
+                </button>
+                <button type="button" class="tests-hub-tab" data-tab="favorites" role="tab" aria-selected="false">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    Избранное
+                </button>
+                <button type="button" class="tests-hub-tab" data-tab="stats" role="tab" aria-selected="false">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                    Статистика
+                </button>
+            </nav>
+
+            <section class="tests-hub-panel active" id="panelSubjects" data-panel="subjects">
+                <div class="search-container tests-hub-search">
+                    <div class="search-wrapper">
+                        <span class="search-icon" aria-hidden="true">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        </span>
+                        <input type="text" id="subjectSearch" class="search-input" placeholder="Поиск по предметам..." autocomplete="off">
+                        <button type="button" id="clearSearch" class="clear-search-btn" style="display: none;" aria-label="Очистить поиск">✕</button>
+                    </div>
                 </div>
-            </div>
+                <div id="subjectsList" class="tests-subject-grid">
+                    <div class="tests-hub-loading">Загрузка предметов...</div>
+                </div>
+            </section>
+
+            <section class="tests-hub-panel" id="panelFavorites" data-panel="favorites" hidden>
+                <div class="tests-fav-subtabs">
+                    <button type="button" class="tests-fav-subtab active" data-fav="subjects">Предметы</button>
+                    <button type="button" class="tests-fav-subtab" data-fav="tests">Тесты</button>
+                </div>
+                <div id="favSubjectsList" class="tests-subject-grid"></div>
+                <div id="favTestsList" class="tests-subject-grid" style="display:none;"></div>
+            </section>
+
+            <section class="tests-hub-panel" id="panelStats" data-panel="stats" hidden>
+                <div id="statsResultsList" class="tests-stats-list">
+                    <div class="tests-hub-loading">Загрузка статистики...</div>
+                </div>
+            </section>
         </div>
     </main>
 
@@ -97,16 +129,6 @@
                 <div class="footer-section">
                     <h3>stud.kg</h3>
                     <p>Платформа для подготовки к экзаменам</p>
-                    <div class="footer-social">
-                        <a href="https://t.me/stud_kg" target="_blank" rel="noopener noreferrer"
-                            class="footer-social-link" aria-label="Telegram">
-                            <img src="/img/Telegram_(software)-Logo.wine.svg" alt="Telegram">
-                        </a>
-                        <a href="https://instagram.com/stud_kgz" target="_blank" rel="noopener noreferrer"
-                            class="footer-social-link" aria-label="Instagram">
-                            <img src="/img/Instagram-Logo.wine.svg" alt="Instagram">
-                        </a>
-                    </div>
                 </div>
                 <div class="footer-section">
                     <h4>Навигация</h4>
@@ -126,7 +148,6 @@
 
     <div id="notification" class="notification"></div>
 
-    <!-- Модальное окно регистрации -->
     <div id="registerModal" class="modal" style="display: none;">
         <div class="modal-content">
             <span class="modal-close" id="registerModalClose">&times;</span>
@@ -143,63 +164,15 @@
         </div>
     </div>
 
+    <div id="testAnalysisModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
+            <span class="modal-close" id="testAnalysisModalClose">&times;</span>
+            <h2 id="testAnalysisTitle">Разбор теста</h2>
+            <div id="testAnalysisContent"></div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-            window.initTheme();
-            const userLoaded = await window.loadUser();
-            window.setupEventListeners();
-
-            if (typeof window.setProgramType === 'function') window.setProgramType('university');
-            // Загружаем предметы (бесплатные тесты доступны без авторизации)
-            console.log('Загрузка предметов. currentUser:', window.currentUser, 'userLoaded:', userLoaded);
-            if (typeof window.loadSubjects === 'function') {
-                window.loadSubjects();
-            } else {
-                console.error('loadSubjects не найдена');
-            }
-
-            // Настройка поиска по предметам
-            const searchInput = document.getElementById('subjectSearch');
-            const clearBtn = document.getElementById('clearSearch');
-
-            if (searchInput) {
-                // Поиск при вводе текста
-                let searchTimeout;
-                searchInput.addEventListener('input', (e) => {
-                    clearTimeout(searchTimeout);
-                    searchTimeout = setTimeout(() => {
-                        if (typeof window.filterSubjects === 'function') {
-                            window.filterSubjects(e.target.value);
-                        }
-                    }, 300); // Задержка 300мс для оптимизации
-                });
-
-                // Поиск при нажатии Enter
-                searchInput.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        if (typeof window.filterSubjects === 'function') {
-                            window.filterSubjects(e.target.value);
-                        }
-                    }
-                });
-            }
-
-            // Кнопка очистки поиска
-            if (clearBtn) {
-                clearBtn.addEventListener('click', () => {
-                    if (searchInput) {
-                        searchInput.value = '';
-                        if (typeof window.filterSubjects === 'function') {
-                            window.filterSubjects('');
-                        }
-                        searchInput.focus();
-                    }
-                });
-            }
-        });
-    </script>
+    <script src="tests-hub.js"></script>
 </body>
-
 </html>

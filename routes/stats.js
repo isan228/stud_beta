@@ -61,6 +61,7 @@ router.get('/stats', auth, async (req, res) => {
     await stats.save();
 
     // Получение последних результатов с информацией о тестах
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 200);
     const recentResults = await TestResult.findAll({
       where: { userId: req.user.id },
       include: [{
@@ -74,7 +75,7 @@ router.get('/stats', auth, async (req, res) => {
         }]
       }],
       order: [['createdAt', 'DESC']],
-      limit: 20
+      limit
     });
     
     console.log(`Загружено результатов для пользователя ${req.user.id}: ${recentResults.length}`);

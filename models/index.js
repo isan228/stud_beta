@@ -23,6 +23,7 @@ const University = require('./University');
 const Faculty = require('./Faculty');
 const SubjectFaculty = require('./SubjectFaculty');
 const SubjectCourse = require('./SubjectCourse');
+const CatalogFavorite = require('./CatalogFavorite');
 const SubscriptionPlan = require('./SubscriptionPlan');
 const QuestionTag = require('./QuestionTag');
 const QuestionTagMap = require('./QuestionTagMap');
@@ -40,6 +41,9 @@ UserStats.belongsTo(User, { foreignKey: 'userId' });
 
 University.hasMany(User, { foreignKey: 'universityId', as: 'Users' });
 User.belongsTo(University, { foreignKey: 'universityId', as: 'University' });
+
+Faculty.hasMany(User, { foreignKey: 'facultyId', as: 'Users' });
+User.belongsTo(Faculty, { foreignKey: 'facultyId', as: 'Faculty' });
 
 University.hasMany(Test, { foreignKey: 'universityId', as: 'Tests' });
 Test.belongsTo(University, { foreignKey: 'universityId', as: 'University' });
@@ -69,6 +73,9 @@ SubjectFaculty.belongsTo(Faculty, { foreignKey: 'facultyId', as: 'Faculty' });
 
 Subject.hasMany(SubjectCourse, { foreignKey: 'subjectId', as: 'Courses', onDelete: 'CASCADE' });
 SubjectCourse.belongsTo(Subject, { foreignKey: 'subjectId', as: 'Subject' });
+
+User.hasMany(CatalogFavorite, { foreignKey: 'userId', as: 'CatalogFavorites', onDelete: 'CASCADE' });
+CatalogFavorite.belongsTo(User, { foreignKey: 'userId', as: 'User' });
 
 University.hasMany(SubscriptionPlan, { foreignKey: 'universityId', as: 'SubscriptionPlans', onDelete: 'CASCADE' });
 SubscriptionPlan.belongsTo(University, { foreignKey: 'universityId', as: 'University' });
@@ -150,6 +157,7 @@ module.exports = {
   Faculty,
   SubjectFaculty,
   SubjectCourse,
+  CatalogFavorite,
   SubscriptionPlan,
   QuestionTag,
   QuestionTagMap,

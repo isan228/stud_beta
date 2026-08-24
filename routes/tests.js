@@ -272,13 +272,25 @@ router.get('/subjects', async (req, res) => {
     const programType = resolveProgramType(req);
     const isFreeOnly = req.query.free === 'true';
     const where = { programType };
-    const facultyId = parseInt(req.query.facultyId, 10);
-    const course = parseInt(req.query.course, 10);
+    let facultyId = parseInt(req.query.facultyId, 10);
+    let course = parseInt(req.query.course, 10);
 
     if (programType === 'university') {
       const universityId = await resolveUserUniversityId(req);
       if (universityId) {
         where.universityId = universityId;
+      }
+
+      // Если фильтры не переданы — берём направление пользователя
+      const userId = tryGetUserIdFromRequest(req);
+      if (userId && (!Number.isFinite(facultyId) || !Number.isFinite(course))) {
+        const user = await User.findByPk(userId, {
+          attributes: ['facultyId', 'course']
+        });
+        if (user) {
+          if (!Number.isFinite(facultyId) || facultyId <= 0) facultyId = Number(user.facultyId) || NaN;
+          if (!Number.isFinite(course) || course <= 0) course = Number(user.course) || NaN;
+        }
       }
     } else {
       where.universityId = null;
@@ -312,11 +324,51 @@ router.get('/subjects', async (req, res) => {
       subjects = subjects.filter((s) => subjectIds.has(s.id));
     }
 
+    const ids = subjects.map((s) => s.id);
+    let testCountMap = new Map();
+    let questionCountMap = new Map();
+    if (ids.length) {
+      const testRows = await Test.findAll({
+        attributes: ['subjectId', [require('sequelize').fn('COUNT', require('sequelize').col('id')), 'count']],
+        where: { subjectId: { [Op.in]: ids } },
+        group: ['subjectId'],
+        raw: true
+      });
+      testCountMap = new Map(testRows.map((r) => [Number(r.subjectId), Number(r.count)]));
+
+      const { sequelize } = require('../models');
+      const qRows = await sequelize.query(
+        `SELECT t."subjectId" AS "subjectId", COUNT(q.id)::int AS count
+         FROM "Questions" q
+         INNER JOIN "Tests" t ON t.id = q."testId"
+         WHERE t."subjectId" IN (:ids)
+         GROUP BY t."subjectId"`,
+        { replacements: { ids }, type: require('sequelize').QueryTypes.SELECT }
+      );
+      questionCountMap = new Map(qRows.map((r) => [Number(r.subjectId), Number(r.count)]));
+    }
+
+    let favoriteSubjectIds = new Set();
+    const userId = tryGetUserIdFromRequest(req);
+    if (userId && ids.length) {
+      try {
+        const { CatalogFavorite } = require('../models');
+        const favs = await CatalogFavorite.findAll({
+          where: { userId, itemType: 'subject', itemId: { [Op.in]: ids } },
+          attributes: ['itemId']
+        });
+        favoriteSubjectIds = new Set(favs.map((f) => Number(f.itemId)));
+      } catch (_) { /* table may not exist yet */ }
+    }
+
     res.json(subjects.map((s) => {
       const json = s.toJSON();
       json.courses = Array.isArray(json.Courses)
         ? json.Courses.map((c) => Number(c.course)).filter((n) => Number.isFinite(n)).sort((a, b) => a - b)
         : [];
+      json.testCount = testCountMap.get(s.id) || 0;
+      json.questionCount = questionCountMap.get(s.id) || 0;
+      json.isFavorite = favoriteSubjectIds.has(s.id);
       return json;
     }));
   } catch (error) {

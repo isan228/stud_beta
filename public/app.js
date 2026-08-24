@@ -1444,15 +1444,60 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             ? `<span style="background: var(--bg-secondary); color: var(--text-secondary); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">${test.University.shortName}</span>`
             : '';
         const cardClass = 'test-card card-animate';
+        const isFav = !!test.isFavorite;
+        const starBtn = currentToken
+            ? `<button type="button" class="catalog-fav-star ${isFav ? 'is-on' : ''}" data-star-test="${test.id}" onclick="event.stopPropagation(); toggleTestCatalogFavorite(${test.id}, this);" aria-label="Избранное" title="Избранное">★</button>`
+            : '';
         return `
-            <div class="${cardClass}" style="animation-delay: ${index * 0.1}s;" role="button" tabindex="0"
+            <div class="${cardClass}" style="animation-delay: ${index * 0.1}s; position: relative;" role="button" tabindex="0"
                 onclick="handleTestCardClick(${test.id})"
                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();handleTestCardClick(${test.id});}">
+                ${starBtn}
                 <h3>${test.name} ${isFree ? '<span style="background: #10b981; color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">БЕСПЛАТНО</span>' : ''}${uniTag}</h3>
                 <p><strong>Вопросов:</strong> ${qCount}</p>
                 ${test.description ? `<p style="margin-top: 0.5rem; font-size: 0.9rem;">${test.description}</p>` : ''}
             </div>
         `;
+    }
+
+    async function toggleTestCatalogFavorite(testId, btn) {
+        if (!currentToken) {
+            window.location.href = '/login';
+            return;
+        }
+        const isOn = btn.classList.contains('is-on');
+        try {
+            const res = await fetch(`${API_URL}/catalog-favorites/test/${testId}`, {
+                method: isOn ? 'DELETE' : 'POST',
+                headers: { Authorization: `Bearer ${currentToken}` }
+            });
+            if (!res.ok) throw new Error('fail');
+            btn.classList.toggle('is-on', !isOn);
+            const test = subjectTestsCache.find((t) => t.id === testId);
+            if (test) test.isFavorite = !isOn;
+            showNotification(isOn ? 'Удалено из избранного' : 'Добавлено в избранное', 'success');
+        } catch (e) {
+            showNotification('Не удалось обновить избранное', 'error');
+        }
+    }
+
+    async function toggleSubjectCatalogFavorite(subjectId, btn) {
+        if (!currentToken) {
+            window.location.href = '/login';
+            return;
+        }
+        const isOn = btn.classList.contains('is-on');
+        try {
+            const res = await fetch(`${API_URL}/catalog-favorites/subject/${subjectId}`, {
+                method: isOn ? 'DELETE' : 'POST',
+                headers: { Authorization: `Bearer ${currentToken}` }
+            });
+            if (!res.ok) throw new Error('fail');
+            btn.classList.toggle('is-on', !isOn);
+            showNotification(isOn ? 'Удалено из избранного' : 'Добавлено в избранное', 'success');
+        } catch (e) {
+            showNotification('Не удалось обновить избранное', 'error');
+        }
     }
 
     function handleTestCardClick(testId) {
@@ -1486,14 +1531,37 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             const tests = await response.json();
             subjectTestsCache = Array.isArray(tests) ? tests : [];
 
+            if (currentToken && subjectTestsCache.length) {
+                try {
+                    const favRes = await fetch(`${API_URL}/catalog-favorites`, {
+                        headers: { Authorization: `Bearer ${currentToken}` }
+                    });
+                    if (favRes.ok) {
+                        const favData = await favRes.json();
+                        const favTests = new Set((favData.testIds || []).map(Number));
+                        const favSubjects = new Set((favData.subjectIds || []).map(Number));
+                        subjectTestsCache.forEach((t) => { t.isFavorite = favTests.has(Number(t.id)); });
+                        const subjStar = document.getElementById('subjectFavoriteBtn');
+                        if (subjStar) {
+                            subjStar.classList.toggle('is-on', favSubjects.has(Number(subjectId)));
+                            subjStar.style.display = '';
+                            subjStar.onclick = (e) => {
+                                e.preventDefault();
+                                toggleSubjectCatalogFavorite(subjectId, subjStar);
+                            };
+                        }
+                    }
+                } catch (_) { /* ignore */ }
+            }
+
             const subjectNameEl = document.getElementById('subjectName');
             if (subjectNameEl) {
-                subjectNameEl.textContent = subjectName;
+                subjectNameEl.textContent = decodeURIComponent(subjectName || '');
             }
 
             const descEl = document.getElementById('subjectDescription');
             if (descEl) {
-                descEl.textContent = subjectDescription || 'Выберите тест для прохождения. Каждый тест можно настроить под свои потребности.';
+                descEl.textContent = decodeURIComponent(subjectDescription || '') || 'Выберите тест для прохождения. Каждый тест можно настроить под свои потребности.';
             }
 
             const container = document.getElementById('testsList');
@@ -2947,6 +3015,59 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     }
 
     // Профиль
+    async function fillProfileDirectionForm(user) {
+        const facultySelect = document.getElementById('profileFacultyId');
+        const courseSelect = document.getElementById('profileCourse');
+        const form = document.getElementById('directionForm');
+        if (!facultySelect || !courseSelect) return;
+
+        const uniId = user.universityId || user.University?.id;
+        if (!uniId) {
+            facultySelect.innerHTML = '<option value="">Сначала укажите университет</option>';
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API_URL}/tests/faculties?universityId=${encodeURIComponent(uniId)}`, {
+                headers: currentToken ? { Authorization: `Bearer ${currentToken}` } : {}
+            });
+            const faculties = res.ok ? await res.json() : [];
+            facultySelect.innerHTML = faculties.length
+                ? faculties.map((f) => `<option value="${f.id}">${f.name}</option>`).join('')
+                : '<option value="">Нет факультетов</option>';
+            if (user.facultyId) facultySelect.value = String(user.facultyId);
+            if (user.course) courseSelect.value = String(user.course);
+        } catch (e) {
+            facultySelect.innerHTML = '<option value="">Ошибка загрузки</option>';
+        }
+
+        if (form && !form.dataset.bound) {
+            form.dataset.bound = '1';
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                try {
+                    const res = await fetch(`${API_URL}/auth/direction`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${currentToken}`
+                        },
+                        body: JSON.stringify({
+                            facultyId: parseInt(facultySelect.value, 10),
+                            course: parseInt(courseSelect.value, 10)
+                        })
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) throw new Error(data.error || 'Ошибка сохранения');
+                    currentUser = data.user;
+                    showNotification('Направление сохранено', 'success');
+                } catch (err) {
+                    showNotification(err.message || 'Ошибка сохранения', 'error');
+                }
+            });
+        }
+    }
+
     async function loadProfile() {
         if (!currentUser || !currentToken) {
             console.error('Пользователь не авторизован');
@@ -2998,6 +3119,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                         ? `${user.University.shortName} — ${user.University.name}`
                         : 'Не указан';
                 }
+
+                // Направление: факультет + курс
+                await fillProfileDirectionForm(user);
                 if (createdAtEl && user.createdAt) {
                     const createdAt = new Date(user.createdAt);
                     if (!isNaN(createdAt.getTime())) {
@@ -4099,6 +4223,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     window.showNotification = showNotification;
     window.renewSubscription = renewSubscription;
     window.loadSubscriptionsPage = loadSubscriptionsPage;
+    window.toggleTestCatalogFavorite = toggleTestCatalogFavorite;
+    window.toggleSubjectCatalogFavorite = toggleSubjectCatalogFavorite;
 
     // Экспорт переменных состояния для доступа из inline скриптов
     Object.defineProperty(window, 'currentUser', {

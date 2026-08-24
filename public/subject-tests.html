@@ -58,7 +58,10 @@
         <div class="container">
             <a href="/tests" class="btn btn-secondary" id="backToSubjectsBtn">← Назад к предметам</a>
             <div class="page-header">
-                <h1 id="subjectName"></h1>
+                <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+                    <h1 id="subjectName" style="margin:0;"></h1>
+                    <button type="button" id="subjectFavoriteBtn" class="catalog-fav-star" style="display:none;font-size:1.5rem;background:none;border:none;cursor:pointer;color:var(--text-muted);" aria-label="В избранное" title="В избранное">★</button>
+                </div>
                 <p class="page-description" id="subjectDescription">
                     Выберите тест для прохождения. Каждый тест можно настроить под свои потребности.
                 </p>

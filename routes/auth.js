@@ -4,7 +4,8 @@ const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { Op } = require('sequelize');
-const { User, UserStats, UserDeviceAlert, UserBroadcastNotification, BroadcastMessage, University } = require('../models');
+const { User, UserStats, UserDeviceAlert, UserBroadcastNotification, BroadcastMessage, University, Faculty } = require('../models');
+const { ALLOWED_COURSES, ensureLechfakForUniversity } = require('../utils/ensureFaculties');
 
 function getClientIp(req) {
   const forwarded = req.headers['x-forwarded-for'];
@@ -336,11 +337,16 @@ router.put('/account-alerts/broadcast/:id/dismiss', require('../middleware/auth'
 router.get('/me', require('../middleware/auth'), async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
-      attributes: ['id', 'username', 'email', 'createdAt', 'referralCode', 'coins', 'subscriptionEndDate', 'usmleSubscriptionEndDate', 'universityId'],
+      attributes: ['id', 'username', 'email', 'createdAt', 'referralCode', 'coins', 'subscriptionEndDate', 'usmleSubscriptionEndDate', 'universityId', 'facultyId', 'course'],
       include: [{
         model: University,
         as: 'University',
         attributes: ['id', 'name', 'shortName'],
+        required: false
+      }, {
+        model: Faculty,
+        as: 'Faculty',
+        attributes: ['id', 'name', 'shortName', 'universityId'],
         required: false
       }]
     });
@@ -367,6 +373,27 @@ router.get('/me', require('../middleware/auth'), async (req, res) => {
       await user.save();
       console.log(`✅ Generated referral code for user ${user.id}: ${user.referralCode}`);
     }
+
+    // Направление по умолчанию
+    if (user.universityId && (!user.facultyId || !user.course)) {
+      const lechfak = await ensureLechfakForUniversity(user.universityId);
+      if (!user.facultyId) user.facultyId = lechfak.id;
+      if (!user.course) user.course = 1;
+      await user.save();
+      await user.reload({
+        include: [{
+          model: University,
+          as: 'University',
+          attributes: ['id', 'name', 'shortName'],
+          required: false
+        }, {
+          model: Faculty,
+          as: 'Faculty',
+          attributes: ['id', 'name', 'shortName', 'universityId'],
+          required: false
+        }]
+      });
+    }
     
     // Логируем для отладки (только в development)
     if (process.env.NODE_ENV === 'development') {
@@ -383,6 +410,57 @@ router.get('/me', require('../middleware/auth'), async (req, res) => {
     res.json({ user });
   } catch (error) {
     console.error('Ошибка получения пользователя:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Изменить факультет и курс (направление)
+router.put('/direction', require('../middleware/auth'), async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+    if (!user.universityId) {
+      return res.status(400).json({ error: 'Сначала должен быть выбран университет' });
+    }
+
+    const facultyId = parseInt(req.body.facultyId, 10);
+    const course = parseInt(req.body.course, 10);
+    if (!Number.isFinite(facultyId) || facultyId <= 0) {
+      return res.status(400).json({ error: 'Выберите факультет' });
+    }
+    if (!ALLOWED_COURSES.includes(course)) {
+      return res.status(400).json({ error: 'Курс должен быть от 1 до 6' });
+    }
+
+    const faculty = await Faculty.findOne({
+      where: { id: facultyId, universityId: user.universityId, isActive: true }
+    });
+    if (!faculty) {
+      return res.status(400).json({ error: 'Факультет не найден в вашем университете' });
+    }
+
+    user.facultyId = faculty.id;
+    user.course = course;
+    await user.save();
+
+    const full = await User.findByPk(user.id, {
+      attributes: ['id', 'username', 'email', 'createdAt', 'referralCode', 'coins', 'subscriptionEndDate', 'usmleSubscriptionEndDate', 'universityId', 'facultyId', 'course'],
+      include: [{
+        model: University,
+        as: 'University',
+        attributes: ['id', 'name', 'shortName'],
+        required: false
+      }, {
+        model: Faculty,
+        as: 'Faculty',
+        attributes: ['id', 'name', 'shortName', 'universityId'],
+        required: false
+      }]
+    });
+
+    res.json({ user: full, message: 'Направление сохранено' });
+  } catch (error) {
+    console.error('Ошибка сохранения направления:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
