@@ -1198,4 +1198,240 @@
     line-height: 1.2;
 }
 
+/* ——— Компактная админка: больше контента на экране ——— */
+#adminDashboardPage .container {
+    max-width: min(1400px, 96vw);
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+#adminDashboardPage .page-header {
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+}
+
+#adminDashboardPage .page-header h1 {
+    font-size: 1.45rem;
+    margin: 0 0 0.15rem;
+}
+
+#adminDashboardPage .page-header h1::after {
+    display: none;
+}
+
+#adminDashboardPage .page-description {
+    margin: 0;
+    font-size: 0.85rem;
+}
+
+#adminDashboardPage .admin-tabs {
+    gap: 0.15rem;
+    margin-bottom: 1rem;
+    border-bottom-width: 1px;
+}
+
+#adminDashboardPage .admin-tab {
+    padding: 0.4rem 0.7rem;
+    font-size: 0.82rem;
+    border-bottom-width: 2px;
+}
+
+#adminDashboardPage .admin-stats-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.65rem;
+    margin-bottom: 1rem;
+}
+
+#adminDashboardPage .admin-stat-card {
+    padding: 0.65rem 0.75rem;
+    gap: 0.55rem;
+    border-radius: 0.5rem;
+}
+
+#adminDashboardPage .admin-stat-card:hover {
+    transform: none;
+}
+
+#adminDashboardPage .admin-stat-icon {
+    font-size: 1.25rem;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.4rem;
+}
+
+#adminDashboardPage .admin-stat-value {
+    font-size: 1.25rem;
+    margin-bottom: 0.1rem;
+}
+
+#adminDashboardPage .admin-stat-label {
+    font-size: 0.72rem;
+    line-height: 1.2;
+}
+
+#adminDashboardPage .admin-recent-section {
+    padding: 0.85rem 1rem;
+    margin-bottom: 0.85rem;
+    border-radius: 0.5rem;
+}
+
+#adminDashboardPage .admin-recent-section h3 {
+    margin: 0 0 0.65rem;
+    font-size: 1.05rem;
+}
+
+#adminDashboardPage .admin-recent-section h4 {
+    margin: 0 0 0.5rem;
+    font-size: 0.9rem;
+}
+
+#adminDashboardPage .admin-section-header {
+    margin-bottom: 0.75rem;
+    gap: 0.5rem;
+}
+
+#adminDashboardPage .admin-section-header h2 {
+    font-size: 1.15rem;
+}
+
+#adminDashboardPage .admin-search input,
+#adminDashboardPage .admin-section-header .form-group.input,
+#adminDashboardPage .admin-section-header select.form-group.input,
+#adminDashboardPage .admin-section-header select,
+#adminDashboardPage select.form-group.input {
+    padding: 0.4rem 0.55rem;
+    font-size: 0.85rem;
+    min-width: 0;
+}
+
+#adminDashboardPage .admin-list {
+    gap: 0.4rem;
+}
+
+#adminDashboardPage .admin-list-item {
+    padding: 0.65rem 0.75rem;
+    gap: 0.5rem;
+    border-radius: 0.45rem;
+}
+
+#adminDashboardPage .admin-list-item:hover {
+    transform: none;
+}
+
+#adminDashboardPage .admin-list-item h4 {
+    margin: 0 0 0.2rem;
+    font-size: 0.95rem;
+}
+
+#adminDashboardPage .admin-list-item p {
+    margin: 0.15rem 0 0 !important;
+    font-size: 0.8rem !important;
+    line-height: 1.35;
+}
+
+#adminDashboardPage .btn-sm {
+    padding: 0.28rem 0.55rem;
+    font-size: 0.75rem;
+}
+
+#adminDashboardPage .btn {
+    padding: 0.45rem 0.85rem;
+    font-size: 0.85rem;
+}
+
+#adminDashboardPage .form-group {
+    gap: 0.3rem;
+    margin-bottom: 0.65rem;
+}
+
+#adminDashboardPage .form-group label {
+    font-size: 0.85rem;
+}
+
+#adminDashboardPage .form-group input,
+#adminDashboardPage .form-group select,
+#adminDashboardPage .form-group textarea {
+    padding: 0.45rem 0.6rem;
+    font-size: 0.875rem;
+}
+
+#adminDashboardPage .admin-table th,
+#adminDashboardPage .admin-table td {
+    padding: 0.45rem 0.55rem;
+    font-size: 0.82rem;
+}
+
+#adminDashboardPage .admin-chat-layout {
+    gap: 0.75rem;
+    min-height: 420px;
+}
+
+#adminDashboardPage .admin-subs-plans-grid {
+    gap: 0.75rem;
+}
+
+#adminDashboardPage .admin-check-chip {
+    padding: 0.3rem 0.55rem;
+    font-size: 0.8rem;
+    gap: 0.3rem;
+}
+
+/* Модалки и общая плотность на странице админки */
+html.admin-html .main-content {
+    padding-top: 1rem;
+    padding-bottom: 1.5rem;
+}
+
+html.admin-html .navbar {
+    padding-top: 0.35rem;
+    padding-bottom: 0.35rem;
+}
+
+html.admin-html .navbar h1 {
+    font-size: 1.15rem;
+}
+
+html.admin-html .modal-content {
+    padding: 1.1rem 1.25rem;
+    max-width: 560px;
+}
+
+html.admin-html .modal-content.upload-preview-modal,
+html.admin-html #uploadPreviewModal .modal-content {
+    max-width: 920px;
+}
+
+html.admin-html .modal-content h2 {
+    font-size: 1.15rem;
+    margin-bottom: 0.65rem;
+}
+
+html.admin-html .modal .form-group {
+    gap: 0.25rem;
+    margin-bottom: 0.55rem;
+}
+
+html.admin-html .modal .form-group label {
+    font-size: 0.82rem;
+}
+
+html.admin-html .modal .form-group input,
+html.admin-html .modal .form-group select,
+html.admin-html .modal .form-group textarea {
+    padding: 0.4rem 0.55rem;
+    font-size: 0.85rem;
+}
+
+html.admin-html .modal .btn {
+    padding: 0.45rem 0.85rem;
+    font-size: 0.85rem;
+}
+
+@media (min-width: 900px) {
+    .admin-page#adminDashboardPage {
+        padding-top: 0.25rem;
+    }
+}
+
+
 
