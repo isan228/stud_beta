@@ -2646,6 +2646,10 @@ function setupAdminEventListeners() {
     if (addQuestionTagBtn) {
         addQuestionTagBtn.addEventListener('click', createQuestionTagAdmin);
     }
+    const mergeQuestionTagsBtn = document.getElementById('mergeQuestionTagsBtn');
+    if (mergeQuestionTagsBtn) {
+        mergeQuestionTagsBtn.addEventListener('click', mergeQuestionTagsAdmin);
+    }
 
     const adminChatForm = document.getElementById('adminChatForm');
     if (adminChatForm) {
@@ -3436,6 +3440,27 @@ async function createQuestionTagAdmin() {
         await loadAdminQuestionTags();
     } catch (e) {
         showNotification('Ошибка создания тега', 'error');
+    }
+}
+
+async function mergeQuestionTagsAdmin() {
+    if (!confirm('Слить совпадающие теги?\n\nНапример: Cardiology → Cardiovascular System, Endocrine → Endocrine, Diabetes & Metabolism.\nСвязи с вопросами сохранятся.')) {
+        return;
+    }
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/question-tags/merge-duplicates`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            showNotification(result.error || 'Ошибка слияния', 'error');
+            return;
+        }
+        showNotification(result.message || 'Готово', 'success');
+        await loadAdminQuestionTags();
+    } catch (e) {
+        showNotification('Ошибка слияния тегов', 'error');
     }
 }
 

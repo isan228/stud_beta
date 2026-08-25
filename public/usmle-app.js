@@ -92,7 +92,7 @@
         if (id === 'create') return q ? `/usmle-test-builder?${q}` : '/usmle';
         if (id === 'history') return q ? `/usmle-history?${q}` : '/usmle';
         if (id === 'banks') return '/usmle';
-        if (id === 'help') return '/contact';
+        if (id === 'help') return 'https://t.me/stud_kg';
         if (id === 'settings') return '/profile';
         return '#';
     }
@@ -109,7 +109,7 @@
             { id: 'notes', href: '#', icon: ICONS.notes, label: 'Заметки', soon: true },
             { id: 'flashcards', href: '#', icon: ICONS.flashcards, label: 'Карточки', soon: true },
             { id: 'notebook', href: '#', icon: ICONS.notebook, label: 'Мой блокнот', soon: true },
-            { id: 'help', href: '/contact', icon: ICONS.help, label: 'Помощь' },
+            { id: 'help', href: 'https://t.me/stud_kg', icon: ICONS.help, label: 'Telegram', external: true },
             { id: 'settings', href: '/profile', icon: ICONS.settings, label: 'Настройки' }
         ];
     }
@@ -141,7 +141,7 @@
             const active = item.id === activeNav ? ' active' : '';
             const disabled = item.soon ? ' disabled' : '';
             const badge = item.soon ? '<span class="usmle-nav-badge">скоро</span>' : '';
-            return `<a href="${item.href}" class="usmle-nav-link${active}${disabled}" data-nav="${item.id}">
+            return `<a href="${item.href}" class="usmle-nav-link${active}${disabled}" data-nav="${item.id}"${item.external ? ' target="_blank" rel="noopener noreferrer"' : ''}>
                 <span class="usmle-nav-icon">${item.icon}</span>
                 <span>${item.label}</span>${badge}
             </a>`;

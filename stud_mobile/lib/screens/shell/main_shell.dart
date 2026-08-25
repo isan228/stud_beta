@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
@@ -33,6 +34,11 @@ class MainShell extends ConsumerWidget {
     }
   }
 
+  Future<void> _openExternal(String url) async {
+    final uri = Uri.parse(url);
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).uri.path;
@@ -56,14 +62,16 @@ class MainShell extends ConsumerWidget {
               onPressed: () => context.push('/chat'),
             ),
           PopupMenuButton<String>(
-            onSelected: (value) {
+            onSelected: (value) async {
               switch (value) {
                 case 'favorites':
                   context.push('/favorites');
                 case 'subscriptions':
                   context.push('/subscriptions');
-                case 'contact':
-                  context.push('/contact');
+                case 'telegram':
+                  await _openExternal('https://t.me/stud_kg');
+                case 'instagram':
+                  await _openExternal('https://instagram.com/stud_kgz');
                 case 'about':
                   context.push('/about');
                 case 'news':
@@ -79,7 +87,8 @@ class MainShell extends ConsumerWidget {
                 const PopupMenuItem(value: 'favorites', child: Text('Избранное')),
                 const PopupMenuItem(value: 'subscriptions', child: Text('Подписки')),
               ],
-              const PopupMenuItem(value: 'contact', child: Text('Обратная связь')),
+              const PopupMenuItem(value: 'telegram', child: Text('Telegram')),
+              const PopupMenuItem(value: 'instagram', child: Text('Instagram')),
               const PopupMenuItem(value: 'about', child: Text('О нас')),
               const PopupMenuItem(value: 'news', child: Text('Новости')),
               if (!auth.isAuthenticated)

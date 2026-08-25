@@ -10,14 +10,9 @@
     <link rel="apple-touch-icon" sizes="192x192" href="/img/icon-192.png">
     <link rel="manifest" href="/site.webmanifest">
     <meta property="og:image" content="https://stud.kg/img/icon-192.png">
-    <meta property="og:image:type" content="image/png">
-    <meta property="og:image:width" content="192">
-    <meta property="og:image:height" content="192">
-    <meta name="twitter:image" content="https://stud.kg/img/icon-192.png">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <meta name="theme-color" content="#2563eb">
-    <title>Обратная связь - stud.kg</title>
+    <title>Связаться с нами - stud.kg</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 
@@ -25,23 +20,20 @@
     <nav class="navbar">
         <div class="container">
             <div class="nav-brand">
-                <a href="/">
-                    <h1>stud.kg</h1>
-                </a>
+                <a href="/"><h1>stud.kg</h1></a>
             </div>
             <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Меню">
-                <span></span>
-                <span></span>
-                <span></span>
+                <span></span><span></span><span></span>
             </button>
             <div class="nav-menu" id="navMenu">
                 <a href="/" class="nav-link">Главная</a>
                 <a href="/tests" class="nav-link">Тесты</a>
                 <a href="/usmle" class="nav-link">USMLE</a>
+                <a href="/rating" class="nav-link">Рейтинг</a>
                 <a href="/about" class="nav-link">О нас</a>
                 <a href="/favorites" class="nav-link" id="favoritesLink" style="display: none;">Избранное</a>
+                <a href="/subscriptions" class="nav-link" id="subscriptionsLink" style="display: none;">Подписки</a>
                 <a href="/profile" class="nav-link" id="profileLink" style="display: none;">Профиль</a>
-                <a href="/contact" class="nav-link">Обратная связь</a>
                 <div class="nav-actions">
                     <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему">
                         <span class="theme-icon">🌙</span>
@@ -57,44 +49,14 @@
     <main class="main-content">
         <div class="container">
             <div class="page-header">
-                <h1>Обратная связь</h1>
-                <p class="page-description">
-                    Есть вопросы, предложения или нашли ошибку? Свяжитесь с нами, и мы обязательно ответим!
-                </p>
+                <h1>Связаться с нами</h1>
+                <p class="page-description">Пишите в Telegram или Instagram — ответим там.</p>
             </div>
-            <div class="contact-container">
-                <div class="contact-form-wrapper">
-                    <form id="contactForm" class="contact-form">
-                        <div class="form-group">
-                            <label for="contactName">Ваше имя</label>
-                            <input type="text" id="contactName" name="name" required placeholder="Введите ваше имя">
-                        </div>
-                        <div class="form-group">
-                            <label for="contactEmail">Email</label>
-                            <input type="email" id="contactEmail" name="email" required placeholder="your@email.com">
-                        </div>
-                        <div class="form-group">
-                            <label for="contactSubject">Тема</label>
-                            <select id="contactSubject" name="subject" required>
-                                <option value="">Выберите тему</option>
-                                <option value="question">Вопрос</option>
-                                <option value="suggestion">Предложение</option>
-                                <option value="bug">Сообщить об ошибке</option>
-                                <option value="other">Другое</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="contactMessage">Сообщение</label>
-                            <textarea id="contactMessage" name="message" rows="6" required
-                                placeholder="Опишите ваш вопрос или предложение..."></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-primary btn-large btn-block">Отправить сообщение</button>
-                    </form>
-                </div>
-                <div class="contact-info">
+            <div class="contact-container" style="justify-content:center;">
+                <div class="contact-info" style="max-width:420px;width:100%;">
                     <div class="contact-card">
-                        <h3>Свяжитесь с нами</h3>
-                        <p>Мы всегда рады помочь и ответить на ваши вопросы</p>
+                        <h3>Наши соцсети</h3>
+                        <p>Формы на сайте больше нет — только мессенджеры.</p>
                         <div class="social-links">
                             <a href="https://t.me/stud_kg" target="_blank" rel="noopener noreferrer"
                                 class="social-link telegram">
@@ -110,10 +72,6 @@
                                 </span>
                                 <span>Instagram</span>
                             </a>
-                        </div>
-                        <div class="contact-details">
-                            <p><strong>Email:</strong> proort.kg@gmail.com</p>
-                            <p><strong>Время работы:</strong> Пн-Пт, 9:00 - 18:00</p>
                         </div>
                     </div>
                 </div>
@@ -144,7 +102,7 @@
                         <li><a href="/">Главная</a></li>
                         <li><a href="/tests">Тесты</a></li>
                         <li><a href="/usmle">USMLE</a></li>
-                        <li><a href="/contact">Обратная связь</a></li>
+                        <li><a href="/about">О нас</a></li>
                     </ul>
                 </div>
             </div>
@@ -157,12 +115,11 @@
     <div id="notification" class="notification"></div>
     <script src="app.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             initTheme();
-            loadUser();
+            await loadUser();
             setupEventListeners();
         });
     </script>
 </body>
-
 </html>

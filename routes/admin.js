@@ -14,6 +14,7 @@ const {
   setSubjectFaculties,
   setSubjectCourses
 } = require('../utils/ensureFaculties');
+const { normalizeTagName, slugifyTag: slugifyTagNorm, mergeMatchingUsmleTags } = require('../utils/usmleTagNormalize');
 const { Op, QueryTypes } = require('sequelize');
 const { Sequelize } = require('sequelize');
 
@@ -45,12 +46,8 @@ function serializeSubjectCourses(subjectJson) {
 }
 
 function slugifyTag(name) {
-  return String(name || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9а-яё]+/gi, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 120) || `tag-${Date.now()}`;
+  const normalized = normalizeTagName(name) || name;
+  return slugifyTagNorm(normalized);
 }
 
 async function syncQuestionTags(questionId, tagIds) {
@@ -1812,6 +1809,22 @@ router.get('/question-tags', adminAuth, async (req, res) => {
   }
 });
 
+/** Слить совпадающие/алиасные теги (Cardiology → Cardiovascular System и т.п.) */
+router.post('/question-tags/merge-duplicates', adminAuth, async (req, res) => {
+  try {
+    const result = await mergeMatchingUsmleTags();
+    const tags = await QuestionTag.findAll({ order: [['name', 'ASC']] });
+    res.json({
+      message: `Слито тегов: ${result.mergedTags}, перенесено связей: ${result.movedLinks}`,
+      ...result,
+      tags
+    });
+  } catch (error) {
+    console.error('Ошибка слияния тегов:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 router.post('/question-tags', adminAuth, [
   body('name').trim().notEmpty().withMessage('Название тега обязательно')
 ], async (req, res) => {
@@ -1820,7 +1833,7 @@ router.post('/question-tags', adminAuth, [
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
-    const name = String(req.body.name).trim();
+    const name = normalizeTagName(String(req.body.name).trim()) || String(req.body.name).trim();
     const slug = req.body.slug ? slugifyTag(req.body.slug) : slugifyTag(name);
     const tag = await QuestionTag.create({
       name,

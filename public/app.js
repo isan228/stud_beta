@@ -1072,10 +1072,10 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             if (!response.ok) return;
             const data = await response.json();
             document.querySelectorAll('[data-doc="privacy"]').forEach(el => {
-                el.href = (data.privacyPolicyUrl && data.privacyPolicyUrl.trim()) ? data.privacyPolicyUrl.trim() : '/contact';
+                el.href = (data.privacyPolicyUrl && data.privacyPolicyUrl.trim()) ? data.privacyPolicyUrl.trim() : '/downloads/politika_konfidencialnosti.pdf';
             });
             document.querySelectorAll('[data-doc="offer"]').forEach(el => {
-                el.href = (data.publicOfferUrl && data.publicOfferUrl.trim()) ? data.publicOfferUrl.trim() : '/contact';
+                el.href = (data.publicOfferUrl && data.publicOfferUrl.trim()) ? data.publicOfferUrl.trim() : '/downloads/publichnaya_oferta.pdf';
             });
         } catch (e) {
             console.warn('Не удалось загрузить ссылки на документы:', e);

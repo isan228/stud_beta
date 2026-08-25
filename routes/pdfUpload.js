@@ -6,6 +6,7 @@ const { Op } = require('sequelize');
 const { Question, Answer, Test, QuestionTag, QuestionTagMap } = require('../models');
 const { parseLinkedQuestionsFromText } = require('../utils/usmleLinkedQuestions');
 const { extractTxtAnswers, mapAnswersWithCorrect, isValidCorrectIndex } = require('../utils/txtQuestionAnswers');
+const { normalizeTagName, slugifyTag } = require('../utils/usmleTagNormalize');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -21,20 +22,11 @@ const upload = multer({
   }
 });
 
-function slugifyTag(name) {
-  return String(name || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9а-яё]+/gi, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 120) || `tag-${Date.now()}`;
-}
-
 function parseTagNames(raw) {
   if (raw == null) return [];
   return [...new Set(String(raw)
     .split(/[,;|]/)
-    .map((s) => s.trim())
+    .map((s) => normalizeTagName(s.trim()))
     .filter(Boolean))];
 }
 

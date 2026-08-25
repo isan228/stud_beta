@@ -1,4 +1,5 @@
 const { extractTxtAnswers, mapAnswersWithCorrect, isValidCorrectIndex } = require('./txtQuestionAnswers');
+const { normalizeTagName } = require('./usmleTagNormalize');
 
 const GROUP_MARKER = '<<<USMLE_GROUP>>>';
 const VIGNETTE_MARKER = '<<<USMLE_VIGNETTE>>>';
@@ -8,7 +9,7 @@ function parseTagNames(raw) {
   if (raw == null) return [];
   return [...new Set(String(raw)
     .split(/[,;|]/)
-    .map((s) => s.trim())
+    .map((s) => normalizeTagName(s.trim()))
     .filter(Boolean))];
 }
 

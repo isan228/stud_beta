@@ -42,7 +42,6 @@
                 <a href="/about" class="nav-link active">О нас</a>
                 <a href="/favorites" class="nav-link" id="favoritesLink" style="display: none;">Избранное</a>
                 <a href="/profile" class="nav-link" id="profileLink" style="display: none;">Профиль</a>
-                <a href="/contact" class="nav-link">Обратная связь</a>
                 <div class="nav-actions">
                     <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему">
                         <span class="theme-icon">🌙</span>
@@ -263,50 +262,6 @@
                     </div>
                 </div>
             </section>
-
-            <!-- Форма обратной связи -->
-            <section class="about-section animate-on-scroll">
-                <div class="about-card">
-                    <div class="about-icon">✉️</div>
-                    <h2>Обратная связь</h2>
-                    <p>
-                        У вас есть вопросы, предложения или отзывы? Мы будем рады услышать ваше мнение!
-                        Заполните форму ниже, и мы обязательно свяжемся с вами.
-                    </p>
-                    <div class="contact-form-wrapper-about">
-                        <form id="aboutContactForm" class="contact-form-about">
-                            <div class="form-group">
-                                <label for="aboutContactName">Ваше имя</label>
-                                <input type="text" id="aboutContactName" name="name" required
-                                    placeholder="Введите ваше имя">
-                            </div>
-                            <div class="form-group">
-                                <label for="aboutContactEmail">Email</label>
-                                <input type="email" id="aboutContactEmail" name="email" required
-                                    placeholder="your@email.com">
-                            </div>
-                            <div class="form-group">
-                                <label for="aboutContactSubject">Тема</label>
-                                <select id="aboutContactSubject" name="subject" required>
-                                    <option value="">Выберите тему</option>
-                                    <option value="question">Вопрос</option>
-                                    <option value="suggestion">Предложение</option>
-                                    <option value="feedback">Отзыв</option>
-                                    <option value="bug">Сообщить об ошибке</option>
-                                    <option value="other">Другое</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="aboutContactMessage">Сообщение</label>
-                                <textarea id="aboutContactMessage" name="message" rows="6" required
-                                    placeholder="Опишите ваш вопрос, предложение или отзыв..."></textarea>
-                            </div>
-                            <button type="submit" class="btn btn-primary btn-large btn-block">Отправить
-                                сообщение</button>
-                        </form>
-                    </div>
-                </div>
-            </section>
         </div>
     </main>
 
@@ -334,16 +289,15 @@
                         <li><a href="/tests">Тесты</a></li>
                         <li><a href="/usmle">USMLE</a></li>
                         <li><a href="/about">О нас</a></li>
-                        <li><a href="/contact">Обратная связь</a></li>
                     </ul>
                 </div>
                 <div class="footer-section">
-                    <h4>Информация</h4>
+                    <h4>Связь</h4>
                     <ul class="footer-links">
-                        <li><a href="/about">О нас</a></li>
-                        <li><a href="/contact">Помощь</a></li>
-                        <li><a href="/contact" data-doc="privacy">Политика конфиденциальности</a></li>
-                        <li><a href="/contact" data-doc="offer">Публичная оферта</a></li>
+                        <li><a href="https://t.me/stud_kg" target="_blank" rel="noopener noreferrer">Telegram</a></li>
+                        <li><a href="https://instagram.com/stud_kgz" target="_blank" rel="noopener noreferrer">Instagram</a></li>
+                        <li><a href="/downloads/politika_konfidencialnosti.pdf" data-doc="privacy" target="_blank" rel="noopener">Политика конфиденциальности</a></li>
+                        <li><a href="/downloads/publichnaya_oferta.pdf" data-doc="offer" target="_blank" rel="noopener">Публичная оферта</a></li>
                     </ul>
                 </div>
             </div>
@@ -360,45 +314,7 @@
             initTheme();
             loadUser();
             setupEventListeners();
-
-            // Обработчик формы обратной связи на странице "О нас"
-            const aboutContactForm = document.getElementById('aboutContactForm');
-            if (aboutContactForm) {
-                aboutContactForm.addEventListener('submit', handleAboutContact);
-            }
         });
-
-        // Обработка формы обратной связи на странице "О нас"
-        async function handleAboutContact(e) {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const data = Object.fromEntries(formData);
-
-            try {
-                const response = await fetch(`${API_URL}/contact`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-
-                const result = await response.json();
-
-                if (response.ok) {
-                    showNotification('Спасибо за ваше сообщение! Мы свяжемся с вами в ближайшее время.', 'success');
-                    e.target.reset();
-                } else {
-                    if (result.errors && Array.isArray(result.errors)) {
-                        const errorMessages = result.errors.map(err => err.msg || err.message).join(', ');
-                        showNotification(errorMessages, 'error');
-                    } else {
-                        showNotification(result.error || 'Ошибка отправки сообщения', 'error');
-                    }
-                }
-            } catch (error) {
-                console.error('Ошибка отправки сообщения:', error);
-                showNotification('Ошибка соединения. Попробуйте позже.', 'error');
-            }
-        }
     </script>
 </body>
 
