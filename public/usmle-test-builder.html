@@ -212,6 +212,14 @@
             user-select: none;
         }
 
+        .tag-item.zero-count {
+            opacity: .45;
+        }
+
+        .tag-item.zero-count .tag-count {
+            color: var(--text-muted);
+        }
+
         .tag-count {
             flex-shrink: 0;
             font-size: .75rem;
@@ -473,6 +481,50 @@
             <!-- Main content -->
             <div id="builderContent" style="display:none;">
 
+                <!-- Settings first -->
+                <div class="builder-settings">
+                    <p class="builder-settings-heading">Параметры теста</p>
+                    <div class="builder-settings-grid">
+
+                        <div class="builder-field">
+                            <label for="qCountInput">Количество вопросов</label>
+                            <input type="number" id="qCountInput" min="1" max="280" value="40">
+                        </div>
+
+                        <div class="builder-field">
+                            <label>Режим вопросов</label>
+                            <div class="toggle-pills">
+                                <button type="button" class="toggle-pill active" data-mode="unsolved" onclick="selectMode(this)">Нерешённые</button>
+                                <button type="button" class="toggle-pill" data-mode="all" onclick="selectMode(this)">Все</button>
+                                <button type="button" class="toggle-pill" data-mode="incorrect" onclick="selectMode(this)">Неправильные</button>
+                            </div>
+                        </div>
+
+                        <div class="builder-field">
+                            <label>Режим теста</label>
+                            <div class="toggle-pills">
+                                <button type="button" class="toggle-pill" data-test-mode="instant" onclick="selectTestMode(this)">Ответы сразу</button>
+                                <button type="button" class="toggle-pill active" data-test-mode="standard" onclick="selectTestMode(this)">С таймером</button>
+                            </div>
+                        </div>
+
+                        <div class="builder-field" id="timerMinutesField">
+                            <label for="usmleTimerMinutes">Время на блок (минуты)</label>
+                            <input type="number" id="usmleTimerMinutes" min="1" max="600" value="60"
+                                style="width:100px;padding:6px 10px;border:1px solid var(--border-color,#ddd);border-radius:8px;font-size:1rem;">
+                        </div>
+
+                        <div class="builder-field">
+                            <label>Порядок ответов</label>
+                            <div class="toggle-pills">
+                                <button type="button" class="toggle-pill active" data-rand="true" onclick="selectRandom(this)">Перемешать</button>
+                                <button type="button" class="toggle-pill" data-rand="false" onclick="selectRandom(this)">По порядку</button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
                 <!-- Subjects -->
                 <div class="tag-group open" id="groupSubjects">
                     <div class="tag-group-header" onclick="toggleGroup('groupSubjects')">
@@ -516,50 +568,6 @@
                     </div>
                     <div class="tag-group-body">
                         <div class="tag-list" id="systemsList"></div>
-                    </div>
-                </div>
-
-                <!-- Settings -->
-                <div class="builder-settings">
-                    <p class="builder-settings-heading">Параметры теста</p>
-                    <div class="builder-settings-grid">
-
-                        <div class="builder-field">
-                            <label for="qCountInput">Количество вопросов</label>
-                            <input type="number" id="qCountInput" min="1" max="280" value="40">
-                        </div>
-
-                        <div class="builder-field">
-                            <label>Режим вопросов</label>
-                            <div class="toggle-pills">
-                                <button type="button" class="toggle-pill active" data-mode="unsolved" onclick="selectMode(this)">Нерешённые</button>
-                                <button type="button" class="toggle-pill" data-mode="all" onclick="selectMode(this)">Все</button>
-                                <button type="button" class="toggle-pill" data-mode="incorrect" onclick="selectMode(this)">Неправильные</button>
-                            </div>
-                        </div>
-
-                        <div class="builder-field">
-                            <label>Режим теста</label>
-                            <div class="toggle-pills">
-                                <button type="button" class="toggle-pill" data-test-mode="instant" onclick="selectTestMode(this)">Ответы сразу</button>
-                                <button type="button" class="toggle-pill active" data-test-mode="standard" onclick="selectTestMode(this)">С таймером</button>
-                            </div>
-                        </div>
-
-                        <div class="builder-field" id="timerMinutesField">
-                            <label for="usmleTimerMinutes">Время на блок (минуты)</label>
-                            <input type="number" id="usmleTimerMinutes" min="1" max="600" value="60"
-                                style="width:100px;padding:6px 10px;border:1px solid var(--border-color,#ddd);border-radius:8px;font-size:1rem;">
-                        </div>
-
-                        <div class="builder-field">
-                            <label>Порядок ответов</label>
-                            <div class="toggle-pills">
-                                <button type="button" class="toggle-pill active" data-rand="true" onclick="selectRandom(this)">Перемешать</button>
-                                <button type="button" class="toggle-pill" data-rand="false" onclick="selectRandom(this)">По порядку</button>
-                            </div>
-                        </div>
-
                     </div>
                 </div>
 
@@ -611,6 +619,59 @@
             ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
 
+    function unionQuestionIds(selectedIds, tags) {
+        if (!selectedIds.size) return null;
+        const out = new Set();
+        for (const tag of tags) {
+            if (!selectedIds.has(tag.id)) continue;
+            const ids = tag.questionIds || [];
+            for (let i = 0; i < ids.length; i++) out.add(ids[i]);
+        }
+        return out;
+    }
+
+    function countIntersect(questionIds, filterSet) {
+        const ids = questionIds || [];
+        if (!filterSet) return ids.length;
+        let n = 0;
+        for (let i = 0; i < ids.length; i++) {
+            if (filterSet.has(ids[i])) n++;
+        }
+        return n;
+    }
+
+    function filteredCountForTag(tag, group) {
+        if (group === 'subjects') {
+            return countIntersect(tag.questionIds, unionQuestionIds(selectedSystemIds, allSystemTags));
+        }
+        return countIntersect(tag.questionIds, unionQuestionIds(selectedSubjectIds, allSubjectTags));
+    }
+
+    function refreshFilteredCounts() {
+        const subjectFilter = unionQuestionIds(selectedSubjectIds, allSubjectTags);
+        const systemFilter = unionQuestionIds(selectedSystemIds, allSystemTags);
+
+        document.querySelectorAll('#systemsList .tag-item').forEach((el) => {
+            const id = Number(el.dataset.tagId);
+            const tag = allSystemTags.find((t) => t.id === id);
+            if (!tag) return;
+            const count = countIntersect(tag.questionIds, subjectFilter);
+            const countEl = el.querySelector('.tag-count');
+            if (countEl) countEl.textContent = String(count);
+            el.classList.toggle('zero-count', count === 0);
+        });
+
+        document.querySelectorAll('#subjectsList .tag-item').forEach((el) => {
+            const id = Number(el.dataset.tagId);
+            const tag = allSubjectTags.find((t) => t.id === id);
+            if (!tag) return;
+            const count = countIntersect(tag.questionIds, systemFilter);
+            const countEl = el.querySelector('.tag-count');
+            if (countEl) countEl.textContent = String(count);
+            el.classList.toggle('zero-count', count === 0);
+        });
+    }
+
     function renderTagItem(tag, group) {
         const selected = group === 'subjects'
             ? selectedSubjectIds.has(tag.id)
@@ -620,7 +681,8 @@
         label.className = 'tag-item' + (selected ? ' selected' : '');
         label.dataset.tagId = tag.id;
 
-        const count = Number(tag.questionCount) || 0;
+        const count = filteredCountForTag(tag, group);
+        if (count === 0) label.classList.add('zero-count');
         label.innerHTML = `
             <span class="tag-item-left">
                 <input type="checkbox" class="tag-checkbox"
@@ -701,6 +763,9 @@
         // Master checkboxes
         syncMaster('masterSubjects', selectedSubjectIds, allSubjectTags);
         syncMaster('masterSystems',  selectedSystemIds,  allSystemTags);
+
+        // Счётчики: Subjects фильтруют Systems и наоборот
+        refreshFilteredCounts();
 
         if (total === 0) {
             summary.innerHTML = 'Выберите хотя бы одну тему или систему';
@@ -822,8 +887,14 @@
             if (!res.ok) throw new Error();
             const data = await res.json();
 
-            allSubjectTags = data.subjects || [];
-            allSystemTags  = data.systems  || [];
+            const normalizeTag = (t) => ({
+                ...t,
+                id: Number(t.id),
+                questionIds: (t.questionIds || []).map(Number).filter((n) => n > 0),
+                questionCount: Number(t.questionCount) || 0
+            });
+            allSubjectTags = (data.subjects || []).map(normalizeTag);
+            allSystemTags  = (data.systems  || []).map(normalizeTag);
 
             const bankName = (data.test && data.test.name) || currentTestName || 'Банк вопросов';
             const crumb = document.getElementById('builderBreadcrumbName');

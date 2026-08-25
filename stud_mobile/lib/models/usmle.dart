@@ -6,18 +6,24 @@ class UsmleTag {
     required this.name,
     this.slug,
     this.questionCount = 0,
+    this.questionIds = const [],
   });
 
   final int id;
   final String name;
   final String? slug;
   final int questionCount;
+  final List<int> questionIds;
 
   factory UsmleTag.fromJson(Map<String, dynamic> json) => UsmleTag(
         id: json['id'] as int,
         name: json['name'] as String? ?? '',
         slug: json['slug'] as String?,
         questionCount: json['questionCount'] as int? ?? 0,
+        questionIds: (json['questionIds'] as List? ?? [])
+            .map((e) => e is int ? e : int.tryParse('$e') ?? 0)
+            .where((e) => e > 0)
+            .toList(),
       );
 }
 

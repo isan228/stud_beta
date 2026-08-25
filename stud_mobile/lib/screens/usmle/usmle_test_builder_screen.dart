@@ -103,8 +103,32 @@ class _UsmleTestBuilderScreenState extends ConsumerState<UsmleTestBuilderScreen>
     }
   }
 
+  Set<int>? _unionQuestionIds(Set<int> selected, List<UsmleTag> tags) {
+    if (selected.isEmpty) return null;
+    final out = <int>{};
+    for (final tag in tags) {
+      if (!selected.contains(tag.id)) continue;
+      out.addAll(tag.questionIds);
+    }
+    return out;
+  }
+
+  int _filteredCount(UsmleTag tag, Set<int>? filter) {
+    if (filter == null) {
+      return tag.questionIds.isNotEmpty ? tag.questionIds.length : tag.questionCount;
+    }
+    var n = 0;
+    for (final id in tag.questionIds) {
+      if (filter.contains(id)) n++;
+    }
+    return n;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final subjectFilter = _unionQuestionIds(_subjectTagIds, _tags?.subjects ?? const []);
+    final systemFilter = _unionQuestionIds(_systemTagIds, _tags?.systems ?? const []);
+
     return Scaffold(
       appBar: AppBar(title: Text('Конструктор: ${widget.testName}')),
       body: _loading
@@ -116,32 +140,38 @@ class _UsmleTestBuilderScreenState extends ConsumerState<UsmleTestBuilderScreen>
                   children: [
                     Text('Предметы', style: Theme.of(context).textTheme.titleMedium),
                     ..._tags!.subjects.map(
-                      (tag) => CheckboxListTile(
-                        value: _subjectTagIds.contains(tag.id),
-                        onChanged: (v) => setState(() {
-                          if (v == true) {
-                            _subjectTagIds.add(tag.id);
-                          } else {
-                            _subjectTagIds.remove(tag.id);
-                          }
-                        }),
-                        title: Text('${tag.name} (${tag.questionCount})'),
-                      ),
+                      (tag) {
+                        final count = _filteredCount(tag, systemFilter);
+                        return CheckboxListTile(
+                          value: _subjectTagIds.contains(tag.id),
+                          onChanged: (v) => setState(() {
+                            if (v == true) {
+                              _subjectTagIds.add(tag.id);
+                            } else {
+                              _subjectTagIds.remove(tag.id);
+                            }
+                          }),
+                          title: Text('${tag.name} ($count)'),
+                        );
+                      },
                     ),
                     const SizedBox(height: 16),
                     Text('Системы', style: Theme.of(context).textTheme.titleMedium),
                     ..._tags!.systems.map(
-                      (tag) => CheckboxListTile(
-                        value: _systemTagIds.contains(tag.id),
-                        onChanged: (v) => setState(() {
-                          if (v == true) {
-                            _systemTagIds.add(tag.id);
-                          } else {
-                            _systemTagIds.remove(tag.id);
-                          }
-                        }),
-                        title: Text('${tag.name} (${tag.questionCount})'),
-                      ),
+                      (tag) {
+                        final count = _filteredCount(tag, subjectFilter);
+                        return CheckboxListTile(
+                          value: _systemTagIds.contains(tag.id),
+                          onChanged: (v) => setState(() {
+                            if (v == true) {
+                              _systemTagIds.add(tag.id);
+                            } else {
+                              _systemTagIds.remove(tag.id);
+                            }
+                          }),
+                          title: Text('${tag.name} ($count)'),
+                        );
+                      },
                     ),
                     const SizedBox(height: 16),
                     TextFormField(

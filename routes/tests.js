@@ -707,10 +707,14 @@ router.get('/usmle/tags/grouped', async (req, res) => {
       attributes: ['tagId', 'questionId'],
       raw: true
     });
-    const countByTag = new Map();
+    /** @type {Map<number, number[]>} */
+    const idsByTag = new Map();
     for (const m of maps) {
       if (!allowedQuestionIds.has(m.questionId)) continue;
-      countByTag.set(m.tagId, (countByTag.get(m.tagId) || 0) + 1);
+      const tid = Number(m.tagId);
+      const qid = Number(m.questionId);
+      if (!idsByTag.has(tid)) idsByTag.set(tid, []);
+      idsByTag.get(tid).push(qid);
     }
 
     const { USMLE_SUBJECTS } = require('../utils/ensureUsmleTagsSeeded');
@@ -720,11 +724,14 @@ router.get('/usmle/tags/grouped', async (req, res) => {
     const systems = [];
 
     for (const tag of tags) {
+      const questionIds = idsByTag.get(tag.id) || [];
       const item = {
         id: tag.id,
         name: tag.name,
         slug: tag.slug,
-        questionCount: countByTag.get(tag.id) || 0
+        questionCount: questionIds.length,
+        // Для кросс-фильтрации счётчиков Subjects ↔ Systems в конструкторе
+        questionIds
       };
       if (SUBJECTS.has(tag.name.toLowerCase())) {
         subjects.push(item);
