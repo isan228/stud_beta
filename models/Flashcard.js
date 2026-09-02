@@ -42,6 +42,11 @@ const Flashcard = sequelize.define('Flashcard', {
     allowNull: false,
     defaultValue: 'step1'
   },
+  externalId: {
+    type: DataTypes.STRING(64),
+    allowNull: true,
+    comment: 'ID из TXT — для обновления при повторной загрузке без дубликатов'
+  },
   sortOrder: {
     type: DataTypes.INTEGER,
     allowNull: false,
@@ -57,7 +62,8 @@ const Flashcard = sequelize.define('Flashcard', {
   indexes: [
     { fields: ['testId'] },
     { fields: ['stepGroup'] },
-    { fields: ['isActive'] }
+    { fields: ['isActive'] },
+    { fields: ['testId', 'stepGroup', 'externalId'], name: 'flashcards_test_step_external' }
   ]
 });
 

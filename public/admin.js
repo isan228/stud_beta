@@ -5075,7 +5075,7 @@ async function handleTxtFlashcardsUpload(e) {
             if (progressBar) progressBar.style.width = '100%';
             if (statusText) statusText.textContent = 'Готово!';
             setTimeout(async () => {
-                showNotification(`Загружено ${result.cards.length} flashcards`, 'success');
+                showNotification(result.message || `Загружено ${result.cards.length} flashcards`, 'success');
                 const testFilter = document.getElementById('usmleFlashcardsTestFilter');
                 if (testId && testFilter) testFilter.value = String(testId);
                 const stepFilter = document.getElementById('usmleFlashcardsStepFilter');

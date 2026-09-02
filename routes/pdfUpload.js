@@ -103,21 +103,57 @@ async function syncFlashcardTagsByModels(flashcardId, tags) {
 
 async function saveParsedFlashcards(cards, { testId, stepGroup = 'step1' } = {}) {
   const parsedTestId = testId ? parseInt(testId, 10) : null;
-  const createdCards = [];
-  let sortOrder = 0;
+  const normalizedStep = ['step1', 'step2', 'step3'].includes(stepGroup) ? stepGroup : 'step1';
+  const scopeWhere = {
+    stepGroup: normalizedStep,
+    isActive: true,
+    testId: Number.isFinite(parsedTestId) ? parsedTestId : null
+  };
+
+  let nextSortOrder = await Flashcard.max('sortOrder', { where: scopeWhere });
+  nextSortOrder = Number.isFinite(nextSortOrder) ? nextSortOrder + 1 : 0;
+
+  const savedCards = [];
+  let createdCount = 0;
+  let updatedCount = 0;
 
   for (const card of cards) {
-    const row = await Flashcard.create({
+    const externalId = card.externalId != null ? String(card.externalId).trim() : '';
+    const payload = {
       frontText: card.frontText,
       backText: card.backText,
       keyword: card.keyword || null,
-      frontImageUrl: null,
-      backImageUrl: null,
-      testId: Number.isFinite(parsedTestId) ? parsedTestId : null,
-      stepGroup: ['step1', 'step2', 'step3'].includes(stepGroup) ? stepGroup : 'step1',
-      sortOrder: sortOrder++,
+      testId: scopeWhere.testId,
+      stepGroup: normalizedStep,
       isActive: true
-    });
+    };
+
+    let row = null;
+    let wasUpdated = false;
+    if (externalId) {
+      row = await Flashcard.findOne({
+        where: { ...scopeWhere, externalId }
+      });
+    }
+
+    if (row) {
+      row.frontText = payload.frontText;
+      row.backText = payload.backText;
+      row.keyword = payload.keyword;
+      await row.save();
+      wasUpdated = true;
+      updatedCount++;
+    } else {
+      const sortFromId = externalId && /^\d+$/.test(externalId) ? parseInt(externalId, 10) : null;
+      row = await Flashcard.create({
+        ...payload,
+        externalId: externalId || null,
+        frontImageUrl: null,
+        backImageUrl: null,
+        sortOrder: Number.isFinite(sortFromId) ? sortFromId : nextSortOrder++
+      });
+      createdCount++;
+    }
 
     let tags = [];
     if (card.topicName) {
@@ -125,19 +161,21 @@ async function saveParsedFlashcards(cards, { testId, stepGroup = 'step1' } = {})
       tags = await syncFlashcardTagsByModels(row.id, tagModels);
     }
 
-    createdCards.push({
+    savedCards.push({
       id: row.id,
+      externalId: row.externalId,
       frontText: row.frontText,
       backText: row.backText,
       keyword: row.keyword,
       frontImageUrl: row.frontImageUrl,
       backImageUrl: row.backImageUrl,
       topicName: card.topicName || null,
-      tags
+      tags,
+      updated: wasUpdated
     });
   }
 
-  return createdCards;
+  return { cards: savedCards, createdCount, updatedCount };
 }
 
 async function handleFlashcardsTxtUpload(req, res) {
@@ -171,15 +209,20 @@ async function handleFlashcardsTxtUpload(req, res) {
   const cards = parseFlashcardsFromText(text, { requireTopic: true });
   if (cards.length === 0) {
     res.status(400).json({
-      error: 'Не удалось найти flashcards в TXT. Проверьте формат: секция темы (=== ... ===), поля ID, Front, Back и Topic или секция.'
+      error: 'Не удалось найти flashcards в TXT. Нужны ID, Front, Back и тема (секция === ... === или поле Topic/System/Subject).'
     });
     return;
   }
 
-  const createdCards = await saveParsedFlashcards(cards, { testId, stepGroup });
+  const { cards: savedCards, createdCount, updatedCount } = await saveParsedFlashcards(cards, { testId, stepGroup });
+  const parts = [`${savedCards.length} flashcards`];
+  if (createdCount) parts.push(`${createdCount} новых`);
+  if (updatedCount) parts.push(`${updatedCount} обновлено`);
   res.json({
-    message: `Успешно загружено ${createdCards.length} flashcards`,
-    cards: createdCards
+    message: `Успешно: ${parts.join(', ')}`,
+    cards: savedCards,
+    createdCount,
+    updatedCount
   });
 }
 

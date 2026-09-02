@@ -38,8 +38,12 @@ function getLastTopicFromBlock(block, fallbackTopic) {
  * "ID":"1"
  * "Front":"... ______ ..."
  * "Back":"... полный ответ ..."
- * "Keyword":"nephritic syndrome"
- * "Topic":"Cardiovascular System"  (опционально, переопределяет секцию)
+ *
+ * Или тема у каждой карточки:
+ * "ID":"2"
+ * "Front":"..."
+ * "Back":"..."
+ * "Topic":"Cardiovascular System"
  */
 function parseFlashcardsFromText(text, options = {}) {
   const { requireTopic = false } = options;
@@ -68,17 +72,14 @@ function parseFlashcardsFromText(text, options = {}) {
       const inlineTopic = extractQuotedField(block, ['Topic', 'System', 'Subject', 'Category']);
       const topicName = resolveFlashcardTopic(inlineTopic || rollingTopic || '');
       if (requireTopic && !topicName) {
-        console.warn(`Flashcard ID ${idMatch[1]}: не указана тема`);
+        console.warn(`Flashcard ID ${idMatch[1]}: не указана тема (секция или поле Topic/System/Subject)`);
         continue;
       }
-
-      const keyword = extractQuotedField(block, ['Keyword', 'K', 'Tag']);
 
       cards.push({
         externalId: idMatch[1],
         frontText: frontText.trim(),
         backText: backText.trim(),
-        keyword: keyword ? keyword.trim() : null,
         topicName: topicName || null
       });
     } catch (error) {
@@ -87,11 +88,28 @@ function parseFlashcardsFromText(text, options = {}) {
   }
 
   console.log(`Распарсено flashcards: ${cards.length}`);
-  return cards;
+  return dedupeCardsByExternalId(cards);
+}
+
+function dedupeCardsByExternalId(cards) {
+  const map = new Map();
+  for (const card of cards) {
+    const key = String(card.externalId || '').trim();
+    if (!key) {
+      map.set(`__empty_${map.size}`, card);
+      continue;
+    }
+    if (map.has(key)) {
+      console.warn(`Flashcard ID ${key}: дубликат в TXT, оставлен последний вариант`);
+    }
+    map.set(key, card);
+  }
+  return Array.from(map.values());
 }
 
 module.exports = {
   parseFlashcardsFromText,
   injectTopicMarkers,
-  resolveFlashcardTopic
+  resolveFlashcardTopic,
+  dedupeCardsByExternalId
 };
