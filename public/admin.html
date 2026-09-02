@@ -396,7 +396,8 @@
                     <div class="admin-kgma-panel">
                         <div class="admin-kgma-panel-head">
                             <h3>КГМА — данные с <a href="https://www.kgma.kg/ru/student/schedule" target="_blank" rel="noopener">kgma.kg</a></h3>
-                            <p class="page-description">Факультеты, курсы и группы подгружаются с официального сайта академии.</p>
+                            <p class="page-description">Факультеты, курсы и группы подгружаются с официального сайта академии. Каждое воскресенье в 03:00 расписание всех групп автоматически синхронизируется в базу.</p>
+                            <p id="kgmaSyncStatus" class="page-description" style="margin-top:0.35rem;"></p>
                         </div>
                         <div class="admin-schedule-filters">
                             <select id="kgmaFacultyFilter" class="form-group input">
@@ -411,6 +412,7 @@
                             <input type="date" id="kgmaWeekStart" class="form-group input" title="Неделя с понедельника">
                             <button type="button" class="btn btn-secondary" id="kgmaViewBtn">Показать с КГМА</button>
                             <button type="button" class="btn btn-primary" id="kgmaImportBtn">Импорт в базу</button>
+                            <button type="button" class="btn btn-secondary" id="kgmaSyncAllBtn" title="Все факультеты и группы">Синхронизировать всё</button>
                         </div>
                         <div id="kgmaSchedulePreview" class="admin-table-container"></div>
                     </div>

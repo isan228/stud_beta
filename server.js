@@ -287,6 +287,12 @@ sequelize.authenticate()
     } catch (e) {
       console.warn('prepareSubscriptionPlansSchema (after sync):', e.message);
     }
+    try {
+      const { startKgmaWeeklyScheduler } = require('./utils/kgmaScheduleSync');
+      startKgmaWeeklyScheduler();
+    } catch (e) {
+      console.warn('startKgmaWeeklyScheduler:', e.message);
+    }
     const onListen = () => {
       console.log(`Сервер запущен на порту ${PORT}` + (LISTEN_HOST ? ` (bind: ${LISTEN_HOST})` : ''));
       if (!LISTEN_HOST) {

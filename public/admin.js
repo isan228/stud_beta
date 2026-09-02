@@ -1647,6 +1647,76 @@ async function importKgmaScheduleAdmin() {
     }
 }
 
+async function loadKgmaSyncStatus() {
+    const el = document.getElementById('kgmaSyncStatus');
+    if (!el) return;
+
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/schedule/kgma/sync-status`, {
+            headers: adminAuthHeaders()
+        });
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        const last = data.lastResult;
+        const parts = [];
+
+        if (data.schedulerEnabled === false) {
+            parts.push('Автосинхронизация отключена (KGMA_SYNC_ENABLED=false).');
+        } else {
+            parts.push(`Автосинхронизация: каждое воскресенье в ${String(data.syncHour).padStart(2, '0')}:${String(data.syncMinute).padStart(2, '0')}.`);
+        }
+
+        if (last?.finishedAt) {
+            const when = new Date(last.finishedAt).toLocaleString('ru-RU');
+            parts.push(
+                `Последний полный синк: ${when}, неделя с ${last.weekStart || '—'}, `
+                + `групп ${last.groupsProcessed || 0}/${last.totalGroups || 0}, `
+                + `+${last.imported || 0} / ~${last.updated || 0}, ошибок ${last.errors || 0}.`
+            );
+        } else if (data.lastSyncDate) {
+            parts.push(`Последний синк: ${data.lastSyncDate}.`);
+        } else {
+            parts.push('Полная синхронизация ещё не выполнялась.');
+        }
+
+        el.textContent = parts.join(' ');
+    } catch (error) {
+        el.textContent = 'Не удалось загрузить статус автосинхронизации.';
+    }
+}
+
+async function syncAllKgmaSchedulesAdmin() {
+    if (!confirm('Запустить полную синхронизацию всех факультетов и групп с kgma.kg? Это может занять длительное время.')) {
+        return;
+    }
+
+    const btn = document.getElementById('kgmaSyncAllBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Синхронизация…'; }
+
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/schedule/kgma/sync-all`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...adminAuthHeaders()
+            },
+            body: JSON.stringify({ force: true })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Ошибка запуска');
+
+        showNotification(result.message || 'Синхронизация запущена в фоне', 'success');
+        setTimeout(() => {
+            loadKgmaSyncStatus();
+            loadScheduleAdmin();
+        }, 5000);
+    } catch (error) {
+        showNotification(error.message || 'Не удалось запустить синхронизацию', 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Синхронизировать всё'; }
+    }
+}
+
 function formatScheduleTimeRange(entry) {
     if (entry.timeStart && entry.timeEnd) return `${entry.timeStart}–${entry.timeEnd}`;
     if (entry.timeStart) return `с ${entry.timeStart}`;
@@ -1832,6 +1902,7 @@ async function loadScheduleAdmin() {
     try {
         await fillScheduleUniversitySelects();
         await loadKgmaMetaAdmin();
+        await loadKgmaSyncStatus();
 
         const yearFilter = document.getElementById('scheduleYearFilter');
         if (yearFilter && !yearFilter.value) {
@@ -2082,6 +2153,8 @@ function setupScheduleEventListeners() {
     if (kgmaViewBtn) kgmaViewBtn.addEventListener('click', viewKgmaScheduleAdmin);
     const kgmaImportBtn = document.getElementById('kgmaImportBtn');
     if (kgmaImportBtn) kgmaImportBtn.addEventListener('click', importKgmaScheduleAdmin);
+    const kgmaSyncAllBtn = document.getElementById('kgmaSyncAllBtn');
+    if (kgmaSyncAllBtn) kgmaSyncAllBtn.addEventListener('click', syncAllKgmaSchedulesAdmin);
 
     const uniModal = document.getElementById('scheduleUniversityId');
     if (uniModal) {

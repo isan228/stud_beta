@@ -20,13 +20,18 @@ const {
   listKgmaCourses,
   listKgmaGroups,
   fetchKgmaWeekSchedule,
-  flattenKgmaWeekToEntries,
   getWeekStart,
   formatDateISO,
   getDefaultAcademicYear,
   getDefaultSemester,
   KGMA_SCHEDULE_URL
 } = require('../utils/kgmaSchedule');
+const {
+  importKgmaGroupsWeek,
+  runKgmaWeeklySync,
+  getLastSyncDate,
+  getLastSyncResult
+} = require('../utils/kgmaScheduleSync');
 const schedulePublic = require('./schedule');
 const { Op, QueryTypes } = require('sequelize');
 const { Sequelize } = require('sequelize');
@@ -3044,44 +3049,16 @@ router.post('/schedule/kgma/import', adminAuth, async (req, res) => {
     const year = (academicYear || '').trim() || getDefaultAcademicYear(weekStart);
     const sem = semester === 'spring' || semester === 'autumn' ? semester : getDefaultSemester(weekStart);
 
-    let imported = 0;
-    let updated = 0;
-    const groupResults = [];
-
-    for (const group of groups) {
-      const week = await fetchKgmaWeekSchedule(group.id, weekStart);
-      const rows = flattenKgmaWeekToEntries({
-        week,
-        universityId: university.id,
-        facultyId: faculty.id,
-        course,
-        groupName: group.name,
-        kgmaFacultyId,
-        kgmaGroupId: group.id,
-        academicYear: year,
-        semester: sem
-      });
-
-      for (const row of rows) {
-        const existing = row.externalKey
-          ? await ScheduleEntry.findOne({ where: { externalKey: row.externalKey } })
-          : null;
-        if (existing) {
-          await existing.update(row);
-          updated += 1;
-        } else {
-          await ScheduleEntry.create(row);
-          imported += 1;
-        }
-      }
-
-      groupResults.push({
-        groupId: group.id,
-        groupName: group.name,
-        lessons: rows.length,
-        empty: week.empty
-      });
-    }
+    const { imported, updated, groups: groupResults } = await importKgmaGroupsWeek({
+      universityId: university.id,
+      faculty,
+      kgmaFacultyId,
+      course,
+      groups,
+      weekStart,
+      academicYear: year,
+      semester: sem
+    });
 
     res.json({
       message: 'Импорт завершён',
@@ -3094,6 +3071,43 @@ router.post('/schedule/kgma/import', adminAuth, async (req, res) => {
   } catch (error) {
     console.error('Ошибка импорта КГМА:', error);
     res.status(500).json({ error: error.message || 'Ошибка импорта' });
+  }
+});
+
+router.get('/schedule/kgma/sync-status', adminAuth, async (req, res) => {
+  try {
+    const lastSyncDate = await getLastSyncDate();
+    const lastResult = await getLastSyncResult();
+    res.json({
+      lastSyncDate,
+      lastResult,
+      schedulerEnabled: process.env.KGMA_SYNC_ENABLED !== 'false',
+      syncHour: parseInt(process.env.KGMA_SYNC_HOUR || '3', 10),
+      syncMinute: parseInt(process.env.KGMA_SYNC_MINUTE || '0', 10)
+    });
+  } catch (error) {
+    console.error('Ошибка статуса синхронизации КГМА:', error);
+    res.status(500).json({ error: 'Не удалось получить статус синхронизации' });
+  }
+});
+
+router.post('/schedule/kgma/sync-all', adminAuth, async (req, res) => {
+  try {
+    const force = req.body?.force === true;
+    setImmediate(async () => {
+      try {
+        await runKgmaWeeklySync({ force });
+      } catch (error) {
+        console.error('Ошибка фоновой синхронизации КГМА:', error);
+      }
+    });
+    res.status(202).json({
+      message: 'Полная синхронизация с kgma.kg запущена в фоне',
+      force
+    });
+  } catch (error) {
+    console.error('Ошибка запуска синхронизации КГМА:', error);
+    res.status(500).json({ error: error.message || 'Не удалось запустить синхронизацию' });
   }
 });
 
