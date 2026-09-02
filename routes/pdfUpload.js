@@ -6,12 +6,6 @@ const { Op } = require('sequelize');
 const { Question, Answer, Test, QuestionTag, QuestionTagMap, Flashcard, FlashcardTagMap } = require('../models');
 const { parseLinkedQuestionsFromText } = require('../utils/usmleLinkedQuestions');
 const { parseFlashcardsFromText } = require('../utils/parseFlashcardsTxt');
-const { parseFlashcardsImagesFromText } = require('../utils/parseFlashcardsImagesTxt');
-const {
-  isAllowedImageMime,
-  saveFlashcardImageBuffer,
-  imageBasenameKey
-} = require('../utils/flashcardImages');
 const { extractTxtAnswers, mapAnswersWithCorrect, isValidCorrectIndex } = require('../utils/txtQuestionAnswers');
 const { normalizeTagName, slugifyTag } = require('../utils/usmleTagNormalize');
 
@@ -28,69 +22,6 @@ const upload = multer({
     }
   }
 });
-
-const flashcardsImagesUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 5 * 1024 * 1024
-  },
-  fileFilter: (req, file, cb) => {
-    if (file.fieldname === 'pdf') {
-      if (file.mimetype === 'text/plain' || file.originalname.endsWith('.txt')) {
-        cb(null, true);
-      } else {
-        cb(new Error('TXT: только .txt файлы'), false);
-      }
-      return;
-    }
-    if (file.fieldname === 'images') {
-      const extOk = /\.(jpe?g|png|gif|webp)$/i.test(file.originalname || '');
-      if (isAllowedImageMime(file.mimetype) || extOk) {
-        cb(null, true);
-      } else {
-        cb(new Error('Картинки: только JPG, PNG, GIF, WEBP'), false);
-      }
-      return;
-    }
-    cb(new Error('Недопустимое поле файла'), false);
-  }
-}).fields([
-  { name: 'pdf', maxCount: 1 },
-  { name: 'images', maxCount: 500 }
-]);
-
-function buildFlashcardImageFileMap(files) {
-  const map = new Map();
-  for (const file of files || []) {
-    map.set(imageBasenameKey(file.originalname), file);
-  }
-  return map;
-}
-
-function resolveFlashcardImageUrls(card, imageFileMap, flashcardId) {
-  let frontImageUrl = null;
-  let backImageUrl = null;
-
-  if (card.frontImageFile) {
-    const file = imageFileMap.get(imageBasenameKey(card.frontImageFile));
-    if (file) {
-      frontImageUrl = saveFlashcardImageBuffer(flashcardId, 'front', file);
-    } else {
-      console.warn(`Flashcard ID ${card.externalId}: файл FrontImage не найден: ${card.frontImageFile}`);
-    }
-  }
-
-  if (card.backImageFile) {
-    const file = imageFileMap.get(imageBasenameKey(card.backImageFile));
-    if (file) {
-      backImageUrl = saveFlashcardImageBuffer(flashcardId, 'back', file);
-    } else {
-      console.warn(`Flashcard ID ${card.externalId}: файл BackImage не найден: ${card.backImageFile}`);
-    }
-  }
-
-  return { frontImageUrl, backImageUrl };
-}
 
 function parseTagNames(raw) {
   if (raw == null) return [];
@@ -170,7 +101,7 @@ async function syncFlashcardTagsByModels(flashcardId, tags) {
   return tags.map((t) => ({ id: t.id, name: t.name, slug: t.slug }));
 }
 
-async function saveParsedFlashcards(cards, { testId, stepGroup = 'step1', imageFileMap = null } = {}) {
+async function saveParsedFlashcards(cards, { testId, stepGroup = 'step1' } = {}) {
   const parsedTestId = testId ? parseInt(testId, 10) : null;
   const createdCards = [];
   let sortOrder = 0;
@@ -187,15 +118,6 @@ async function saveParsedFlashcards(cards, { testId, stepGroup = 'step1', imageF
       sortOrder: sortOrder++,
       isActive: true
     });
-
-    if (imageFileMap) {
-      const { frontImageUrl, backImageUrl } = resolveFlashcardImageUrls(card, imageFileMap, row.id);
-      if (frontImageUrl || backImageUrl) {
-        row.frontImageUrl = frontImageUrl;
-        row.backImageUrl = backImageUrl;
-        await row.save();
-      }
-    }
 
     let tags = [];
     if (card.topicName) {
@@ -257,62 +179,6 @@ async function handleFlashcardsTxtUpload(req, res) {
   const createdCards = await saveParsedFlashcards(cards, { testId, stepGroup });
   res.json({
     message: `Успешно загружено ${createdCards.length} flashcards`,
-    cards: createdCards
-  });
-}
-
-async function handleFlashcardsWithImagesTxtUpload(req, res) {
-  const txtFile = req.files?.pdf?.[0];
-  if (!txtFile) {
-    res.status(400).json({ error: 'TXT файл не загружен' });
-    return;
-  }
-
-  const imageFiles = req.files?.images || [];
-  if (!imageFiles.length) {
-    res.status(400).json({ error: 'Загрузите файлы картинок вместе с TXT' });
-    return;
-  }
-
-  const { testId, stepGroup } = req.body;
-  if (testId) {
-    const test = await Test.findByPk(testId);
-    if (!test) {
-      res.status(404).json({ error: 'Тест не найден' });
-      return;
-    }
-    if (test.programType !== 'usmle') {
-      res.status(400).json({ error: 'Flashcards доступны только для тестов USMLE' });
-      return;
-    }
-  }
-
-  const text = txtFile.buffer.toString('utf8');
-  if (!text || text.trim().length === 0) {
-    res.status(400).json({ error: 'TXT файл пуст' });
-    return;
-  }
-
-  const cards = parseFlashcardsImagesFromText(text, { requireTopic: true });
-  if (cards.length === 0) {
-    res.status(400).json({
-      error: 'Не удалось найти flashcards в TXT. Нужны секция темы, ID, Front, Back и поля FrontImage/BackImage/Image с именами файлов.'
-    });
-    return;
-  }
-
-  const hasImageRefs = cards.some((c) => c.frontImageFile || c.backImageFile);
-  if (!hasImageRefs) {
-    res.status(400).json({
-      error: 'В TXT нет ссылок на картинки (FrontImage, BackImage или Image). Для карточек без фото используйте обычную загрузку TXT flashcards.'
-    });
-    return;
-  }
-
-  const imageFileMap = buildFlashcardImageFileMap(imageFiles);
-  const createdCards = await saveParsedFlashcards(cards, { testId, stepGroup, imageFileMap });
-  res.json({
-    message: `Успешно загружено ${createdCards.length} flashcards с картинками`,
     cards: createdCards
   });
 }
@@ -496,22 +362,6 @@ router.post('/upload-txt-explained', adminAuth, upload.single('pdf'), async (req
   } catch (error) {
     console.error('Ошибка загрузки TXT с объяснениями:', error);
     res.status(500).json({ error: error.message || 'Ошибка обработки TXT файла' });
-  }
-});
-
-router.post('/upload-txt-flashcards-images', adminAuth, (req, res, next) => {
-  flashcardsImagesUpload(req, res, (err) => {
-    if (err) {
-      return res.status(400).json({ error: err.message || 'Ошибка загрузки файлов' });
-    }
-    next();
-  });
-}, async (req, res) => {
-  try {
-    await handleFlashcardsWithImagesTxtUpload(req, res);
-  } catch (error) {
-    console.error('Ошибка загрузки TXT flashcards с картинками:', error);
-    res.status(500).json({ error: error.message || 'Ошибка обработки TXT flashcards с картинками' });
   }
 });
 

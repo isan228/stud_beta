@@ -2992,9 +2992,9 @@ function setupAdminEventListeners() {
     if (uploadUsmleTxtFlashcardsBtn) {
         uploadUsmleTxtFlashcardsBtn.addEventListener('click', () => openUsmleTxtFlashcardsUploadModal());
     }
-    const uploadUsmleTxtFlashcardsImagesBtn = document.getElementById('uploadUsmleTxtFlashcardsImagesBtn');
-    if (uploadUsmleTxtFlashcardsImagesBtn) {
-        uploadUsmleTxtFlashcardsImagesBtn.addEventListener('click', () => openUsmleTxtFlashcardsImagesUploadModal());
+    const addUsmleFlashcardWithImagesBtn = document.getElementById('addUsmleFlashcardWithImagesBtn');
+    if (addUsmleFlashcardWithImagesBtn) {
+        addUsmleFlashcardWithImagesBtn.addEventListener('click', () => openAddUsmleFlashcardWithImagesModal());
     }
     ['usmleFlashcardsTestFilter', 'usmleFlashcardsTagFilter', 'usmleFlashcardsStepFilter'].forEach((id) => {
         const el = document.getElementById(id);
@@ -3007,7 +3007,12 @@ function setupAdminEventListeners() {
     }
     const flashcardPreviewBtn = document.getElementById('flashcardPreviewBtn');
     if (flashcardPreviewBtn) flashcardPreviewBtn.addEventListener('click', previewFlashcardAdmin);
-    initFlashcardImageFormControls();
+    const flashcardImageForm = document.getElementById('flashcardImageForm');
+    if (flashcardImageForm && !flashcardImageForm.dataset.bound) {
+        flashcardImageForm.dataset.bound = '1';
+        flashcardImageForm.addEventListener('submit', saveFlashcardWithImagesAdmin);
+    }
+    initFcImgFormControls();
 
     const usmleTestsSubjectFilter = document.getElementById('usmleTestsSubjectFilter');
     if (usmleTestsSubjectFilter) {
@@ -3074,10 +3079,6 @@ function setupAdminEventListeners() {
     const txtFlashcardsUploadForm = document.getElementById('txtFlashcardsUploadForm');
     if (txtFlashcardsUploadForm) {
         txtFlashcardsUploadForm.addEventListener('submit', handleTxtFlashcardsUpload);
-    }
-    const txtFlashcardsImagesUploadForm = document.getElementById('txtFlashcardsImagesUploadForm');
-    if (txtFlashcardsImagesUploadForm) {
-        txtFlashcardsImagesUploadForm.addEventListener('submit', handleTxtFlashcardsImagesUpload);
     }
 
     const addQuestionBtn = document.getElementById('addQuestionBtn');
@@ -4132,29 +4133,6 @@ async function openUsmleTxtFlashcardsUploadModal() {
     }
 }
 
-async function openUsmleTxtFlashcardsImagesUploadModal() {
-    try {
-        const tests = await fetchUsmleTestsCompact();
-        const select = document.getElementById('txtFlashcardsImagesTestId');
-        const presetTestId = document.getElementById('usmleFlashcardsTestFilter')?.value || '';
-        const presetStep = document.getElementById('usmleFlashcardsStepFilter')?.value || 'step1';
-        if (select) {
-            select.innerHTML = '<option value="">Без привязки к тесту</option>' +
-                tests.map(t => `<option value="${t.id}">${escapeAdminHtml(t.name)}</option>`).join('');
-            if (presetTestId && tests.some(t => String(t.id) === String(presetTestId))) {
-                select.value = String(presetTestId);
-            }
-        }
-        const stepSelect = document.getElementById('txtFlashcardsImagesStepGroup');
-        if (stepSelect && presetStep) stepSelect.value = presetStep;
-        const modal = document.getElementById('txtFlashcardsImagesUploadModal');
-        if (modal) modal.style.display = 'block';
-    } catch (error) {
-        console.error('Ошибка открытия загрузки flashcards с картинками:', error);
-        showNotification('Ошибка загрузки тестов USMLE', 'error');
-    }
-}
-
 function refreshQuestionsAfterUpload() {
     loadQuestions();
     if (adminQuestionUploadSource === 'usmle' || document.getElementById('usmleTab')?.classList.contains('active')) {
@@ -4362,11 +4340,12 @@ window.saveEditQuestionTag = saveEditQuestionTag;
 window.editUsmleFlashcardAdmin = editUsmleFlashcardAdmin;
 window.deleteUsmleFlashcardAdmin = deleteUsmleFlashcardAdmin;
 
-function resetFlashcardSideImageUI(side) {
-    const input = document.getElementById(side === 'back' ? 'flashcardBackImageFile' : 'flashcardFrontImageFile');
-    const preview = document.getElementById(side === 'back' ? 'flashcardBackImagePreview' : 'flashcardFrontImagePreview');
-    const removeBtn = document.getElementById(side === 'back' ? 'flashcardBackImageRemoveBtn' : 'flashcardFrontImageRemoveBtn');
-    const pending = document.getElementById(side === 'back' ? 'flashcardBackImagePendingRemove' : 'flashcardFrontImagePendingRemove');
+function resetFcImgSideUI(side) {
+    const isBack = side === 'back';
+    const input = document.getElementById(isBack ? 'fcImgBackFile' : 'fcImgFrontFile');
+    const preview = document.getElementById(isBack ? 'fcImgBackPreview' : 'fcImgFrontPreview');
+    const removeBtn = document.getElementById(isBack ? 'fcImgBackRemoveBtn' : 'fcImgFrontRemoveBtn');
+    const pending = document.getElementById(isBack ? 'fcImgBackPendingRemove' : 'fcImgFrontPendingRemove');
     if (input) input.value = '';
     if (pending) pending.value = '0';
     if (removeBtn) removeBtn.style.display = 'none';
@@ -4376,10 +4355,11 @@ function resetFlashcardSideImageUI(side) {
     }
 }
 
-function showFlashcardSideImagePreview(side, imageUrl) {
-    const preview = document.getElementById(side === 'back' ? 'flashcardBackImagePreview' : 'flashcardFrontImagePreview');
-    const removeBtn = document.getElementById(side === 'back' ? 'flashcardBackImageRemoveBtn' : 'flashcardFrontImageRemoveBtn');
-    const pending = document.getElementById(side === 'back' ? 'flashcardBackImagePendingRemove' : 'flashcardFrontImagePendingRemove');
+function showFcImgSidePreview(side, imageUrl) {
+    const isBack = side === 'back';
+    const preview = document.getElementById(isBack ? 'fcImgBackPreview' : 'fcImgFrontPreview');
+    const removeBtn = document.getElementById(isBack ? 'fcImgBackRemoveBtn' : 'fcImgFrontRemoveBtn');
+    const pending = document.getElementById(isBack ? 'fcImgBackPendingRemove' : 'fcImgFrontPendingRemove');
     if (!preview) return;
     if (pending) pending.value = '0';
     const url = String(imageUrl || '').trim();
@@ -4394,10 +4374,10 @@ function showFlashcardSideImagePreview(side, imageUrl) {
     }
 }
 
-function initFlashcardImageFormControls() {
+function initFcImgFormControls() {
     [
-        { side: 'front', pick: 'flashcardFrontImagePickBtn', file: 'flashcardFrontImageFile', remove: 'flashcardFrontImageRemoveBtn' },
-        { side: 'back', pick: 'flashcardBackImagePickBtn', file: 'flashcardBackImageFile', remove: 'flashcardBackImageRemoveBtn' }
+        { side: 'front', pick: 'fcImgFrontPickBtn', file: 'fcImgFrontFile', remove: 'fcImgFrontRemoveBtn' },
+        { side: 'back', pick: 'fcImgBackPickBtn', file: 'fcImgBackFile', remove: 'fcImgBackRemoveBtn' }
     ].forEach(({ side, pick, file, remove }) => {
         const pickBtn = document.getElementById(pick);
         const fileInput = document.getElementById(file);
@@ -4409,10 +4389,10 @@ function initFlashcardImageFormControls() {
         if (fileInput && fileInput.dataset.bound !== '1') {
             fileInput.dataset.bound = '1';
             fileInput.addEventListener('change', () => {
-                const pending = document.getElementById(side === 'back' ? 'flashcardBackImagePendingRemove' : 'flashcardFrontImagePendingRemove');
+                const pending = document.getElementById(side === 'back' ? 'fcImgBackPendingRemove' : 'fcImgFrontPendingRemove');
                 if (pending) pending.value = '0';
                 const files = Array.from(fileInput.files || []);
-                const preview = document.getElementById(side === 'back' ? 'flashcardBackImagePreview' : 'flashcardFrontImagePreview');
+                const preview = document.getElementById(side === 'back' ? 'fcImgBackPreview' : 'fcImgFrontPreview');
                 if (preview && files.length) {
                     preview.innerHTML = files.map((f) => {
                         const url = URL.createObjectURL(f);
@@ -4426,56 +4406,77 @@ function initFlashcardImageFormControls() {
         if (removeBtn && removeBtn.dataset.bound !== '1') {
             removeBtn.dataset.bound = '1';
             removeBtn.addEventListener('click', () => {
-                const pending = document.getElementById(side === 'back' ? 'flashcardBackImagePendingRemove' : 'flashcardFrontImagePendingRemove');
+                const pending = document.getElementById(side === 'back' ? 'fcImgBackPendingRemove' : 'fcImgFrontPendingRemove');
                 if (pending) pending.value = '1';
-                resetFlashcardSideImageUI(side);
+                resetFcImgSideUI(side);
             });
         }
     });
 }
 
-async function syncFlashcardImagesAfterSave(flashcardId) {
-    const sides = [
-        { side: 'front', fileId: 'flashcardFrontImageFile', pendingId: 'flashcardFrontImagePendingRemove' },
-        { side: 'back', fileId: 'flashcardBackImageFile', pendingId: 'flashcardBackImagePendingRemove' }
-    ];
+async function syncFcImgImagesAfterSave(flashcardId, { requireFrontOnCreate = false } = {}) {
+    const frontPending = document.getElementById('fcImgFrontPendingRemove');
+    const backPending = document.getElementById('fcImgBackPendingRemove');
+    const frontInput = document.getElementById('fcImgFrontFile');
+    const backInput = document.getElementById('fcImgBackFile');
+    const frontRemove = frontPending && frontPending.value === '1';
+    const backRemove = backPending && backPending.value === '1';
+    const frontFile = frontInput?.files?.[0];
+    const backFile = backInput?.files?.[0];
 
-    for (const { side, fileId, pendingId } of sides) {
-        const pending = document.getElementById(pendingId);
-        const input = document.getElementById(fileId);
-        const shouldRemove = pending && pending.value === '1';
-        const file = input?.files?.[0];
+    if (requireFrontOnCreate && !frontFile && !backFile) {
+        throw new Error('Загрузите хотя бы одну картинку (Front или Back)');
+    }
 
-        if (shouldRemove) {
-            const res = await fetch(`${ADMIN_API_URL}/flashcards/${flashcardId}/${side}-image`, {
-                method: 'DELETE',
-                headers: { Authorization: `Bearer ${currentAdminToken}` }
-            });
-            if (!res.ok) {
-                const data = await res.json().catch(() => ({}));
-                throw new Error(data.error || `Не удалось удалить изображение ${side}`);
-            }
-            continue;
+    if (frontRemove) {
+        const res = await fetch(`${ADMIN_API_URL}/flashcards/${flashcardId}/front-image`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${currentAdminToken}` }
+        });
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error || 'Не удалось удалить изображение Front');
         }
-
-        if (!file) continue;
-
+    } else if (frontFile) {
         const formData = new FormData();
-        formData.append('image', file);
-        const res = await fetch(`${ADMIN_API_URL}/flashcards/${flashcardId}/${side}-image`, {
+        formData.append('image', frontFile);
+        const res = await fetch(`${ADMIN_API_URL}/flashcards/${flashcardId}/front-image`, {
             method: 'POST',
             headers: { Authorization: `Bearer ${currentAdminToken}` },
             body: formData
         });
         if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            throw new Error(data.error || `Не удалось загрузить изображение ${side}`);
+            throw new Error(data.error || 'Не удалось загрузить изображение Front');
+        }
+    }
+
+    if (backRemove) {
+        const res = await fetch(`${ADMIN_API_URL}/flashcards/${flashcardId}/back-image`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${currentAdminToken}` }
+        });
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error || 'Не удалось удалить изображение Back');
+        }
+    } else if (backFile) {
+        const formData = new FormData();
+        formData.append('image', backFile);
+        const res = await fetch(`${ADMIN_API_URL}/flashcards/${flashcardId}/back-image`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${currentAdminToken}` },
+            body: formData
+        });
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error || 'Не удалось загрузить изображение Back');
         }
     }
 }
 
-async function fillFlashcardTagsSelect(selectedIds = []) {
-    const select = document.getElementById('flashcardTagIds');
+async function fillFlashcardTagsSelect(selectedIds = [], selectId = 'flashcardTagIds') {
+    const select = document.getElementById(selectId);
     if (!select) return;
     try {
         const response = await fetch(`${ADMIN_API_URL}/question-tags`, {
@@ -4490,8 +4491,8 @@ async function fillFlashcardTagsSelect(selectedIds = []) {
     }
 }
 
-async function fillFlashcardTestsSelect(selectedId = '') {
-    const select = document.getElementById('flashcardTestId');
+async function fillFlashcardTestsSelect(selectedId = '', selectId = 'flashcardTestId') {
+    const select = document.getElementById(selectId);
     if (!select) return;
     try {
         const response = await fetch(`${ADMIN_API_URL}/tests?programType=usmle&compact=1`, {
@@ -4583,8 +4584,6 @@ async function loadUsmleFlashcardsAdmin() {
 async function openAddUsmleFlashcardModal() {
     document.getElementById('flashcardId').value = '';
     document.getElementById('flashcardForm').reset();
-    resetFlashcardSideImageUI('front');
-    resetFlashcardSideImageUI('back');
     document.getElementById('flashcardModalTitle').textContent = 'Добавить flashcard';
     document.getElementById('flashcardStepGroup').value = 'step1';
     document.getElementById('flashcardPreviewBox').style.display = 'none';
@@ -4596,6 +4595,40 @@ async function openAddUsmleFlashcardModal() {
     document.getElementById('flashcardModal').style.display = 'block';
 }
 
+async function openAddUsmleFlashcardWithImagesModal() {
+    document.getElementById('fcImgId').value = '';
+    document.getElementById('flashcardImageForm').reset();
+    resetFcImgSideUI('front');
+    resetFcImgSideUI('back');
+    document.getElementById('flashcardImageModalTitle').textContent = 'Карточка с картинами';
+    const presetStep = document.getElementById('usmleFlashcardsStepFilter')?.value || 'step1';
+    document.getElementById('fcImgStepGroup').value = presetStep;
+    const testFilter = document.getElementById('usmleFlashcardsTestFilter')?.value || '';
+    await Promise.all([
+        fillFlashcardTagsSelect([], 'fcImgTagIds'),
+        fillFlashcardTestsSelect(testFilter, 'fcImgTestId')
+    ]);
+    document.getElementById('flashcardImageModal').style.display = 'block';
+}
+
+async function openEditFlashcardWithImagesModal(card) {
+    document.getElementById('fcImgId').value = card.id;
+    document.getElementById('fcImgFrontText').value = card.frontText || '';
+    document.getElementById('fcImgBackText').value = card.backText || '';
+    document.getElementById('fcImgKeyword').value = card.keyword || '';
+    document.getElementById('fcImgStepGroup').value = card.stepGroup || 'step1';
+    document.getElementById('flashcardImageModalTitle').textContent = 'Редактировать карточку с картинами';
+    resetFcImgSideUI('front');
+    resetFcImgSideUI('back');
+    showFcImgSidePreview('front', card.frontImageUrl || '');
+    showFcImgSidePreview('back', card.backImageUrl || '');
+    await Promise.all([
+        fillFlashcardTagsSelect((card.Tags || []).map((t) => t.id), 'fcImgTagIds'),
+        fillFlashcardTestsSelect(card.testId || '', 'fcImgTestId')
+    ]);
+    document.getElementById('flashcardImageModal').style.display = 'block';
+}
+
 async function editUsmleFlashcardAdmin(id) {
     try {
         const response = await fetch(`${ADMIN_API_URL}/flashcards/${id}`, {
@@ -4603,20 +4636,14 @@ async function editUsmleFlashcardAdmin(id) {
         });
         if (!response.ok) throw new Error('fail');
         const card = await response.json();
+        if (card.frontImageUrl || card.backImageUrl) {
+            await openEditFlashcardWithImagesModal(card);
+            return;
+        }
         document.getElementById('flashcardId').value = card.id;
         document.getElementById('flashcardFrontText').value = card.frontText || '';
         document.getElementById('flashcardBackText').value = card.backText || '';
         document.getElementById('flashcardKeyword').value = card.keyword || '';
-        const frontFile = document.getElementById('flashcardFrontImageFile');
-        const backFile = document.getElementById('flashcardBackImageFile');
-        const frontPending = document.getElementById('flashcardFrontImagePendingRemove');
-        const backPending = document.getElementById('flashcardBackImagePendingRemove');
-        if (frontFile) frontFile.value = '';
-        if (backFile) backFile.value = '';
-        if (frontPending) frontPending.value = '0';
-        if (backPending) backPending.value = '0';
-        showFlashcardSideImagePreview('front', card.frontImageUrl || '');
-        showFlashcardSideImagePreview('back', card.backImageUrl || '');
         document.getElementById('flashcardStepGroup').value = card.stepGroup || 'step1';
         document.getElementById('flashcardModalTitle').textContent = 'Редактировать flashcard';
         document.getElementById('flashcardPreviewBox').style.display = 'none';
@@ -4654,10 +4681,42 @@ async function saveFlashcardAdmin(e) {
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error || 'Ошибка сохранения');
-        const cardId = id || result.id;
-        if (cardId) await syncFlashcardImagesAfterSave(cardId);
         document.getElementById('flashcardModal').style.display = 'none';
         showNotification('Flashcard сохранена', 'success');
+        await loadUsmleFlashcardsAdmin();
+    } catch (err) {
+        showNotification(err.message || 'Ошибка сохранения', 'error');
+    }
+}
+
+async function saveFlashcardWithImagesAdmin(e) {
+    e.preventDefault();
+    const id = document.getElementById('fcImgId')?.value;
+    const payload = {
+        frontText: document.getElementById('fcImgFrontText')?.value || '',
+        backText: document.getElementById('fcImgBackText')?.value || '',
+        keyword: document.getElementById('fcImgKeyword')?.value || '',
+        stepGroup: document.getElementById('fcImgStepGroup')?.value || 'step1',
+        testId: document.getElementById('fcImgTestId')?.value || null,
+        tagIds: Array.from(document.getElementById('fcImgTagIds')?.selectedOptions || []).map((o) => parseInt(o.value, 10))
+    };
+    const url = id ? `${ADMIN_API_URL}/flashcards/${id}` : `${ADMIN_API_URL}/flashcards`;
+    const method = id ? 'PUT' : 'POST';
+    try {
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${currentAdminToken}`
+            },
+            body: JSON.stringify(payload)
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Ошибка сохранения');
+        const cardId = id || result.id;
+        await syncFcImgImagesAfterSave(cardId, { requireFrontOnCreate: !id });
+        document.getElementById('flashcardImageModal').style.display = 'none';
+        showNotification('Карточка с картинами сохранена', 'success');
         await loadUsmleFlashcardsAdmin();
     } catch (err) {
         showNotification(err.message || 'Ошибка сохранения', 'error');
@@ -5037,79 +5096,6 @@ async function handleTxtFlashcardsUpload(e) {
     } catch (error) {
         console.error('Ошибка загрузки TXT flashcards:', error);
         showNotification(error.message || 'Ошибка загрузки TXT flashcards', 'error');
-        if (progressDiv) progressDiv.style.display = 'none';
-        if (progressBar) progressBar.style.width = '0%';
-    }
-}
-
-async function handleTxtFlashcardsImagesUpload(e) {
-    e.preventDefault();
-
-    const testId = document.getElementById('txtFlashcardsImagesTestId')?.value || '';
-    const stepGroup = document.getElementById('txtFlashcardsImagesStepGroup')?.value || 'step1';
-    const txtInput = document.getElementById('txtFlashcardsImagesFile');
-    const imagesInput = document.getElementById('txtFlashcardsImagesFiles');
-
-    if (!txtInput?.files?.[0]) {
-        showNotification('Выберите TXT файл', 'error');
-        return;
-    }
-    if (!imagesInput?.files?.length) {
-        showNotification('Выберите файлы картинок', 'error');
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append('pdf', txtInput.files[0]);
-    formData.append('stepGroup', stepGroup);
-    if (testId) formData.append('testId', testId);
-    Array.from(imagesInput.files).forEach((file) => formData.append('images', file));
-
-    const progressDiv = document.getElementById('txtFlashcardsImagesUploadProgress');
-    const progressBar = document.getElementById('txtFlashcardsImagesUploadProgressBar');
-    const statusText = document.getElementById('txtFlashcardsImagesUploadStatus');
-
-    if (progressDiv) progressDiv.style.display = 'block';
-    if (progressBar) progressBar.style.width = '30%';
-    if (statusText) statusText.textContent = 'Загрузка файлов...';
-
-    try {
-        const response = await fetch(`${ADMIN_API_URL}/upload-txt-flashcards-images`, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${currentAdminToken}` },
-            body: formData
-        });
-
-        if (progressBar) progressBar.style.width = '70%';
-        if (statusText) statusText.textContent = 'Обработка TXT и картинок...';
-
-        const result = await response.json();
-
-        if (response.ok) {
-            if (progressBar) progressBar.style.width = '100%';
-            if (statusText) statusText.textContent = 'Готово!';
-            setTimeout(async () => {
-                showNotification(`Загружено ${result.cards.length} flashcards с картинками`, 'success');
-                const testFilter = document.getElementById('usmleFlashcardsTestFilter');
-                if (testId && testFilter) testFilter.value = String(testId);
-                const stepFilter = document.getElementById('usmleFlashcardsStepFilter');
-                if (stepFilter && stepGroup) stepFilter.value = stepGroup;
-                const modal = document.getElementById('txtFlashcardsImagesUploadModal');
-                if (modal) modal.style.display = 'none';
-                const form = document.getElementById('txtFlashcardsImagesUploadForm');
-                if (form) form.reset();
-                if (progressDiv) progressDiv.style.display = 'none';
-                if (progressBar) progressBar.style.width = '0%';
-                if (typeof loadAdminQuestionTags === 'function') await loadAdminQuestionTags();
-                await fillUsmleFlashcardFilters();
-                await loadUsmleFlashcardsAdmin();
-            }, 500);
-        } else {
-            throw new Error(result.error || 'Ошибка загрузки TXT flashcards с картинками');
-        }
-    } catch (error) {
-        console.error('Ошибка загрузки TXT flashcards с картинками:', error);
-        showNotification(error.message || 'Ошибка загрузки TXT flashcards с картинками', 'error');
         if (progressDiv) progressDiv.style.display = 'none';
         if (progressBar) progressBar.style.width = '0%';
     }
