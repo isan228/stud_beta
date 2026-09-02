@@ -19,6 +19,7 @@
     <meta name="theme-color" content="#2563eb">
     <title>Профиль - stud.kg</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="schedule.css">
 </head>
 
 <body>
@@ -128,6 +129,20 @@
                             <button type="submit" class="btn btn-primary">Сохранить направление</button>
                         </form>
                     </div>
+                </div>
+
+                <div class="settings-card" id="myScheduleCard" style="display:none;">
+                    <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:0.75rem; margin-bottom:0.75rem;">
+                        <h3 style="margin:0;">Моё расписание</h3>
+                        <span id="myScheduleWeekLabel" class="schedule-week-label"></span>
+                    </div>
+                    <p id="myScheduleGroupLabel" class="page-description" style="margin:0 0 1rem;"></p>
+                    <div id="myScheduleContent" class="my-schedule-content">
+                        <p class="schedule-empty">Загрузка…</p>
+                    </div>
+                    <p style="margin:1rem 0 0; font-size:0.875rem;">
+                        <a href="/schedule">Полное расписание на сайте КГМА →</a>
+                    </p>
                 </div>
 
                 <div class="settings-card">

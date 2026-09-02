@@ -3133,11 +3133,89 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                     if (!res.ok) throw new Error(data.error || 'Ошибка сохранения');
                     currentUser = data.user;
                     await fillProfileGroupSelect(currentUser);
+                    await loadMyScheduleProfile(currentUser);
                     showNotification('Направление сохранено', 'success');
                 } catch (err) {
                     showNotification(err.message || 'Ошибка сохранения', 'error');
                 }
             });
+        }
+    }
+
+    const MY_SCHEDULE_DAY_NAMES = {
+        1: 'Понедельник',
+        2: 'Вторник',
+        3: 'Среда',
+        4: 'Четверг',
+        5: 'Пятница',
+        6: 'Суббота',
+        7: 'Воскресенье'
+    };
+
+    function renderMyScheduleWeek(week) {
+        const box = document.getElementById('myScheduleContent');
+        if (!box) return;
+
+        if (week.empty || !(week.days || []).length) {
+            box.innerHTML = `<p class="schedule-empty">${escapeHtmlStr(week.message || 'На эту неделю занятий нет')}</p>`;
+            return;
+        }
+
+        box.innerHTML = (week.days || []).map((day) => {
+            const lessons = (day.lessons || []).map((les) => `
+                <li class="schedule-lesson">
+                    <div class="schedule-lesson-time">${escapeHtmlStr(les.timeLabel || `${les.timeStart || ''}-${les.timeEnd || ''}`)}</div>
+                    <div>
+                        <div class="schedule-lesson-subject">${escapeHtmlStr(les.subjectName)}</div>
+                        <div class="schedule-lesson-meta">${escapeHtmlStr(les.lessonTypeLabel || '')}${les.room ? ` · ${escapeHtmlStr(les.room)}` : ''}${les.teacher ? ` · ${escapeHtmlStr(les.teacher)}` : ''}</div>
+                    </div>
+                </li>
+            `).join('');
+
+            const title = `${MY_SCHEDULE_DAY_NAMES[day.dayOfWeek] || day.date} · ${day.date}`;
+            return `
+                <section class="schedule-day-block">
+                    <h2 class="schedule-day-title">${escapeHtmlStr(title)}</h2>
+                    <ul class="schedule-lesson-list">${lessons}</ul>
+                </section>
+            `;
+        }).join('');
+    }
+
+    async function loadMyScheduleProfile(user) {
+        const card = document.getElementById('myScheduleCard');
+        const box = document.getElementById('myScheduleContent');
+        const weekLabel = document.getElementById('myScheduleWeekLabel');
+        const groupLabel = document.getElementById('myScheduleGroupLabel');
+        if (!card || !box) return;
+
+        const hasGroup = !!(user?.kgmaGroupId || user?.groupName);
+        if (!hasGroup) {
+            card.style.display = 'none';
+            return;
+        }
+
+        card.style.display = '';
+        box.innerHTML = '<p class="schedule-empty">Загрузка…</p>';
+        if (groupLabel) {
+            groupLabel.textContent = user.groupName
+                ? `Группа: ${user.groupName}`
+                : 'Группа указана в профиле';
+        }
+
+        try {
+            const res = await fetch(`${API_URL}/schedule/my/week`, {
+                headers: currentToken ? { Authorization: `Bearer ${currentToken}` } : {}
+            });
+            const week = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(week.error || 'Ошибка загрузки');
+
+            if (weekLabel && week.weekStart && week.weekEnd) {
+                weekLabel.textContent = `Неделя ${week.weekStart} — ${week.weekEnd}`;
+            }
+            renderMyScheduleWeek(week);
+        } catch (error) {
+            box.innerHTML = `<p class="schedule-empty">${escapeHtmlStr(error.message || 'Не удалось загрузить расписание')}</p>`;
         }
     }
 
@@ -3195,6 +3273,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
                 // Направление: факультет + курс
                 await fillProfileDirectionForm(user);
+                await loadMyScheduleProfile(user);
                 if (createdAtEl && user.createdAt) {
                     const createdAt = new Date(user.createdAt);
                     if (!isNaN(createdAt.getTime())) {

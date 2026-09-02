@@ -90,6 +90,10 @@
     color: var(--text-muted);
 }
 
+.my-schedule-content .schedule-day-block:last-child {
+    margin-bottom: 0;
+}
+
 @media (max-width: 640px) {
     .schedule-lesson {
         grid-template-columns: 1fr;
