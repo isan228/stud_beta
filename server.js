@@ -293,6 +293,12 @@ sequelize.authenticate()
     } catch (e) {
       console.warn('startKgmaWeeklyScheduler:', e.message);
     }
+    try {
+      const { startScheduleReminderScheduler } = require('./utils/scheduleReminders');
+      startScheduleReminderScheduler();
+    } catch (e) {
+      console.warn('startScheduleReminderScheduler:', e.message);
+    }
     const onListen = () => {
       console.log(`Сервер запущен на порту ${PORT}` + (LISTEN_HOST ? ` (bind: ${LISTEN_HOST})` : ''));
       if (!LISTEN_HOST) {

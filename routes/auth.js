@@ -6,6 +6,27 @@ const crypto = require('crypto');
 const { Op } = require('sequelize');
 const { User, UserStats, UserDeviceAlert, UserBroadcastNotification, BroadcastMessage, University, Faculty } = require('../models');
 const { ALLOWED_COURSES, ensureLechfakForUniversity } = require('../utils/ensureFaculties');
+const { fetchKgmaMeta, listKgmaGroups } = require('../utils/kgmaSchedule');
+
+const USER_PROFILE_ATTRIBUTES = [
+  'id', 'username', 'email', 'createdAt', 'referralCode', 'coins',
+  'subscriptionEndDate', 'usmleSubscriptionEndDate',
+  'universityId', 'facultyId', 'course', 'groupName', 'kgmaGroupId'
+];
+
+function userProfileIncludes() {
+  return [{
+    model: University,
+    as: 'University',
+    attributes: ['id', 'name', 'shortName'],
+    required: false
+  }, {
+    model: Faculty,
+    as: 'Faculty',
+    attributes: ['id', 'name', 'shortName', 'universityId'],
+    required: false
+  }];
+}
 
 function getClientIp(req) {
   const forwarded = req.headers['x-forwarded-for'];
@@ -337,18 +358,8 @@ router.put('/account-alerts/broadcast/:id/dismiss', require('../middleware/auth'
 router.get('/me', require('../middleware/auth'), async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
-      attributes: ['id', 'username', 'email', 'createdAt', 'referralCode', 'coins', 'subscriptionEndDate', 'usmleSubscriptionEndDate', 'universityId', 'facultyId', 'course'],
-      include: [{
-        model: University,
-        as: 'University',
-        attributes: ['id', 'name', 'shortName'],
-        required: false
-      }, {
-        model: Faculty,
-        as: 'Faculty',
-        attributes: ['id', 'name', 'shortName', 'universityId'],
-        required: false
-      }]
+      attributes: USER_PROFILE_ATTRIBUTES,
+      include: userProfileIncludes()
     });
     
     // Если у пользователя нет реферального кода, генерируем его
@@ -381,17 +392,7 @@ router.get('/me', require('../middleware/auth'), async (req, res) => {
       if (!user.course) user.course = 1;
       await user.save();
       await user.reload({
-        include: [{
-          model: University,
-          as: 'University',
-          attributes: ['id', 'name', 'shortName'],
-          required: false
-        }, {
-          model: Faculty,
-          as: 'Faculty',
-          attributes: ['id', 'name', 'shortName', 'universityId'],
-          required: false
-        }]
+        include: userProfileIncludes()
       });
     }
     
@@ -425,6 +426,8 @@ router.put('/direction', require('../middleware/auth'), async (req, res) => {
 
     const facultyId = parseInt(req.body.facultyId, 10);
     const course = parseInt(req.body.course, 10);
+    const kgmaGroupId = req.body.kgmaGroupId != null ? String(req.body.kgmaGroupId).trim() : null;
+    const groupName = req.body.groupName != null ? String(req.body.groupName).trim() : null;
     if (!Number.isFinite(facultyId) || facultyId <= 0) {
       return res.status(400).json({ error: 'Выберите факультет' });
     }
@@ -441,21 +444,23 @@ router.put('/direction', require('../middleware/auth'), async (req, res) => {
 
     user.facultyId = faculty.id;
     user.course = course;
+
+    if (kgmaGroupId) {
+      user.kgmaGroupId = kgmaGroupId;
+      user.groupName = groupName || user.groupName || null;
+    } else if (groupName) {
+      user.groupName = groupName;
+      user.kgmaGroupId = null;
+    } else if (req.body.kgmaGroupId === '' || req.body.groupName === '') {
+      user.kgmaGroupId = null;
+      user.groupName = null;
+    }
+
     await user.save();
 
     const full = await User.findByPk(user.id, {
-      attributes: ['id', 'username', 'email', 'createdAt', 'referralCode', 'coins', 'subscriptionEndDate', 'usmleSubscriptionEndDate', 'universityId', 'facultyId', 'course'],
-      include: [{
-        model: University,
-        as: 'University',
-        attributes: ['id', 'name', 'shortName'],
-        required: false
-      }, {
-        model: Faculty,
-        as: 'Faculty',
-        attributes: ['id', 'name', 'shortName', 'universityId'],
-        required: false
-      }]
+      attributes: USER_PROFILE_ATTRIBUTES,
+      include: userProfileIncludes()
     });
 
     res.json({ user: full, message: 'Направление сохранено' });

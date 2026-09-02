@@ -78,6 +78,16 @@ const User = sequelize.define('User', {
     allowNull: true,
     comment: 'Выбранный курс 1–6'
   },
+  groupName: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    comment: 'Название учебной группы'
+  },
+  kgmaGroupId: {
+    type: DataTypes.STRING(20),
+    allowNull: true,
+    comment: 'ID группы на kgma.kg для расписания и напоминаний'
+  },
   subscriptionEndDate: {
     type: DataTypes.DATE,
     allowNull: true,

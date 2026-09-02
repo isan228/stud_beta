@@ -3015,6 +3015,56 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     }
 
     // Профиль
+    async function fillProfileGroupSelect(user) {
+        const wrap = document.getElementById('profileGroupWrap');
+        const groupSelect = document.getElementById('profileGroupId');
+        const facultySelect = document.getElementById('profileFacultyId');
+        const courseSelect = document.getElementById('profileCourse');
+        if (!wrap || !groupSelect) return;
+
+        const facultyId = facultySelect?.value || user?.facultyId || '';
+        const course = courseSelect?.value || user?.course || '';
+
+        try {
+            const params = new URLSearchParams();
+            if (facultyId) params.set('facultyId', facultyId);
+            if (course) params.set('course', course);
+            const res = await fetch(`${API_URL}/schedule/kgma/profile-groups?${params.toString()}`, {
+                headers: currentToken ? { Authorization: `Bearer ${currentToken}` } : {}
+            });
+            if (!res.ok) {
+                wrap.style.display = 'none';
+                return;
+            }
+            const data = await res.json();
+            if (!data.isKgma) {
+                wrap.style.display = 'none';
+                return;
+            }
+
+            wrap.style.display = '';
+            if (data.needDirection) {
+                groupSelect.innerHTML = '<option value="">Сначала выберите факультет и курс</option>';
+                return;
+            }
+
+            const groups = Array.isArray(data.groups) ? data.groups : [];
+            groupSelect.innerHTML = groups.length
+                ? '<option value="">Выберите группу</option>'
+                  + groups.map((g) => `<option value="${g.id}" data-name="${escapeHtmlStr(g.name)}">${escapeHtmlStr(g.name)}</option>`).join('')
+                : '<option value="">Группы не найдены</option>';
+
+            const selected = user?.kgmaGroupId || data.selectedGroupId;
+            if (selected && groupSelect.querySelector(`option[value="${CSS.escape(String(selected))}"]`)) {
+                groupSelect.value = String(selected);
+            } else {
+                groupSelect.value = '';
+            }
+        } catch (e) {
+            wrap.style.display = 'none';
+        }
+    }
+
     async function fillProfileDirectionForm(user) {
         const facultySelect = document.getElementById('profileFacultyId');
         const courseSelect = document.getElementById('profileCourse');
@@ -3037,8 +3087,18 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 : '<option value="">Нет факультетов</option>';
             if (user.facultyId) facultySelect.value = String(user.facultyId);
             if (user.course) courseSelect.value = String(user.course);
+            await fillProfileGroupSelect(user);
         } catch (e) {
             facultySelect.innerHTML = '<option value="">Ошибка загрузки</option>';
+        }
+
+        if (facultySelect && !facultySelect.dataset.groupBound) {
+            facultySelect.dataset.groupBound = '1';
+            facultySelect.addEventListener('change', () => fillProfileGroupSelect(currentUser));
+        }
+        if (courseSelect && !courseSelect.dataset.groupBound) {
+            courseSelect.dataset.groupBound = '1';
+            courseSelect.addEventListener('change', () => fillProfileGroupSelect(currentUser));
         }
 
         if (form && !form.dataset.bound) {
@@ -3046,20 +3106,33 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 try {
+                    const groupSelect = document.getElementById('profileGroupId');
+                    const groupOption = groupSelect?.selectedOptions?.[0];
+                    const kgmaGroupId = groupSelect?.value || '';
+                    const payload = {
+                        facultyId: parseInt(facultySelect.value, 10),
+                        course: parseInt(courseSelect.value, 10)
+                    };
+                    if (kgmaGroupId) {
+                        payload.kgmaGroupId = kgmaGroupId;
+                        payload.groupName = groupOption?.dataset?.name || groupOption?.textContent || '';
+                    } else if (groupSelect) {
+                        payload.kgmaGroupId = '';
+                        payload.groupName = '';
+                    }
+
                     const res = await fetch(`${API_URL}/auth/direction`, {
                         method: 'PUT',
                         headers: {
                             'Content-Type': 'application/json',
                             Authorization: `Bearer ${currentToken}`
                         },
-                        body: JSON.stringify({
-                            facultyId: parseInt(facultySelect.value, 10),
-                            course: parseInt(courseSelect.value, 10)
-                        })
+                        body: JSON.stringify(payload)
                     });
                     const data = await res.json().catch(() => ({}));
                     if (!res.ok) throw new Error(data.error || 'Ошибка сохранения');
                     currentUser = data.user;
+                    await fillProfileGroupSelect(currentUser);
                     showNotification('Направление сохранено', 'success');
                 } catch (err) {
                     showNotification(err.message || 'Ошибка сохранения', 'error');

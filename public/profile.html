@@ -96,7 +96,7 @@
                     <h3>Направление обучения</h3>
                     <div class="settings-content">
                         <p style="color: var(--text-secondary); margin: 0 0 1rem; font-size: 0.9rem;">
-                            Факультет и курс определяют список предметов на странице «Тесты».
+                            Факультет, курс и группа определяют список предметов и напоминания о парах на завтра.
                         </p>
                         <form id="directionForm">
                             <div class="form-group">
@@ -115,6 +115,15 @@
                                     <option value="5">5 курс</option>
                                     <option value="6">6 курс</option>
                                 </select>
+                            </div>
+                            <div class="form-group" id="profileGroupWrap" style="display:none;">
+                                <label for="profileGroupId">Группа</label>
+                                <select id="profileGroupId">
+                                    <option value="">Выберите группу</option>
+                                </select>
+                                <p style="color: var(--text-secondary); margin: 0.35rem 0 0; font-size: 0.85rem;">
+                                    За день до пары придёт напоминание в колокольчик на сайте.
+                                </p>
                             </div>
                             <button type="submit" class="btn btn-primary">Сохранить направление</button>
                         </form>
