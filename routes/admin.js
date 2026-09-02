@@ -15,6 +15,19 @@ const {
   setSubjectCourses
 } = require('../utils/ensureFaculties');
 const { normalizeTagName, slugifyTag: slugifyTagNorm, mergeMatchingUsmleTags } = require('../utils/usmleTagNormalize');
+const {
+  fetchKgmaMeta,
+  listKgmaCourses,
+  listKgmaGroups,
+  fetchKgmaWeekSchedule,
+  flattenKgmaWeekToEntries,
+  getWeekStart,
+  formatDateISO,
+  getDefaultAcademicYear,
+  getDefaultSemester,
+  KGMA_SCHEDULE_URL
+} = require('../utils/kgmaSchedule');
+const schedulePublic = require('./schedule');
 const { Op, QueryTypes } = require('sequelize');
 const { Sequelize } = require('sequelize');
 
@@ -2936,7 +2949,13 @@ function buildScheduleWhere(query) {
   if (dayOfWeek) where.dayOfWeek = dayOfWeek;
 
   const groupName = (query.groupName || '').trim();
-  if (groupName) where.groupName = groupName;
+  if (groupName) {
+    where[Op.or] = [
+      { groupName },
+      { groupName: null },
+      { groupName: '' }
+    ];
+  }
 
   const academicYear = (query.academicYear || '').trim();
   if (academicYear) where.academicYear = academicYear;
@@ -2949,6 +2968,153 @@ function buildScheduleWhere(query) {
 
   return where;
 }
+
+router.get('/schedule/kgma/meta', adminAuth, async (req, res) => {
+  try {
+    const meta = await fetchKgmaMeta();
+    const facultyId = req.query.facultyId;
+    const course = parseInt(req.query.course, 10);
+    res.json({
+      sourceUrl: KGMA_SCHEDULE_URL,
+      faculty: meta.faculty,
+      courses: facultyId ? listKgmaCourses(meta, facultyId) : [],
+      groups: (facultyId && Number.isFinite(course))
+        ? listKgmaGroups(meta, facultyId, course)
+        : []
+    });
+  } catch (error) {
+    console.error('Ошибка meta КГМА (admin):', error);
+    res.status(502).json({ error: 'Не удалось загрузить данные с kgma.kg' });
+  }
+});
+
+router.get('/schedule/kgma/week', adminAuth, async (req, res) => {
+  try {
+    const kgmaGroupId = String(req.query.kgmaGroupId || '').trim();
+    if (!kgmaGroupId) {
+      return res.status(400).json({ error: 'Укажите kgmaGroupId' });
+    }
+    const weekStart = req.query.weekStart ? getWeekStart(req.query.weekStart) : getWeekStart();
+    const week = await fetchKgmaWeekSchedule(kgmaGroupId, weekStart);
+    res.json({ sourceUrl: KGMA_SCHEDULE_URL, kgmaGroupId, ...week });
+  } catch (error) {
+    console.error('Ошибка расписания КГМА (admin):', error);
+    res.status(502).json({ error: error.message || 'Не удалось загрузить расписание' });
+  }
+});
+
+router.post('/schedule/kgma/import', adminAuth, async (req, res) => {
+  try {
+    const {
+      kgmaFacultyId,
+      course: rawCourse,
+      kgmaGroupId,
+      importAllGroups = false,
+      weekStart: rawWeekStart,
+      academicYear,
+      semester
+    } = req.body || {};
+
+    const course = parseInt(rawCourse, 10);
+    if (!kgmaFacultyId || !Number.isFinite(course) || course < 1) {
+      return res.status(400).json({ error: 'Укажите факультет и курс КГМА' });
+    }
+
+    const university = await schedulePublic.getKgmaUniversity();
+    if (!university) {
+      return res.status(400).json({ error: 'Университет КГМА не найден в системе' });
+    }
+
+    const meta = await fetchKgmaMeta();
+    const kgmaFaculty = meta.faculty.find((f) => String(f.id) === String(kgmaFacultyId));
+    if (!kgmaFaculty) {
+      return res.status(400).json({ error: 'Факультет КГМА не найден' });
+    }
+
+    const faculty = await schedulePublic.resolveFacultyForKgma(university.id, kgmaFaculty);
+    const groups = importAllGroups
+      ? listKgmaGroups(meta, kgmaFacultyId, course)
+      : listKgmaGroups(meta, kgmaFacultyId, course).filter((g) => String(g.id) === String(kgmaGroupId));
+
+    if (!groups.length) {
+      return res.status(400).json({ error: 'Группы не найдены' });
+    }
+
+    const weekStart = rawWeekStart ? getWeekStart(rawWeekStart) : getWeekStart();
+    const year = (academicYear || '').trim() || getDefaultAcademicYear(weekStart);
+    const sem = semester === 'spring' || semester === 'autumn' ? semester : getDefaultSemester(weekStart);
+
+    let imported = 0;
+    let updated = 0;
+    const groupResults = [];
+
+    for (const group of groups) {
+      const week = await fetchKgmaWeekSchedule(group.id, weekStart);
+      const rows = flattenKgmaWeekToEntries({
+        week,
+        universityId: university.id,
+        facultyId: faculty.id,
+        course,
+        groupName: group.name,
+        kgmaFacultyId,
+        kgmaGroupId: group.id,
+        academicYear: year,
+        semester: sem
+      });
+
+      for (const row of rows) {
+        const existing = row.externalKey
+          ? await ScheduleEntry.findOne({ where: { externalKey: row.externalKey } })
+          : null;
+        if (existing) {
+          await existing.update(row);
+          updated += 1;
+        } else {
+          await ScheduleEntry.create(row);
+          imported += 1;
+        }
+      }
+
+      groupResults.push({
+        groupId: group.id,
+        groupName: group.name,
+        lessons: rows.length,
+        empty: week.empty
+      });
+    }
+
+    res.json({
+      message: 'Импорт завершён',
+      sourceUrl: KGMA_SCHEDULE_URL,
+      weekStart: formatDateISO(weekStart),
+      imported,
+      updated,
+      groups: groupResults
+    });
+  } catch (error) {
+    console.error('Ошибка импорта КГМА:', error);
+    res.status(500).json({ error: error.message || 'Ошибка импорта' });
+  }
+});
+
+router.get('/schedule/groups', adminAuth, async (req, res) => {
+  try {
+    const query = { ...req.query };
+    delete query.groupName;
+    const entries = await ScheduleEntry.findAll({
+      where: buildScheduleWhere(query),
+      attributes: ['groupName'],
+      raw: true
+    });
+    const groups = [...new Set(
+      entries.map((e) => (e.groupName || '').trim()).filter(Boolean)
+    )].sort((a, b) => a.localeCompare(b, 'ru'));
+    res.json(groups);
+  } catch (error) {
+    console.error('Ошибка получения групп расписания:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
 
 router.get('/schedule', adminAuth, async (req, res) => {
   try {

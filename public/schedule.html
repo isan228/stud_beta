@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/png" sizes="48x48" href="/img/icon-48.png">
+    <link rel="icon" href="/img/icon.svg" type="image/svg+xml">
+    <link rel="shortcut icon" href="/favicon.png" type="image/png">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="theme-color" content="#2563eb">
+    <title>Расписание — stud.kg</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="schedule.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand"><a href="/"><h1>stud.kg</h1></a></div>
+            <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Меню"><span></span><span></span><span></span></button>
+            <div class="nav-menu" id="navMenu">
+                <a href="/" class="nav-link">Главная</a>
+                <a href="/tests" class="nav-link">Тесты</a>
+                <a href="/schedule" class="nav-link active">Расписание</a>
+                <a href="/usmle" class="nav-link">USMLE</a>
+                <a href="/rating" class="nav-link">Рейтинг</a>
+                <a href="/about" class="nav-link">О нас</a>
+                <a href="/profile" class="nav-link" id="profileLink" style="display: none;">Профиль</a>
+                <div class="nav-actions">
+                    <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему"><span class="theme-icon">🌙</span></button>
+                    <a href="/login" class="btn btn-primary" id="loginBtn">Войти</a>
+                    <button class="btn btn-logout" id="logoutBtn" style="display: none;">Выход</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content schedule-page">
+        <div class="container">
+            <div class="page-header">
+                <h1>Расписание</h1>
+                <p class="schedule-source">Данные с официального сайта <a id="scheduleSourceLink" href="https://www.kgma.kg/ru/student/schedule" target="_blank" rel="noopener">КГМА (kgma.kg)</a></p>
+            </div>
+
+            <div class="schedule-filters">
+                <div class="form-group">
+                    <label for="scheduleFaculty">Факультет</label>
+                    <select id="scheduleFaculty" class="input"></select>
+                </div>
+                <div class="form-group">
+                    <label for="scheduleCourse">Курс</label>
+                    <select id="scheduleCourse" class="input"><option value="">Курс</option></select>
+                </div>
+                <div class="form-group">
+                    <label for="scheduleGroup">Группа</label>
+                    <select id="scheduleGroup" class="input"><option value="">Группа</option></select>
+                </div>
+                <button type="button" class="btn btn-primary" id="scheduleShowBtn">Показать</button>
+            </div>
+
+            <div class="schedule-week-nav">
+                <button type="button" class="btn btn-secondary btn-sm" id="schedulePrevWeek">← Пред. неделя</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="scheduleCurWeek">Текущая</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="scheduleNextWeek">След. неделя →</button>
+                <input type="date" id="scheduleWeekStart" class="input" style="max-width: 170px;">
+                <span class="schedule-week-label" id="scheduleWeekLabel"></span>
+            </div>
+
+            <div id="scheduleContent">
+                <p class="schedule-empty">Выберите факультет, курс и группу</p>
+            </div>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+    <script src="schedule.js"></script>
+</body>
+</html>

@@ -94,6 +94,29 @@ const ScheduleEntry = sequelize.define('ScheduleEntry', {
     allowNull: false,
     defaultValue: true
   },
+  source: {
+    type: DataTypes.ENUM('manual', 'kgma'),
+    allowNull: false,
+    defaultValue: 'manual'
+  },
+  kgmaFacultyId: {
+    type: DataTypes.STRING(20),
+    allowNull: true
+  },
+  kgmaGroupId: {
+    type: DataTypes.STRING(20),
+    allowNull: true
+  },
+  lessonDate: {
+    type: DataTypes.DATEONLY,
+    allowNull: true,
+    comment: 'Конкретная дата (импорт с kgma.kg)'
+  },
+  externalKey: {
+    type: DataTypes.STRING(150),
+    allowNull: true,
+    unique: true
+  },
   createdAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
@@ -108,7 +131,9 @@ const ScheduleEntry = sequelize.define('ScheduleEntry', {
     { fields: ['facultyId'], name: 'schedule_entries_faculty_id_idx' },
     { fields: ['course'], name: 'schedule_entries_course_idx' },
     { fields: ['dayOfWeek'], name: 'schedule_entries_day_idx' },
-    { fields: ['academicYear', 'semester'], name: 'schedule_entries_year_semester_idx' }
+    { fields: ['academicYear', 'semester'], name: 'schedule_entries_year_semester_idx' },
+    { fields: ['kgmaGroupId', 'lessonDate'], name: 'schedule_entries_kgma_group_date_idx' },
+    { fields: ['externalKey'], name: 'schedule_entries_external_key_idx' }
   ]
 });
 

@@ -1448,6 +1448,205 @@ function getDefaultSemester() {
     return month >= 2 && month <= 8 ? 'spring' : 'autumn';
 }
 
+let kgmaMetaCache = null;
+
+async function loadKgmaMetaAdmin() {
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/schedule/kgma/meta`, {
+            headers: adminAuthHeaders()
+        });
+        if (!response.ok) throw new Error();
+        kgmaMetaCache = await response.json();
+
+        const facultySelect = document.getElementById('kgmaFacultyFilter');
+        if (facultySelect) {
+            const keep = facultySelect.value;
+            facultySelect.innerHTML = '<option value="">Факультет КГМА</option>'
+                + (kgmaMetaCache.faculty || []).map((f) =>
+                    `<option value="${f.id}">${escapeAdminHtml(f.name)}</option>`
+                ).join('');
+            if (keep) facultySelect.value = keep;
+        }
+
+        const weekInput = document.getElementById('kgmaWeekStart');
+        if (weekInput && !weekInput.value) {
+            const wk = await fetch('/api/schedule/kgma/current-week-start').then((r) => r.json()).catch(() => null);
+            if (wk?.weekStart) weekInput.value = wk.weekStart;
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки meta КГМА:', error);
+    }
+}
+
+async function fillKgmaCourseGroupFilters() {
+    const facultyId = document.getElementById('kgmaFacultyFilter')?.value || '';
+    const courseSelect = document.getElementById('kgmaCourseFilter');
+    const groupSelect = document.getElementById('kgmaGroupFilter');
+    if (!courseSelect || !groupSelect) return;
+
+    if (!facultyId) {
+        courseSelect.innerHTML = '<option value="">Курс</option>';
+        groupSelect.innerHTML = '<option value="">Все группы</option>';
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            `${ADMIN_API_URL}/schedule/kgma/meta?facultyId=${encodeURIComponent(facultyId)}`,
+            { headers: adminAuthHeaders() }
+        );
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+
+        courseSelect.innerHTML = '<option value="">Курс</option>'
+            + (data.courses || []).map((c) => `<option value="${c}">${c} курс</option>`).join('');
+        groupSelect.innerHTML = '<option value="">Все группы</option>';
+    } catch (error) {
+        console.error('Ошибка курсов КГМА:', error);
+    }
+}
+
+async function fillKgmaGroupFilter() {
+    const facultyId = document.getElementById('kgmaFacultyFilter')?.value || '';
+    const course = document.getElementById('kgmaCourseFilter')?.value || '';
+    const groupSelect = document.getElementById('kgmaGroupFilter');
+    if (!groupSelect || !facultyId || !course) return;
+
+    try {
+        const response = await fetch(
+            `${ADMIN_API_URL}/schedule/kgma/meta?facultyId=${encodeURIComponent(facultyId)}&course=${encodeURIComponent(course)}`,
+            { headers: adminAuthHeaders() }
+        );
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        const keep = groupSelect.value;
+        groupSelect.innerHTML = '<option value="">Все группы</option>'
+            + (data.groups || []).map((g) =>
+                `<option value="${g.id}">${escapeAdminHtml(g.name)}</option>`
+            ).join('');
+        if (keep) groupSelect.value = keep;
+    } catch (error) {
+        console.error('Ошибка групп КГМА:', error);
+    }
+}
+
+function renderKgmaWeekPreview(week, groupLabel) {
+    const container = document.getElementById('kgmaSchedulePreview');
+    if (!container) return;
+
+    if (!week || week.empty) {
+        container.innerHTML = `<p style="color:var(--text-muted);padding:1rem;text-align:center;">${escapeAdminHtml(week?.message || 'На эту неделю занятий нет')}</p>`;
+        return;
+    }
+
+    const header = `<p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 0.75rem;">Неделя ${escapeAdminHtml(week.weekStart)} — ${escapeAdminHtml(week.weekEnd)}${groupLabel ? ` · ${escapeAdminHtml(groupLabel)}` : ''}</p>`;
+
+    const blocks = (week.days || []).map((day) => {
+        const rows = (day.lessons || []).map((les) => `
+            <tr>
+                <td>${escapeAdminHtml(les.timeLabel || `${les.timeStart || ''}-${les.timeEnd || ''}`)}</td>
+                <td><strong>${escapeAdminHtml(les.subjectName)}</strong></td>
+                <td>${escapeAdminHtml(les.lessonTypeLabel || les.lessonType)}</td>
+                <td>${escapeAdminHtml(les.room || '—')}</td>
+            </tr>
+        `).join('');
+
+        const title = `${SCHEDULE_DAY_NAMES[day.dayOfWeek] || day.date} · ${day.date}`;
+        return `
+            <div class="admin-schedule-day-block">
+                <h3 class="admin-schedule-day-title">${escapeAdminHtml(title)}</h3>
+                <table class="admin-table">
+                    <thead><tr><th>Время</th><th>Предмет</th><th>Тип</th><th>Аудитория</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = header + blocks;
+}
+
+async function viewKgmaScheduleAdmin() {
+    const facultyId = document.getElementById('kgmaFacultyFilter')?.value;
+    const course = document.getElementById('kgmaCourseFilter')?.value;
+    const kgmaGroupId = document.getElementById('kgmaGroupFilter')?.value;
+    const weekStart = document.getElementById('kgmaWeekStart')?.value;
+
+    if (!facultyId || !course) {
+        showNotification('Выберите факультет и курс КГМА', 'error');
+        return;
+    }
+    if (!kgmaGroupId) {
+        showNotification('Для просмотра выберите группу', 'error');
+        return;
+    }
+
+    try {
+        const params = new URLSearchParams({ kgmaGroupId });
+        if (weekStart) params.set('weekStart', weekStart);
+        const response = await fetch(`${ADMIN_API_URL}/schedule/kgma/week?${params}`, {
+            headers: adminAuthHeaders()
+        });
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error || 'Ошибка загрузки');
+        }
+        const week = await response.json();
+        const groupName = document.getElementById('kgmaGroupFilter')?.selectedOptions?.[0]?.textContent || '';
+        renderKgmaWeekPreview(week, groupName);
+    } catch (error) {
+        showNotification(error.message || 'Не удалось загрузить с КГМА', 'error');
+    }
+}
+
+async function importKgmaScheduleAdmin() {
+    const kgmaFacultyId = document.getElementById('kgmaFacultyFilter')?.value;
+    const course = document.getElementById('kgmaCourseFilter')?.value;
+    const kgmaGroupId = document.getElementById('kgmaGroupFilter')?.value || '';
+    const weekStart = document.getElementById('kgmaWeekStart')?.value;
+    const importAllGroups = !kgmaGroupId;
+
+    if (!kgmaFacultyId || !course) {
+        showNotification('Выберите факультет и курс КГМА', 'error');
+        return;
+    }
+
+    const label = importAllGroups ? 'все группы' : `группу ${document.getElementById('kgmaGroupFilter')?.selectedOptions?.[0]?.textContent || ''}`;
+    if (!confirm(`Импортировать расписание (${label}) с kgma.kg в локальную базу?`)) return;
+
+    const btn = document.getElementById('kgmaImportBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Импорт…'; }
+
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/schedule/kgma/import`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...adminAuthHeaders()
+            },
+            body: JSON.stringify({
+                kgmaFacultyId,
+                course: parseInt(course, 10),
+                kgmaGroupId: kgmaGroupId || undefined,
+                importAllGroups,
+                weekStart: weekStart || undefined,
+                academicYear: document.getElementById('scheduleYearFilter')?.value?.trim() || undefined,
+                semester: document.getElementById('scheduleSemesterFilter')?.value || undefined
+            })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Ошибка импорта');
+
+        showNotification(`Импорт: +${result.imported || 0}, обновлено ${result.updated || 0}`, 'success');
+        await loadScheduleAdmin();
+        if (kgmaGroupId) await viewKgmaScheduleAdmin();
+    } catch (error) {
+        showNotification(error.message || 'Ошибка импорта', 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Импорт в базу'; }
+    }
+}
+
 function formatScheduleTimeRange(entry) {
     if (entry.timeStart && entry.timeEnd) return `${entry.timeStart}–${entry.timeEnd}`;
     if (entry.timeStart) return `с ${entry.timeStart}`;
@@ -1531,6 +1730,36 @@ async function fillScheduleFacultySelect(universityId, selectEl, selectedId) {
     }
 }
 
+async function fillScheduleGroupFilter(selectedValue) {
+    const select = document.getElementById('scheduleGroupFilter');
+    if (!select) return;
+
+    const keepValue = selectedValue != null ? selectedValue : select.value;
+
+    try {
+        const params = getScheduleFilterParams();
+        params.delete('groupName');
+        const response = await fetch(`${ADMIN_API_URL}/schedule/groups?${params.toString()}`, {
+            headers: adminAuthHeaders()
+        });
+        if (!response.ok) throw new Error();
+        const groups = await response.json();
+
+        select.innerHTML = '<option value="">Все группы</option>'
+            + groups.map((g) => `<option value="${escapeAdminHtml(g)}">${escapeAdminHtml(g)}</option>`).join('');
+
+        if (keepValue && (keepValue === '' || groups.includes(keepValue))) {
+            select.value = keepValue;
+        } else {
+            select.value = '';
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки групп расписания:', error);
+        select.innerHTML = '<option value="">Все группы</option>';
+        select.value = '';
+    }
+}
+
 function renderScheduleAdminTable(entries) {
     const container = document.getElementById('scheduleAdminList');
     if (!container) return;
@@ -1555,7 +1784,6 @@ function renderScheduleAdminTable(entries) {
                 entry.University?.shortName || entry.University?.name || '—',
                 entry.Faculty?.shortName || entry.Faculty?.name || '—',
                 `${entry.course} курс`,
-                entry.groupName ? `гр. ${entry.groupName}` : 'все группы',
                 SCHEDULE_SEMESTER_LABELS[entry.semester] || entry.semester,
                 entry.academicYear || '—'
             ].join(' · ');
@@ -1563,6 +1791,7 @@ function renderScheduleAdminTable(entries) {
             return `
                 <tr${inactive}>
                     <td>${formatScheduleTimeRange(entry)}</td>
+                    <td>${escapeAdminHtml(entry.groupName || 'Все')}</td>
                     <td><strong>${escapeAdminHtml(entry.subjectName)}</strong><br><span style="font-size:0.78rem;color:var(--text-muted);">${escapeAdminHtml(meta)}</span></td>
                     <td>${escapeAdminHtml(SCHEDULE_LESSON_TYPE_LABELS[entry.lessonType] || entry.lessonType)}</td>
                     <td>${escapeAdminHtml(entry.teacher || '—')}</td>
@@ -1583,6 +1812,7 @@ function renderScheduleAdminTable(entries) {
                     <thead>
                         <tr>
                             <th>Время</th>
+                            <th>Группа</th>
                             <th>Предмет</th>
                             <th>Тип</th>
                             <th>Преподаватель</th>
@@ -1601,6 +1831,7 @@ function renderScheduleAdminTable(entries) {
 async function loadScheduleAdmin() {
     try {
         await fillScheduleUniversitySelects();
+        await loadKgmaMetaAdmin();
 
         const yearFilter = document.getElementById('scheduleYearFilter');
         if (yearFilter && !yearFilter.value) {
@@ -1610,6 +1841,10 @@ async function loadScheduleAdmin() {
         if (semesterFilter && !semesterFilter.value) {
             semesterFilter.value = getDefaultSemester();
         }
+
+        const groupFilter = document.getElementById('scheduleGroupFilter');
+        const selectedGroup = groupFilter?.value || '';
+        await fillScheduleGroupFilter(selectedGroup);
 
         const params = getScheduleFilterParams();
         const response = await fetch(`${ADMIN_API_URL}/schedule?${params.toString()}`, {
@@ -1804,8 +2039,49 @@ function setupScheduleEventListeners() {
     if (uniFilter) {
         uniFilter.addEventListener('change', async () => {
             await fillScheduleFacultySelect(uniFilter.value, document.getElementById('scheduleFacultyFilter'));
+            const groupFilter = document.getElementById('scheduleGroupFilter');
+            if (groupFilter) groupFilter.value = '';
+            await fillScheduleGroupFilter('');
         });
     }
+
+    const facultyFilter = document.getElementById('scheduleFacultyFilter');
+    if (facultyFilter) {
+        facultyFilter.addEventListener('change', async () => {
+            const groupFilter = document.getElementById('scheduleGroupFilter');
+            if (groupFilter) groupFilter.value = '';
+            await fillScheduleGroupFilter('');
+        });
+    }
+
+    const courseFilter = document.getElementById('scheduleCourseFilter');
+    if (courseFilter) {
+        courseFilter.addEventListener('change', async () => {
+            const groupFilter = document.getElementById('scheduleGroupFilter');
+            if (groupFilter) groupFilter.value = '';
+            await fillScheduleGroupFilter('');
+        });
+    }
+
+    const groupFilter = document.getElementById('scheduleGroupFilter');
+    if (groupFilter) {
+        groupFilter.addEventListener('change', loadScheduleAdmin);
+    }
+
+    const kgmaFaculty = document.getElementById('kgmaFacultyFilter');
+    if (kgmaFaculty) {
+        kgmaFaculty.addEventListener('change', async () => {
+            await fillKgmaCourseGroupFilters();
+        });
+    }
+    const kgmaCourse = document.getElementById('kgmaCourseFilter');
+    if (kgmaCourse) {
+        kgmaCourse.addEventListener('change', fillKgmaGroupFilter);
+    }
+    const kgmaViewBtn = document.getElementById('kgmaViewBtn');
+    if (kgmaViewBtn) kgmaViewBtn.addEventListener('click', viewKgmaScheduleAdmin);
+    const kgmaImportBtn = document.getElementById('kgmaImportBtn');
+    if (kgmaImportBtn) kgmaImportBtn.addEventListener('click', importKgmaScheduleAdmin);
 
     const uniModal = document.getElementById('scheduleUniversityId');
     if (uniModal) {

@@ -392,6 +392,30 @@
                         <h2>Расписание студентов</h2>
                         <button class="btn btn-primary" id="addScheduleBtn">+ Добавить занятие</button>
                     </div>
+
+                    <div class="admin-kgma-panel">
+                        <div class="admin-kgma-panel-head">
+                            <h3>КГМА — данные с <a href="https://www.kgma.kg/ru/student/schedule" target="_blank" rel="noopener">kgma.kg</a></h3>
+                            <p class="page-description">Факультеты, курсы и группы подгружаются с официального сайта академии.</p>
+                        </div>
+                        <div class="admin-schedule-filters">
+                            <select id="kgmaFacultyFilter" class="form-group input">
+                                <option value="">Факультет КГМА</option>
+                            </select>
+                            <select id="kgmaCourseFilter" class="form-group input">
+                                <option value="">Курс</option>
+                            </select>
+                            <select id="kgmaGroupFilter" class="form-group input">
+                                <option value="">Все группы</option>
+                            </select>
+                            <input type="date" id="kgmaWeekStart" class="form-group input" title="Неделя с понедельника">
+                            <button type="button" class="btn btn-secondary" id="kgmaViewBtn">Показать с КГМА</button>
+                            <button type="button" class="btn btn-primary" id="kgmaImportBtn">Импорт в базу</button>
+                        </div>
+                        <div id="kgmaSchedulePreview" class="admin-table-container"></div>
+                    </div>
+
+                    <h3 style="margin: 1.5rem 0 0.75rem;">Локальная база (редактирование)</h3>
                     <div class="admin-schedule-filters">
                         <select id="scheduleUniversityFilter" class="form-group input">
                             <option value="">Университет</option>
@@ -408,7 +432,9 @@
                             <option value="5">5 курс</option>
                             <option value="6">6 курс</option>
                         </select>
-                        <input type="text" id="scheduleGroupFilter" class="form-group input" placeholder="Группа">
+                        <select id="scheduleGroupFilter" class="form-group input">
+                            <option value="">Все группы</option>
+                        </select>
                         <input type="text" id="scheduleYearFilter" class="form-group input" placeholder="Учебный год (2025-2026)">
                         <select id="scheduleSemesterFilter" class="form-group input">
                             <option value="">Семестр</option>

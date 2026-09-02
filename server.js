@@ -90,6 +90,7 @@ const editorAuth = require('./middleware/editorAuth');
 app.use('/api/admin', createQuestionImageRouter(adminAuth));
 app.use('/api/redact', createQuestionImageRouter(editorAuth));
 app.use('/api/news', require('./routes/news'));
+app.use('/api/schedule', require('./routes/schedule'));
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/chat', require('./routes/chat'));
 
@@ -149,6 +150,7 @@ const pages = {
   '/payment/success': 'payment-success.html',
   '/subscriptions': 'subscriptions.html',
   '/usmle-test-builder': 'usmle-test-builder.html',
+  '/schedule': 'schedule.html',
   '/download': 'download.html'
 };
 
