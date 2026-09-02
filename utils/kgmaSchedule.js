@@ -1,7 +1,8 @@
-const fetch = global.fetch || require('node-fetch');
+const https = require('https');
 
 const KGMA_BASE = 'https://www.kgma.kg';
 const KGMA_LANG = 'ru';
+const KGMA_FETCH_TIMEOUT_MS = 30000;
 
 const LESSON_TYPE_MAP = {
   'лекция': 'lecture',
@@ -55,17 +56,47 @@ function dayOfWeekFromDate(dateStr) {
 }
 
 async function kgmaFetchJson(path) {
-  const url = `${KGMA_BASE}/${KGMA_LANG}${path}`;
-  const res = await fetch(url, {
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': 'stud.kg-schedule-sync/1.0'
-    }
+  const url = new URL(`${KGMA_BASE}/${KGMA_LANG}${path}`);
+
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: url.hostname,
+      path: `${url.pathname}${url.search}`,
+      method: 'GET',
+      headers: {
+        Accept: 'application/json, text/plain, */*',
+        'User-Agent': 'Mozilla/5.0 (compatible; stud.kg/1.0)',
+        Referer: `${KGMA_BASE}/${KGMA_LANG}/student/schedule`
+      },
+      // У kgma.kg неполная цепочка SSL — curl работает, Node fetch падает без этого
+      rejectUnauthorized: false,
+      timeout: KGMA_FETCH_TIMEOUT_MS
+    }, (res) => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => { body += chunk; });
+      res.on('end', () => {
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          reject(new Error(`КГМА: HTTP ${res.statusCode}`));
+          return;
+        }
+        try {
+          resolve(JSON.parse(body));
+        } catch {
+          reject(new Error('КГМА: неверный ответ сервера'));
+        }
+      });
+    });
+
+    req.on('error', (err) => {
+      reject(new Error(err.message || 'КГМА: ошибка сети'));
+    });
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('КГМА: превышено время ожидания'));
+    });
+    req.end();
   });
-  if (!res.ok) {
-    throw new Error(`КГМА: HTTP ${res.status}`);
-  }
-  return res.json();
 }
 
 /** @returns {{ faculty: Array, course: Object, groups: Object }} */
