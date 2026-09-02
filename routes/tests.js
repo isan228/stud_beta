@@ -1,7 +1,8 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
-const { Test, Question, Answer, Subject, Favorite, TestResult, User, University, Faculty, SubjectCourse, QuestionTag, QuestionTagMap } = require('../models');
+const { Test, Question, Answer, Subject, Favorite, TestResult, User, University, Faculty, SubjectCourse, QuestionTag, QuestionTagMap, Flashcard } = require('../models');
+const { buildHighlightHtml } = require('../utils/flashcardHighlight');
 const { Op } = require('sequelize');
 const { isSubscriptionActive } = require('../utils/subscriptionPlans');
 const { parseImageUrls, firstImageUrl } = require('../utils/mediaField');
@@ -979,6 +980,47 @@ router.get('/usmle/tags', async (req, res) => {
     res.json(tags);
   } catch (error) {
     console.error('Ошибка получения тегов USMLE:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+/** USMLE Flashcards */
+router.get('/usmle/flashcards', async (req, res) => {
+  try {
+    const where = { isActive: true };
+    const testId = parseInt(req.query.testId, 10);
+    const tagId = parseInt(req.query.tagId, 10);
+    const stepGroup = String(req.query.stepGroup || req.query.step || '').trim();
+
+    if (Number.isFinite(testId) && testId > 0) where.testId = testId;
+    if (['step1', 'step2', 'step3'].includes(stepGroup)) where.stepGroup = stepGroup;
+
+    const include = [{
+      model: QuestionTag,
+      as: 'Tags',
+      attributes: ['id', 'name', 'slug'],
+      through: { attributes: [] },
+      required: false
+    }];
+
+    if (Number.isFinite(tagId) && tagId > 0) {
+      include[0].where = { id: tagId };
+      include[0].required = true;
+    }
+
+    const rows = await Flashcard.findAll({
+      where,
+      include,
+      order: [['sortOrder', 'ASC'], ['id', 'ASC']]
+    });
+
+    res.json(rows.map((row) => {
+      const json = row.toJSON();
+      json.backHtml = buildHighlightHtml(json.frontText, json.backText);
+      return json;
+    }));
+  } catch (error) {
+    console.error('Ошибка USMLE flashcards:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

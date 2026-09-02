@@ -150,6 +150,7 @@ const pages = {
   '/payment/success': 'payment-success.html',
   '/subscriptions': 'subscriptions.html',
   '/usmle-test-builder': 'usmle-test-builder.html',
+  '/usmle-flashcards': 'usmle-flashcards.html',
   '/schedule': 'schedule.html',
   '/download': 'download.html'
 };

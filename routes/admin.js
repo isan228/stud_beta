@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const adminAuth = require('../middleware/adminAuth');
-const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, Editor, EditorAuditLog, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, BroadcastMessage, UserBroadcastNotification, Transaction, University, Faculty, SubjectFaculty, SubjectCourse, SubscriptionPlan, QuestionTag, QuestionTagMap, ScheduleEntry, sequelize } = require('../models');
+const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, Editor, EditorAuditLog, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, BroadcastMessage, UserBroadcastNotification, Transaction, University, Faculty, SubjectFaculty, SubjectCourse, SubscriptionPlan, QuestionTag, QuestionTagMap, ScheduleEntry, Flashcard, FlashcardTagMap, sequelize } = require('../models');
 const { snapshotFromQuestion, logQuestionAudit } = require('../utils/questionAuditLog');
 const { ensurePlansForUniversity, getPlansForUniversity, ensurePlansForUsmle, getPlansForUsmle, ALLOWED_MONTHS, planTitle, uniPlanScope, USMLE_PLAN_SCOPE } = require('../utils/subscriptionPlans');
 const {
@@ -32,6 +33,13 @@ const {
   getLastSyncDate,
   getLastSyncResult
 } = require('../utils/kgmaScheduleSync');
+const {
+  FLASHCARD_IMAGES_DIR,
+  isAllowedImageMime,
+  safeImageExt,
+  flashcardImageFilename,
+  deleteFlashcardImageFile
+} = require('../utils/flashcardImages');
 const schedulePublic = require('./schedule');
 const { Op, QueryTypes } = require('sequelize');
 const { Sequelize } = require('sequelize');
@@ -84,6 +92,39 @@ async function syncQuestionTags(questionId, tagIds) {
     });
   }
   return tags;
+}
+
+async function syncFlashcardTags(flashcardId, tagIds) {
+  const ids = [...new Set((Array.isArray(tagIds) ? tagIds : [])
+    .map((x) => parseInt(x, 10))
+    .filter((n) => Number.isFinite(n) && n > 0))];
+
+  await FlashcardTagMap.destroy({ where: { flashcardId } });
+  if (!ids.length) return [];
+
+  const tags = await QuestionTag.findAll({ where: { id: { [Op.in]: ids }, isActive: true } });
+  for (const tag of tags) {
+    await FlashcardTagMap.findOrCreate({
+      where: { flashcardId, tagId: tag.id },
+      defaults: { flashcardId, tagId: tag.id }
+    });
+  }
+  return tags;
+}
+
+function flashcardInclude() {
+  return [{
+    model: Test,
+    as: 'Test',
+    attributes: ['id', 'name', 'programType'],
+    required: false
+  }, {
+    model: QuestionTag,
+    as: 'Tags',
+    attributes: ['id', 'name', 'slug'],
+    through: { attributes: [] },
+    required: false
+  }];
 }
 
 async function attachQuestionCountsToTests(tests) {
@@ -1895,10 +1936,243 @@ router.delete('/question-tags/:id', adminAuth, async (req, res) => {
     const tag = await QuestionTag.findByPk(req.params.id);
     if (!tag) return res.status(404).json({ error: 'Тег не найден' });
     await QuestionTagMap.destroy({ where: { tagId: tag.id } });
+    await FlashcardTagMap.destroy({ where: { tagId: tag.id } });
     await tag.destroy();
     res.json({ message: 'Тег удалён' });
   } catch (error) {
     console.error('Ошибка удаления тега:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// USMLE Flashcards
+router.get('/flashcards', adminAuth, async (req, res) => {
+  try {
+    const where = { isActive: true };
+    const testId = parseInt(req.query.testId, 10);
+    const tagId = parseInt(req.query.tagId, 10);
+    const stepGroup = String(req.query.stepGroup || '').trim();
+
+    if (Number.isFinite(testId) && testId > 0) where.testId = testId;
+    if (['step1', 'step2', 'step3'].includes(stepGroup)) where.stepGroup = stepGroup;
+
+    const include = flashcardInclude();
+    if (Number.isFinite(tagId) && tagId > 0) {
+      include[1].where = { id: tagId };
+      include[1].required = true;
+    }
+
+    const rows = await Flashcard.findAll({
+      where,
+      include,
+      order: [['sortOrder', 'ASC'], ['id', 'ASC']]
+    });
+    res.json(rows);
+  } catch (error) {
+    console.error('Ошибка списка flashcards:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.get('/flashcards/:id', adminAuth, async (req, res) => {
+  try {
+    const row = await Flashcard.findByPk(req.params.id, { include: flashcardInclude() });
+    if (!row) return res.status(404).json({ error: 'Карточка не найдена' });
+    res.json(row);
+  } catch (error) {
+    console.error('Ошибка flashcard:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.post('/flashcards', adminAuth, [
+  body('frontText').trim().notEmpty().withMessage('Текст вопроса обязателен'),
+  body('backText').trim().notEmpty().withMessage('Текст ответа обязателен'),
+  body('stepGroup').isIn(['step1', 'step2', 'step3']).withMessage('Укажите Step 1/2/3')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    const { frontText, backText, keyword, testId: rawTestId, stepGroup, tagIds, sortOrder } = req.body;
+    const testId = rawTestId ? parseInt(rawTestId, 10) : null;
+
+    if (testId) {
+      const test = await Test.findByPk(testId, { include: [{ model: Subject, as: 'Subject' }] });
+      if (!test || test.programType !== 'usmle') {
+        return res.status(400).json({ error: 'USMLE-тест не найден' });
+      }
+    }
+
+    const card = await Flashcard.create({
+      frontText: String(frontText).trim(),
+      backText: String(backText).trim(),
+      keyword: keyword != null && String(keyword).trim() ? String(keyword).trim() : null,
+      testId: Number.isFinite(testId) ? testId : null,
+      stepGroup,
+      sortOrder: parseInt(sortOrder, 10) || 0,
+      isActive: true
+    });
+
+    await syncFlashcardTags(card.id, tagIds);
+    const full = await Flashcard.findByPk(card.id, { include: flashcardInclude() });
+    res.status(201).json(full);
+  } catch (error) {
+    console.error('Ошибка создания flashcard:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.put('/flashcards/:id', adminAuth, [
+  body('frontText').trim().notEmpty().withMessage('Текст вопроса обязателен'),
+  body('backText').trim().notEmpty().withMessage('Текст ответа обязателен'),
+  body('stepGroup').optional().isIn(['step1', 'step2', 'step3'])
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    const card = await Flashcard.findByPk(req.params.id);
+    if (!card) return res.status(404).json({ error: 'Карточка не найдена' });
+
+    const { frontText, backText, keyword, testId: rawTestId, stepGroup, tagIds, sortOrder, isActive } = req.body;
+    if (frontText != null) card.frontText = String(frontText).trim();
+    if (backText != null) card.backText = String(backText).trim();
+    if (keyword !== undefined) {
+      card.keyword = keyword != null && String(keyword).trim() ? String(keyword).trim() : null;
+    }
+    if (stepGroup) card.stepGroup = stepGroup;
+    if (sortOrder != null) card.sortOrder = parseInt(sortOrder, 10) || 0;
+    if (isActive != null) card.isActive = !!isActive;
+
+    if (rawTestId !== undefined) {
+      const testId = rawTestId ? parseInt(rawTestId, 10) : null;
+      if (testId) {
+        const test = await Test.findByPk(testId);
+        if (!test || test.programType !== 'usmle') {
+          return res.status(400).json({ error: 'USMLE-тест не найден' });
+        }
+      }
+      card.testId = Number.isFinite(testId) ? testId : null;
+    }
+
+    await card.save();
+    if (tagIds !== undefined) await syncFlashcardTags(card.id, tagIds);
+
+    const full = await Flashcard.findByPk(card.id, { include: flashcardInclude() });
+    res.json(full);
+  } catch (error) {
+    console.error('Ошибка обновления flashcard:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.delete('/flashcards/:id', adminAuth, async (req, res) => {
+  try {
+    const card = await Flashcard.findByPk(req.params.id);
+    if (!card) return res.status(404).json({ error: 'Карточка не найдена' });
+    deleteFlashcardImageFile(card.frontImageUrl);
+    deleteFlashcardImageFile(card.backImageUrl);
+    await FlashcardTagMap.destroy({ where: { flashcardId: card.id } });
+    await card.destroy();
+    res.json({ message: 'Карточка удалена' });
+  } catch (error) {
+    console.error('Ошибка удаления flashcard:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+const flashcardImageStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, FLASHCARD_IMAGES_DIR),
+  filename: (req, file, cb) => {
+    const ext = safeImageExt(file.originalname, file.mimetype);
+    const side = String(req.params.side || 'front') === 'back' ? 'back' : 'front';
+    cb(null, flashcardImageFilename(req.params.id, side, ext));
+  }
+});
+
+const flashcardImageUpload = multer({
+  storage: flashcardImageStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const extOk = /\.(jpe?g|png|gif|webp)$/i.test(file.originalname || '');
+    if (isAllowedImageMime(file.mimetype) || extOk) cb(null, true);
+    else cb(new Error('Разрешены только JPG, PNG, GIF, WEBP'));
+  }
+});
+
+async function uploadFlashcardSideImage(req, res, side) {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Файл не выбран' });
+    }
+
+    const card = await Flashcard.findByPk(req.params.id);
+    if (!card) {
+      deleteFlashcardImageFile(`/uploads/flashcards/${req.file.filename}`);
+      return res.status(404).json({ error: 'Карточка не найдена' });
+    }
+
+    const field = side === 'back' ? 'backImageUrl' : 'frontImageUrl';
+    const relativePath = `/uploads/flashcards/${req.file.filename}`;
+    const oldUrl = card[field];
+    card[field] = relativePath;
+    await card.save();
+
+    if (oldUrl && oldUrl !== relativePath) {
+      deleteFlashcardImageFile(oldUrl);
+    }
+
+    res.json({
+      [field]: relativePath,
+      message: 'Изображение загружено'
+    });
+  } catch (error) {
+    console.error('Ошибка загрузки изображения flashcard:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+}
+
+router.post('/flashcards/:id/front-image', adminAuth, (req, res, next) => {
+  req.params.side = 'front';
+  flashcardImageUpload.single('image')(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message || 'Ошибка загрузки файла' });
+    next();
+  });
+}, (req, res) => uploadFlashcardSideImage(req, res, 'front'));
+
+router.post('/flashcards/:id/back-image', adminAuth, (req, res, next) => {
+  req.params.side = 'back';
+  flashcardImageUpload.single('image')(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message || 'Ошибка загрузки файла' });
+    next();
+  });
+}, (req, res) => uploadFlashcardSideImage(req, res, 'back'));
+
+router.delete('/flashcards/:id/front-image', adminAuth, async (req, res) => {
+  try {
+    const card = await Flashcard.findByPk(req.params.id);
+    if (!card) return res.status(404).json({ error: 'Карточка не найдена' });
+    deleteFlashcardImageFile(card.frontImageUrl);
+    card.frontImageUrl = null;
+    await card.save();
+    res.json({ message: 'Изображение Front удалено' });
+  } catch (error) {
+    console.error('Ошибка удаления изображения flashcard:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.delete('/flashcards/:id/back-image', adminAuth, async (req, res) => {
+  try {
+    const card = await Flashcard.findByPk(req.params.id);
+    if (!card) return res.status(404).json({ error: 'Карточка не найдена' });
+    deleteFlashcardImageFile(card.backImageUrl);
+    card.backImageUrl = null;
+    await card.save();
+    res.json({ message: 'Изображение Back удалено' });
+  } catch (error) {
+    console.error('Ошибка удаления изображения flashcard:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

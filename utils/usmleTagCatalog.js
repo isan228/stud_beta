@@ -42,7 +42,8 @@ const USMLE_SYSTEMS = [
   'Pulmonary & Critical Care',
   'Renal, Urinary Systems & Electrolytes',
   'Rheumatology/Orthopedics & Sports',
-  'Social Sciences (Ethics/Legal/Professional)'
+  'Social Sciences (Ethics/Legal/Professional)',
+  'Electrocardiogram (ECG) Images'
 ];
 
 /**
@@ -109,6 +110,11 @@ const TAG_ALIASES = {
 
   poisoning: 'Poisoning & Environmental Exposure',
   infectious: 'Infectious Diseases',
+
+  'electrocardiogram (ecg) images': 'Electrocardiogram (ECG) Images',
+  'ecg images': 'Electrocardiogram (ECG) Images',
+  ecg: 'Electrocardiogram (ECG) Images',
+  electrocardiogram: 'Electrocardiogram (ECG) Images',
 
   'biochemistry general principles': 'Biochemistry (General Principles)',
   'genetics general principles': 'Genetics (General Principles)',

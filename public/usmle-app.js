@@ -91,6 +91,7 @@
         if (id === 'welcome') return q ? `/usmle-home?${q}` : '/usmle';
         if (id === 'create') return q ? `/usmle-test-builder?${q}` : '/usmle';
         if (id === 'history') return q ? `/usmle-history?${q}` : '/usmle';
+        if (id === 'flashcards') return q ? `/usmle-flashcards?${q}` : '/usmle-flashcards';
         if (id === 'banks') return '/usmle';
         if (id === 'help') return 'https://t.me/stud_kg';
         if (id === 'settings') return '/profile';
@@ -107,7 +108,7 @@
             { id: 'library', href: '#', icon: ICONS.library, label: 'Мед. библиотека', soon: true },
             { id: 'search', href: '#', icon: ICONS.search, label: 'Поиск', soon: true },
             { id: 'notes', href: '#', icon: ICONS.notes, label: 'Заметки', soon: true },
-            { id: 'flashcards', href: '#', icon: ICONS.flashcards, label: 'Карточки', soon: true },
+            { id: 'flashcards', href: navHref('flashcards', bank), icon: ICONS.flashcards, label: 'Карточки' },
             { id: 'notebook', href: '#', icon: ICONS.notebook, label: 'Мой блокнот', soon: true },
             { id: 'help', href: 'https://t.me/stud_kg', icon: ICONS.help, label: 'Telegram', external: true },
             { id: 'settings', href: '/profile', icon: ICONS.settings, label: 'Настройки' }

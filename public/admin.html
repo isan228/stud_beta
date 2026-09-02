@@ -780,6 +780,31 @@
                             <div id="usmleQuestionsList" class="admin-list">
                                 <p style="color: var(--text-muted); text-align: center; padding: 1.5rem;">Выберите тест, чтобы увидеть вопросы</p>
                             </div>
+
+                            <div class="admin-section-header" style="margin:1.5rem 0 1rem;">
+                                <h3 style="margin:0;">4. Flashcards USMLE</h3>
+                                <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+                                    <select id="usmleFlashcardsTestFilter" class="form-group input" style="min-width:14rem;">
+                                        <option value="">Все тесты</option>
+                                    </select>
+                                    <select id="usmleFlashcardsTagFilter" class="form-group input" style="min-width:14rem;">
+                                        <option value="">Все теги</option>
+                                    </select>
+                                    <select id="usmleFlashcardsStepFilter" class="form-group input">
+                                        <option value="">Все Step</option>
+                                        <option value="step1">Step 1</option>
+                                        <option value="step2">Step 2</option>
+                                        <option value="step3">Step 3</option>
+                                    </select>
+                                    <button type="button" class="btn btn-primary" id="addUsmleFlashcardBtn">+ Flashcard</button>
+                                    <button type="button" class="btn btn-secondary" id="uploadUsmleTxtFlashcardsBtn">📇 TXT flashcards</button>
+                                    <button type="button" class="btn btn-secondary" id="uploadUsmleTxtFlashcardsImagesBtn">🖼 TXT flashcards с картинками</button>
+                                </div>
+                            </div>
+                            <p style="color:var(--text-secondary); font-size:0.9rem; margin:-0.5rem 0 1rem;">
+                                Вопрос с пропусками <code>______</code> и вариантами <code>(nephritic/nephrotic)</code>. Ответ — полное предложение с заполненными пропусками.
+                            </p>
+                            <div id="usmleFlashcardsList" class="admin-list"></div>
                         </div>
                     </div>
                 </div>
@@ -1208,6 +1233,116 @@
         </div>
     </div>
 
+    <div id="txtFlashcardsUploadModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 680px;">
+            <span class="modal-close">&times;</span>
+            <h2>📇 USMLE: flashcards</h2>
+            <form id="txtFlashcardsUploadForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="txtFlashcardsTestId">Тест USMLE (опционально)</label>
+                    <select id="txtFlashcardsTestId">
+                        <option value="">Без привязки к тесту</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="txtFlashcardsStepGroup">Step</label>
+                    <select id="txtFlashcardsStepGroup" required>
+                        <option value="step1">Step 1</option>
+                        <option value="step2">Step 2</option>
+                        <option value="step3">Step 3</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="txtFlashcardsFile">TXT файл</label>
+                    <input type="file" id="txtFlashcardsFile" accept=".txt" required>
+                    <div style="background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius); margin-top: 0.5rem;">
+                        <p style="margin: 0 0 0.5rem 0; font-weight: 600; color: var(--text-primary);">Формат TXT (flashcards по темам):</p>
+                        <pre style="margin: 0; font-size: 0.875rem; white-space: pre-wrap; word-wrap: break-word; color: var(--text-secondary); font-family: 'Courier New', monospace;">=== Renal, Urinary Systems &amp; Electrolytes ===
+"ID":"1"
+"Front":"Poststreptococcal glomerulonephritis is a type ______ hypersensitivity reaction..."
+"Back":"Poststreptococcal glomerulonephritis is a type III hypersensitivity reaction..."
+"Keyword":"nephritic syndrome"</pre>
+                        <p style="margin: 0.75rem 0 0; font-size: 0.85rem; color: var(--text-muted);">
+                            Секция темы: <strong>=== Название ===</strong>, <strong>## Название</strong> или <strong>[Topic: Название]</strong>.
+                            Поля <strong>Front</strong> и <strong>Back</strong> обязательны. Тема — из секции или поля <strong>Topic</strong>.
+                            Без картинок — для карточек с фото используйте отдельную кнопку «TXT flashcards с картинками».
+                        </p>
+                        <details style="margin-top:0.75rem;">
+                            <summary style="cursor:pointer; font-weight:600;">Список тем</summary>
+                            <p style="font-size:0.82rem; color:var(--text-muted); margin:0.5rem 0 0;">
+                                Renal, Urinary Systems &amp; Electrolytes · Electrocardiogram (ECG) Images · Biochemistry · Genetics · Microbiology · Pathology · Pharmacology · Immunology · Psychiatric/Behavioral &amp; Substance Use Disorder · Cardiovascular System · Dermatology · Ear, Nose &amp; Throat (ENT) · Endocrine, Diabetes &amp; Metabolism · Female Reproductive System &amp; Breast · Gastrointestinal &amp; Nutrition · Hematology &amp; Oncology · Infectious Diseases · Male Reproductive System · Nervous System · Pregnancy, Childbirth &amp; Puerperium · Pulmonary &amp; Critical Care · Rheumatology/Orthopedics &amp; Sports
+                            </p>
+                        </details>
+                    </div>
+                </div>
+                <div id="txtFlashcardsUploadProgress" style="display: none; margin: 1rem 0;">
+                    <div style="background: var(--bg-secondary); border-radius: var(--radius); padding: 0.25rem; height: 24px;">
+                        <div id="txtFlashcardsUploadProgressBar" style="background: linear-gradient(90deg, var(--primary-color), var(--primary-light)); height: 100%; border-radius: var(--radius); width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75rem; font-weight: 600;"></div>
+                    </div>
+                    <p id="txtFlashcardsUploadStatus" style="margin-top: 0.5rem; color: var(--text-secondary); font-size: 0.9rem; text-align: center;">Обработка...</p>
+                </div>
+                <button type="submit" class="btn btn-primary">Загрузить</button>
+                <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="txtFlashcardsImagesUploadModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 680px;">
+            <span class="modal-close">&times;</span>
+            <h2>🖼 USMLE: flashcards с картинками</h2>
+            <form id="txtFlashcardsImagesUploadForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="txtFlashcardsImagesTestId">Тест USMLE (опционально)</label>
+                    <select id="txtFlashcardsImagesTestId">
+                        <option value="">Без привязки к тесту</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="txtFlashcardsImagesStepGroup">Step</label>
+                    <select id="txtFlashcardsImagesStepGroup" required>
+                        <option value="step1">Step 1</option>
+                        <option value="step2">Step 2</option>
+                        <option value="step3">Step 3</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="txtFlashcardsImagesFile">TXT файл</label>
+                    <input type="file" id="txtFlashcardsImagesFile" accept=".txt" required>
+                </div>
+                <div class="form-group">
+                    <label for="txtFlashcardsImagesFiles">Файлы картинок</label>
+                    <input type="file" id="txtFlashcardsImagesFiles" accept="image/jpeg,image/png,image/gif,image/webp" multiple required>
+                    <div style="background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius); margin-top: 0.5rem;">
+                        <p style="margin: 0 0 0.5rem 0; font-weight: 600; color: var(--text-primary);">Формат TXT (имена файлов, не URL):</p>
+                        <pre style="margin: 0; font-size: 0.875rem; white-space: pre-wrap; word-wrap: break-word; color: var(--text-secondary); font-family: 'Courier New', monospace;">=== Electrocardiogram (ECG) Images ===
+"ID":"1"
+"Front":"Identify this rhythm"
+"Back":"Atrial fibrillation"
+"FrontImage":"ecg-01.jpg"
+
+"ID":"2"
+"Front":"What is shown?"
+"Back":"ST elevation"
+"Image":"ecg-02.png"</pre>
+                        <p style="margin: 0.75rem 0 0; font-size: 0.85rem; color: var(--text-muted);">
+                            В TXT укажите <strong>FrontImage</strong>, <strong>BackImage</strong> или <strong>Image</strong> — только имя файла.
+                            Загрузите все нужные картинки вторым полем (JPG, PNG, GIF, WEBP, до 5 МБ).
+                        </p>
+                    </div>
+                </div>
+                <div id="txtFlashcardsImagesUploadProgress" style="display: none; margin: 1rem 0;">
+                    <div style="background: var(--bg-secondary); border-radius: var(--radius); padding: 0.25rem; height: 24px;">
+                        <div id="txtFlashcardsImagesUploadProgressBar" style="background: linear-gradient(90deg, var(--primary-color), var(--primary-light)); height: 100%; border-radius: var(--radius); width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75rem; font-weight: 600;"></div>
+                    </div>
+                    <p id="txtFlashcardsImagesUploadStatus" style="margin-top: 0.5rem; color: var(--text-secondary); font-size: 0.9rem; text-align: center;">Обработка...</p>
+                </div>
+                <button type="submit" class="btn btn-primary">Загрузить</button>
+                <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
+            </form>
+        </div>
+    </div>
+
     <div id="uploadPreviewModal" class="modal" style="display: none;">
         <div class="modal-content upload-preview-modal">
             <span class="modal-close">&times;</span>
@@ -1281,6 +1416,72 @@
                     <div id="answersList"></div>
                     <button type="button" class="btn btn-secondary" id="addAnswerBtn">+ Добавить ответ</button>
                 </div>
+                <button type="submit" class="btn btn-primary">Сохранить</button>
+                <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="flashcardModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 820px;">
+            <span class="modal-close">&times;</span>
+            <h2 id="flashcardModalTitle">Добавить flashcard</h2>
+            <form id="flashcardForm">
+                <input type="hidden" id="flashcardId">
+                <div class="form-group">
+                    <label for="flashcardFrontText">Вопрос (Front) — с пропусками</label>
+                    <textarea id="flashcardFrontText" rows="4" required placeholder="Poststreptococcal glomerulonephritis is a type ______ hypersensitivity reaction caused by ______ deposition that results in (nephritic/nephrotic) syndrome."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="flashcardBackText">Ответ (Back) — полный текст</label>
+                    <textarea id="flashcardBackText" rows="4" required placeholder="Poststreptococcal glomerulonephritis is a type III hypersensitivity reaction caused by immune complex deposition that results in (nephritic) syndrome."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="flashcardKeyword">Ключевое слово (внизу карточки, опционально)</label>
+                    <input type="text" id="flashcardKeyword" placeholder="nephritic syndrome">
+                </div>
+                <div class="form-group">
+                    <label>Картинка Front (опционально)</label>
+                    <input type="hidden" id="flashcardFrontImagePendingRemove" value="0">
+                    <input type="file" id="flashcardFrontImageFile" accept="image/jpeg,image/png,image/gif,image/webp" style="display: none;">
+                    <div style="display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center; margin-bottom:0.5rem;">
+                        <button type="button" class="btn btn-secondary btn-sm" id="flashcardFrontImagePickBtn">Загрузить фото Front</button>
+                        <button type="button" class="btn btn-danger btn-sm" id="flashcardFrontImageRemoveBtn" style="display:none;">Удалить</button>
+                    </div>
+                    <div id="flashcardFrontImagePreview" class="question-image-preview-wrap" style="display:none;"></div>
+                </div>
+                <div class="form-group">
+                    <label>Картинка Back (опционально)</label>
+                    <input type="hidden" id="flashcardBackImagePendingRemove" value="0">
+                    <input type="file" id="flashcardBackImageFile" accept="image/jpeg,image/png,image/gif,image/webp" style="display: none;">
+                    <div style="display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center; margin-bottom:0.5rem;">
+                        <button type="button" class="btn btn-secondary btn-sm" id="flashcardBackImagePickBtn">Загрузить фото Back</button>
+                        <button type="button" class="btn btn-danger btn-sm" id="flashcardBackImageRemoveBtn" style="display:none;">Удалить</button>
+                    </div>
+                    <div id="flashcardBackImagePreview" class="question-image-preview-wrap" style="display:none;"></div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+                    <div class="form-group">
+                        <label for="flashcardStepGroup">Step</label>
+                        <select id="flashcardStepGroup" required>
+                            <option value="step1">Step 1</option>
+                            <option value="step2">Step 2</option>
+                            <option value="step3">Step 3</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="flashcardTestId">Тест (опционально)</label>
+                        <select id="flashcardTestId">
+                            <option value="">Без привязки к тесту</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="flashcardTagIds">Тег / система</label>
+                    <select id="flashcardTagIds" multiple size="5" style="width:100%; min-height: 7rem;"></select>
+                </div>
+                <div id="flashcardPreviewBox" class="admin-flashcard-preview" style="display:none; margin-bottom:1rem; padding:1rem; border:1px solid var(--border-light); border-radius:0.75rem; background:var(--bg-secondary);"></div>
+                <button type="button" class="btn btn-secondary" id="flashcardPreviewBtn">Предпросмотр</button>
                 <button type="submit" class="btn btn-primary">Сохранить</button>
                 <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
             </form>
