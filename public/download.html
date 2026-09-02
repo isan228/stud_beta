@@ -28,8 +28,9 @@
         <div class="container" style="max-width: 640px; padding: 3rem 1.25rem;">
             <h1 class="section-title" style="text-align: left;">Мобильное приложение</h1>
             <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
-                Установите stud.kg на Android: тесты, USMLE, рейтинг и подписки — как на сайте.
+                Установите stud.kg на Android: тесты, USMLE, расписание, рейтинг и подписки — как на сайте.
             </p>
+            <p id="apkVersion" style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;"></p>
 
             <div class="card" style="padding: 1.5rem; margin-bottom: 1.5rem;" id="apkCard">
                 <h2 style="margin-bottom: 0.5rem;">Android (APK)</h2>
@@ -68,6 +69,8 @@
                     const size = Number(res.headers.get('content-length') || 0);
                     const mb = size > 0 ? ` (${(size / (1024 * 1024)).toFixed(1)} МБ)` : '';
                     status.textContent = 'Готово к установке' + mb;
+                    const ver = document.getElementById('apkVersion');
+                    if (ver) ver.textContent = 'Версия 1.1.0 — расписание, группа в профиле, уведомления о парах';
                     btn.style.display = 'inline-flex';
                 } else {
                     status.style.display = 'none';
