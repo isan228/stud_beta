@@ -28,6 +28,7 @@ const SubscriptionPlan = require('./SubscriptionPlan');
 const QuestionTag = require('./QuestionTag');
 const QuestionTagMap = require('./QuestionTagMap');
 const MedicalImage = require('./MedicalImage');
+const ScheduleEntry = require('./ScheduleEntry');
 
 // Определение связей
 User.hasMany(TestResult, { foreignKey: 'userId', as: 'TestResults' });
@@ -131,6 +132,11 @@ UserBroadcastNotification.belongsTo(BroadcastMessage, { foreignKey: 'broadcastMe
 User.hasMany(UserBroadcastNotification, { foreignKey: 'userId', as: 'BroadcastNotifications' });
 UserBroadcastNotification.belongsTo(User, { foreignKey: 'userId', as: 'User' });
 
+University.hasMany(ScheduleEntry, { foreignKey: 'universityId', as: 'ScheduleEntries', onDelete: 'CASCADE' });
+ScheduleEntry.belongsTo(University, { foreignKey: 'universityId', as: 'University' });
+Faculty.hasMany(ScheduleEntry, { foreignKey: 'facultyId', as: 'ScheduleEntries', onDelete: 'CASCADE' });
+ScheduleEntry.belongsTo(Faculty, { foreignKey: 'facultyId', as: 'Faculty' });
+
 module.exports = {
   sequelize,
   User,
@@ -161,6 +167,7 @@ module.exports = {
   SubscriptionPlan,
   QuestionTag,
   QuestionTagMap,
-  MedicalImage
+  MedicalImage,
+  ScheduleEntry
 };
 

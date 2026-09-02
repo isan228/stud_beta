@@ -3,7 +3,7 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const adminAuth = require('../middleware/adminAuth');
-const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, Editor, EditorAuditLog, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, BroadcastMessage, UserBroadcastNotification, Transaction, University, Faculty, SubjectFaculty, SubjectCourse, SubscriptionPlan, QuestionTag, QuestionTagMap, sequelize } = require('../models');
+const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, Editor, EditorAuditLog, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, BroadcastMessage, UserBroadcastNotification, Transaction, University, Faculty, SubjectFaculty, SubjectCourse, SubscriptionPlan, QuestionTag, QuestionTagMap, ScheduleEntry, sequelize } = require('../models');
 const { snapshotFromQuestion, logQuestionAudit } = require('../utils/questionAuditLog');
 const { ensurePlansForUniversity, getPlansForUniversity, ensurePlansForUsmle, getPlansForUsmle, ALLOWED_MONTHS, planTitle, uniPlanScope, USMLE_PLAN_SCOPE } = require('../utils/subscriptionPlans');
 const {
@@ -2879,6 +2879,274 @@ router.delete('/news/:id', adminAuth, async (req, res) => {
     res.json({ message: 'Новость удалена' });
   } catch (error) {
     console.error('Ошибка удаления новости:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+const SCHEDULE_LESSON_TYPES = ['lecture', 'practice', 'lab', 'seminar', 'other'];
+const SCHEDULE_WEEK_PARITIES = ['all', 'odd', 'even'];
+const SCHEDULE_SEMESTERS = ['autumn', 'spring'];
+
+function parseScheduleCourse(raw) {
+  const course = parseInt(raw, 10);
+  if (!Number.isFinite(course) || course < 1 || course > 6) return null;
+  return course;
+}
+
+function parseScheduleDay(raw) {
+  const day = parseInt(raw, 10);
+  if (!Number.isFinite(day) || day < 1 || day > 6) return null;
+  return day;
+}
+
+function normalizeTimeHHMM(raw) {
+  if (raw == null || raw === '') return null;
+  const s = String(raw).trim();
+  if (!/^\d{1,2}:\d{2}$/.test(s)) return null;
+  const [h, m] = s.split(':').map((x) => parseInt(x, 10));
+  if (!Number.isFinite(h) || !Number.isFinite(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+async function validateScheduleFaculty(universityId, facultyId) {
+  const faculty = await Faculty.findByPk(facultyId);
+  if (!faculty || faculty.universityId !== universityId) {
+    return null;
+  }
+  return faculty;
+}
+
+function scheduleInclude() {
+  return [
+    { model: University, as: 'University', attributes: ['id', 'name', 'shortName'], required: false },
+    { model: Faculty, as: 'Faculty', attributes: ['id', 'name', 'shortName'], required: false }
+  ];
+}
+
+function buildScheduleWhere(query) {
+  const where = {};
+  const universityId = parseInt(query.universityId, 10);
+  const facultyId = parseInt(query.facultyId, 10);
+  const course = parseScheduleCourse(query.course);
+  const dayOfWeek = parseScheduleDay(query.dayOfWeek);
+
+  if (Number.isFinite(universityId) && universityId > 0) where.universityId = universityId;
+  if (Number.isFinite(facultyId) && facultyId > 0) where.facultyId = facultyId;
+  if (course) where.course = course;
+  if (dayOfWeek) where.dayOfWeek = dayOfWeek;
+
+  const groupName = (query.groupName || '').trim();
+  if (groupName) where.groupName = groupName;
+
+  const academicYear = (query.academicYear || '').trim();
+  if (academicYear) where.academicYear = academicYear;
+
+  const semester = (query.semester || '').trim();
+  if (SCHEDULE_SEMESTERS.includes(semester)) where.semester = semester;
+
+  if (query.isActive === 'true') where.isActive = true;
+  else if (query.isActive === 'false') where.isActive = false;
+
+  return where;
+}
+
+router.get('/schedule', adminAuth, async (req, res) => {
+  try {
+    const entries = await ScheduleEntry.findAll({
+      where: buildScheduleWhere(req.query),
+      include: scheduleInclude(),
+      order: [
+        ['dayOfWeek', 'ASC'],
+        ['lessonNumber', 'ASC'],
+        ['timeStart', 'ASC'],
+        ['id', 'ASC']
+      ]
+    });
+    res.json(entries);
+  } catch (error) {
+    console.error('Ошибка получения расписания:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.get('/schedule/:id', adminAuth, async (req, res) => {
+  try {
+    const entry = await ScheduleEntry.findByPk(req.params.id, { include: scheduleInclude() });
+    if (!entry) {
+      return res.status(404).json({ error: 'Запись расписания не найдена' });
+    }
+    res.json(entry);
+  } catch (error) {
+    console.error('Ошибка получения записи расписания:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.post('/schedule', adminAuth, [
+  body('universityId').isInt({ min: 1 }).withMessage('Укажите университет'),
+  body('facultyId').isInt({ min: 1 }).withMessage('Укажите факультет'),
+  body('course').isInt({ min: 1, max: 6 }).withMessage('Курс должен быть от 1 до 6'),
+  body('dayOfWeek').isInt({ min: 1, max: 6 }).withMessage('День недели от 1 до 6'),
+  body('subjectName').trim().notEmpty().withMessage('Название предмета обязательно'),
+  body('lessonType').optional().isIn(SCHEDULE_LESSON_TYPES),
+  body('weekParity').optional().isIn(SCHEDULE_WEEK_PARITIES),
+  body('semester').optional().isIn(SCHEDULE_SEMESTERS)
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const universityId = parseInt(req.body.universityId, 10);
+    const facultyId = parseInt(req.body.facultyId, 10);
+    const faculty = await validateScheduleFaculty(universityId, facultyId);
+    if (!faculty) {
+      return res.status(400).json({ error: 'Факультет не найден или не принадлежит университету' });
+    }
+
+    const timeStart = normalizeTimeHHMM(req.body.timeStart);
+    const timeEnd = normalizeTimeHHMM(req.body.timeEnd);
+    if (req.body.timeStart && !timeStart) {
+      return res.status(400).json({ error: 'Некорректное время начала (формат HH:MM)' });
+    }
+    if (req.body.timeEnd && !timeEnd) {
+      return res.status(400).json({ error: 'Некорректное время окончания (формат HH:MM)' });
+    }
+
+    const lessonNumberRaw = req.body.lessonNumber;
+    const lessonNumber = lessonNumberRaw == null || lessonNumberRaw === ''
+      ? null
+      : parseInt(lessonNumberRaw, 10);
+
+    const entry = await ScheduleEntry.create({
+      universityId,
+      facultyId,
+      course: parseScheduleCourse(req.body.course),
+      groupName: (req.body.groupName || '').trim() || null,
+      dayOfWeek: parseScheduleDay(req.body.dayOfWeek),
+      lessonNumber: Number.isFinite(lessonNumber) && lessonNumber > 0 ? lessonNumber : null,
+      timeStart,
+      timeEnd,
+      subjectName: req.body.subjectName.trim(),
+      teacher: (req.body.teacher || '').trim() || null,
+      room: (req.body.room || '').trim() || null,
+      lessonType: SCHEDULE_LESSON_TYPES.includes(req.body.lessonType) ? req.body.lessonType : 'lecture',
+      weekParity: SCHEDULE_WEEK_PARITIES.includes(req.body.weekParity) ? req.body.weekParity : 'all',
+      semester: SCHEDULE_SEMESTERS.includes(req.body.semester) ? req.body.semester : 'autumn',
+      academicYear: (req.body.academicYear || '').trim() || '',
+      notes: (req.body.notes || '').trim() || null,
+      isActive: req.body.isActive !== false && req.body.isActive !== 'false'
+    });
+
+    const full = await ScheduleEntry.findByPk(entry.id, { include: scheduleInclude() });
+    res.status(201).json(full);
+  } catch (error) {
+    console.error('Ошибка создания записи расписания:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.put('/schedule/:id', adminAuth, [
+  body('course').optional().isInt({ min: 1, max: 6 }),
+  body('dayOfWeek').optional().isInt({ min: 1, max: 6 }),
+  body('subjectName').optional().trim().notEmpty(),
+  body('lessonType').optional().isIn(SCHEDULE_LESSON_TYPES),
+  body('weekParity').optional().isIn(SCHEDULE_WEEK_PARITIES),
+  body('semester').optional().isIn(SCHEDULE_SEMESTERS)
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const entry = await ScheduleEntry.findByPk(req.params.id);
+    if (!entry) {
+      return res.status(404).json({ error: 'Запись расписания не найдена' });
+    }
+
+    if (req.body.universityId != null || req.body.facultyId != null) {
+      const universityId = parseInt(req.body.universityId ?? entry.universityId, 10);
+      const facultyId = parseInt(req.body.facultyId ?? entry.facultyId, 10);
+      const faculty = await validateScheduleFaculty(universityId, facultyId);
+      if (!faculty) {
+        return res.status(400).json({ error: 'Факультет не найден или не принадлежит университету' });
+      }
+      entry.universityId = universityId;
+      entry.facultyId = facultyId;
+    }
+
+    if (req.body.course != null) {
+      const course = parseScheduleCourse(req.body.course);
+      if (!course) return res.status(400).json({ error: 'Курс должен быть от 1 до 6' });
+      entry.course = course;
+    }
+    if (req.body.dayOfWeek != null) {
+      const day = parseScheduleDay(req.body.dayOfWeek);
+      if (!day) return res.status(400).json({ error: 'День недели от 1 до 6' });
+      entry.dayOfWeek = day;
+    }
+    if (req.body.groupName !== undefined) {
+      entry.groupName = (req.body.groupName || '').trim() || null;
+    }
+    if (req.body.lessonNumber !== undefined) {
+      const lessonNumber = parseInt(req.body.lessonNumber, 10);
+      entry.lessonNumber = Number.isFinite(lessonNumber) && lessonNumber > 0 ? lessonNumber : null;
+    }
+    if (req.body.timeStart !== undefined) {
+      const timeStart = normalizeTimeHHMM(req.body.timeStart);
+      if (req.body.timeStart && !timeStart) {
+        return res.status(400).json({ error: 'Некорректное время начала (формат HH:MM)' });
+      }
+      entry.timeStart = timeStart;
+    }
+    if (req.body.timeEnd !== undefined) {
+      const timeEnd = normalizeTimeHHMM(req.body.timeEnd);
+      if (req.body.timeEnd && !timeEnd) {
+        return res.status(400).json({ error: 'Некорректное время окончания (формат HH:MM)' });
+      }
+      entry.timeEnd = timeEnd;
+    }
+    if (req.body.subjectName != null) entry.subjectName = req.body.subjectName.trim();
+    if (req.body.teacher !== undefined) entry.teacher = (req.body.teacher || '').trim() || null;
+    if (req.body.room !== undefined) entry.room = (req.body.room || '').trim() || null;
+    if (req.body.lessonType != null && SCHEDULE_LESSON_TYPES.includes(req.body.lessonType)) {
+      entry.lessonType = req.body.lessonType;
+    }
+    if (req.body.weekParity != null && SCHEDULE_WEEK_PARITIES.includes(req.body.weekParity)) {
+      entry.weekParity = req.body.weekParity;
+    }
+    if (req.body.semester != null && SCHEDULE_SEMESTERS.includes(req.body.semester)) {
+      entry.semester = req.body.semester;
+    }
+    if (req.body.academicYear !== undefined) {
+      entry.academicYear = (req.body.academicYear || '').trim() || '';
+    }
+    if (req.body.notes !== undefined) entry.notes = (req.body.notes || '').trim() || null;
+    if (req.body.isActive !== undefined) {
+      entry.isActive = req.body.isActive === true || req.body.isActive === 'true';
+    }
+
+    await entry.save();
+    const full = await ScheduleEntry.findByPk(entry.id, { include: scheduleInclude() });
+    res.json(full);
+  } catch (error) {
+    console.error('Ошибка обновления записи расписания:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.delete('/schedule/:id', adminAuth, async (req, res) => {
+  try {
+    const entry = await ScheduleEntry.findByPk(req.params.id);
+    if (!entry) {
+      return res.status(404).json({ error: 'Запись расписания не найдена' });
+    }
+    await entry.destroy();
+    res.json({ message: 'Запись расписания удалена' });
+  } catch (error) {
+    console.error('Ошибка удаления записи расписания:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

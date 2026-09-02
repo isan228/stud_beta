@@ -82,6 +82,7 @@
                     <button class="admin-tab" data-tab="editors">Редакторы</button>
                     <button class="admin-tab" data-tab="audit">Журнал правок</button>
                     <button class="admin-tab" data-tab="news">Новости</button>
+                    <button class="admin-tab" data-tab="schedule">Расписание</button>
                     <button class="admin-tab" data-tab="messages">Обратная связь</button>
                     <button class="admin-tab" data-tab="chats">Чаты</button>
                     <button class="admin-tab" data-tab="documents">Документы</button>
@@ -383,6 +384,49 @@
                         <button class="btn btn-primary" id="addNewsBtn">+ Добавить новость</button>
                     </div>
                     <div id="newsAdminList" class="admin-list"></div>
+                </div>
+
+                <!-- Расписание -->
+                <div id="scheduleTab" class="admin-tab-content">
+                    <div class="admin-section-header">
+                        <h2>Расписание студентов</h2>
+                        <button class="btn btn-primary" id="addScheduleBtn">+ Добавить занятие</button>
+                    </div>
+                    <div class="admin-schedule-filters">
+                        <select id="scheduleUniversityFilter" class="form-group input">
+                            <option value="">Университет</option>
+                        </select>
+                        <select id="scheduleFacultyFilter" class="form-group input">
+                            <option value="">Факультет</option>
+                        </select>
+                        <select id="scheduleCourseFilter" class="form-group input">
+                            <option value="">Курс</option>
+                            <option value="1">1 курс</option>
+                            <option value="2">2 курс</option>
+                            <option value="3">3 курс</option>
+                            <option value="4">4 курс</option>
+                            <option value="5">5 курс</option>
+                            <option value="6">6 курс</option>
+                        </select>
+                        <input type="text" id="scheduleGroupFilter" class="form-group input" placeholder="Группа">
+                        <input type="text" id="scheduleYearFilter" class="form-group input" placeholder="Учебный год (2025-2026)">
+                        <select id="scheduleSemesterFilter" class="form-group input">
+                            <option value="">Семестр</option>
+                            <option value="autumn">Осенний</option>
+                            <option value="spring">Весенний</option>
+                        </select>
+                        <select id="scheduleDayFilter" class="form-group input">
+                            <option value="">Все дни</option>
+                            <option value="1">Понедельник</option>
+                            <option value="2">Вторник</option>
+                            <option value="3">Среда</option>
+                            <option value="4">Четверг</option>
+                            <option value="5">Пятница</option>
+                            <option value="6">Суббота</option>
+                        </select>
+                        <button type="button" class="btn btn-secondary" id="scheduleApplyFiltersBtn">Применить</button>
+                    </div>
+                    <div id="scheduleAdminList" class="admin-table-container"></div>
                 </div>
 
                 <!-- Обратная связь -->
@@ -1249,6 +1293,119 @@
                 </div>
                 <button type="submit" class="btn btn-primary">Сохранить</button>
                 <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="scheduleModal" class="modal" style="display: none;">
+        <div class="modal-content admin-schedule-modal">
+            <span class="modal-close">&times;</span>
+            <h2 id="scheduleModalTitle">Добавить занятие</h2>
+            <form id="scheduleForm">
+                <input type="hidden" id="scheduleId">
+                <div class="admin-schedule-form-grid">
+                    <div class="form-group">
+                        <label for="scheduleUniversityId">Университет</label>
+                        <select id="scheduleUniversityId" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="scheduleFacultyId">Факультет</label>
+                        <select id="scheduleFacultyId" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="scheduleCourse">Курс</label>
+                        <select id="scheduleCourse" required>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="scheduleGroupName">Группа</label>
+                        <input type="text" id="scheduleGroupName" placeholder="101, Л-21…">
+                    </div>
+                    <div class="form-group">
+                        <label for="scheduleAcademicYear">Учебный год</label>
+                        <input type="text" id="scheduleAcademicYear" placeholder="2025-2026" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="scheduleSemester">Семестр</label>
+                        <select id="scheduleSemester">
+                            <option value="autumn">Осенний</option>
+                            <option value="spring">Весенний</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="scheduleDayOfWeek">День недели</label>
+                        <select id="scheduleDayOfWeek" required>
+                            <option value="1">Понедельник</option>
+                            <option value="2">Вторник</option>
+                            <option value="3">Среда</option>
+                            <option value="4">Четверг</option>
+                            <option value="5">Пятница</option>
+                            <option value="6">Суббота</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="scheduleLessonNumber">Номер пары</label>
+                        <input type="number" id="scheduleLessonNumber" min="1" max="10" placeholder="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="scheduleTimeStart">Время с</label>
+                        <input type="time" id="scheduleTimeStart">
+                    </div>
+                    <div class="form-group">
+                        <label for="scheduleTimeEnd">Время до</label>
+                        <input type="time" id="scheduleTimeEnd">
+                    </div>
+                    <div class="form-group admin-schedule-form-span2">
+                        <label for="scheduleSubjectName">Предмет</label>
+                        <input type="text" id="scheduleSubjectName" required placeholder="Анатомия">
+                    </div>
+                    <div class="form-group">
+                        <label for="scheduleTeacher">Преподаватель</label>
+                        <input type="text" id="scheduleTeacher" placeholder="ФИО">
+                    </div>
+                    <div class="form-group">
+                        <label for="scheduleRoom">Аудитория</label>
+                        <input type="text" id="scheduleRoom" placeholder="301">
+                    </div>
+                    <div class="form-group">
+                        <label for="scheduleLessonType">Тип занятия</label>
+                        <select id="scheduleLessonType">
+                            <option value="lecture">Лекция</option>
+                            <option value="practice">Практика</option>
+                            <option value="lab">Лабораторная</option>
+                            <option value="seminar">Семинар</option>
+                            <option value="other">Другое</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="scheduleWeekParity">Неделя</label>
+                        <select id="scheduleWeekParity">
+                            <option value="all">Каждую</option>
+                            <option value="odd">Нечётная</option>
+                            <option value="even">Чётная</option>
+                        </select>
+                    </div>
+                    <div class="form-group admin-schedule-form-span2">
+                        <label for="scheduleNotes">Примечание</label>
+                        <textarea id="scheduleNotes" rows="2" placeholder="Дополнительная информация"></textarea>
+                    </div>
+                    <div class="form-group checkbox-group admin-schedule-form-span2">
+                        <label>
+                            <input type="checkbox" id="scheduleIsActive" checked>
+                            <span>Активно (показывать в расписании)</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="admin-schedule-form-actions">
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                    <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
+                </div>
             </form>
         </div>
     </div>

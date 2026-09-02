@@ -1405,6 +1405,416 @@ function toDateTimeLocalValue(dateString) {
     return localDate.toISOString().slice(0, 16);
 }
 
+const SCHEDULE_DAY_NAMES = {
+    1: 'Понедельник',
+    2: 'Вторник',
+    3: 'Среда',
+    4: 'Четверг',
+    5: 'Пятница',
+    6: 'Суббота'
+};
+
+const SCHEDULE_LESSON_TYPE_LABELS = {
+    lecture: 'Лекция',
+    practice: 'Практика',
+    lab: 'Лабораторная',
+    seminar: 'Семинар',
+    other: 'Другое'
+};
+
+const SCHEDULE_WEEK_PARITY_LABELS = {
+    all: 'Каждую',
+    odd: 'Нечётная',
+    even: 'Чётная'
+};
+
+const SCHEDULE_SEMESTER_LABELS = {
+    autumn: 'Осенний',
+    spring: 'Весенний'
+};
+
+function getDefaultAcademicYear() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    if (month >= 9) {
+        return `${year}-${year + 1}`;
+    }
+    return `${year - 1}-${year}`;
+}
+
+function getDefaultSemester() {
+    const month = new Date().getMonth() + 1;
+    return month >= 2 && month <= 8 ? 'spring' : 'autumn';
+}
+
+function formatScheduleTimeRange(entry) {
+    if (entry.timeStart && entry.timeEnd) return `${entry.timeStart}–${entry.timeEnd}`;
+    if (entry.timeStart) return `с ${entry.timeStart}`;
+    if (entry.lessonNumber) return `пара ${entry.lessonNumber}`;
+    return '—';
+}
+
+function getScheduleFilterParams() {
+    const params = new URLSearchParams();
+    const universityId = document.getElementById('scheduleUniversityFilter')?.value || '';
+    const facultyId = document.getElementById('scheduleFacultyFilter')?.value || '';
+    const course = document.getElementById('scheduleCourseFilter')?.value || '';
+    const groupName = document.getElementById('scheduleGroupFilter')?.value?.trim() || '';
+    const academicYear = document.getElementById('scheduleYearFilter')?.value?.trim() || '';
+    const semester = document.getElementById('scheduleSemesterFilter')?.value || '';
+    const dayOfWeek = document.getElementById('scheduleDayFilter')?.value || '';
+
+    if (universityId) params.set('universityId', universityId);
+    if (facultyId) params.set('facultyId', facultyId);
+    if (course) params.set('course', course);
+    if (groupName) params.set('groupName', groupName);
+    if (academicYear) params.set('academicYear', academicYear);
+    if (semester) params.set('semester', semester);
+    if (dayOfWeek) params.set('dayOfWeek', dayOfWeek);
+    return params;
+}
+
+async function fillScheduleUniversitySelects(selectedId) {
+    const selects = [
+        document.getElementById('scheduleUniversityFilter'),
+        document.getElementById('scheduleUniversityId')
+    ].filter(Boolean);
+
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/universities`, {
+            headers: adminAuthHeaders()
+        });
+        if (!response.ok) throw new Error();
+        const universities = await response.json();
+        window.__adminUniversitiesCache = universities;
+
+        selects.forEach((select) => {
+            const keepValue = select.value;
+            select.innerHTML = select.id === 'scheduleUniversityFilter'
+                ? '<option value="">Университет</option>'
+                : '';
+            universities.forEach((u) => {
+                select.innerHTML += `<option value="${u.id}">${escapeAdminHtml(u.shortName || u.name)}</option>`;
+            });
+            if (selectedId) {
+                select.value = String(selectedId);
+            } else if (keepValue) {
+                select.value = keepValue;
+            }
+        });
+    } catch (error) {
+        console.error('Ошибка загрузки университетов для расписания:', error);
+    }
+}
+
+async function fillScheduleFacultySelect(universityId, selectEl, selectedId) {
+    if (!selectEl) return;
+    if (!universityId) {
+        selectEl.innerHTML = selectEl.id === 'scheduleFacultyFilter'
+            ? '<option value="">Факультет</option>'
+            : '';
+        return;
+    }
+
+    try {
+        const faculties = await fetchAdminFaculties(universityId);
+        const placeholder = selectEl.id === 'scheduleFacultyFilter'
+            ? '<option value="">Факультет</option>'
+            : '';
+        selectEl.innerHTML = placeholder + faculties.map((f) =>
+            `<option value="${f.id}">${escapeAdminHtml(f.shortName || f.name)}</option>`
+        ).join('');
+        if (selectedId) selectEl.value = String(selectedId);
+    } catch (error) {
+        console.error('Ошибка загрузки факультетов для расписания:', error);
+    }
+}
+
+function renderScheduleAdminTable(entries) {
+    const container = document.getElementById('scheduleAdminList');
+    if (!container) return;
+
+    if (!entries.length) {
+        container.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 2rem;">Занятий не найдено. Добавьте первое занятие или измените фильтры.</p>';
+        return;
+    }
+
+    const byDay = new Map();
+    entries.forEach((entry) => {
+        const day = entry.dayOfWeek || 1;
+        if (!byDay.has(day)) byDay.set(day, []);
+        byDay.get(day).push(entry);
+    });
+
+    const days = [...byDay.keys()].sort((a, b) => a - b);
+    container.innerHTML = days.map((day) => {
+        const rows = byDay.get(day).map((entry) => {
+            const inactive = entry.isActive === false ? ' style="opacity:0.55;"' : '';
+            const meta = [
+                entry.University?.shortName || entry.University?.name || '—',
+                entry.Faculty?.shortName || entry.Faculty?.name || '—',
+                `${entry.course} курс`,
+                entry.groupName ? `гр. ${entry.groupName}` : 'все группы',
+                SCHEDULE_SEMESTER_LABELS[entry.semester] || entry.semester,
+                entry.academicYear || '—'
+            ].join(' · ');
+
+            return `
+                <tr${inactive}>
+                    <td>${formatScheduleTimeRange(entry)}</td>
+                    <td><strong>${escapeAdminHtml(entry.subjectName)}</strong><br><span style="font-size:0.78rem;color:var(--text-muted);">${escapeAdminHtml(meta)}</span></td>
+                    <td>${escapeAdminHtml(SCHEDULE_LESSON_TYPE_LABELS[entry.lessonType] || entry.lessonType)}</td>
+                    <td>${escapeAdminHtml(entry.teacher || '—')}</td>
+                    <td>${escapeAdminHtml(entry.room || '—')}</td>
+                    <td>${escapeAdminHtml(SCHEDULE_WEEK_PARITY_LABELS[entry.weekParity] || entry.weekParity)}</td>
+                    <td>
+                        <button class="btn btn-primary btn-sm" onclick="editScheduleEntry(${entry.id})">Изменить</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteScheduleEntry(${entry.id})">Удалить</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        return `
+            <div class="admin-schedule-day-block">
+                <h3 class="admin-schedule-day-title">${SCHEDULE_DAY_NAMES[day] || `День ${day}`}</h3>
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Время</th>
+                            <th>Предмет</th>
+                            <th>Тип</th>
+                            <th>Преподаватель</th>
+                            <th>Аудитория</th>
+                            <th>Неделя</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+        `;
+    }).join('');
+}
+
+async function loadScheduleAdmin() {
+    try {
+        await fillScheduleUniversitySelects();
+
+        const yearFilter = document.getElementById('scheduleYearFilter');
+        if (yearFilter && !yearFilter.value) {
+            yearFilter.value = getDefaultAcademicYear();
+        }
+        const semesterFilter = document.getElementById('scheduleSemesterFilter');
+        if (semesterFilter && !semesterFilter.value) {
+            semesterFilter.value = getDefaultSemester();
+        }
+
+        const params = getScheduleFilterParams();
+        const response = await fetch(`${ADMIN_API_URL}/schedule?${params.toString()}`, {
+            headers: adminAuthHeaders()
+        });
+        if (!response.ok) throw new Error('Ошибка загрузки расписания');
+
+        const entries = await response.json();
+        window.__adminScheduleCache = entries;
+        renderScheduleAdminTable(entries);
+    } catch (error) {
+        console.error('Ошибка загрузки расписания:', error);
+        showNotification('Ошибка загрузки расписания', 'error');
+    }
+}
+
+function resetScheduleForm() {
+    document.getElementById('scheduleId').value = '';
+    document.getElementById('scheduleGroupName').value = '';
+    document.getElementById('scheduleLessonNumber').value = '';
+    document.getElementById('scheduleTimeStart').value = '';
+    document.getElementById('scheduleTimeEnd').value = '';
+    document.getElementById('scheduleSubjectName').value = '';
+    document.getElementById('scheduleTeacher').value = '';
+    document.getElementById('scheduleRoom').value = '';
+    document.getElementById('scheduleNotes').value = '';
+    document.getElementById('scheduleCourse').value = '1';
+    document.getElementById('scheduleDayOfWeek').value = '1';
+    document.getElementById('scheduleLessonType').value = 'lecture';
+    document.getElementById('scheduleWeekParity').value = 'all';
+    document.getElementById('scheduleSemester').value = getDefaultSemester();
+    document.getElementById('scheduleAcademicYear').value = getDefaultAcademicYear();
+    document.getElementById('scheduleIsActive').checked = true;
+    document.getElementById('scheduleModalTitle').textContent = 'Добавить занятие';
+}
+
+async function openScheduleModal(entry) {
+    resetScheduleForm();
+    await fillScheduleUniversitySelects(entry?.universityId || document.getElementById('scheduleUniversityFilter')?.value);
+
+    const universityId = entry?.universityId
+        || document.getElementById('scheduleUniversityFilter')?.value
+        || document.getElementById('scheduleUniversityId')?.options?.[0]?.value;
+    const facultySelect = document.getElementById('scheduleFacultyId');
+    await fillScheduleFacultySelect(universityId, facultySelect, entry?.facultyId);
+
+    if (entry) {
+        document.getElementById('scheduleId').value = entry.id;
+        document.getElementById('scheduleUniversityId').value = String(entry.universityId);
+        await fillScheduleFacultySelect(entry.universityId, facultySelect, entry.facultyId);
+        document.getElementById('scheduleCourse').value = String(entry.course);
+        document.getElementById('scheduleGroupName').value = entry.groupName || '';
+        document.getElementById('scheduleAcademicYear').value = entry.academicYear || getDefaultAcademicYear();
+        document.getElementById('scheduleSemester').value = entry.semester || getDefaultSemester();
+        document.getElementById('scheduleDayOfWeek').value = String(entry.dayOfWeek);
+        document.getElementById('scheduleLessonNumber').value = entry.lessonNumber || '';
+        document.getElementById('scheduleTimeStart').value = entry.timeStart || '';
+        document.getElementById('scheduleTimeEnd').value = entry.timeEnd || '';
+        document.getElementById('scheduleSubjectName').value = entry.subjectName || '';
+        document.getElementById('scheduleTeacher').value = entry.teacher || '';
+        document.getElementById('scheduleRoom').value = entry.room || '';
+        document.getElementById('scheduleLessonType').value = entry.lessonType || 'lecture';
+        document.getElementById('scheduleWeekParity').value = entry.weekParity || 'all';
+        document.getElementById('scheduleNotes').value = entry.notes || '';
+        document.getElementById('scheduleIsActive').checked = entry.isActive !== false;
+        document.getElementById('scheduleModalTitle').textContent = 'Редактировать занятие';
+    } else {
+        const filterCourse = document.getElementById('scheduleCourseFilter')?.value;
+        if (filterCourse) document.getElementById('scheduleCourse').value = filterCourse;
+        const filterGroup = document.getElementById('scheduleGroupFilter')?.value;
+        if (filterGroup) document.getElementById('scheduleGroupName').value = filterGroup;
+        const filterYear = document.getElementById('scheduleYearFilter')?.value;
+        if (filterYear) document.getElementById('scheduleAcademicYear').value = filterYear;
+        const filterSemester = document.getElementById('scheduleSemesterFilter')?.value;
+        if (filterSemester) document.getElementById('scheduleSemester').value = filterSemester;
+    }
+
+    document.getElementById('scheduleModal').style.display = 'block';
+}
+
+async function editScheduleEntry(entryId) {
+    try {
+        let entry = (window.__adminScheduleCache || []).find((e) => Number(e.id) === Number(entryId));
+        if (!entry) {
+            const response = await fetch(`${ADMIN_API_URL}/schedule/${entryId}`, {
+                headers: adminAuthHeaders()
+            });
+            if (!response.ok) throw new Error();
+            entry = await response.json();
+        }
+        await openScheduleModal(entry);
+    } catch (error) {
+        console.error('Ошибка загрузки занятия:', error);
+        showNotification('Не удалось загрузить занятие', 'error');
+    }
+}
+
+async function deleteScheduleEntry(entryId) {
+    if (!confirm('Удалить это занятие из расписания?')) return;
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/schedule/${entryId}`, {
+            method: 'DELETE',
+            headers: adminAuthHeaders()
+        });
+        if (!response.ok) {
+            const result = await response.json().catch(() => ({}));
+            throw new Error(result.error || 'Ошибка удаления');
+        }
+        showNotification('Занятие удалено', 'success');
+        loadScheduleAdmin();
+    } catch (error) {
+        console.error('Ошибка удаления занятия:', error);
+        showNotification(error.message || 'Ошибка удаления', 'error');
+    }
+}
+
+async function saveScheduleEntry(e) {
+    e.preventDefault();
+
+    const id = document.getElementById('scheduleId').value;
+    const payload = {
+        universityId: parseInt(document.getElementById('scheduleUniversityId').value, 10),
+        facultyId: parseInt(document.getElementById('scheduleFacultyId').value, 10),
+        course: parseInt(document.getElementById('scheduleCourse').value, 10),
+        groupName: document.getElementById('scheduleGroupName').value.trim(),
+        academicYear: document.getElementById('scheduleAcademicYear').value.trim(),
+        semester: document.getElementById('scheduleSemester').value,
+        dayOfWeek: parseInt(document.getElementById('scheduleDayOfWeek').value, 10),
+        lessonNumber: document.getElementById('scheduleLessonNumber').value,
+        timeStart: document.getElementById('scheduleTimeStart').value,
+        timeEnd: document.getElementById('scheduleTimeEnd').value,
+        subjectName: document.getElementById('scheduleSubjectName').value.trim(),
+        teacher: document.getElementById('scheduleTeacher').value.trim(),
+        room: document.getElementById('scheduleRoom').value.trim(),
+        lessonType: document.getElementById('scheduleLessonType').value,
+        weekParity: document.getElementById('scheduleWeekParity').value,
+        notes: document.getElementById('scheduleNotes').value.trim(),
+        isActive: document.getElementById('scheduleIsActive').checked
+    };
+
+    if (!payload.universityId || !payload.facultyId || !payload.subjectName || !payload.academicYear) {
+        showNotification('Заполните университет, факультет, предмет и учебный год', 'error');
+        return;
+    }
+
+    try {
+        const url = id ? `${ADMIN_API_URL}/schedule/${id}` : `${ADMIN_API_URL}/schedule`;
+        const method = id ? 'PUT' : 'POST';
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                ...adminAuthHeaders()
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const result = await response.json().catch(() => ({}));
+            const errMsg = result.error
+                || (Array.isArray(result.errors) ? result.errors.map((x) => x.msg).join(', ') : null)
+                || 'Ошибка сохранения';
+            throw new Error(errMsg);
+        }
+
+        showNotification(id ? 'Занятие обновлено' : 'Занятие добавлено', 'success');
+        document.getElementById('scheduleModal').style.display = 'none';
+        loadScheduleAdmin();
+    } catch (error) {
+        console.error('Ошибка сохранения занятия:', error);
+        showNotification(error.message || 'Ошибка сохранения', 'error');
+    }
+}
+
+function setupScheduleEventListeners() {
+    const addBtn = document.getElementById('addScheduleBtn');
+    if (addBtn) {
+        addBtn.addEventListener('click', () => openScheduleModal());
+    }
+
+    const form = document.getElementById('scheduleForm');
+    if (form) {
+        form.addEventListener('submit', saveScheduleEntry);
+    }
+
+    const applyBtn = document.getElementById('scheduleApplyFiltersBtn');
+    if (applyBtn) {
+        applyBtn.addEventListener('click', loadScheduleAdmin);
+    }
+
+    const uniFilter = document.getElementById('scheduleUniversityFilter');
+    if (uniFilter) {
+        uniFilter.addEventListener('change', async () => {
+            await fillScheduleFacultySelect(uniFilter.value, document.getElementById('scheduleFacultyFilter'));
+        });
+    }
+
+    const uniModal = document.getElementById('scheduleUniversityId');
+    if (uniModal) {
+        uniModal.addEventListener('change', async () => {
+            await fillScheduleFacultySelect(uniModal.value, document.getElementById('scheduleFacultyId'));
+        });
+    }
+}
+
 // Загрузка новостей в админке
 async function loadNewsAdmin() {
     try {
@@ -2339,6 +2749,7 @@ function setupAdminEventListeners() {
     }
 
     setupAuditEventListeners();
+    setupScheduleEventListeners();
 
     const addNewsBtn = document.getElementById('addNewsBtn');
     if (addNewsBtn) {
@@ -4549,6 +4960,9 @@ function switchTab(tabName) {
         case 'news':
             loadNewsAdmin();
             break;
+        case 'schedule':
+            loadScheduleAdmin();
+            break;
         case 'messages':
             loadMessages();
             break;
@@ -5643,6 +6057,8 @@ window.editQuestion = editQuestion;
 window.focusUsmleSubjectTests = focusUsmleSubjectTests;
 window.focusUsmleTestQuestions = focusUsmleTestQuestions;
 window.editNews = editNews;
+window.editScheduleEntry = editScheduleEntry;
+window.deleteScheduleEntry = deleteScheduleEntry;
 window.loadUsers = loadUsers;
 window.addAnswer = addAnswer;
 window.loadMessages = loadMessages;

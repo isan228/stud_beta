@@ -1433,5 +1433,58 @@ html.admin-html .modal .btn {
     }
 }
 
+.admin-schedule-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    margin-bottom: 1rem;
+    align-items: center;
+}
 
+.admin-schedule-filters .form-group.input,
+.admin-schedule-filters select {
+    min-width: 140px;
+    margin: 0;
+}
+
+.admin-schedule-day-block {
+    margin-bottom: 1.25rem;
+}
+
+.admin-schedule-day-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem;
+    color: var(--text-color);
+}
+
+.admin-schedule-modal {
+    max-width: 760px;
+}
+
+.admin-schedule-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem 1rem;
+}
+
+.admin-schedule-form-span2 {
+    grid-column: 1 / -1;
+}
+
+.admin-schedule-form-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+@media (max-width: 640px) {
+    .admin-schedule-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-schedule-form-span2 {
+        grid-column: auto;
+    }
+}
 
