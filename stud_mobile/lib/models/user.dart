@@ -14,6 +14,27 @@ class University {
       );
 }
 
+class FacultyModel {
+  FacultyModel({
+    required this.id,
+    required this.name,
+    this.shortName,
+    this.universityId,
+  });
+
+  final int id;
+  final String name;
+  final String? shortName;
+  final int? universityId;
+
+  factory FacultyModel.fromJson(Map<String, dynamic> json) => FacultyModel(
+        id: json['id'] as int,
+        name: json['name'] as String? ?? '',
+        shortName: json['shortName'] as String?,
+        universityId: json['universityId'] as int?,
+      );
+}
+
 class UserModel {
   UserModel({
     required this.id,
@@ -25,6 +46,11 @@ class UserModel {
     this.usmleSubscriptionEndDate,
     this.universityId,
     this.university,
+    this.facultyId,
+    this.course,
+    this.groupName,
+    this.kgmaGroupId,
+    this.faculty,
     this.createdAt,
   });
 
@@ -37,7 +63,16 @@ class UserModel {
   final String? usmleSubscriptionEndDate;
   final int? universityId;
   final University? university;
+  final int? facultyId;
+  final int? course;
+  final String? groupName;
+  final String? kgmaGroupId;
+  final FacultyModel? faculty;
   final String? createdAt;
+
+  bool get hasScheduleGroup =>
+      (kgmaGroupId != null && kgmaGroupId!.isNotEmpty) ||
+      (groupName != null && groupName!.isNotEmpty);
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
         id: json['id'] as int,
@@ -50,6 +85,13 @@ class UserModel {
         universityId: json['universityId'] as int?,
         university: json['University'] != null
             ? University.fromJson(json['University'] as Map<String, dynamic>)
+            : null,
+        facultyId: json['facultyId'] as int?,
+        course: json['course'] as int?,
+        groupName: json['groupName'] as String?,
+        kgmaGroupId: json['kgmaGroupId'] as String?,
+        faculty: json['Faculty'] != null
+            ? FacultyModel.fromJson(json['Faculty'] as Map<String, dynamic>)
             : null,
         createdAt: json['createdAt'] as String?,
       );

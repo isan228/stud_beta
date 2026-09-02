@@ -124,6 +124,37 @@ class AuthService {
   Future<void> dismissBroadcastAlert(int id) async {
     await _api.put('/auth/account-alerts/broadcast/$id/dismiss');
   }
+
+  Future<UserModel> updateDirection({
+    required int facultyId,
+    required int course,
+    String? kgmaGroupId,
+    String? groupName,
+    bool clearGroup = false,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'facultyId': facultyId,
+        'course': course,
+      };
+      if (clearGroup) {
+        body['kgmaGroupId'] = '';
+        body['groupName'] = '';
+      } else {
+        if (kgmaGroupId != null) body['kgmaGroupId'] = kgmaGroupId;
+        if (groupName != null) body['groupName'] = groupName;
+      }
+
+      final data = await _api.put<Map<String, dynamic>>(
+        '/auth/direction',
+        data: body,
+        parser: (d) => Map<String, dynamic>.from(d as Map),
+      );
+      return UserModel.fromJson(data['user'] as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw _api.rethrowAsApi(e);
+    }
+  }
 }
 
 final secureStorageProvider = Provider<FlutterSecureStorage>(

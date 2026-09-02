@@ -8,6 +8,8 @@ import '../../core/widgets/state_views.dart';
 import '../../models/stats.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/stats_service.dart';
+import 'my_schedule_card.dart';
+import 'profile_direction_card.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -31,6 +33,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (!ref.read(authProvider).isAuthenticated) return;
     setState(() => _loading = true);
     try {
+      await ref.read(authProvider.notifier).refreshUser();
       final data = await ref.read(statsServiceProvider).getUserStats();
       if (!mounted) return;
       setState(() {
@@ -82,6 +85,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   Text(user!.username, style: Theme.of(context).textTheme.headlineSmall),
                   Text(user.email),
                   if (user.university != null) Text(user.university!.name),
+                  if (user.faculty != null) Text('${user.faculty!.name}, ${user.course ?? '—'} курс'),
+                  if (user.groupName != null) Text('Группа: ${user.groupName}'),
                   const SizedBox(height: 8),
                   Text('Монеты: ${user.coins}'),
                   if (user.referralCode != null) ...[
@@ -104,10 +109,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          ProfileDirectionCard(user: user),
+          const SizedBox(height: 12),
+          MyScheduleCard(user: user),
+          const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
+              if (user.hasScheduleGroup)
+                ActionChip(
+                  label: const Text('Расписание'),
+                  onPressed: () => context.push('/schedule'),
+                ),
               ActionChip(
                 label: const Text('Подписка вуз'),
                 onPressed: () => context.push('/subscriptions?program=university'),

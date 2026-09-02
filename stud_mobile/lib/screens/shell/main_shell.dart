@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../alerts/account_alerts_sheet.dart';
 
 class MainShell extends ConsumerWidget {
   const MainShell({super.key, required this.child});
@@ -56,11 +57,13 @@ class MainShell extends ConsumerWidget {
             ),
             onPressed: () => ref.read(themeModeProvider.notifier).toggle(),
           ),
-          if (auth.isAuthenticated)
+          if (auth.isAuthenticated) ...[
+            const AccountAlertsIconButton(),
             IconButton(
               icon: const Icon(Icons.chat_bubble_outline),
               onPressed: () => context.push('/chat'),
             ),
+          ],
           PopupMenuButton<String>(
             onSelected: (value) async {
               switch (value) {

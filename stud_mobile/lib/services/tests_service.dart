@@ -4,12 +4,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/api/api_client.dart';
 import '../models/question.dart';
 import '../models/test.dart';
+import '../models/user.dart';
 import '../models/usmle.dart';
 
 class TestsService {
   TestsService(this._api);
 
   final ApiClient _api;
+
+  Future<List<FacultyModel>> getFaculties(int universityId) async {
+    try {
+      final data = await _api.get<List<dynamic>>(
+        '/tests/faculties',
+        queryParameters: {'universityId': universityId},
+        parser: (d) => d as List<dynamic>,
+      );
+      return data.map((e) => FacultyModel.fromJson(e as Map<String, dynamic>)).toList();
+    } on DioException catch (e) {
+      throw _api.rethrowAsApi(e);
+    }
+  }
 
   Future<List<Subject>> getSubjects({String program = 'university', bool freeOnly = false}) async {
     try {

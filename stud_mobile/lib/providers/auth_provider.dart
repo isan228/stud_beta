@@ -106,6 +106,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (_) {}
   }
 
+  Future<UserModel> updateDirection({
+    required int facultyId,
+    required int course,
+    String? kgmaGroupId,
+    String? groupName,
+    bool clearGroup = false,
+  }) async {
+    final user = await _authService.updateDirection(
+      facultyId: facultyId,
+      course: course,
+      kgmaGroupId: kgmaGroupId,
+      groupName: groupName,
+      clearGroup: clearGroup,
+    );
+    state = state.copyWith(user: user);
+    return user;
+  }
+
   Future<void> logout() async {
     await _authService.clearToken();
     authTokenHolder.token = null;

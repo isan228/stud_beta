@@ -14,6 +14,7 @@ import '../screens/news/news_screen.dart';
 import '../screens/profile/change_password_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/rating/rating_screen.dart';
+import '../screens/schedule/my_schedule_screen.dart';
 import '../screens/shell/main_shell.dart';
 import '../screens/subscriptions/subscriptions_screen.dart';
 import '../screens/tests/subject_tests_screen.dart';
@@ -122,6 +123,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const ChangePasswordScreen(),
       ),
       GoRoute(
+        path: '/schedule',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, __) => const MyScheduleScreen(),
+      ),
+      GoRoute(
         path: '/test-settings/:testId',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) {
@@ -171,6 +177,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               path == '/subscriptions' ||
               path == '/chat' ||
               path == '/change-password' ||
+              path == '/schedule' ||
               path == '/profile')) {
         return '/login?redirect=${Uri.encodeComponent(path)}';
       }
