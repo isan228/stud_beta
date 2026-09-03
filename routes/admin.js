@@ -1974,6 +1974,23 @@ router.get('/flashcards', adminAuth, async (req, res) => {
   }
 });
 
+/** Демо-набор flashcards из data/sample-usmle-flashcards.txt */
+router.post('/flashcards/seed-demo', adminAuth, async (req, res) => {
+  try {
+    const { seedDemoFlashcards } = require('../utils/seedDemoFlashcards');
+    const testId = req.body?.testId || req.query.testId || null;
+    const stepGroup = req.body?.stepGroup || req.query.stepGroup || 'step1';
+    const result = await seedDemoFlashcards({ testId, stepGroup });
+    res.json({
+      message: `Демо flashcards: создано ${result.createdCount}, обновлено ${result.updatedCount}`,
+      ...result
+    });
+  } catch (error) {
+    console.error('Ошибка seed demo flashcards:', error);
+    res.status(500).json({ error: error.message || 'Ошибка загрузки демо flashcards' });
+  }
+});
+
 router.get('/flashcards/:id', adminAuth, async (req, res) => {
   try {
     const row = await Flashcard.findByPk(req.params.id, { include: flashcardInclude() });

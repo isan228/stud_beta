@@ -2992,6 +2992,10 @@ function setupAdminEventListeners() {
     if (uploadUsmleTxtFlashcardsBtn) {
         uploadUsmleTxtFlashcardsBtn.addEventListener('click', () => openUsmleTxtFlashcardsUploadModal());
     }
+    const seedDemoFlashcardsBtn = document.getElementById('seedDemoFlashcardsBtn');
+    if (seedDemoFlashcardsBtn) {
+        seedDemoFlashcardsBtn.addEventListener('click', () => seedDemoUsmleFlashcards());
+    }
     const addUsmleFlashcardWithImagesBtn = document.getElementById('addUsmleFlashcardWithImagesBtn');
     if (addUsmleFlashcardWithImagesBtn) {
         addUsmleFlashcardWithImagesBtn.addEventListener('click', () => openAddUsmleFlashcardWithImagesModal());
@@ -4140,6 +4144,47 @@ async function openUsmleTxtFlashcardsUploadModal() {
     } catch (error) {
         console.error('Ошибка открытия загрузки flashcards:', error);
         showNotification('Ошибка загрузки тестов USMLE', 'error');
+    }
+}
+
+async function seedDemoUsmleFlashcards() {
+    const testId = document.getElementById('usmleFlashcardsTestFilter')?.value || '';
+    const stepGroup = document.getElementById('usmleFlashcardsStepFilter')?.value || 'step1';
+    const btn = document.getElementById('seedDemoFlashcardsBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Загрузка…';
+    }
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/flashcards/seed-demo`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${currentAdminToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                testId: testId || null,
+                stepGroup: stepGroup || 'step1'
+            })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(data.error || 'Не удалось загрузить демо');
+        }
+        showNotification(
+            data.message || `Демо: +${data.createdCount || 0} / ~${data.updatedCount || 0}`,
+            'success'
+        );
+        await loadUsmleFlashcardsAdmin();
+        await fillUsmleFlashcardFilters();
+    } catch (error) {
+        console.error('seedDemoUsmleFlashcards', error);
+        showNotification(error.message || 'Ошибка демо flashcards', 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '🧪 Демо карточки';
+        }
     }
 }
 

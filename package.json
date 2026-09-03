@@ -19,6 +19,7 @@
     "add-tests": "node scripts/addTests.js",
     "check-pdf": "node scripts/checkPdfParse.js",
     "check-answers": "node scripts/checkAnswers.js",
+    "seed-flashcards": "node scripts/seedUsmleFlashcards.js",
     "sync-kgma-schedule": "node scripts/syncKgmaSchedule.js",
     "send-schedule-reminders": "node scripts/sendScheduleReminders.js",
     "generate-favicons": "node scripts/generate-favicons.js",
