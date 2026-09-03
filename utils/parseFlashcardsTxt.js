@@ -76,6 +76,10 @@ function parseFlashcardsFromText(text, options = {}) {
   const prepared = injectTopicMarkers(normalizeTxt(text));
   const blocks = prepared.split(/"ID"\s*:\s*"/i);
 
+  // Тема из заголовка секции стоит ДО первого "ID" (в blocks[0]) —
+  // без этого === Renal ... === не подхватывается.
+  rollingTopic = getLastTopicFromBlock(blocks[0] || '', rollingTopic);
+
   for (let i = 1; i < blocks.length; i++) {
     const block = blocks[i];
     stats.idBlocks++;
@@ -87,13 +91,17 @@ function parseFlashcardsFromText(text, options = {}) {
       const externalId = String(idMatch[1] || '').trim();
       if (!externalId) continue;
 
-      rollingTopic = getLastTopicFromBlock(block, rollingTopic);
+      // Тема для ЭТОЙ карточки — текущая секция (из заголовка выше).
+      // Маркер новой секции в конце блока относится уже к следующим карточкам.
+      const topicForThisCard = rollingTopic;
 
       const frontText = extractQuotedField(block, ['Front', 'F', 'Question', 'Q']);
       const backText = extractQuotedField(block, ['Back', 'B', 'Answer', 'A']);
       if (!frontText || !backText) {
         stats.missingFrontBack++;
         console.warn(`Flashcard ID ${externalId}: нет Front/Back (или Q/A)`);
+        // всё равно обновим rollingTopic, если в блоке есть смена секции
+        rollingTopic = getLastTopicFromBlock(block, rollingTopic);
         continue;
       }
 
@@ -106,15 +114,15 @@ function parseFlashcardsFromText(text, options = {}) {
         'Tag',
         'T'
       ]);
-      // Tags может быть "Pathology, Cardiology" — берём первый
       const topicRaw = inlineTopic
         ? String(inlineTopic).split(/[,;|]/)[0].trim()
-        : (rollingTopic || '');
+        : (topicForThisCard || '');
       const topicName = resolveFlashcardTopic(topicRaw);
 
       if (requireTopic && !topicName) {
         stats.missingTopic++;
-        console.warn(`Flashcard ID ${externalId}: не указана тема (секция или Topic/System/Subject)`);
+        console.warn(`Flashcard ID ${externalId}: не указана тема (секция === ... === сверху)`);
+        rollingTopic = getLastTopicFromBlock(block, rollingTopic);
         continue;
       }
 
@@ -125,6 +133,9 @@ function parseFlashcardsFromText(text, options = {}) {
         topicName: topicName || null
       });
       stats.accepted++;
+
+      // После карточки: если дальше в блоке есть === New Topic ===, подхватим для следующих
+      rollingTopic = getLastTopicFromBlock(block, rollingTopic);
     } catch (error) {
       console.error(`Ошибка парсинга flashcard блока ${i}:`, error);
     }
