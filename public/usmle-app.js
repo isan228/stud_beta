@@ -300,6 +300,7 @@
     window.UsmleApp = {
         mountUsmlePage,
         renderShell,
+        bindShellEvents,
         getStoredStep,
         setStoredStep,
         getSelectedBank,

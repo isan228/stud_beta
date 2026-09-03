@@ -414,9 +414,15 @@
             window.location.href = '/usmle';
             return;
         }
-        U.renderShell({ activeNav: 'flashcards', pageTitle: 'Flashcards', bank });
 
-        const main = document.querySelector('.usmle-main-content');
+        const mount = document.getElementById('usmleAppMount');
+        if (!mount) return;
+
+        // renderShell возвращает HTML — нужно вставить в DOM
+        mount.innerHTML = U.renderShell({ activeNav: 'flashcards', pageTitle: 'Flashcards', bank });
+        if (typeof U.bindShellEvents === 'function') U.bindShellEvents();
+
+        const main = document.getElementById('usmlePageContent');
         if (!main) return;
 
         main.innerHTML = `
