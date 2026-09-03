@@ -348,6 +348,7 @@
         if (typeof initTheme === 'function') initTheme();
         if (typeof loadUser === 'function') await loadUser();
         if (typeof setupEventListeners === 'function') setupEventListeners();
+        if (U.requireUsmleAccess && !U.requireUsmleAccess()) return;
         if (!U.getSelectedBank()) {
             window.location.href = '/usmle';
             return;

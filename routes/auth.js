@@ -7,6 +7,8 @@ const { Op } = require('sequelize');
 const { User, UserStats, UserDeviceAlert, UserBroadcastNotification, BroadcastMessage, University, Faculty } = require('../models');
 const { ALLOWED_COURSES, ensureLechfakForUniversity } = require('../utils/ensureFaculties');
 const { fetchKgmaMeta, listKgmaGroups } = require('../utils/kgmaSchedule');
+const { isSubscriptionActive } = require('../utils/subscriptionPlans');
+const { isAdminLinkedUser } = require('../utils/adminUserAccess');
 
 const USER_PROFILE_ATTRIBUTES = [
   'id', 'username', 'email', 'createdAt', 'referralCode', 'coins',
@@ -408,7 +410,12 @@ router.get('/me', require('../middleware/auth'), async (req, res) => {
       });
     }
     
-    res.json({ user });
+    const payload = user.toJSON();
+    const adminLinked = await isAdminLinkedUser(user);
+    payload.isAdminAccount = adminLinked;
+    payload.subscriptionActive = adminLinked || isSubscriptionActive(user.subscriptionEndDate);
+    payload.usmleSubscriptionActive = adminLinked || isSubscriptionActive(user.usmleSubscriptionEndDate);
+    res.json({ user: payload });
   } catch (error) {
     console.error('Ошибка получения пользователя:', error);
     res.status(500).json({ error: 'Ошибка сервера' });

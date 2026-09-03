@@ -1417,19 +1417,24 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     let subjectTestsCache = [];
 
     function hasActiveSubscription() {
-        return !!(currentUser && currentUser.subscriptionEndDate && new Date(currentUser.subscriptionEndDate) > new Date());
+        if (!currentUser) return false;
+        if (currentUser.isAdminAccount === true || currentUser.subscriptionActive === true) return true;
+        return !!(currentUser.subscriptionEndDate && new Date(currentUser.subscriptionEndDate) > new Date());
     }
 
     function hasActiveUsmleSubscription() {
-        return !!(currentUser && currentUser.usmleSubscriptionEndDate && new Date(currentUser.usmleSubscriptionEndDate) > new Date());
+        if (!currentUser) return false;
+        if (currentUser.isAdminAccount === true || currentUser.usmleSubscriptionActive === true) return true;
+        return !!(currentUser.usmleSubscriptionEndDate && new Date(currentUser.usmleSubscriptionEndDate) > new Date());
     }
 
     function canAccessTest(test) {
         if (!test) return false;
-        if (test.isFree) return true;
+        // Весь USMLE — только с подпиской USMLE (даже «бесплатные» тесты)
         if ((test.programType || 'university') === 'usmle') {
             return hasActiveUsmleSubscription();
         }
+        if (test.isFree) return true;
         return hasActiveSubscription();
     }
 

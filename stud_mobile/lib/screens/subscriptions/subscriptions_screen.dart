@@ -137,12 +137,20 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
       children: [
         if (plans.universityName != null)
           Text('Университет: ${plans.universityName}', style: Theme.of(context).textTheme.titleMedium),
-        if (isSubscriptionActive(activeDate))
+        if (user?.isAdminAccount == true ||
+            (widget.program == 'usmle'
+                ? user?.hasUsmleSubscription == true
+                : user?.hasUniversitySubscription == true) ||
+            isSubscriptionActive(activeDate))
           Card(
             child: ListTile(
               leading: const Icon(Icons.verified, color: Colors.green),
-              title: const Text('Активная подписка'),
-              subtitle: Text('До ${formatDate(DateTime.tryParse(activeDate!))}'),
+              title: Text(user?.isAdminAccount == true
+                  ? 'Админ: полный доступ'
+                  : 'Активная подписка'),
+              subtitle: Text(user?.isAdminAccount == true
+                  ? 'Подписка всегда активна'
+                  : 'До ${formatDate(DateTime.tryParse(activeDate ?? ''))}'),
             ),
           ),
         if (user != null) ...[

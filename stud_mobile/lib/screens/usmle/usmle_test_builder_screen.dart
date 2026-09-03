@@ -6,6 +6,7 @@ import '../../core/api/api_exception.dart';
 import '../../core/widgets/state_views.dart';
 import '../../models/question.dart';
 import '../../models/usmle.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/test_session.dart';
 import '../../services/tests_service.dart';
 
@@ -27,6 +28,7 @@ class _UsmleTestBuilderScreenState extends ConsumerState<UsmleTestBuilderScreen>
   UsmleGroupedTags? _tags;
   bool _loading = true;
   String? _error;
+  bool _needsSubscription = false;
 
   final Set<int> _subjectTagIds = {};
   final Set<int> _systemTagIds = {};
@@ -44,11 +46,27 @@ class _UsmleTestBuilderScreenState extends ConsumerState<UsmleTestBuilderScreen>
     _load();
   }
 
+  bool _hasUsmleAccess() {
+    final user = ref.read(authProvider).user;
+    return user?.hasUsmleSubscription == true;
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
       _error = null;
+      _needsSubscription = false;
     });
+
+    if (!_hasUsmleAccess()) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _needsSubscription = true;
+      });
+      return;
+    }
+
     try {
       final tags = await ref.read(testsServiceProvider).getUsmleGroupedTags(testId: widget.testId);
       if (!mounted) return;
@@ -58,8 +76,10 @@ class _UsmleTestBuilderScreenState extends ConsumerState<UsmleTestBuilderScreen>
       });
     } catch (e) {
       if (!mounted) return;
+      final isSubRequired = e is ApiException && e.statusCode == 403;
       setState(() {
-        _error = e.toString();
+        _needsSubscription = isSubRequired;
+        _error = isSubRequired ? null : e.toString();
         _loading = false;
       });
     }
@@ -96,6 +116,10 @@ class _UsmleTestBuilderScreenState extends ConsumerState<UsmleTestBuilderScreen>
       context.push('/test-session');
     } catch (e) {
       if (!mounted) return;
+      if (e is ApiException && e.statusCode == 403) {
+        setState(() => _needsSubscription = true);
+        return;
+      }
       final msg = e is ApiException ? e.message : e.toString();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     } finally {
@@ -126,16 +150,53 @@ class _UsmleTestBuilderScreenState extends ConsumerState<UsmleTestBuilderScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return Scaffold(
+        appBar: AppBar(title: Text('Конструктор: ${widget.testName}')),
+        body: const LoadingView(),
+      );
+    }
+
+    if (_needsSubscription) {
+      return Scaffold(
+        appBar: AppBar(title: Text('Конструктор: ${widget.testName}')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.lock_outline, size: 48, color: Theme.of(context).colorScheme.outline),
+                const SizedBox(height: 12),
+                const Text(
+                  'Раздел USMLE доступен только с активной подпиской USMLE',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () => context.push('/subscriptions?program=usmle'),
+                  child: const Text('Оформить подписку'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return Scaffold(
+        appBar: AppBar(title: Text('Конструктор: ${widget.testName}')),
+        body: ErrorView(message: _error!, onRetry: _load),
+      );
+    }
+
     final subjectFilter = _unionQuestionIds(_subjectTagIds, _tags?.subjects ?? const []);
     final systemFilter = _unionQuestionIds(_systemTagIds, _tags?.systems ?? const []);
 
     return Scaffold(
       appBar: AppBar(title: Text('Конструктор: ${widget.testName}')),
-      body: _loading
-          ? const LoadingView()
-          : _error != null
-              ? ErrorView(message: _error!, onRetry: _load)
-              : ListView(
+      body: ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
                     Text('Предметы', style: Theme.of(context).textTheme.titleMedium),

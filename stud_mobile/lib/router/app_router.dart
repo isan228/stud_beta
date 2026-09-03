@@ -178,12 +178,22 @@ final routerProvider = Provider<GoRouter>((ref) {
               path == '/chat' ||
               path == '/change-password' ||
               path == '/schedule' ||
-              path == '/profile')) {
+              path == '/profile' ||
+              path == '/usmle' ||
+              path.startsWith('/usmle-builder/'))) {
         return '/login?redirect=${Uri.encodeComponent(path)}';
       }
 
       if (auth.isAuthenticated && isAuthRoute) {
         return '/';
+      }
+
+      if (auth.isAuthenticated &&
+          path.startsWith('/usmle-builder/')) {
+        final user = auth.user;
+        if (user == null || !user.hasUsmleSubscription) {
+          return '/subscriptions?program=usmle';
+        }
       }
 
       return null;

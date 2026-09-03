@@ -589,6 +589,7 @@
 
 <div id="notification" class="notification"></div>
 <script src="app.js"></script>
+<script src="usmle-app.js"></script>
 <script>
     const API_URL = '/api';
     const urlParams = new URLSearchParams(window.location.search);
@@ -934,6 +935,12 @@
         if (typeof initTheme === 'function') initTheme();
         if (typeof loadUser === 'function') await loadUser();
         if (typeof setupEventListeners === 'function') setupEventListeners();
+        if (window.UsmleApp && typeof window.UsmleApp.requireUsmleAccess === 'function') {
+            if (!window.UsmleApp.requireUsmleAccess()) return;
+        } else if (typeof window.hasActiveUsmleSubscription === 'function' && !window.hasActiveUsmleSubscription()) {
+            window.location.href = '/subscriptions?program=usmle';
+            return;
+        }
         await loadTags();
     });
 </script>

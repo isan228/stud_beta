@@ -5,6 +5,7 @@ const { Transaction, User, PromoCode, University } = require('../models');
 const { validateFinikSignature } = require('../utils/finikValidator');
 const { createPayment } = require('../utils/finikClient');
 const { getPlansForUniversity, getPlanPrice, getPlansForUsmle, getUsmlePlanPrice } = require('../utils/subscriptionPlans');
+const { isAdminLinkedUser } = require('../utils/adminUserAccess');
 const auth = require('../middleware/auth');
 
 async function resolvePromoCode(rawCode) {
@@ -666,7 +667,7 @@ router.post('/webhook', async (req, res) => {
 router.get('/transactions', auth, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
-      attributes: ['id', 'subscriptionEndDate', 'usmleSubscriptionEndDate', 'coins']
+      attributes: ['id', 'email', 'username', 'subscriptionEndDate', 'usmleSubscriptionEndDate', 'coins']
     });
 
     const transactions = await Transaction.findAll({
@@ -706,17 +707,19 @@ router.get('/transactions', auth, async (req, res) => {
       };
     });
 
+    const adminLinked = await isAdminLinkedUser(user);
     const end = user?.subscriptionEndDate ? new Date(user.subscriptionEndDate) : null;
     const now = new Date();
-    const active = !!(end && end > now);
+    const active = adminLinked || !!(end && end > now);
     const usmleEnd = user?.usmleSubscriptionEndDate ? new Date(user.usmleSubscriptionEndDate) : null;
-    const usmleActive = !!(usmleEnd && usmleEnd > now);
+    const usmleActive = adminLinked || !!(usmleEnd && usmleEnd > now);
 
     res.json({
       subscriptionEndDate: user?.subscriptionEndDate || null,
       subscriptionActive: active,
       usmleSubscriptionEndDate: user?.usmleSubscriptionEndDate || null,
       usmleSubscriptionActive: usmleActive,
+      isAdminAccount: adminLinked,
       coins: user?.coins || 0,
       transactions: items
     });
@@ -761,7 +764,7 @@ router.get('/plans', auth, async (req, res) => {
       : 'university';
 
     const user = await User.findByPk(req.user.id, {
-      attributes: ['id', 'universityId', 'subscriptionEndDate', 'usmleSubscriptionEndDate'],
+      attributes: ['id', 'email', 'username', 'universityId', 'subscriptionEndDate', 'usmleSubscriptionEndDate'],
       include: [{
         model: University,
         as: 'University',
@@ -774,13 +777,16 @@ router.get('/plans', auth, async (req, res) => {
       return res.status(404).json({ error: 'Пользователь не найден' });
     }
 
+    const adminLinked = await isAdminLinkedUser(user);
+
     if (program === 'usmle') {
       const plans = await getPlansForUsmle();
       return res.json({
         programType: 'usmle',
         plans,
         usmleSubscriptionEndDate: user.usmleSubscriptionEndDate || null,
-        usmleSubscriptionActive: !!(user.usmleSubscriptionEndDate && new Date(user.usmleSubscriptionEndDate) > new Date())
+        usmleSubscriptionActive: adminLinked || !!(user.usmleSubscriptionEndDate && new Date(user.usmleSubscriptionEndDate) > new Date()),
+        isAdminAccount: adminLinked
       });
     }
 

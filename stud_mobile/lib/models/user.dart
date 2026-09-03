@@ -44,6 +44,9 @@ class UserModel {
     this.coins = 0,
     this.subscriptionEndDate,
     this.usmleSubscriptionEndDate,
+    this.subscriptionActive = false,
+    this.usmleSubscriptionActive = false,
+    this.isAdminAccount = false,
     this.universityId,
     this.university,
     this.facultyId,
@@ -61,6 +64,9 @@ class UserModel {
   final int coins;
   final String? subscriptionEndDate;
   final String? usmleSubscriptionEndDate;
+  final bool subscriptionActive;
+  final bool usmleSubscriptionActive;
+  final bool isAdminAccount;
   final int? universityId;
   final University? university;
   final int? facultyId;
@@ -74,6 +80,20 @@ class UserModel {
       (kgmaGroupId != null && kgmaGroupId!.isNotEmpty) ||
       (groupName != null && groupName!.isNotEmpty);
 
+  bool get hasUniversitySubscription {
+    if (isAdminAccount || subscriptionActive) return true;
+    if (subscriptionEndDate == null || subscriptionEndDate!.isEmpty) return false;
+    final end = DateTime.tryParse(subscriptionEndDate!);
+    return end != null && end.isAfter(DateTime.now());
+  }
+
+  bool get hasUsmleSubscription {
+    if (isAdminAccount || usmleSubscriptionActive) return true;
+    if (usmleSubscriptionEndDate == null || usmleSubscriptionEndDate!.isEmpty) return false;
+    final end = DateTime.tryParse(usmleSubscriptionEndDate!);
+    return end != null && end.isAfter(DateTime.now());
+  }
+
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
         id: json['id'] as int,
         username: json['username'] as String? ?? '',
@@ -82,6 +102,9 @@ class UserModel {
         coins: json['coins'] as int? ?? 0,
         subscriptionEndDate: json['subscriptionEndDate'] as String?,
         usmleSubscriptionEndDate: json['usmleSubscriptionEndDate'] as String?,
+        subscriptionActive: json['subscriptionActive'] == true,
+        usmleSubscriptionActive: json['usmleSubscriptionActive'] == true,
+        isAdminAccount: json['isAdminAccount'] == true,
         universityId: json['universityId'] as int?,
         university: json['University'] != null
             ? University.fromJson(json['University'] as Map<String, dynamic>)

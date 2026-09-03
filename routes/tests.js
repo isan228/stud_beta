@@ -4,10 +4,14 @@ const router = express.Router();
 const { Test, Question, Answer, Subject, Favorite, TestResult, User, University, Faculty, SubjectCourse, QuestionTag, QuestionTagMap, Flashcard } = require('../models');
 const { buildHighlightHtml } = require('../utils/flashcardHighlight');
 const { Op } = require('sequelize');
-const { isSubscriptionActive } = require('../utils/subscriptionPlans');
 const { parseImageUrls, firstImageUrl } = require('../utils/mediaField');
 const { pickQuestionsKeepingLinkedOrder } = require('../utils/usmleLinkedQuestions');
 const { ALLOWED_COURSES } = require('../utils/ensureFaculties');
+const requireUsmleSubscription = require('../middleware/requireUsmleSubscription');
+const { userHasUniversityAccess, userHasUsmleAccess } = require('../utils/adminUserAccess');
+
+/** Весь API /usmle/* — только с активной подпиской USMLE */
+router.use('/usmle', requireUsmleSubscription);
 
 function tryGetUserIdFromRequest(req) {
   const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -100,9 +104,31 @@ async function assertUserCanAccessTest(test, req) {
 }
 
 async function assertPaidAccess(test, req) {
+  const token = req.header('Authorization')?.replace('Bearer ', '');
+  const programType = test.programType || 'university';
+
+  // USMLE целиком только по подписке USMLE (даже если тест помечен isFree)
+  if (programType === 'usmle') {
+    if (!token) {
+      return { ok: false, status: 401, error: 'Требуется авторизация для USMLE' };
+    }
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findByPk(decoded.userId);
+      if (!user) {
+        return { ok: false, status: 401, error: 'Пользователь не найден' };
+      }
+      if (!(await userHasUsmleAccess(user))) {
+        return { ok: false, status: 403, error: 'Требуется активная подписка USMLE' };
+      }
+      return { ok: true, user };
+    } catch {
+      return { ok: false, status: 401, error: 'Недействительный токен' };
+    }
+  }
+
   if (test.isFree) return { ok: true };
 
-  const token = req.header('Authorization')?.replace('Bearer ', '');
   if (!token) {
     return { ok: false, status: 401, error: 'Требуется авторизация для этого теста' };
   }
@@ -114,12 +140,7 @@ async function assertPaidAccess(test, req) {
       return { ok: false, status: 401, error: 'Пользователь не найден' };
     }
 
-    const programType = test.programType || 'university';
-    if (programType === 'usmle') {
-      if (!isSubscriptionActive(user.usmleSubscriptionEndDate)) {
-        return { ok: false, status: 403, error: 'Требуется активная подписка USMLE' };
-      }
-    } else if (!isSubscriptionActive(user.subscriptionEndDate)) {
+    if (!(await userHasUniversityAccess(user))) {
       return { ok: false, status: 403, error: 'Требуется активная подписка для этого теста' };
     }
     return { ok: true, user };
@@ -794,7 +815,7 @@ router.post('/usmle/custom-test/questions', async (req, res) => {
     }
 
     const user = await User.findByPk(userId, {
-      attributes: ['id', 'usmleSubscriptionEndDate']
+      attributes: ['id', 'email', 'username', 'usmleSubscriptionEndDate']
     });
     if (!user) {
       return res.status(401).json({ error: 'Пользователь не найден' });
@@ -822,8 +843,11 @@ router.post('/usmle/custom-test/questions', async (req, res) => {
       return res.status(404).json({ error: 'USMLE тест не найден' });
     }
 
-    if (!test.isFree && !isSubscriptionActive(user.usmleSubscriptionEndDate)) {
-      return res.status(403).json({ error: 'Требуется активная подписка USMLE' });
+    if (!(await userHasUsmleAccess(user))) {
+      return res.status(403).json({
+        error: 'Требуется активная подписка USMLE',
+        code: 'USMLE_SUBSCRIPTION_REQUIRED'
+      });
     }
 
     const subjectIds = [...new Set((Array.isArray(subjectTagIds) ? subjectTagIds : []).map(Number).filter((n) => n > 0))];
@@ -1107,7 +1131,30 @@ async function assertUserCanAccessSubject(subjectId, req) {
   }
 
   if ((subject.programType || 'university') === 'usmle') {
-    return { ok: true, subject };
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    if (!token) {
+      return { ok: false, status: 401, error: 'Требуется авторизация для USMLE' };
+    }
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findByPk(decoded.userId, {
+        attributes: ['id', 'email', 'username', 'usmleSubscriptionEndDate']
+      });
+      if (!user) {
+        return { ok: false, status: 401, error: 'Пользователь не найден' };
+      }
+      if (!(await userHasUsmleAccess(user))) {
+        return {
+          ok: false,
+          status: 403,
+          error: 'Раздел USMLE доступен только с активной подпиской USMLE',
+          code: 'USMLE_SUBSCRIPTION_REQUIRED'
+        };
+      }
+      return { ok: true, subject };
+    } catch {
+      return { ok: false, status: 401, error: 'Недействительный токен' };
+    }
   }
 
   const universityId = await resolveUserUniversityId(req);

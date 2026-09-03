@@ -110,6 +110,19 @@
             setupEventListeners();
             const urlParams = new URLSearchParams(window.location.search);
             const program = urlParams.get('program') === 'usmle' ? 'usmle' : 'university';
+            if (program === 'usmle') {
+                if (!window.currentUser) {
+                    window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+                    return;
+                }
+                if (typeof window.hasActiveUsmleSubscription === 'function' && !window.hasActiveUsmleSubscription()) {
+                    if (typeof window.showNotification === 'function') {
+                        window.showNotification('Раздел USMLE доступен только с активной подпиской USMLE', 'error');
+                    }
+                    window.location.href = '/subscriptions?program=usmle';
+                    return;
+                }
+            }
             if (typeof setProgramType === 'function') setProgramType(program);
             const backBtn = document.getElementById('backToSubjectsBtn');
             if (backBtn) backBtn.href = program === 'usmle' ? '/usmle' : '/tests';

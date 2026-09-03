@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/api/api_exception.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/state_views.dart';
 import '../../models/test.dart';
 import '../../models/usmle.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/tests_service.dart';
 
 class UsmleScreen extends ConsumerStatefulWidget {
@@ -19,6 +21,7 @@ class _UsmleScreenState extends ConsumerState<UsmleScreen> {
   UsmleDashboard? _dashboard;
   bool _loading = true;
   String? _error;
+  bool _needsSubscription = false;
 
   @override
   void initState() {
@@ -26,11 +29,36 @@ class _UsmleScreenState extends ConsumerState<UsmleScreen> {
     _load();
   }
 
+  bool _hasUsmleAccess() {
+    final user = ref.read(authProvider).user;
+    return user?.hasUsmleSubscription == true;
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
       _error = null;
+      _needsSubscription = false;
     });
+
+    if (!ref.read(authProvider).isAuthenticated) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Войдите, чтобы открыть раздел USMLE';
+      });
+      return;
+    }
+
+    if (!_hasUsmleAccess()) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _needsSubscription = true;
+      });
+      return;
+    }
+
     try {
       final dashboard = await ref.read(testsServiceProvider).getUsmleDashboard();
       if (!mounted) return;
@@ -40,8 +68,13 @@ class _UsmleScreenState extends ConsumerState<UsmleScreen> {
       });
     } catch (e) {
       if (!mounted) return;
+      final isSubRequired = e is ApiException &&
+          (e.statusCode == 403 ||
+              e.message.contains('подписк') ||
+              e.message.contains('USMLE'));
       setState(() {
-        _error = e.toString();
+        _needsSubscription = isSubRequired;
+        _error = isSubRequired ? null : e.toString();
         _loading = false;
       });
     }
@@ -50,7 +83,17 @@ class _UsmleScreenState extends ConsumerState<UsmleScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) return const LoadingView();
-    if (_error != null) return ErrorView(message: _error!, onRetry: _load);
+    if (_needsSubscription) {
+      return _UsmleLockedView(
+        onSubscribe: () => context.push('/subscriptions?program=usmle'),
+      );
+    }
+    if (_error != null) {
+      return ErrorView(
+        message: _error!,
+        onRetry: _load,
+      );
+    }
 
     final dashboard = _dashboard!;
 
@@ -105,6 +148,38 @@ class _UsmleScreenState extends ConsumerState<UsmleScreen> {
   void _openBuilder(TestItem test) {
     context.push(
       '/usmle-builder/${test.id}?name=${Uri.encodeComponent(test.name)}',
+    );
+  }
+}
+
+class _UsmleLockedView extends StatelessWidget {
+  const _UsmleLockedView({required this.onSubscribe});
+
+  final VoidCallback onSubscribe;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.lock_outline, size: 48, color: Theme.of(context).colorScheme.outline),
+            const SizedBox(height: 12),
+            Text(
+              'Раздел USMLE доступен только с активной подпиской USMLE',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: onSubscribe,
+              child: const Text('Оформить подписку'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

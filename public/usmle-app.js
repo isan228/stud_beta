@@ -115,6 +115,35 @@
         ];
     }
 
+    function hasActiveUsmleSubscription() {
+        const user = window.currentUser;
+        if (!user) return false;
+        if (user.isAdminAccount === true || user.usmleSubscriptionActive === true) return true;
+        if (!user.usmleSubscriptionEndDate) return false;
+        return new Date(user.usmleSubscriptionEndDate) > new Date();
+    }
+
+    /**
+     * Весь раздел USMLE — только с активной подпиской USMLE.
+     * Возвращает true если доступ есть.
+     */
+    function requireUsmleAccess(options = {}) {
+        const { redirectTo = '/subscriptions?program=usmle' } = options;
+        const token = localStorage.getItem('token');
+        if (!token || !window.currentUser) {
+            window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+            return false;
+        }
+        if (!hasActiveUsmleSubscription()) {
+            if (typeof window.showNotification === 'function') {
+                window.showNotification('Раздел USMLE доступен только с активной подпиской USMLE', 'error');
+            }
+            window.location.href = redirectTo;
+            return false;
+        }
+        return true;
+    }
+
     function setThemeButton(btn, theme) {
         if (!btn) return;
         btn.innerHTML = theme === 'dark' ? ICONS.sun : ICONS.moon;
@@ -130,8 +159,8 @@
 
         const user = window.currentUser;
         const userName = user?.username || user?.name || 'Гость';
-        const subLabel = user?.usmleSubscriptionActive
-            ? 'Подписка USMLE активна'
+        const subLabel = (user && (user.isAdminAccount || hasActiveUsmleSubscription()))
+            ? (user.isAdminAccount ? 'Админ · полный доступ' : 'Подписка USMLE активна')
             : (user ? 'Нет подписки USMLE' : 'Войдите в аккаунт');
 
         const bankLabel = bank?.name
@@ -236,6 +265,7 @@
     }
 
     function mountUsmlePage(options, renderContent) {
+        if (!requireUsmleAccess()) return null;
         const bank = options.bank || syncBankFromUrl() || getSelectedBank();
         if (!bank || !bank.id) {
             window.location.href = '/usmle';
@@ -276,6 +306,8 @@
         setSelectedBank,
         clearSelectedBank,
         requireSelectedBank,
+        requireUsmleAccess,
+        hasActiveUsmleSubscription,
         syncBankFromUrl,
         bankQuery,
         STEP_LABELS,

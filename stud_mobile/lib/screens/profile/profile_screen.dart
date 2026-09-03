@@ -161,13 +161,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ),
           ],
-          if (isSubscriptionActive(user.subscriptionEndDate))
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text('Подписка вуз до: ${formatDate(DateTime.tryParse(user.subscriptionEndDate!))}'),
-            ),
-          if (isSubscriptionActive(user.usmleSubscriptionEndDate))
-            Text('Подписка USMLE до: ${formatDate(DateTime.tryParse(user.usmleSubscriptionEndDate!))}'),
+          if (user.isAdminAccount)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text('Админ: доступ ко всем подпискам без ограничений'),
+            )
+          else ...[
+            if (isSubscriptionActive(user.subscriptionEndDate))
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text('Подписка вуз до: ${formatDate(DateTime.tryParse(user.subscriptionEndDate!))}'),
+              ),
+            if (isSubscriptionActive(user.usmleSubscriptionEndDate))
+              Text('Подписка USMLE до: ${formatDate(DateTime.tryParse(user.usmleSubscriptionEndDate!))}'),
+          ],
         ],
       ),
     );
