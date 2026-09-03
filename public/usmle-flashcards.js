@@ -364,7 +364,8 @@
         const bank = U.getSelectedBank();
         const params = new URLSearchParams();
         if (bank?.id) params.set('testId', bank.id);
-        if (bank?.step) params.set('stepGroup', bank.step);
+        const step = bank?.step || (U.getStoredStep && U.getStoredStep()) || 'step1';
+        if (step) params.set('stepGroup', step);
 
         const browse = document.getElementById('fcBrowseList');
         const studyBody = document.getElementById('fcStudyTableBody');
@@ -379,10 +380,20 @@
             });
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
-                throw new Error(err.error || 'load fail');
+                throw new Error(err.error || `Ошибка загрузки (${res.status})`);
             }
             allCards = await res.json();
             if (!Array.isArray(allCards)) allCards = [];
+
+            if (!allCards.length) {
+                const emptyMsg = 'Flashcards пока нет. Загрузите TXT во вкладке USMLE → Flashcards в админке.';
+                if (browse) browse.innerHTML = `<p class="flashcard-empty">${emptyMsg}</p>`;
+                if (studyBody) {
+                    studyBody.innerHTML = `<tr><td colspan="6" class="flashcard-empty">${emptyMsg}</td></tr>`;
+                }
+                return;
+            }
+
             renderBrowse();
             renderStudyTable();
             if (mode === 'session') {

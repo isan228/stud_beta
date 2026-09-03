@@ -1008,16 +1008,14 @@ router.get('/usmle/tags', async (req, res) => {
   }
 });
 
-/** USMLE Flashcards */
+/** USMLE Flashcards (Ready Decks) — по Step; testId не жёсткий */
 router.get('/usmle/flashcards', async (req, res) => {
   try {
-    const where = { isActive: true };
     const testId = parseInt(req.query.testId, 10);
     const tagId = parseInt(req.query.tagId, 10);
     const stepGroup = String(req.query.stepGroup || req.query.step || '').trim();
-
-    if (Number.isFinite(testId) && testId > 0) where.testId = testId;
-    if (['step1', 'step2', 'step3'].includes(stepGroup)) where.stepGroup = stepGroup;
+    const normalizedStep = ['step1', 'step2', 'step3'].includes(stepGroup) ? stepGroup : null;
+    const hasTestId = Number.isFinite(testId) && testId > 0;
 
     const include = [{
       model: QuestionTag,
@@ -1032,11 +1030,29 @@ router.get('/usmle/flashcards', async (req, res) => {
       include[0].required = true;
     }
 
-    const rows = await Flashcard.findAll({
-      where,
-      include,
-      order: [['sortOrder', 'ASC'], ['id', 'ASC']]
-    });
+    async function query(where) {
+      return Flashcard.findAll({
+        where: { isActive: true, ...where },
+        include,
+        order: [['sortOrder', 'ASC'], ['id', 'ASC']]
+      });
+    }
+
+    // 1) выбранный банк + step
+    // 2) весь step (карточки другого банка / без testId)
+    // 3) только выбранный банк
+    // 4) любые активные карточки
+    let rows = [];
+    const attempts = [];
+    if (hasTestId && normalizedStep) attempts.push({ testId, stepGroup: normalizedStep });
+    if (normalizedStep) attempts.push({ stepGroup: normalizedStep });
+    if (hasTestId) attempts.push({ testId });
+    attempts.push({});
+
+    for (const where of attempts) {
+      rows = await query(where);
+      if (rows.length) break;
+    }
 
     res.json(rows.map((row) => {
       const json = row.toJSON();
