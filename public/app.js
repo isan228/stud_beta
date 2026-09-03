@@ -1587,7 +1587,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const el = document.getElementById(containerId || 'usmleTagFilters');
         if (!el) return;
         try {
-            const response = await fetch(`${API_URL}/tests/usmle/tags`);
+            const response = await fetch(`${API_URL}/tests/usmle/tags`, {
+                headers: currentToken ? { Authorization: `Bearer ${currentToken}` } : {}
+            });
             const tags = await response.json();
             if (!Array.isArray(tags) || !tags.length) {
                 el.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem;">Теги пока не добавлены</p>';

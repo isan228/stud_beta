@@ -884,7 +884,10 @@
         }
 
         try {
-            const res = await fetch(`${API_URL}/tests/usmle/tags/grouped?testId=${currentTestId}`);
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/tests/usmle/tags/grouped?testId=${currentTestId}`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
             if (!res.ok) throw new Error();
             const data = await res.json();
 
