@@ -1,9 +1,28 @@
 const MAX_TXT_ANSWERS = 30;
 
+function normalizeTxt(text) {
+  return String(text || '')
+    .replace(/^\uFEFF/, '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/[\u201C\u201D\u00AB\u00BB]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'");
+}
+
+function unescapeTxtValue(value) {
+  return String(value || '')
+    .replace(/\\n/g, '\n')
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, '\\');
+}
+
+/**
+ * "Field":"value" — допускает пробелы, ; после значения, экранированные кавычки.
+ */
 function extractQuotedField(block, field) {
-  const re = new RegExp(`"${field}"\\s*:\\s*"([^"]*)"`, 'i');
-  const match = block.match(re);
-  return match ? match[1] : null;
+  const re = new RegExp(`"${field}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, 'i');
+  const match = String(block || '').match(re);
+  return match ? unescapeTxtValue(match[1]) : null;
 }
 
 /**
@@ -36,6 +55,7 @@ function isValidCorrectIndex(answers, correctRaw) {
 
 module.exports = {
   MAX_TXT_ANSWERS,
+  normalizeTxt,
   extractQuotedField,
   extractTxtAnswers,
   mapAnswersWithCorrect,

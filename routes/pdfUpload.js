@@ -6,7 +6,7 @@ const { Op } = require('sequelize');
 const { Question, Answer, Test, QuestionTag, QuestionTagMap, Flashcard, FlashcardTagMap } = require('../models');
 const { parseLinkedQuestionsFromText } = require('../utils/usmleLinkedQuestions');
 const { parseFlashcardsFromText } = require('../utils/parseFlashcardsTxt');
-const { extractTxtAnswers, mapAnswersWithCorrect, isValidCorrectIndex } = require('../utils/txtQuestionAnswers');
+const { extractTxtAnswers, mapAnswersWithCorrect, isValidCorrectIndex, extractQuotedField, normalizeTxt } = require('../utils/txtQuestionAnswers');
 const { normalizeTagName, slugifyTag } = require('../utils/usmleTagNormalize');
 
 const upload = multer({
@@ -207,9 +207,19 @@ async function handleFlashcardsTxtUpload(req, res) {
   }
 
   const cards = parseFlashcardsFromText(text, { requireTopic: true });
+  const stats = cards._parseStats || {};
   if (cards.length === 0) {
+    let hint = 'Нужны поля "ID", "Front", "Back" и тема.';
+    if (stats.idBlocks === 0) {
+      hint = 'В файле не найдено ни одного "ID":"...". Проверьте кавычки и формат.';
+    } else if (stats.missingFrontBack > 0 && stats.accepted === 0) {
+      hint = `Найдено блоков ID: ${stats.idBlocks}, но нет пар Front/Back (можно Q/A).`;
+    } else if (stats.missingTopic > 0 && stats.accepted === 0) {
+      hint = `Найдены карточки (${stats.idBlocks}), но без темы. Добавьте секцию === Topic === или поле "Topic":"...".`;
+    }
     res.status(400).json({
-      error: 'Не удалось найти flashcards в TXT. Нужны ID, Front, Back и тема (секция === ... === или поле Topic/System/Subject).'
+      error: `Не удалось найти flashcards в TXT. ${hint}`,
+      stats
     });
     return;
   }
@@ -298,7 +308,7 @@ async function handleTxtUpload(req, res, parseOptions) {
     await syncTestHasExplanations(test.id, true);
   }
 
-  const text = req.file.buffer.toString('utf8');
+  const text = normalizeTxt(req.file.buffer.toString('utf8'));
   if (!text || text.trim().length === 0) {
     res.status(400).json({
       error: 'TXT файл пуст',
@@ -308,13 +318,27 @@ async function handleTxtUpload(req, res, parseOptions) {
   }
 
   const questions = parseQuestionsFromText(text, parseOptions);
+  const stats = questions._parseStats || {};
   if (questions.length === 0) {
-    const hint = parseOptions.requireExplanation && parseOptions.requireTags
-      ? 'Проверьте формат: нужны поля ID, Q, A1–A30, Correct, E (объяснение), Subject (тема) и System (система). Теги через запятую.'
+    let hint = parseOptions.requireExplanation && parseOptions.requireTags
+      ? 'Нужны поля ID, Q, A1–A30, Correct, E, Subject/System/Tags.'
       : parseOptions.requireExplanation
-        ? 'Проверьте формат: нужны поля ID, Q, A1–A30, Correct и E (объяснение).'
-        : 'Проверьте формат: нужны поля ID, Q, A1–A30, Correct.';
-    res.status(400).json({ error: `Не удалось найти вопросы в TXT. ${hint}` });
+        ? 'Нужны поля ID, Q, A1–A30, Correct и E (объяснение).'
+        : 'Нужны поля ID, Q, A1–A30, Correct.';
+    if (stats.idBlocks === 0) {
+      hint = 'В файле не найдено ни одного "ID":"...". Проверьте кавычки.';
+    } else if (stats.missingQ > 0 && stats.accepted === 0) {
+      hint = `Найдено блоков ID: ${stats.idBlocks}, но нет поля "Q".`;
+    } else if (stats.missingAnswers > 0 && stats.accepted === 0) {
+      hint = `Найдено блоков ID: ${stats.idBlocks}, но мало ответов A1/A2… (нужно ≥ 2).`;
+    } else if (stats.missingCorrect > 0 && stats.accepted === 0) {
+      hint = `Найдено блоков ID: ${stats.idBlocks}, но нет/неверный "Correct".`;
+    } else if (stats.missingExplanation > 0 && stats.accepted === 0) {
+      hint = `Найдено вопросов без поля "E" (объяснение): ${stats.missingExplanation}.`;
+    } else if (stats.missingTags > 0 && stats.accepted === 0) {
+      hint = `Найдено вопросов без темы/тегов (Subject/System/Tags): ${stats.missingTags}.`;
+    }
+    res.status(400).json({ error: `Не удалось найти вопросы в TXT. ${hint}`, stats });
     return;
   }
 
@@ -353,7 +377,7 @@ async function handleLinkedTxtUpload(req, res) {
   const { syncTestHasExplanations } = require('../utils/syncTestExplanations');
   await syncTestHasExplanations(test.id, true);
 
-  const text = req.file.buffer.toString('utf8');
+  const text = normalizeTxt(req.file.buffer.toString('utf8'));
   if (!text || text.trim().length === 0) {
     res.status(400).json({
       error: 'TXT файл пуст',
@@ -408,6 +432,21 @@ router.post('/upload-txt-explained', adminAuth, upload.single('pdf'), async (req
   }
 });
 
+/** Обычные вопросы: TXT с объяснениями, без тегов */
+router.post('/upload-txt-explanations', adminAuth, upload.single('pdf'), async (req, res) => {
+  try {
+    await handleTxtUpload(req, res, {
+      requireExplanation: true,
+      requireTags: false,
+      requireUsmle: false,
+      parseTags: false
+    });
+  } catch (error) {
+    console.error('Ошибка загрузки TXT с объяснениями (обычные):', error);
+    res.status(500).json({ error: error.message || 'Ошибка обработки TXT файла' });
+  }
+});
+
 router.post('/upload-txt-flashcards', adminAuth, upload.single('pdf'), async (req, res) => {
   try {
     await handleFlashcardsTxtUpload(req, res);
@@ -428,7 +467,7 @@ router.post('/upload-txt-linked', adminAuth, upload.single('pdf'), async (req, r
 
 /**
  * Формат без объяснения: ID, Q, A1–A30, Correct
- * Формат USMLE с объяснением и тегами: + E и Tags (или T)
+ * Формат USMLE с объяснением и тегами: + E и Tags/Subject/System
  */
 function parseQuestionsFromText(text, options = {}) {
   const {
@@ -437,66 +476,77 @@ function parseQuestionsFromText(text, options = {}) {
     parseTags = false
   } = options;
   const questions = [];
-  const blocks = text.split(/"ID"\s*:\s*"/);
+  const stats = {
+    idBlocks: 0,
+    missingQ: 0,
+    missingAnswers: 0,
+    missingCorrect: 0,
+    missingExplanation: 0,
+    missingTags: 0,
+    accepted: 0
+  };
+
+  const prepared = normalizeTxt(text);
+  const blocks = prepared.split(/"ID"\s*:\s*"/i);
 
   for (let i = 1; i < blocks.length; i++) {
     const block = blocks[i];
+    stats.idBlocks++;
 
     try {
-      const idMatch = block.match(/^(\d+)"/);
+      const idMatch = block.match(/^([^"]+)"/);
       if (!idMatch) continue;
+      const externalId = String(idMatch[1] || '').trim();
 
-      const qMatch = block.match(/"Q"\s*:\s*"([^"]+)"/);
-      if (!qMatch) continue;
-      const questionText = qMatch[1];
+      const questionText = extractQuotedField(block, 'Q');
+      if (!questionText) {
+        stats.missingQ++;
+        continue;
+      }
 
       const answers = extractTxtAnswers(block);
-
       if (answers.length < 2) {
-        console.warn(`Вопрос ID ${idMatch[1]}: недостаточно ответов (минимум 2)`);
+        stats.missingAnswers++;
+        console.warn(`Вопрос ID ${externalId}: недостаточно ответов (минимум 2)`);
         continue;
       }
 
-      const correctMatch = block.match(/"Correct"\s*:\s*"(\d+)"/);
-      if (!correctMatch) {
-        console.warn(`Вопрос ID ${idMatch[1]}: не найден правильный ответ`);
+      const correctRaw = extractQuotedField(block, 'Correct');
+      if (!correctRaw || !isValidCorrectIndex(answers, correctRaw)) {
+        stats.missingCorrect++;
+        console.warn(`Вопрос ID ${externalId}: нет/неверный Correct`);
         continue;
       }
 
-      if (!isValidCorrectIndex(answers, correctMatch[1])) {
-        console.warn(`Вопрос ID ${idMatch[1]}: неверный индекс Correct`);
+      const explanation = extractQuotedField(block, 'E');
+      if (requireExplanation && !explanation) {
+        stats.missingExplanation++;
+        console.warn(`Вопрос ID ${externalId}: нет поля E (объяснение)`);
         continue;
       }
 
-      const eMatch = block.match(/"E"\s*:\s*"([^"]+)"/);
-      if (requireExplanation && !eMatch) {
-        console.warn(`Вопрос ID ${idMatch[1]}: нет поля E (объяснение)`);
-        continue;
-      }
-
-      const tagsMatch = block.match(/"(?:Tags|T|Tag)"\s*:\s*"([^"]+)"/i);
-      const subjectMatch = block.match(/"Subject"\s*:\s*"([^"]+)"/i);
-      const systemMatch = block.match(/"System"\s*:\s*"([^"]+)"/i);
-
-      // Объединяем все источники тегов
       const rawTagStr = [
-        tagsMatch ? tagsMatch[1] : '',
-        subjectMatch ? subjectMatch[1] : '',
-        systemMatch ? systemMatch[1] : ''
+        extractQuotedField(block, 'Tags') || '',
+        extractQuotedField(block, 'T') || '',
+        extractQuotedField(block, 'Tag') || '',
+        extractQuotedField(block, 'Subject') || '',
+        extractQuotedField(block, 'System') || ''
       ].filter(Boolean).join(',');
 
       const tagNames = parseTagNames(rawTagStr);
       if (requireTags && !tagNames.length) {
-        console.warn(`Вопрос ID ${idMatch[1]}: нет поля Tags/Subject/System`);
+        stats.missingTags++;
+        console.warn(`Вопрос ID ${externalId}: нет поля Tags/Subject/System`);
         continue;
       }
 
       questions.push({
         text: questionText,
-        explanation: eMatch ? eMatch[1] : null,
+        explanation: explanation || null,
         tagNames: parseTags || requireTags ? tagNames : [],
-        answers: mapAnswersWithCorrect(answers, correctMatch[1])
+        answers: mapAnswersWithCorrect(answers, correctRaw)
       });
+      stats.accepted++;
     } catch (error) {
       console.error(`Ошибка парсинга блока ${i}:`, error);
     }
@@ -504,9 +554,10 @@ function parseQuestionsFromText(text, options = {}) {
 
   console.log(
     `Распарсено вопросов: ${questions.length}` +
-    ` (объяснения: ${requireExplanation ? 'обязательны' : 'опционально'}` +
-    `, теги: ${requireTags ? 'обязательны' : (parseTags ? 'опционально' : 'нет')})`
+    ` (блоков ID: ${stats.idBlocks}, без Q: ${stats.missingQ}, без ответов: ${stats.missingAnswers}` +
+    `, без Correct: ${stats.missingCorrect}, без E: ${stats.missingExplanation}, без тегов: ${stats.missingTags})`
   );
+  questions._parseStats = stats;
   return questions;
 }
 

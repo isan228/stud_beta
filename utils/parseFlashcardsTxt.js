@@ -2,17 +2,34 @@ const { resolveFlashcardTopic } = require('./usmleFlashcardTopics');
 
 const SECTION_LINE_RE = /^(?:={3,}\s*(.+?)\s*={3,}|##\s+(.+?)|\[Topic:\s*(.+?)\]|@topic\s+(.+?))\s*$/gim;
 
+function normalizeTxt(text) {
+  return String(text || '')
+    .replace(/^\uFEFF/, '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/[\u201C\u201D\u00AB\u00BB]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'");
+}
+
 function unescapeTxtValue(value) {
   return String(value || '')
     .replace(/\\n/g, '\n')
     .replace(/\\"/g, '"')
-    .replace(/\\\\/g, '\\');
+    .replace(/\\\\/g, '\\')
+    .trim();
 }
 
+/**
+ * Достаёт значение "Name":"..." — допускает пробелы, ; после значения,
+ * регистр имени поля не важен.
+ */
 function extractQuotedField(block, names) {
   for (const name of names) {
-    const re = new RegExp(`"${name}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, 'is');
-    const match = block.match(re);
+    const re = new RegExp(
+      `"${name}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`,
+      'i'
+    );
+    const match = String(block || '').match(re);
     if (match) return unescapeTxtValue(match[1]);
   }
   return null;
@@ -40,55 +57,86 @@ function getLastTopicFromBlock(block, fallbackTopic) {
  * "Back":"... полный ответ ..."
  *
  * Или тема у каждой карточки:
- * "ID":"2"
- * "Front":"..."
- * "Back":"..."
- * "Topic":"Cardiovascular System"
+ * "ID":"2";
+ * "Front":"...";
+ * "Back":"...";
+ * "Topic":"Cardiovascular System";
  */
 function parseFlashcardsFromText(text, options = {}) {
   const { requireTopic = false } = options;
   const cards = [];
+  const stats = {
+    idBlocks: 0,
+    missingFrontBack: 0,
+    missingTopic: 0,
+    accepted: 0
+  };
   let rollingTopic = options.defaultTopic ? resolveFlashcardTopic(options.defaultTopic) : null;
 
-  const prepared = injectTopicMarkers(text);
-  const blocks = prepared.split(/"ID"\s*:\s*"/);
+  const prepared = injectTopicMarkers(normalizeTxt(text));
+  const blocks = prepared.split(/"ID"\s*:\s*"/i);
 
   for (let i = 1; i < blocks.length; i++) {
     const block = blocks[i];
+    stats.idBlocks++;
 
     try {
-      const idMatch = block.match(/^(\d+)"/);
+      const idMatch = block.match(/^([^"]+)"/);
       if (!idMatch) continue;
+
+      const externalId = String(idMatch[1] || '').trim();
+      if (!externalId) continue;
 
       rollingTopic = getLastTopicFromBlock(block, rollingTopic);
 
       const frontText = extractQuotedField(block, ['Front', 'F', 'Question', 'Q']);
       const backText = extractQuotedField(block, ['Back', 'B', 'Answer', 'A']);
       if (!frontText || !backText) {
-        console.warn(`Flashcard ID ${idMatch[1]}: нет Front/Back`);
+        stats.missingFrontBack++;
+        console.warn(`Flashcard ID ${externalId}: нет Front/Back (или Q/A)`);
         continue;
       }
 
-      const inlineTopic = extractQuotedField(block, ['Topic', 'System', 'Subject', 'Category']);
-      const topicName = resolveFlashcardTopic(inlineTopic || rollingTopic || '');
+      const inlineTopic = extractQuotedField(block, [
+        'Topic',
+        'System',
+        'Subject',
+        'Category',
+        'Tags',
+        'Tag',
+        'T'
+      ]);
+      // Tags может быть "Pathology, Cardiology" — берём первый
+      const topicRaw = inlineTopic
+        ? String(inlineTopic).split(/[,;|]/)[0].trim()
+        : (rollingTopic || '');
+      const topicName = resolveFlashcardTopic(topicRaw);
+
       if (requireTopic && !topicName) {
-        console.warn(`Flashcard ID ${idMatch[1]}: не указана тема (секция или поле Topic/System/Subject)`);
+        stats.missingTopic++;
+        console.warn(`Flashcard ID ${externalId}: не указана тема (секция или Topic/System/Subject)`);
         continue;
       }
 
       cards.push({
-        externalId: idMatch[1],
+        externalId,
         frontText: frontText.trim(),
         backText: backText.trim(),
         topicName: topicName || null
       });
+      stats.accepted++;
     } catch (error) {
       console.error(`Ошибка парсинга flashcard блока ${i}:`, error);
     }
   }
 
-  console.log(`Распарсено flashcards: ${cards.length}`);
-  return dedupeCardsByExternalId(cards);
+  const result = dedupeCardsByExternalId(cards);
+  console.log(
+    `Распарсено flashcards: ${result.length}` +
+    ` (блоков ID: ${stats.idBlocks}, без Front/Back: ${stats.missingFrontBack}, без темы: ${stats.missingTopic})`
+  );
+  result._parseStats = stats;
+  return result;
 }
 
 function dedupeCardsByExternalId(cards) {
@@ -111,5 +159,6 @@ module.exports = {
   parseFlashcardsFromText,
   injectTopicMarkers,
   resolveFlashcardTopic,
-  dedupeCardsByExternalId
+  dedupeCardsByExternalId,
+  normalizeTxt
 };

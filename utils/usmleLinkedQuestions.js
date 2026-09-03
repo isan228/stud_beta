@@ -1,4 +1,4 @@
-const { extractTxtAnswers, mapAnswersWithCorrect, isValidCorrectIndex } = require('./txtQuestionAnswers');
+const { extractTxtAnswers, mapAnswersWithCorrect, isValidCorrectIndex, extractQuotedField, normalizeTxt } = require('./txtQuestionAnswers');
 const { normalizeTagName } = require('./usmleTagNormalize');
 
 const GROUP_MARKER = '<<<USMLE_GROUP>>>';
@@ -134,9 +134,7 @@ function pickQuestionsKeepingLinkedOrder(questions, limit, { shuffleGroups = tru
 }
 
 function extractField(block, field) {
-  const re = new RegExp(`"${field}"\\s*:\\s*"([^"]*)"`, 'i');
-  const match = block.match(re);
-  return match ? match[1] : null;
+  return extractQuotedField(block, field);
 }
 
 /**
@@ -161,13 +159,14 @@ function parseLinkedQuestionsFromText(text, options = {}) {
   } = options;
 
   const questions = [];
-  const blocks = text.split(/"ID"\s*:\s*"/);
+  const prepared = normalizeTxt(text);
+  const blocks = prepared.split(/"ID"\s*:\s*"/i);
 
   for (let i = 1; i < blocks.length; i++) {
     const block = blocks[i];
 
     try {
-      const idMatch = block.match(/^(\d+)"/);
+      const idMatch = block.match(/^([^"]+)"/);
       if (!idMatch) continue;
 
       let groupId = extractField(block, 'GroupID') || extractField(block, 'Group');

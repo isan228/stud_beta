@@ -321,6 +321,7 @@
                             <datalist id="questionsSearchSuggestions"></datalist>
                             <button class="btn btn-primary" id="addQuestionBtn">+ Добавить вопрос</button>
                             <button class="btn btn-secondary" id="uploadPdfBtn">📄 Загрузить из TXT</button>
+                            <button class="btn btn-secondary" id="uploadTxtExplainedPlainBtn">📘 TXT с объяснениями</button>
                         </div>
                     </div>
                     <div id="questionsList" class="admin-list"></div>
@@ -1137,6 +1138,45 @@
         </div>
     </div>
 
+    <div id="txtExplainedPlainUploadModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <span class="modal-close">&times;</span>
+            <h2>📘 Загрузить вопросы с объяснениями</h2>
+            <form id="txtExplainedPlainUploadForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="txtExplainedPlainTestId">Тест</label>
+                    <select id="txtExplainedPlainTestId" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="txtExplainedPlainFile">TXT файл</label>
+                    <input type="file" id="txtExplainedPlainFile" accept=".txt" required>
+                    <div style="background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius); margin-top: 0.5rem;">
+                        <p style="margin: 0 0 0.5rem 0; font-weight: 600; color: var(--text-primary);">Формат TXT (с объяснениями, без тегов):</p>
+                        <pre style="margin: 0; font-size: 0.875rem; white-space: pre-wrap; word-wrap: break-word; color: var(--text-secondary); font-family: 'Courier New', monospace;">"ID":"1";
+"Q":"Вопрос?";
+"A1":"Ответ 1";
+"A2":"Ответ 2";
+"A3":"Ответ 3";
+"A4":"Ответ 4";
+"Correct":"2";
+"E":"Почему верен этот ответ";</pre>
+                        <p style="margin: 0.75rem 0 0; font-size: 0.85rem; color: var(--text-muted);">
+                            Поле <strong>E</strong> обязательно. Теги не нужны. Вариантов ответов можно больше пяти: <strong>A6</strong>, <strong>A7</strong> и т.д.
+                        </p>
+                    </div>
+                </div>
+                <div id="txtExplainedPlainUploadProgress" style="display: none; margin: 1rem 0;">
+                    <div style="background: var(--bg-secondary); border-radius: var(--radius); padding: 0.25rem; height: 24px;">
+                        <div id="txtExplainedPlainUploadProgressBar" style="background: linear-gradient(90deg, var(--primary-color), var(--primary-light)); height: 100%; border-radius: var(--radius); width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75rem; font-weight: 600;"></div>
+                    </div>
+                    <p id="txtExplainedPlainUploadStatus" style="margin-top: 0.5rem; color: var(--text-secondary); font-size: 0.9rem; text-align: center;">Обработка...</p>
+                </div>
+                <button type="submit" class="btn btn-primary">Загрузить</button>
+                <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
+            </form>
+        </div>
+    </div>
+
     <div id="txtExplainedUploadModal" class="modal" style="display: none;">
         <div class="modal-content" style="max-width: 600px;">
             <span class="modal-close">&times;</span>
@@ -1267,11 +1307,11 @@
 "Back":"Another answer..."
 "Topic":"Cardiovascular System"</pre>
                         <p style="margin: 0.75rem 0 0; font-size: 0.85rem; color: var(--text-muted);">
-                            Тема обязательна: секция <strong>=== Название ===</strong>, <strong>## Название</strong>, <strong>[Topic: Название]</strong>
-                            или поле <strong>Topic</strong> / <strong>System</strong> / <strong>Subject</strong> у каждой карточки.
-                            Поля <strong>Front</strong> и <strong>Back</strong> обязательны.
-                            Повторный <strong>ID</strong> в том же TXT или при повторной загрузке (тот же тест + Step) обновит карточку, а не создаст дубликат.
-                            Без картинок — для карточек с фото используйте кнопку «Карточка с картинами».
+                            Тема обязательна: секция <strong>=== Название ===</strong> или поле
+                            <strong>Topic</strong> / <strong>System</strong> / <strong>Subject</strong> / <strong>Tags</strong>.
+                            Обязательны <strong>ID</strong>, <strong>Front</strong> (или Q) и <strong>Back</strong> (или A).
+                            Повторный ID (тот же тест + Step) обновит карточку.
+                            Без картинок — для фото используйте «Карточка с картинами».
                         </p>
                         <details style="margin-top:0.75rem;">
                             <summary style="cursor:pointer; font-weight:600;">Список тем</summary>
