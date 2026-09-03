@@ -1038,20 +1038,38 @@ router.get('/usmle/flashcards', async (req, res) => {
       });
     }
 
-    // 1) выбранный банк + step
-    // 2) весь step (карточки другого банка / без testId)
-    // 3) только выбранный банк
-    // 4) любые активные карточки
-    let rows = [];
     const attempts = [];
     if (hasTestId && normalizedStep) attempts.push({ testId, stepGroup: normalizedStep });
     if (normalizedStep) attempts.push({ stepGroup: normalizedStep });
     if (hasTestId) attempts.push({ testId });
     attempts.push({});
 
+    let rows = [];
     for (const where of attempts) {
       rows = await query(where);
       if (rows.length) break;
+    }
+
+    // Если для этого Step карточек нет — подгружаем демо
+    if (!rows.length) {
+      const stepWhere = { isActive: true };
+      if (normalizedStep) stepWhere.stepGroup = normalizedStep;
+      const existingForStep = await Flashcard.count({ where: stepWhere });
+      if (existingForStep === 0) {
+        try {
+          const { seedDemoFlashcards } = require('../utils/seedDemoFlashcards');
+          await seedDemoFlashcards({
+            testId: hasTestId ? testId : null,
+            stepGroup: normalizedStep || 'step1'
+          });
+          for (const where of attempts) {
+            rows = await query(where);
+            if (rows.length) break;
+          }
+        } catch (seedErr) {
+          console.error('Авто-seed demo flashcards:', seedErr.message || seedErr);
+        }
+      }
     }
 
     res.json(rows.map((row) => {

@@ -409,7 +409,11 @@
     }
 
     function mountPage() {
-        const bank = U.getSelectedBank();
+        const bank = (typeof U.syncBankFromUrl === 'function' && U.syncBankFromUrl()) || U.getSelectedBank();
+        if (!bank || !bank.id) {
+            window.location.href = '/usmle';
+            return;
+        }
         U.renderShell({ activeNav: 'flashcards', pageTitle: 'Flashcards', bank });
 
         const main = document.querySelector('.usmle-main-content');
@@ -580,7 +584,8 @@
         if (typeof loadUser === 'function') await loadUser();
         if (typeof setupEventListeners === 'function') setupEventListeners();
         if (U.requireUsmleAccess && !U.requireUsmleAccess()) return;
-        if (!U.getSelectedBank()) {
+        const bank = (typeof U.syncBankFromUrl === 'function' && U.syncBankFromUrl()) || U.getSelectedBank();
+        if (!bank || !bank.id) {
             window.location.href = '/usmle';
             return;
         }
