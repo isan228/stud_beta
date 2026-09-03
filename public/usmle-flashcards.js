@@ -256,27 +256,89 @@
         }).join('');
     }
 
+    let sessionTimerSec = 0;
+    let sessionTimerId = null;
+
+    function formatTimer(sec) {
+        const m = Math.floor(sec / 60);
+        const s = sec % 60;
+        return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    function startSessionTimer() {
+        stopSessionTimer();
+        sessionTimerSec = 0;
+        const el = document.getElementById('fcSessionTimer');
+        if (el) el.textContent = '00:00';
+        sessionTimerId = setInterval(() => {
+            sessionTimerSec += 1;
+            const t = document.getElementById('fcSessionTimer');
+            if (t) t.textContent = formatTimer(sessionTimerSec);
+        }, 1000);
+    }
+
+    function stopSessionTimer() {
+        if (sessionTimerId) {
+            clearInterval(sessionTimerId);
+            sessionTimerId = null;
+        }
+    }
+
+    function buildFrontHtmlClient(frontText) {
+        const raw = String(frontText || '');
+        if (!raw) return '';
+        return esc(raw)
+            .replace(/_{2,}/g, '<span class="fc-blank">______</span>')
+            .replace(/\(([^)]+)\)/g, (_m, inner) => {
+                const cleaned = String(inner).split('/').map((s) => s.trim()).join('/');
+                return `<span class="fc-choice">(${esc(cleaned)})</span>`;
+            });
+    }
+
+    function deckProgressStats(cards) {
+        let neu = 0;
+        let learning = 0;
+        let review = 0;
+        for (const card of cards) {
+            const p = cardProgress(card.id);
+            if (p.status === 'learning') learning += 1;
+            else if (p.status === 'review') review += 1;
+            else neu += 1;
+        }
+        return { neu, learning, review };
+    }
+
+    function renderSessionStats() {
+        const statsEl = document.getElementById('fcSessionStats');
+        if (!statsEl) return;
+        const stats = deckProgressStats(studyCards);
+        statsEl.innerHTML = `
+            <span class="fc-stat-new">${stats.neu}</span>
+            <span class="fc-stat-sep">·</span>
+            <span class="fc-stat-learning">${stats.learning}</span>
+            <span class="fc-stat-sep">·</span>
+            <span class="fc-stat-review">${stats.review}</span>
+        `;
+    }
+
     function renderSessionCard() {
         const card = studyCards[studyIndex] || null;
         const body = document.getElementById('flashcardBody');
-        const counter = document.getElementById('flashcardCounter');
         const category = document.getElementById('flashcardCategory');
         const toggleFront = document.getElementById('flashcardToggleFront');
         const toggleBack = document.getElementById('flashcardToggleBack');
         const actionBtn = document.getElementById('flashcardActionBtn');
-        const keyword = document.getElementById('flashcardKeyword');
-        const prevBtn = document.getElementById('flashcardPrevBtn');
-        const nextBtn = document.getElementById('flashcardNextBtn');
-        const topicLabel = document.getElementById('fcSessionTopicLabel');
         const rateBox = document.getElementById('flashcardRateBox');
+        const footerFront = document.getElementById('fcSessionFooterFront');
+        const footerBack = document.getElementById('fcSessionFooterBack');
 
         if (!body) return;
 
         if (!card) {
             body.innerHTML = '<p class="flashcard-empty">Нет карточек для изучения</p>';
-            if (counter) counter.textContent = '0 of 0';
-            if (topicLabel) topicLabel.textContent = '';
             if (rateBox) rateBox.classList.add('hidden');
+            if (footerFront) footerFront.classList.add('hidden');
+            if (footerBack) footerBack.classList.add('hidden');
             return;
         }
 
@@ -284,14 +346,8 @@
         if (category) {
             category.innerHTML = `
                 <span class="flashcard-tag-badge" style="background:${colorForTopic(topicIdOf(card))}">${esc(tagInitial(tagName))}</span>
-                <span>${esc(tagName)}</span>
+                <span class="flashcards-category-name">${esc(tagName)}</span>
             `;
-        }
-        if (topicLabel) topicLabel.textContent = tagName;
-        if (counter) counter.textContent = `${studyIndex + 1} of ${studyCards.length}`;
-        if (keyword) {
-            keyword.textContent = card.keyword || '';
-            keyword.style.display = card.keyword ? 'inline-block' : 'none';
         }
 
         if (showBack) {
@@ -299,24 +355,28 @@
                 ? `<img class="flashcard-image" src="${esc(card.backImageUrl)}" alt="Back" loading="lazy">`
                 : '';
             body.innerHTML = `${img}<div class="flashcard-text flashcard-text-back">${card.backHtml || esc(card.backText)}</div>`;
-            if (actionBtn) actionBtn.textContent = 'Show Question';
+            if (footerFront) footerFront.classList.add('hidden');
+            if (footerBack) footerBack.classList.remove('hidden');
             if (rateBox) rateBox.classList.remove('hidden');
         } else {
             const img = String(card.frontImageUrl || '').trim()
                 ? `<img class="flashcard-image" src="${esc(card.frontImageUrl)}" alt="Front" loading="lazy">`
                 : '';
-            body.innerHTML = `${img}<div class="flashcard-text">${esc(card.frontText)}</div>`;
-            if (actionBtn) actionBtn.textContent = 'Show Answer';
+            const frontHtml = card.frontHtml || buildFrontHtmlClient(card.frontText);
+            body.innerHTML = `${img}<div class="flashcard-text flashcard-text-front">${frontHtml}</div>`;
+            if (footerFront) footerFront.classList.remove('hidden');
+            if (footerBack) footerBack.classList.add('hidden');
             if (rateBox) rateBox.classList.add('hidden');
+            if (actionBtn) actionBtn.textContent = 'Show Answer';
         }
 
         if (toggleFront) toggleFront.classList.toggle('active', !showBack);
         if (toggleBack) toggleBack.classList.toggle('active', showBack);
-        if (prevBtn) prevBtn.disabled = studyIndex <= 0;
-        if (nextBtn) nextBtn.disabled = studyIndex >= studyCards.length - 1;
+        renderSessionStats();
     }
 
     function openStudyTable() {
+        stopSessionTimer();
         setMode('study');
         renderStudyTable();
     }
@@ -328,7 +388,6 @@
             ? base.filter((c) => topicIdOf(c) === activeTopicKey)
             : base;
 
-        // Prefer New → Learning → Review
         const rank = { new: 0, learning: 1, review: 2 };
         studyCards = studyCards.slice().sort((a, b) => {
             const ra = rank[cardProgress(a.id).status] ?? 0;
@@ -343,6 +402,7 @@
         }
         showBack = false;
         setMode('session');
+        startSessionTimer();
         renderSessionCard();
     }
 
@@ -353,7 +413,6 @@
             renderSessionCard();
             return;
         }
-        // back to table when deck finished
         openStudyTable();
         if (typeof window.showNotification === 'function') {
             window.showNotification('Колода пройдена', 'success');
@@ -465,13 +524,14 @@
                 </div>
 
                 <div id="fcSessionPanel" class="hidden">
-                    <div class="fc-study-toolbar">
-                        <button type="button" class="btn btn-secondary btn-sm" id="fcBackToStudyTable">← Ready Decks</button>
-                        <div id="fcSessionTopicLabel" class="fc-study-topic-label"></div>
+                    <div class="fc-session-meta">
+                        <div id="flashcardCategory" class="flashcards-category"></div>
+                        <div class="fc-session-view-label">Single Side View</div>
+                        <button type="button" class="fc-session-close" id="fcBackToStudyTable" title="Close" aria-label="Close">×</button>
                     </div>
-                    <div class="flashcards-card-shell">
+
+                    <div class="flashcards-card-shell fc-session-card">
                         <div class="flashcards-card-head">
-                            <div id="flashcardCategory" class="flashcards-category"></div>
                             <div class="flashcards-side-toggle">
                                 <button type="button" id="flashcardToggleFront" class="active">Front</button>
                                 <button type="button" id="flashcardToggleBack">Back</button>
@@ -480,19 +540,39 @@
                         <div id="flashcardBody" class="flashcards-card-body">
                             <p class="flashcard-empty">Выберите колоду</p>
                         </div>
-                        <div id="flashcardKeyword" class="flashcards-keyword"></div>
                     </div>
-                    <div id="flashcardRateBox" class="fc-rate-box hidden">
-                        <button type="button" class="fc-rate-btn fc-rate-again" id="flashcardRateAgain" title="Again">− Again</button>
-                        <button type="button" class="fc-rate-btn fc-rate-good" id="flashcardRateGood" title="Good">+ Good</button>
-                    </div>
-                    <div class="flashcards-footer">
-                        <div id="flashcardCounter" class="flashcards-counter">0 of 0</div>
-                        <div class="flashcards-nav">
-                            <button type="button" class="btn btn-secondary" id="flashcardPrevBtn">&lt; Previous</button>
-                            <button type="button" class="btn btn-primary" id="flashcardActionBtn">Show Answer</button>
-                            <button type="button" class="btn btn-secondary" id="flashcardNextBtn">Next &gt;</button>
+
+                    <div class="fc-session-footer">
+                        <div id="fcSessionStats" class="fc-session-stats">
+                            <span class="fc-stat-new">0</span>
+                            <span class="fc-stat-sep">·</span>
+                            <span class="fc-stat-learning">0</span>
+                            <span class="fc-stat-sep">·</span>
+                            <span class="fc-stat-review">0</span>
                         </div>
+
+                        <div id="fcSessionFooterFront" class="fc-session-actions">
+                            <button type="button" class="fc-show-answer-btn" id="flashcardActionBtn">Show Answer</button>
+                        </div>
+
+                        <div id="fcSessionFooterBack" class="fc-session-actions hidden">
+                            <div id="flashcardRateBox" class="fc-rate-box">
+                                <button type="button" class="fc-rate-btn fc-rate-again" id="flashcardRateAgain">
+                                    <span class="fc-rate-interval">&lt;1m</span>
+                                    <span class="fc-rate-label">Again</span>
+                                </button>
+                                <button type="button" class="fc-rate-btn fc-rate-good" id="flashcardRateGood">
+                                    <span class="fc-rate-interval">1d</span>
+                                    <span class="fc-rate-label">Good</span>
+                                </button>
+                                <button type="button" class="fc-rate-btn fc-rate-easy" id="flashcardRateEasy">
+                                    <span class="fc-rate-interval">4d</span>
+                                    <span class="fc-rate-label">Easy</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="fcSessionTimer" class="fc-session-timer">00:00</div>
                     </div>
                 </div>
             </div>
@@ -551,22 +631,8 @@
             renderSessionCard();
         });
         document.getElementById('flashcardActionBtn')?.addEventListener('click', () => {
-            showBack = !showBack;
+            showBack = true;
             renderSessionCard();
-        });
-        document.getElementById('flashcardPrevBtn')?.addEventListener('click', () => {
-            if (studyIndex > 0) {
-                studyIndex -= 1;
-                showBack = false;
-                renderSessionCard();
-            }
-        });
-        document.getElementById('flashcardNextBtn')?.addEventListener('click', () => {
-            if (studyIndex < studyCards.length - 1) {
-                studyIndex += 1;
-                showBack = false;
-                renderSessionCard();
-            }
         });
         document.getElementById('flashcardRateAgain')?.addEventListener('click', () => {
             const card = studyCards[studyIndex];
@@ -575,6 +641,12 @@
             advanceAfterRate();
         });
         document.getElementById('flashcardRateGood')?.addEventListener('click', () => {
+            const card = studyCards[studyIndex];
+            if (!card) return;
+            markCard(card.id, 'review');
+            advanceAfterRate();
+        });
+        document.getElementById('flashcardRateEasy')?.addEventListener('click', () => {
             const card = studyCards[studyIndex];
             if (!card) return;
             markCard(card.id, 'review');

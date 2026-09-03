@@ -2,7 +2,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
 const { Test, Question, Answer, Subject, Favorite, TestResult, User, University, Faculty, SubjectCourse, QuestionTag, QuestionTagMap, Flashcard } = require('../models');
-const { buildHighlightHtml } = require('../utils/flashcardHighlight');
+const { buildHighlightHtml, buildFrontHtml } = require('../utils/flashcardHighlight');
 const { Op } = require('sequelize');
 const { parseImageUrls, firstImageUrl } = require('../utils/mediaField');
 const { pickQuestionsKeepingLinkedOrder } = require('../utils/usmleLinkedQuestions');
@@ -1074,6 +1074,7 @@ router.get('/usmle/flashcards', async (req, res) => {
 
     res.json(rows.map((row) => {
       const json = row.toJSON();
+      json.frontHtml = buildFrontHtml(json.frontText);
       json.backHtml = buildHighlightHtml(json.frontText, json.backText);
       return json;
     }));

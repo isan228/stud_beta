@@ -13,6 +13,18 @@ function normalizeChoiceSegment(segment) {
   return `(${m[1].split('/').map((s) => s.trim()).join('/')})`;
 }
 
+/** Лицевая сторона: ______ и (a/b) — синим, как в UWorld */
+function buildFrontHtml(frontText) {
+  const front = String(frontText || '');
+  if (!front) return '';
+  return escapeHtml(front)
+    .replace(/_{2,}/g, '<span class="fc-blank">______</span>')
+    .replace(/\(([^)]+)\)/g, (_m, inner) => {
+      const cleaned = String(inner).split('/').map((s) => s.trim()).join('/');
+      return `<span class="fc-choice">(${escapeHtml(cleaned)})</span>`;
+    });
+}
+
 function buildHighlightHtml(frontText, backText) {
   const front = String(frontText || '');
   const back = String(backText || '');
@@ -76,5 +88,7 @@ function buildHighlightHtml(frontText, backText) {
 
 module.exports = {
   escapeHtml,
-  buildHighlightHtml
+  buildFrontHtml,
+  buildHighlightHtml,
+  normalizeChoiceSegment
 };
