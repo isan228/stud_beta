@@ -231,6 +231,15 @@
                     </div>
                 `;
             }).join('');
+
+            // Гиперссылки глоссария — только USMLE и только текст объяснения
+            const isUsmleEnd = !!(resultData.isCustomUsmle || resultData.programType === 'usmle');
+            if (isUsmleEnd && typeof window.setProgramType === 'function') {
+                window.setProgramType('usmle');
+            }
+            if (isUsmleEnd && typeof window.applyMedicalLinkify === 'function') {
+                window.applyMedicalLinkify(content);
+            }
         }
 
         /** Вопросы для перепрохода: из результата или из сохранённого testData той же попытки. */
@@ -566,7 +575,7 @@
                                 <div style="margin-top: 1rem; padding: 1rem; background: rgba(37, 99, 235, 0.08); border-radius: 8px; border-left: 4px solid var(--primary-color);">
                                     <div class="test-analysis-label" style="color: var(--primary-color);">Объяснение</div>
                                     ${renderImageGalleryHtml(question.explanationImageUrls || question.explanationImageUrl, 'Иллюстрация к объяснению', 'question-explanation-image-wrap')}
-                                    ${question.explanation ? `<div style="color: var(--text-secondary); line-height: 1.55; margin-top: 0.35rem;">${String(question.explanation).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</div>` : ''}
+                                    ${question.explanation ? `<div class="question-explanation-text" style="color: var(--text-secondary); line-height: 1.55; margin-top: 0.35rem;">${String(question.explanation).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</div>` : ''}
                                 </div>
                             ` : ''}
                             ${qTags.length ? `
@@ -578,6 +587,13 @@
                     `;
                 }).join('')}
             `;
+
+            if (isUsmle && typeof window.setProgramType === 'function') {
+                window.setProgramType('usmle');
+            }
+            if (isUsmle && typeof window.applyMedicalLinkify === 'function') {
+                window.applyMedicalLinkify(content);
+            }
             
             // Обработчик закрытия модального окна
             const closeBtn = document.getElementById('testAnalysisModalClose');
