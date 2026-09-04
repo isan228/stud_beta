@@ -934,6 +934,7 @@ html[data-theme="dark"] .flashcards-side-toggle button.active,
     border: none;
     border-radius: 0;
     background: #fff;
+    cursor: zoom-in;
 }
 
 .flashcard-text {

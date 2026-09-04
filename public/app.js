@@ -1991,29 +1991,77 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         return result;
     }
 
+    function closeImageLightbox() {
+        const popup = document.getElementById('imageLightbox');
+        if (popup) popup.remove();
+        document.removeEventListener('keydown', onImageLightboxKeydown);
+    }
+
+    function onImageLightboxKeydown(e) {
+        if (e.key === 'Escape') closeImageLightbox();
+    }
+
+    function openImageLightbox(imgUrl, title = '') {
+        const url = String(imgUrl || '').trim();
+        if (!url) return;
+        closeImageLightbox();
+
+        const popup = document.createElement('div');
+        popup.id = 'imageLightbox';
+        popup.className = 'image-lightbox';
+        popup.setAttribute('role', 'dialog');
+        popup.setAttribute('aria-modal', 'true');
+        popup.innerHTML = `
+            <button type="button" class="image-lightbox-close" aria-label="Закрыть">&times;</button>
+            <div class="image-lightbox-inner">
+                ${title ? `<h3 class="image-lightbox-title">${escapeHtmlStr(title)}</h3>` : ''}
+                <img class="image-lightbox-img" src="${escapeHtmlStr(url)}" alt="${escapeHtmlStr(title || 'Изображение')}">
+            </div>
+        `;
+        popup.addEventListener('click', (ev) => {
+            if (ev.target === popup || ev.target.classList.contains('image-lightbox-close')) {
+                closeImageLightbox();
+            }
+        });
+        document.body.appendChild(popup);
+        document.addEventListener('keydown', onImageLightboxKeydown);
+    }
+
+    window.openImageLightbox = openImageLightbox;
+    window.closeImageLightbox = closeImageLightbox;
+
     window.openMedicalImagePopup = function(e, el) {
         e.preventDefault();
-        const imgUrl = el.dataset.imgUrl;
-        const title = el.dataset.imgTitle;
-        let popup = document.getElementById('medicalTermPopup');
-        if (!popup) {
-            popup = document.createElement('div');
-            popup.id = 'medicalTermPopup';
-            popup.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;';
-            popup.innerHTML = `<div style="background:#fff;border-radius:12px;max-width:90vw;max-height:90vh;overflow:auto;padding:1rem;position:relative;">
-                <button onclick="document.getElementById('medicalTermPopup').remove()" style="position:absolute;top:0.5rem;right:0.75rem;font-size:1.5rem;background:none;border:none;cursor:pointer;color:#666;">×</button>
-                <h3 id="medicalTermPopupTitle" style="margin:0 2rem 0.75rem 0;"></h3>
-                <img id="medicalTermPopupImg" src="" alt="" style="max-width:100%;max-height:70vh;border-radius:8px;display:block;">
-            </div>`;
-            popup.addEventListener('click', function(ev) { if (ev.target === popup) popup.remove(); });
-            document.body.appendChild(popup);
-        } else {
-            popup.style.display = 'flex';
-        }
-        document.getElementById('medicalTermPopupTitle').textContent = title || '';
-        document.getElementById('medicalTermPopupImg').src = imgUrl;
-        document.getElementById('medicalTermPopupImg').alt = title || '';
+        e.stopPropagation();
+        openImageLightbox(el.dataset.imgUrl, el.dataset.imgTitle || '');
     };
+
+    function isZoomableContentImage(img) {
+        if (!img || img.tagName !== 'IMG') return false;
+        if (img.closest('.image-lightbox, .nav-brand, header .logo, .admin-sidebar, button, a.btn')) return false;
+        if (img.classList.contains('image-lightbox-img')) return false;
+        return Boolean(
+            img.classList.contains('question-image')
+            || img.classList.contains('flashcard-image')
+            || img.classList.contains('answer-option-image')
+            || img.classList.contains('fc-deck-card-img')
+            || img.closest('.question-image-wrap, .flashcard-image-wrap, .answer-option-image-wrap, .question-explanation-image-wrap')
+        );
+    }
+
+    function initImageLightbox() {
+        if (window.__imageLightboxBound) return;
+        window.__imageLightboxBound = true;
+        document.addEventListener('click', (e) => {
+            const img = e.target?.closest?.('img');
+            if (!isZoomableContentImage(img)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            openImageLightbox(img.currentSrc || img.src, img.alt || '');
+        }, true);
+    }
+
+    initImageLightbox();
 
     // Применяем linkify только в USMLE и только к тексту объяснения (описание)
     async function applyMedicalLinkify(root = document) {

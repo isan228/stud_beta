@@ -113,16 +113,55 @@ class QuestionImage extends StatelessWidget {
     final resolved = resolveImageUrl(url);
     if (resolved.isEmpty) return const SizedBox.shrink();
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: CachedNetworkImage(
-        imageUrl: resolved,
-        fit: BoxFit.contain,
-        placeholder: (_, __) => const SizedBox(
-          height: 120,
-          child: Center(child: CircularProgressIndicator()),
+    return GestureDetector(
+      onTap: () {
+        showDialog<void>(
+          context: context,
+          barrierColor: Colors.black87,
+          builder: (ctx) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.all(12),
+              child: Stack(
+                children: [
+                  InteractiveViewer(
+                    minScale: 0.8,
+                    maxScale: 4,
+                    child: CachedNetworkImage(
+                      imageUrl: resolved,
+                      fit: BoxFit.contain,
+                      placeholder: (_, __) => const SizedBox(
+                        height: 180,
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                      errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                    ),
+                  ),
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: CachedNetworkImage(
+          imageUrl: resolved,
+          fit: BoxFit.contain,
+          placeholder: (_, __) => const SizedBox(
+            height: 120,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          errorWidget: (_, __, ___) => const SizedBox.shrink(),
         ),
-        errorWidget: (_, __, ___) => const SizedBox.shrink(),
       ),
     );
   }
