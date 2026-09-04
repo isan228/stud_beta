@@ -2111,9 +2111,14 @@ const flashcardImageUpload = multer({
   storage: flashcardImageStorage,
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const extOk = /\.(jpe?g|png|gif|webp)$/i.test(file.originalname || '');
-    if (isAllowedImageMime(file.mimetype) || extOk) cb(null, true);
-    else cb(new Error('Разрешены только JPG, PNG, GIF, WEBP'));
+    const name = file.originalname || '';
+    const extOk = /\.(jpe?g|png|gif|webp)$/i.test(name);
+    // Скриншоты из буфера часто без расширения в originalname
+    if (isAllowedImageMime(file.mimetype) || extOk || /^image\//i.test(file.mimetype || '')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Разрешены только JPG, PNG, GIF, WEBP'));
+    }
   }
 });
 

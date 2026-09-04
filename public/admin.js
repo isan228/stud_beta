@@ -4395,8 +4395,15 @@ window.saveEditQuestionTag = saveEditQuestionTag;
 window.editUsmleFlashcardAdmin = editUsmleFlashcardAdmin;
 window.deleteUsmleFlashcardAdmin = deleteUsmleFlashcardAdmin;
 
+/** Сторона для Ctrl+V скриншота в модалке картинок */
+let fcImgPasteSide = 'front';
+/** Надёжное хранение файлов (input.files после paste иногда сбрасывается) */
+const fcImgPendingFiles = { front: null, back: null };
+
 function resetFcImgSideUI(side) {
     const isBack = side === 'back';
+    const key = isBack ? 'back' : 'front';
+    fcImgPendingFiles[key] = null;
     const input = document.getElementById(isBack ? 'fcImgBackFile' : 'fcImgFrontFile');
     const preview = document.getElementById(isBack ? 'fcImgBackPreview' : 'fcImgFrontPreview');
     const removeBtn = document.getElementById(isBack ? 'fcImgBackRemoveBtn' : 'fcImgFrontRemoveBtn');
@@ -4429,56 +4436,92 @@ function showFcImgSidePreview(side, imageUrl) {
     }
 }
 
-/** Сторона для Ctrl+V скриншота в модалке картинок */
-let fcImgPasteSide = 'front';
+function resolveFcImgSide(sideOrEvent) {
+    if (sideOrEvent === 'back' || sideOrEvent === 'front') return sideOrEvent;
+    const el = sideOrEvent?.target || sideOrEvent;
+    if (el && el.closest) {
+        if (el.closest('#fcImgBackDrop, #fcImgBackPasteBtn, #fcImgBackPickBtn, #fcImgBackText, #fcImgBackFile')) {
+            return 'back';
+        }
+        if (el.closest('#fcImgFrontDrop, #fcImgFrontPasteBtn, #fcImgFrontPickBtn, #fcImgFrontText, #fcImgFrontFile')) {
+            return 'front';
+        }
+        const zone = el.closest('[data-side]');
+        if (zone?.getAttribute('data-side') === 'back') return 'back';
+        if (zone?.getAttribute('data-side') === 'front') return 'front';
+    }
+    return fcImgPasteSide === 'back' ? 'back' : 'front';
+}
 
 function applyFcImgFileToSide(side, file) {
-    if (!file || !String(file.type || '').startsWith('image/')) {
+    const key = side === 'back' ? 'back' : 'front';
+    if (!file) {
         showNotification('В буфере нет изображения', 'error');
         return false;
     }
-    const isBack = side === 'back';
+    const mime = String(file.type || '');
+    const name = String(file.name || '');
+    const looksImage = mime.startsWith('image/') || /\.(jpe?g|png|gif|webp)$/i.test(name);
+    if (!looksImage && mime && !mime.startsWith('image/')) {
+        showNotification('В буфере нет изображения', 'error');
+        return false;
+    }
+
+    const isBack = key === 'back';
     const input = document.getElementById(isBack ? 'fcImgBackFile' : 'fcImgFrontFile');
     const removeBtn = document.getElementById(isBack ? 'fcImgBackRemoveBtn' : 'fcImgFrontRemoveBtn');
     const pending = document.getElementById(isBack ? 'fcImgBackPendingRemove' : 'fcImgFrontPendingRemove');
     const preview = document.getElementById(isBack ? 'fcImgBackPreview' : 'fcImgFrontPreview');
     if (!input) return false;
 
-    const ext = (file.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
-    const named = file.name
+    const ext = (mime.split('/')[1] || (name.split('.').pop()) || 'png').replace('jpeg', 'jpg');
+    const named = (file instanceof File && file.name)
         ? file
-        : new File([file], `screenshot-${side}-${Date.now()}.${ext}`, { type: file.type || 'image/png' });
-    const dt = new DataTransfer();
-    dt.items.add(named);
-    input.files = dt.files;
+        : new File([file], `screenshot-${key}-${Date.now()}.${ext}`, { type: mime || 'image/png' });
+
+    fcImgPendingFiles[key] = named;
+    fcImgPasteSide = key;
+
+    try {
+        const dt = new DataTransfer();
+        dt.items.add(named);
+        input.files = dt.files;
+    } catch (err) {
+        console.warn('DataTransfer set files failed', err);
+    }
+
     if (pending) pending.value = '0';
     if (preview) {
         const url = URL.createObjectURL(named);
-        preview.innerHTML = `<img src="${url}" alt="Preview" class="question-image-preview-img">`;
+        preview.innerHTML = `<img src="${url}" alt="Preview ${key}" class="question-image-preview-img">`;
         preview.style.display = 'block';
     }
     if (removeBtn) removeBtn.style.display = 'inline-block';
-    showNotification(`Скриншот добавлен (${side === 'back' ? 'Back' : 'Front'})`, 'success');
+    showNotification(`Скриншот добавлен (${isBack ? 'Back' : 'Front'})`, 'success');
     return true;
 }
 
 async function pasteFcImgFromClipboard(side) {
-    fcImgPasteSide = side === 'back' ? 'back' : 'front';
+    const key = side === 'back' ? 'back' : 'front';
+    fcImgPasteSide = key;
+    const drop = document.getElementById(key === 'back' ? 'fcImgBackDrop' : 'fcImgFrontDrop');
+    if (drop) drop.focus();
+
     try {
         if (navigator.clipboard && navigator.clipboard.read) {
             const items = await navigator.clipboard.read();
             for (const item of items) {
-                const type = (item.types || []).find((t) => t.startsWith('image/'));
+                const type = (item.types || []).find((t) => String(t).startsWith('image/'));
                 if (!type) continue;
                 const blob = await item.getType(type);
-                applyFcImgFileToSide(fcImgPasteSide, blob);
+                applyFcImgFileToSide(key, blob);
                 return;
             }
         }
     } catch (err) {
         console.warn('clipboard.read failed', err);
     }
-    showNotification('Сделайте скриншот и нажмите Ctrl+V в этом окне', 'info');
+    showNotification(`Кликните зону ${key === 'back' ? 'Back' : 'Front'} и нажмите Ctrl+V`, 'info');
 }
 
 function initFcImgFormControls() {
@@ -4494,14 +4537,20 @@ function initFcImgFormControls() {
 
         if (pickBtn && fileInput && pickBtn.dataset.bound !== '1') {
             pickBtn.dataset.bound = '1';
-            pickBtn.addEventListener('click', () => {
+            pickBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 fcImgPasteSide = side;
                 fileInput.click();
             });
         }
         if (pasteBtn && pasteBtn.dataset.bound !== '1') {
             pasteBtn.dataset.bound = '1';
-            pasteBtn.addEventListener('click', () => pasteFcImgFromClipboard(side));
+            pasteBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                pasteFcImgFromClipboard(side);
+            });
         }
         if (dropzone && dropzone.dataset.bound !== '1') {
             dropzone.dataset.bound = '1';
@@ -4526,6 +4575,10 @@ function initFcImgFormControls() {
                 const pending = document.getElementById(side === 'back' ? 'fcImgBackPendingRemove' : 'fcImgFrontPendingRemove');
                 if (pending) pending.value = '0';
                 const files = Array.from(fileInput.files || []);
+                if (files[0]) {
+                    fcImgPendingFiles[side] = files[0];
+                    fcImgPasteSide = side;
+                }
                 const preview = document.getElementById(side === 'back' ? 'fcImgBackPreview' : 'fcImgFrontPreview');
                 if (preview && files.length) {
                     preview.innerHTML = files.map((f) => {
@@ -4539,7 +4592,9 @@ function initFcImgFormControls() {
         }
         if (removeBtn && removeBtn.dataset.bound !== '1') {
             removeBtn.dataset.bound = '1';
-            removeBtn.addEventListener('click', () => {
+            removeBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 const pending = document.getElementById(side === 'back' ? 'fcImgBackPendingRemove' : 'fcImgFrontPendingRemove');
                 if (pending) pending.value = '1';
                 resetFcImgSideUI(side);
@@ -4551,17 +4606,19 @@ function initFcImgFormControls() {
         window.__fcImgPasteBound = true;
         document.addEventListener('paste', (e) => {
             const modal = document.getElementById('flashcardImageModal');
-            if (!modal || modal.style.display === 'none') return;
+            if (!modal || getComputedStyle(modal).display === 'none') return;
             const items = e.clipboardData?.items;
-            if (!items) return;
+            if (!items || !items.length) return;
             for (const item of items) {
                 if (!item.type || !item.type.startsWith('image/')) continue;
                 e.preventDefault();
+                e.stopPropagation();
                 const file = item.getAsFile();
-                if (file) applyFcImgFileToSide(fcImgPasteSide || 'front', file);
+                const side = resolveFcImgSide(e);
+                if (file) applyFcImgFileToSide(side, file);
                 break;
             }
-        });
+        }, true);
     }
 }
 
@@ -4572,8 +4629,8 @@ async function syncFcImgImagesAfterSave(flashcardId, { requireFrontOnCreate = fa
     const backInput = document.getElementById('fcImgBackFile');
     const frontRemove = frontPending && frontPending.value === '1';
     const backRemove = backPending && backPending.value === '1';
-    const frontFile = frontInput?.files?.[0];
-    const backFile = backInput?.files?.[0];
+    const frontFile = fcImgPendingFiles.front || frontInput?.files?.[0] || null;
+    const backFile = fcImgPendingFiles.back || backInput?.files?.[0] || null;
 
     if (requireFrontOnCreate && !frontFile && !backFile) {
         throw new Error('Загрузите хотя бы одну картинку (Front или Back)');
@@ -4588,9 +4645,10 @@ async function syncFcImgImagesAfterSave(flashcardId, { requireFrontOnCreate = fa
             const data = await res.json().catch(() => ({}));
             throw new Error(data.error || 'Не удалось удалить изображение Front');
         }
+        fcImgPendingFiles.front = null;
     } else if (frontFile) {
         const formData = new FormData();
-        formData.append('image', frontFile);
+        formData.append('image', frontFile, frontFile.name || `front-${Date.now()}.png`);
         const res = await fetch(`${ADMIN_API_URL}/flashcards/${flashcardId}/front-image`, {
             method: 'POST',
             headers: { Authorization: `Bearer ${currentAdminToken}` },
@@ -4600,6 +4658,7 @@ async function syncFcImgImagesAfterSave(flashcardId, { requireFrontOnCreate = fa
             const data = await res.json().catch(() => ({}));
             throw new Error(data.error || 'Не удалось загрузить изображение Front');
         }
+        fcImgPendingFiles.front = null;
     }
 
     if (backRemove) {
@@ -4611,9 +4670,10 @@ async function syncFcImgImagesAfterSave(flashcardId, { requireFrontOnCreate = fa
             const data = await res.json().catch(() => ({}));
             throw new Error(data.error || 'Не удалось удалить изображение Back');
         }
+        fcImgPendingFiles.back = null;
     } else if (backFile) {
         const formData = new FormData();
-        formData.append('image', backFile);
+        formData.append('image', backFile, backFile.name || `back-${Date.now()}.png`);
         const res = await fetch(`${ADMIN_API_URL}/flashcards/${flashcardId}/back-image`, {
             method: 'POST',
             headers: { Authorization: `Bearer ${currentAdminToken}` },
@@ -4623,6 +4683,7 @@ async function syncFcImgImagesAfterSave(flashcardId, { requireFrontOnCreate = fa
             const data = await res.json().catch(() => ({}));
             throw new Error(data.error || 'Не удалось загрузить изображение Back');
         }
+        fcImgPendingFiles.back = null;
     }
 }
 
@@ -4749,6 +4810,8 @@ async function openAddUsmleFlashcardModal() {
 async function openAddUsmleFlashcardWithImagesModal() {
     document.getElementById('fcImgId').value = '';
     document.getElementById('flashcardImageForm').reset();
+    fcImgPendingFiles.front = null;
+    fcImgPendingFiles.back = null;
     resetFcImgSideUI('front');
     resetFcImgSideUI('back');
     document.getElementById('flashcardImageModalTitle').textContent = 'Карточка с картинами';
