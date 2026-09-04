@@ -2011,7 +2011,7 @@ router.post('/flashcards', adminAuth, [
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-    const { frontText, backText, keyword, testId: rawTestId, stepGroup, tagIds, sortOrder } = req.body;
+    const { frontText, backText, testId: rawTestId, stepGroup, tagIds, sortOrder } = req.body;
     const testId = rawTestId ? parseInt(rawTestId, 10) : null;
 
     if (testId) {
@@ -2024,7 +2024,7 @@ router.post('/flashcards', adminAuth, [
     const card = await Flashcard.create({
       frontText: String(frontText).trim(),
       backText: String(backText).trim(),
-      keyword: keyword != null && String(keyword).trim() ? String(keyword).trim() : null,
+      keyword: null,
       testId: Number.isFinite(testId) ? testId : null,
       stepGroup,
       sortOrder: parseInt(sortOrder, 10) || 0,
@@ -2052,12 +2052,11 @@ router.put('/flashcards/:id', adminAuth, [
     const card = await Flashcard.findByPk(req.params.id);
     if (!card) return res.status(404).json({ error: 'Карточка не найдена' });
 
-    const { frontText, backText, keyword, testId: rawTestId, stepGroup, tagIds, sortOrder, isActive } = req.body;
+    const { frontText, backText, testId: rawTestId, stepGroup, tagIds, sortOrder, isActive } = req.body;
     if (frontText != null) card.frontText = String(frontText).trim();
     if (backText != null) card.backText = String(backText).trim();
-    if (keyword !== undefined) {
-      card.keyword = keyword != null && String(keyword).trim() ? String(keyword).trim() : null;
-    }
+    // keyword больше не используем — всегда очищаем при сохранении из админки
+    card.keyword = null;
     if (stepGroup) card.stepGroup = stepGroup;
     if (sortOrder != null) card.sortOrder = parseInt(sortOrder, 10) || 0;
     if (isActive != null) card.isActive = !!isActive;

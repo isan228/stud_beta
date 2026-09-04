@@ -4429,17 +4429,96 @@ function showFcImgSidePreview(side, imageUrl) {
     }
 }
 
+/** Сторона для Ctrl+V скриншота в модалке картинок */
+let fcImgPasteSide = 'front';
+
+function applyFcImgFileToSide(side, file) {
+    if (!file || !String(file.type || '').startsWith('image/')) {
+        showNotification('В буфере нет изображения', 'error');
+        return false;
+    }
+    const isBack = side === 'back';
+    const input = document.getElementById(isBack ? 'fcImgBackFile' : 'fcImgFrontFile');
+    const removeBtn = document.getElementById(isBack ? 'fcImgBackRemoveBtn' : 'fcImgFrontRemoveBtn');
+    const pending = document.getElementById(isBack ? 'fcImgBackPendingRemove' : 'fcImgFrontPendingRemove');
+    const preview = document.getElementById(isBack ? 'fcImgBackPreview' : 'fcImgFrontPreview');
+    if (!input) return false;
+
+    const ext = (file.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+    const named = file.name
+        ? file
+        : new File([file], `screenshot-${side}-${Date.now()}.${ext}`, { type: file.type || 'image/png' });
+    const dt = new DataTransfer();
+    dt.items.add(named);
+    input.files = dt.files;
+    if (pending) pending.value = '0';
+    if (preview) {
+        const url = URL.createObjectURL(named);
+        preview.innerHTML = `<img src="${url}" alt="Preview" class="question-image-preview-img">`;
+        preview.style.display = 'block';
+    }
+    if (removeBtn) removeBtn.style.display = 'inline-block';
+    showNotification(`Скриншот добавлен (${side === 'back' ? 'Back' : 'Front'})`, 'success');
+    return true;
+}
+
+async function pasteFcImgFromClipboard(side) {
+    fcImgPasteSide = side === 'back' ? 'back' : 'front';
+    try {
+        if (navigator.clipboard && navigator.clipboard.read) {
+            const items = await navigator.clipboard.read();
+            for (const item of items) {
+                const type = (item.types || []).find((t) => t.startsWith('image/'));
+                if (!type) continue;
+                const blob = await item.getType(type);
+                applyFcImgFileToSide(fcImgPasteSide, blob);
+                return;
+            }
+        }
+    } catch (err) {
+        console.warn('clipboard.read failed', err);
+    }
+    showNotification('Сделайте скриншот и нажмите Ctrl+V в этом окне', 'info');
+}
+
 function initFcImgFormControls() {
     [
-        { side: 'front', pick: 'fcImgFrontPickBtn', file: 'fcImgFrontFile', remove: 'fcImgFrontRemoveBtn' },
-        { side: 'back', pick: 'fcImgBackPickBtn', file: 'fcImgBackFile', remove: 'fcImgBackRemoveBtn' }
-    ].forEach(({ side, pick, file, remove }) => {
+        { side: 'front', pick: 'fcImgFrontPickBtn', file: 'fcImgFrontFile', remove: 'fcImgFrontRemoveBtn', paste: 'fcImgFrontPasteBtn', drop: 'fcImgFrontDrop' },
+        { side: 'back', pick: 'fcImgBackPickBtn', file: 'fcImgBackFile', remove: 'fcImgBackRemoveBtn', paste: 'fcImgBackPasteBtn', drop: 'fcImgBackDrop' }
+    ].forEach(({ side, pick, file, remove, paste, drop }) => {
         const pickBtn = document.getElementById(pick);
         const fileInput = document.getElementById(file);
         const removeBtn = document.getElementById(remove);
+        const pasteBtn = document.getElementById(paste);
+        const dropzone = document.getElementById(drop);
+
         if (pickBtn && fileInput && pickBtn.dataset.bound !== '1') {
             pickBtn.dataset.bound = '1';
-            pickBtn.addEventListener('click', () => fileInput.click());
+            pickBtn.addEventListener('click', () => {
+                fcImgPasteSide = side;
+                fileInput.click();
+            });
+        }
+        if (pasteBtn && pasteBtn.dataset.bound !== '1') {
+            pasteBtn.dataset.bound = '1';
+            pasteBtn.addEventListener('click', () => pasteFcImgFromClipboard(side));
+        }
+        if (dropzone && dropzone.dataset.bound !== '1') {
+            dropzone.dataset.bound = '1';
+            dropzone.addEventListener('click', () => { fcImgPasteSide = side; });
+            dropzone.addEventListener('focus', () => { fcImgPasteSide = side; });
+            dropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropzone.classList.add('is-dragover');
+            });
+            dropzone.addEventListener('dragleave', () => dropzone.classList.remove('is-dragover'));
+            dropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropzone.classList.remove('is-dragover');
+                fcImgPasteSide = side;
+                const f = e.dataTransfer?.files?.[0];
+                if (f) applyFcImgFileToSide(side, f);
+            });
         }
         if (fileInput && fileInput.dataset.bound !== '1') {
             fileInput.dataset.bound = '1';
@@ -4467,6 +4546,23 @@ function initFcImgFormControls() {
             });
         }
     });
+
+    if (!window.__fcImgPasteBound) {
+        window.__fcImgPasteBound = true;
+        document.addEventListener('paste', (e) => {
+            const modal = document.getElementById('flashcardImageModal');
+            if (!modal || modal.style.display === 'none') return;
+            const items = e.clipboardData?.items;
+            if (!items) return;
+            for (const item of items) {
+                if (!item.type || !item.type.startsWith('image/')) continue;
+                e.preventDefault();
+                const file = item.getAsFile();
+                if (file) applyFcImgFileToSide(fcImgPasteSide || 'front', file);
+                break;
+            }
+        });
+    }
 }
 
 async function syncFcImgImagesAfterSave(flashcardId, { requireFrontOnCreate = false } = {}) {
@@ -4621,7 +4717,7 @@ async function loadUsmleFlashcardsAdmin() {
                         <div style="color:var(--text-secondary); font-size:0.88rem; margin-bottom:0.35rem;">${escapeAdminHtml(c.backText)}</div>
                         <div style="font-size:0.8rem; color:var(--text-muted);">
                             ${escapeAdminHtml(c.stepGroup || '')} · ${escapeAdminHtml(c.Test?.name || 'без теста')} · ${escapeAdminHtml(tags)}
-                            ${c.keyword ? ` · <em>${escapeAdminHtml(c.keyword)}</em>` : ''}
+                            ${(c.frontImageUrl || c.backImageUrl) ? ' · 🖼' : ''}
                             ${c.frontImageUrl || c.backImageUrl ? ' · 🖼' : ''}
                         </div>
                     </div>
@@ -4659,6 +4755,7 @@ async function openAddUsmleFlashcardWithImagesModal() {
     const presetStep = document.getElementById('usmleFlashcardsStepFilter')?.value || 'step1';
     document.getElementById('fcImgStepGroup').value = presetStep;
     const testFilter = document.getElementById('usmleFlashcardsTestFilter')?.value || '';
+    fcImgPasteSide = 'front';
     await Promise.all([
         fillFlashcardTagsSelect([], 'fcImgTagIds'),
         fillFlashcardTestsSelect(testFilter, 'fcImgTestId')
@@ -4670,13 +4767,13 @@ async function openEditFlashcardWithImagesModal(card) {
     document.getElementById('fcImgId').value = card.id;
     document.getElementById('fcImgFrontText').value = card.frontText || '';
     document.getElementById('fcImgBackText').value = card.backText || '';
-    document.getElementById('fcImgKeyword').value = card.keyword || '';
     document.getElementById('fcImgStepGroup').value = card.stepGroup || 'step1';
     document.getElementById('flashcardImageModalTitle').textContent = 'Редактировать карточку с картинами';
     resetFcImgSideUI('front');
     resetFcImgSideUI('back');
     showFcImgSidePreview('front', card.frontImageUrl || '');
     showFcImgSidePreview('back', card.backImageUrl || '');
+    fcImgPasteSide = 'front';
     await Promise.all([
         fillFlashcardTagsSelect((card.Tags || []).map((t) => t.id), 'fcImgTagIds'),
         fillFlashcardTestsSelect(card.testId || '', 'fcImgTestId')
@@ -4698,7 +4795,6 @@ async function editUsmleFlashcardAdmin(id) {
         document.getElementById('flashcardId').value = card.id;
         document.getElementById('flashcardFrontText').value = card.frontText || '';
         document.getElementById('flashcardBackText').value = card.backText || '';
-        document.getElementById('flashcardKeyword').value = card.keyword || '';
         document.getElementById('flashcardStepGroup').value = card.stepGroup || 'step1';
         document.getElementById('flashcardModalTitle').textContent = 'Редактировать flashcard';
         document.getElementById('flashcardPreviewBox').style.display = 'none';
@@ -4718,7 +4814,7 @@ async function saveFlashcardAdmin(e) {
     const payload = {
         frontText: document.getElementById('flashcardFrontText')?.value || '',
         backText: document.getElementById('flashcardBackText')?.value || '',
-        keyword: document.getElementById('flashcardKeyword')?.value || '',
+        keyword: null,
         stepGroup: document.getElementById('flashcardStepGroup')?.value || 'step1',
         testId: document.getElementById('flashcardTestId')?.value || null,
         tagIds: Array.from(document.getElementById('flashcardTagIds')?.selectedOptions || []).map((o) => parseInt(o.value, 10))
@@ -4750,7 +4846,7 @@ async function saveFlashcardWithImagesAdmin(e) {
     const payload = {
         frontText: document.getElementById('fcImgFrontText')?.value || '',
         backText: document.getElementById('fcImgBackText')?.value || '',
-        keyword: document.getElementById('fcImgKeyword')?.value || '',
+        keyword: null,
         stepGroup: document.getElementById('fcImgStepGroup')?.value || 'step1',
         testId: document.getElementById('fcImgTestId')?.value || null,
         tagIds: Array.from(document.getElementById('fcImgTagIds')?.selectedOptions || []).map((o) => parseInt(o.value, 10))

@@ -1506,3 +1506,19 @@ html.admin-html .modal .btn {
     }
 }
 
+/* Flashcard image drop / screenshot zones */
+.fc-img-dropzone {
+    border: 1px dashed var(--border-color, #cbd5e1);
+    border-radius: 0.65rem;
+    padding: 0.75rem;
+    background: var(--bg-secondary, #f8fafc);
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.fc-img-dropzone:focus,
+.fc-img-dropzone.is-dragover {
+    outline: none;
+    border-color: var(--primary-color, #2563eb);
+    background: color-mix(in srgb, var(--primary-color, #2563eb) 8%, var(--bg-secondary, #f8fafc));
+}
+
