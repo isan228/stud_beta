@@ -336,11 +336,8 @@
                             <select id="uniFcUniversityFilter" class="form-group input" style="min-width:14rem;">
                                 <option value="">Выберите университет</option>
                             </select>
-                            <select id="uniFcSubjectFilter" class="form-group input" style="min-width:12rem;">
+                            <select id="uniFcTopicFilter" class="form-group input" style="min-width:14rem;">
                                 <option value="">Все предметы</option>
-                            </select>
-                            <select id="uniFcTopicFilter" class="form-group input" style="min-width:12rem;">
-                                <option value="">Все разделы</option>
                             </select>
                             <button type="button" class="btn btn-primary" id="addUniFlashcardBtn">+ Карточка</button>
                             <button type="button" class="btn btn-secondary" id="uploadUniTxtFlashcardsBtn">📇 TXT flashcards</button>
@@ -348,14 +345,15 @@
                         </div>
                     </div>
                     <p class="page-description" style="margin-bottom:1rem;">
-                        Выберите университет и предмет. Дальше — как в USMLE: одна карточка, TXT или карточка с картинами.
-                        Разделы из TXT (<code>=== Тема ===</code>) создаются автоматически. Галочка «Бесплатная» — без подписки.
+                        Предметы карточек — это колоды (как разделы/теги в USMLE). Добавьте предмет ниже, затем карточки, TXT или картинки.
+                        В TXT заголовки <code>=== Предмет ===</code> тоже создают предметы. «Бесплатная» — без подписки.
                     </p>
                     <div class="admin-subs-panel" style="margin-bottom:1.25rem; padding:1rem; border:1px solid var(--border-light); border-radius:0.5rem;">
-                        <h3 style="margin:0 0 0.65rem; font-size:1rem;">Разделы (тематика)</h3>
+                        <h3 style="margin:0 0 0.35rem; font-size:1rem;">Предметы карточек</h3>
+                        <p class="admin-subs-hint" style="margin:0 0 0.65rem;">Как разделы в USMLE: по ним студенты видят колоды в Browse / Study.</p>
                         <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin-bottom:0.75rem;">
-                            <input type="text" id="newUniFcTopicName" class="form-group input" placeholder="Новый раздел, напр. Сердечно-сосудистая система" style="flex:1; min-width:12rem;">
-                            <button type="button" class="btn btn-primary btn-sm" id="addUniFcTopicBtn">+ Раздел</button>
+                            <input type="text" id="newUniFcTopicName" class="form-group input" placeholder="Новый предмет, напр. Анатомия" style="flex:1; min-width:12rem;">
+                            <button type="button" class="btn btn-primary btn-sm" id="addUniFcTopicBtn">+ Предмет</button>
                         </div>
                         <div id="uniFcTopicsList" style="display:flex; flex-wrap:wrap; gap:0.5rem;"></div>
                     </div>
@@ -1443,15 +1441,9 @@
                         <select id="fcImgUniversityId"></select>
                     </div>
                     <div class="form-group">
-                        <label for="fcImgSubjectId">Предмет</label>
-                        <select id="fcImgSubjectId">
-                            <option value="">Без предмета</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="fcImgTopicId">Раздел (тематика)</label>
+                        <label for="fcImgTopicId">Предмет (колода)</label>
                         <select id="fcImgTopicId">
-                            <option value="">Без раздела</option>
+                            <option value="">Без предмета</option>
                         </select>
                     </div>
                     <div class="form-group" style="display:flex; align-items:center; gap:0.5rem;">
@@ -1475,9 +1467,9 @@
                     <select id="uniTxtFcUniversityId" required></select>
                 </div>
                 <div class="form-group">
-                    <label for="uniTxtFcSubjectId">Предмет</label>
-                    <select id="uniTxtFcSubjectId" required>
-                        <option value="">Выберите предмет</option>
+                    <label for="uniTxtFcTopicId">Предмет по умолчанию (если в TXT нет === … ===)</label>
+                    <select id="uniTxtFcTopicId">
+                        <option value="">Из заголовков TXT</option>
                     </select>
                 </div>
                 <div class="form-group" style="display:flex; align-items:center; gap:0.5rem;">
@@ -1489,22 +1481,18 @@
                     <input type="file" id="uniTxtFlashcardsFile" accept=".txt" required>
                     <div style="background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius); margin-top: 0.5rem;">
                         <p style="margin: 0 0 0.5rem 0; font-weight: 600; color: var(--text-primary);">Формат (как USMLE):</p>
-                        <pre style="margin: 0; font-size: 0.875rem; white-space: pre-wrap; word-wrap: break-word; color: var(--text-secondary); font-family: 'Courier New', monospace;">=== Анатомия сердца ===
+                        <pre style="margin: 0; font-size: 0.875rem; white-space: pre-wrap; word-wrap: break-word; color: var(--text-secondary); font-family: 'Courier New', monospace;">=== Анатомия ===
 "ID":"1"
 "Front":"Самая крупная артерия — ______."
 "Back":"Самая крупная артерия — аорта."
 
-"ID":"2"
-"Front":"..."
-"Back":"..."
-
 === Физиология ===
-"ID":"3"
+"ID":"2"
 "Front":"..."
 "Back":"..."</pre>
                         <p style="margin: 0.75rem 0 0; font-size: 0.85rem; color: var(--text-muted);">
-                            Заголовки <code>=== Раздел ===</code> создают тематику колоды.
-                            Если разделов нет — используется название выбранного предмета.
+                            Заголовки <code>=== Предмет ===</code> создают предметы-колоды (как разделы USMLE).
+                            Если заголовков нет — укажите предмет по умолчанию выше.
                             Повторный ID в этом университете обновит карточку.
                         </p>
                     </div>
@@ -1611,15 +1599,9 @@
                     <select id="uniFcUniversityId" required></select>
                 </div>
                 <div class="form-group">
-                    <label for="uniFcSubjectId">Предмет</label>
-                    <select id="uniFcSubjectId">
-                        <option value="">Без предмета</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="uniFcTopicId">Раздел (тематика)</label>
+                    <label for="uniFcTopicId">Предмет (колода)</label>
                     <select id="uniFcTopicId">
-                        <option value="">Без раздела</option>
+                        <option value="">Без предмета</option>
                     </select>
                 </div>
                 <div class="form-group">

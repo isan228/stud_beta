@@ -315,7 +315,7 @@ async function handleFlashcardsTxtUpload(req, res) {
 
   if (programType === 'university') {
     const universityId = parseInt(req.body.universityId, 10);
-    const subjectId = req.body.subjectId ? parseInt(req.body.subjectId, 10) : null;
+    const topicId = req.body.topicId ? parseInt(req.body.topicId, 10) : null;
     const isFree = req.body.isFree === true || req.body.isFree === 'true' || req.body.isFree === '1';
 
     if (!Number.isFinite(universityId) || universityId <= 0) {
@@ -329,13 +329,13 @@ async function handleFlashcardsTxtUpload(req, res) {
     }
 
     let defaultTopic = null;
-    if (Number.isFinite(subjectId) && subjectId > 0) {
-      const subject = await Subject.findByPk(subjectId);
-      if (!subject || subject.programType !== 'university' || Number(subject.universityId) !== universityId) {
-        res.status(400).json({ error: 'Предмет не найден для этого университета' });
+    if (Number.isFinite(topicId) && topicId > 0) {
+      const topic = await FlashcardTopic.findByPk(topicId);
+      if (!topic || !topic.isActive || Number(topic.universityId) !== universityId) {
+        res.status(400).json({ error: 'Предмет карточек не найден для этого университета' });
         return;
       }
-      defaultTopic = subject.name;
+      defaultTopic = topic.name;
     }
 
     const text = req.file.buffer.toString('utf8');
@@ -350,13 +350,13 @@ async function handleFlashcardsTxtUpload(req, res) {
     });
     const stats = cards._parseStats || {};
     if (cards.length === 0) {
-      let hint = 'Нужны поля "ID", "Front", "Back". Тема: === Раздел === или поле Topic.';
+      let hint = 'Нужны поля "ID", "Front", "Back". Предмет: === Предмет === или выберите предмет по умолчанию.';
       if (stats.idBlocks === 0) {
         hint = 'В файле не найдено ни одного "ID":"...". Проверьте кавычки и формат.';
       } else if (stats.missingFrontBack > 0 && stats.accepted === 0) {
         hint = `Найдено блоков ID: ${stats.idBlocks}, но нет пар Front/Back (можно Q/A).`;
       } else if (stats.missingTopic > 0 && stats.accepted === 0) {
-        hint = 'Укажите темы через === Раздел === или выберите предмет (станет темой по умолчанию).';
+        hint = 'Укажите предметы через === Предмет === или выберите предмет по умолчанию.';
       }
       res.status(400).json({ error: `Не удалось найти flashcards в TXT. ${hint}`, stats });
       return;
@@ -364,7 +364,7 @@ async function handleFlashcardsTxtUpload(req, res) {
 
     const { cards: savedCards, createdCount, updatedCount } = await saveParsedUniversityFlashcards(cards, {
       universityId,
-      subjectId: Number.isFinite(subjectId) ? subjectId : null,
+      subjectId: null,
       isFree
     });
     const parts = [`${savedCards.length} flashcards`];
