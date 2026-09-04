@@ -1787,8 +1787,15 @@ html[data-theme="dark"] .navbar {
     position: relative;
     overflow: hidden;
     display: flex;
+    flex-wrap: wrap;
     align-items: flex-start;
     gap: 0.75rem;
+}
+
+.answer-option-image-wrap {
+    flex: 1 1 100%;
+    margin: 0.15rem 0 0;
+    padding: 0.35rem;
 }
 
 .answer-option-image {
@@ -1811,11 +1818,6 @@ html[data-theme="dark"] .navbar {
     height: 56px;
     margin-right: 0.35rem;
     vertical-align: middle;
-}
-
-.answer-option-image-wrap {
-    margin: 0 0 0.5rem;
-    padding: 0.35rem;
 }
 
 .answer-item::before {
@@ -2057,8 +2059,14 @@ html[data-theme="dark"] .question-image,
     max-height: min(240px, 38vh);
 }
 
-.question-item .question-image-wrap + h3 {
-    margin-top: 0;
+.question-item .question-text + .question-image-wrap,
+.question-item h3.question-text + .question-image-wrap,
+.question-item .question-image-wrap {
+    margin-top: 0.85rem;
+}
+
+.question-item .question-text {
+    margin-bottom: 0;
 }
 
 .question-image-preview-wrap {

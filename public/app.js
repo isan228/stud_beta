@@ -2074,8 +2074,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         return `
             <div class="question-explanation-box" role="note">
                 <div class="question-explanation-label">Объяснение</div>
-                ${imgHtml}
                 ${textHtml}
+                ${imgHtml}
             </div>
         `;
     }
@@ -2160,15 +2160,15 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
         content.innerHTML = `
         <div class="question-item">
-            ${questionImageHtml}
             ${renderUsmleQuestionBodyHtml(question.text, {
                 isFirstInLinkedGroup: usmleLinked().isFirstLinkedQuestionInList?.(currentQuestions, currentQuestionIndex) || false
             })}
+            ${questionImageHtml}
             <div class="answers-list">
                 ${question.Answers.map(answer => `
                     <div class="answer-item" data-answer-id="${answer.id}" onclick="selectAnswer(${answer.id})">
-                        ${renderImageGalleryHtml(answer.imageUrls || answer.imageUrl, 'Иллюстрация к ответу', 'answer-option-image-wrap')}
                         <span class="answer-option-text">${answer.text}</span>
+                        ${renderImageGalleryHtml(answer.imageUrls || answer.imageUrl, 'Иллюстрация к ответу', 'answer-option-image-wrap')}
                     </div>
                 `).join('')}
             </div>
@@ -4563,12 +4563,12 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                                 ${index + 1}
                             </div>
                             <div style="flex: 1;">
-                                ${question.imageUrl ? `<figure class="question-image-wrap"><img src="${String(question.imageUrl).replace(/"/g, '')}" alt="Иллюстрация к вопросу" class="question-image" loading="lazy" decoding="async"></figure>` : ''}
                                 <div class="test-analysis-question">${usmleLinked().renderUsmleQuestionBodyHtml
                                     ? usmleLinked().renderUsmleQuestionBodyHtml(question.text, {
                                         isFirstInLinkedGroup: usmleLinked().isFirstLinkedQuestionInList?.(result.questions, index) || false
                                     })
                                     : question.text}</div>
+                                ${question.imageUrl ? `<figure class="question-image-wrap"><img src="${String(question.imageUrl).replace(/"/g, '')}" alt="Иллюстрация к вопросу" class="question-image" loading="lazy" decoding="async"></figure>` : ''}
                                 <div style="margin-top: 0.75rem;">
                                     <span style="padding: 0.25rem 0.75rem; border-radius: 0.25rem; font-size: 0.875rem; font-weight: 600; background-color: ${isCorrect ? 'rgba(16, 185, 129, 0.1)' : 'rgba(220, 38, 38, 0.1)'}; color: ${isCorrect ? 'var(--success-color)' : 'var(--danger-color)'};">
                                         ${isCorrect ? '✓ Правильно' : '✗ Неправильно'}
@@ -4615,8 +4615,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                                 }
                                 return `
                                     <div class="test-analysis-answer" style="border: ${isAnswerCorrect ? '2px solid var(--success-color)' : answer.id === parseInt(userAnswerId) ? '2px solid var(--danger-color)' : '1px solid var(--border-light)'}; background: ${isAnswerCorrect ? 'rgba(16, 185, 129, 0.1)' : answer.id === parseInt(userAnswerId) ? 'rgba(220, 38, 38, 0.1)' : 'var(--card-bg)'};">
-                                        ${answer.imageUrl ? `<img src="${String(answer.imageUrl).replace(/"/g, '')}" alt="" class="answer-option-image" loading="lazy" decoding="async">` : ''}
                                         <span>${isAnswerCorrect ? '✓ ' : answer.id === parseInt(userAnswerId) ? '✗ ' : ''}${answer.text}</span>
+                                        ${answer.imageUrl ? `<img src="${String(answer.imageUrl).replace(/"/g, '')}" alt="" class="answer-option-image" loading="lazy" decoding="async">` : ''}
                                     </div>
                                         `;
                             })()}
@@ -4626,8 +4626,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                         ${(question.explanation || question.explanationImageUrl) ? `
                             <div style="margin-top: 1rem; padding: 1rem; background: rgba(37, 99, 235, 0.08); border-radius: var(--radius); border-left: 4px solid var(--primary-color);">
                                 <div class="test-analysis-label" style="color: var(--primary-color);">Объяснение</div>
+                                ${question.explanation ? `<div class="question-explanation-text" style="color: var(--text-secondary); line-height: 1.55; margin-top: 0.35rem;">${escapeHtmlStr(question.explanation).replace(/\n/g, '<br>')}</div>` : ''}
                                 ${question.explanationImageUrl ? `<figure class="question-image-wrap question-explanation-image-wrap" style="margin-top: 0.5rem;"><img src="${String(question.explanationImageUrl).replace(/"/g, '')}" alt="Иллюстрация к объяснению" class="question-image" loading="lazy"></figure>` : ''}
-                                ${question.explanation ? `<div style="color: var(--text-secondary); line-height: 1.55; margin-top: 0.35rem;">${escapeHtmlStr(question.explanation).replace(/\n/g, '<br>')}</div>` : ''}
                             </div>
                         ` : ''}
                     </div>

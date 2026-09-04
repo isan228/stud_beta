@@ -221,12 +221,12 @@
                             <strong style="color: var(--text-color);">Вопрос ${qIndex >= 0 ? qIndex + 1 : '—'}</strong>
                             ${statusLabel ? `<span style="font-size: 0.85rem; font-weight: 600; color: ${statusColor};">${statusLabel}</span>` : ''}
                         </div>
-                        ${renderImageGalleryHtml(question.imageUrls || question.imageUrl, 'Иллюстрация к вопросу')}
                         <div style="margin: 0 0 0.75rem; color: var(--text-color); line-height: 1.45;">${questionBodyHtml}</div>
+                        ${renderImageGalleryHtml(question.imageUrls || question.imageUrl, 'Иллюстрация к вопросу')}
                         <div class="question-explanation-box" style="margin-top: 0;">
                             <div class="question-explanation-label">Объяснение</div>
-                            ${renderImageGalleryHtml(question.explanationImageUrls || question.explanationImageUrl, 'Иллюстрация к объяснению', 'question-explanation-image-wrap')}
                             ${question.explanation ? `<div class="question-explanation-text">${escHtml(question.explanation).replace(/\n/g, '<br>')}</div>` : ''}
+                            ${renderImageGalleryHtml(question.explanationImageUrls || question.explanationImageUrl, 'Иллюстрация к объяснению', 'question-explanation-image-wrap')}
                         </div>
                     </div>
                 `;
@@ -530,12 +530,12 @@
                                     ${index + 1}
                                 </div>
                                 <div style="flex: 1;">
-                                    ${renderImageGalleryHtml(question.imageUrls || question.imageUrl, 'Иллюстрация к вопросу')}
                                     <div class="test-analysis-question">${window.UsmleLinkedQuestion?.renderUsmleQuestionBodyHtml
                                     ? window.UsmleLinkedQuestion.renderUsmleQuestionBodyHtml(question.text, {
                                         isFirstInLinkedGroup: window.UsmleLinkedQuestion.isFirstLinkedQuestionInList(resultData.questions, index)
                                     })
                                     : question.text}</div>
+                                    ${renderImageGalleryHtml(question.imageUrls || question.imageUrl, 'Иллюстрация к вопросу')}
                                     <div style="display:flex; flex-wrap:wrap; align-items:center; gap:0.5rem; margin-top: 0.75rem;">
                                         <span style="padding: 0.25rem 0.75rem; border-radius: 0.25rem; font-size: 0.875rem; font-weight: 600; background-color: ${isCorrect ? 'rgba(16, 185, 129, 0.1)' : 'rgba(220, 38, 38, 0.1)'}; color: ${isCorrect ? 'var(--success-color)' : 'var(--danger-color)'};">
                                             ${isCorrect ? '✓ Правильно' : '✗ Неправильно'}
@@ -565,8 +565,8 @@
                                     <div class="test-analysis-label">Все варианты ответов:</div>
                                     ${question.Answers.map(answer => `
                                         <div class="test-analysis-answer" style="border: ${answer.isCorrect ? '2px solid var(--success-color)' : answer.id === parseInt(userAnswerId) ? '2px solid var(--danger-color)' : '1px solid var(--border-light)'}; background: ${answer.isCorrect ? 'rgba(16, 185, 129, 0.1)' : answer.id === parseInt(userAnswerId) ? 'rgba(220, 38, 38, 0.1)' : 'var(--card-bg)'};">
-                                            ${renderImageGalleryHtml(answer.imageUrls || answer.imageUrl, 'Иллюстрация к ответу')}
                                             ${answer.isCorrect ? '✓ ' : answer.id === parseInt(userAnswerId) ? '✗ ' : ''}${answer.text}
+                                            ${renderImageGalleryHtml(answer.imageUrls || answer.imageUrl, 'Иллюстрация к ответу')}
                                         </div>
                                     `).join('')}
                                 </div>
@@ -574,8 +574,8 @@
                             ${(question.explanation || normalizeImageUrls(question.explanationImageUrls || question.explanationImageUrl).length) ? `
                                 <div style="margin-top: 1rem; padding: 1rem; background: rgba(37, 99, 235, 0.08); border-radius: 8px; border-left: 4px solid var(--primary-color);">
                                     <div class="test-analysis-label" style="color: var(--primary-color);">Объяснение</div>
-                                    ${renderImageGalleryHtml(question.explanationImageUrls || question.explanationImageUrl, 'Иллюстрация к объяснению', 'question-explanation-image-wrap')}
                                     ${question.explanation ? `<div class="question-explanation-text" style="color: var(--text-secondary); line-height: 1.55; margin-top: 0.35rem;">${String(question.explanation).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</div>` : ''}
+                                    ${renderImageGalleryHtml(question.explanationImageUrls || question.explanationImageUrl, 'Иллюстрация к объяснению', 'question-explanation-image-wrap')}
                                 </div>
                             ` : ''}
                             ${qTags.length ? `
