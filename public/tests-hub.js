@@ -99,7 +99,7 @@
     const box = document.getElementById('subjectsList');
     if (!box) return;
     if (!list.length) {
-      box.innerHTML = '<div class="tests-hub-empty">Предметы не найдены для вашего факультета и курса</div>';
+      box.innerHTML = '<div class="tests-hub-empty">Предметы университета пока не найдены</div>';
       return;
     }
     box.innerHTML = list.map((s) => subjectCardHtml(s)).join('');

@@ -303,17 +303,8 @@ router.get('/subjects', async (req, res) => {
         where.universityId = universityId;
       }
 
-      // Если фильтры не переданы — берём направление пользователя
-      const userId = tryGetUserIdFromRequest(req);
-      if (userId && (!Number.isFinite(facultyId) || !Number.isFinite(course))) {
-        const user = await User.findByPk(userId, {
-          attributes: ['facultyId', 'course']
-        });
-        if (user) {
-          if (!Number.isFinite(facultyId) || facultyId <= 0) facultyId = Number(user.facultyId) || NaN;
-          if (!Number.isFinite(course) || course <= 0) course = Number(user.course) || NaN;
-        }
-      }
+      // faculty/course — только если явно переданы в query.
+      // На странице «Тесты» показываем все предметы университета, без автофильтра по направлению.
     } else {
       where.universityId = null;
     }
