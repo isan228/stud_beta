@@ -67,11 +67,13 @@
     }
 
     function topicNameOf(card) {
-        return card.Subject?.name || 'Общие';
+        return card.Topic?.name || card.Subject?.name || 'Общие';
     }
 
     function topicIdOf(card) {
-        return card.Subject?.id != null ? String(card.Subject.id) : 'general';
+        if (card.Topic?.id != null) return `t-${card.Topic.id}`;
+        if (card.Subject?.id != null) return `s-${card.Subject.id}`;
+        return 'general';
     }
 
     function tagInitial(name) {
@@ -115,7 +117,7 @@
             if (!map.has(key)) {
                 map.set(key, {
                     key,
-                    id: card.Subject?.id || null,
+                    id: card.Topic?.id || card.Subject?.id || null,
                     name: topicNameOf(card),
                     cards: []
                 });

@@ -336,15 +336,23 @@
                             <select id="uniFcUniversityFilter" class="form-group input" style="min-width:14rem;">
                                 <option value="">Выберите университет</option>
                             </select>
-                            <select id="uniFcSubjectFilter" class="form-group input" style="min-width:12rem;">
-                                <option value="">Все предметы</option>
+                            <select id="uniFcTopicFilter" class="form-group input" style="min-width:12rem;">
+                                <option value="">Все разделы</option>
                             </select>
                             <button type="button" class="btn btn-primary" id="addUniFlashcardBtn">+ Карточка</button>
                         </div>
                     </div>
                     <p class="page-description" style="margin-bottom:1rem;">
-                        Карточки для студентов выбранного университета. Галочка «Бесплатная» — доступна без подписки.
+                        Карточки для студентов выбранного университета. Сначала добавьте <strong>разделы (тематику)</strong>, затем карточки. Галочка «Бесплатная» — доступна без подписки.
                     </p>
+                    <div class="admin-subs-panel" style="margin-bottom:1.25rem; padding:1rem; border:1px solid var(--border-light); border-radius:0.5rem;">
+                        <h3 style="margin:0 0 0.65rem; font-size:1rem;">Разделы (тематика)</h3>
+                        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin-bottom:0.75rem;">
+                            <input type="text" id="newUniFcTopicName" class="form-group input" placeholder="Новый раздел, напр. Анатомия" style="flex:1; min-width:12rem;">
+                            <button type="button" class="btn btn-primary btn-sm" id="addUniFcTopicBtn">+ Раздел</button>
+                        </div>
+                        <div id="uniFcTopicsList" style="display:flex; flex-wrap:wrap; gap:0.5rem;"></div>
+                    </div>
                     <div id="uniFlashcardsList" class="admin-list">
                         <p style="color:var(--text-muted); text-align:center; padding:1.5rem;">Выберите университет</p>
                     </div>
@@ -1518,9 +1526,9 @@
                     <select id="uniFcUniversityId" required></select>
                 </div>
                 <div class="form-group">
-                    <label for="uniFcSubjectId">Предмет (опционально)</label>
-                    <select id="uniFcSubjectId">
-                        <option value="">Без предмета</option>
+                    <label for="uniFcTopicId">Раздел (тематика)</label>
+                    <select id="uniFcTopicId">
+                        <option value="">Без раздела</option>
                     </select>
                 </div>
                 <div class="form-group">

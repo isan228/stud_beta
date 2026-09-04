@@ -1,7 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
-const { Test, Question, Answer, Subject, Favorite, TestResult, User, University, Faculty, SubjectCourse, QuestionTag, QuestionTagMap, Flashcard } = require('../models');
+const { Test, Question, Answer, Subject, Favorite, TestResult, User, University, Faculty, SubjectCourse, QuestionTag, QuestionTagMap, Flashcard, FlashcardTopic } = require('../models');
 const { buildHighlightHtml, buildFrontHtml } = require('../utils/flashcardHighlight');
 const { Op } = require('sequelize');
 const { parseImageUrls, firstImageUrl } = require('../utils/mediaField');
@@ -35,6 +35,7 @@ router.get('/flashcards', async (req, res) => {
     }
 
     const subjectId = parseInt(req.query.subjectId, 10);
+    const topicId = parseInt(req.query.topicId, 10);
     const universityIdQuery = parseInt(req.query.universityId, 10);
     const universityId = (Number.isFinite(universityIdQuery) && universityIdQuery > 0)
       ? universityIdQuery
@@ -52,6 +53,7 @@ router.get('/flashcards', async (req, res) => {
     };
     if (!hasPaid) where.isFree = true;
     if (Number.isFinite(subjectId) && subjectId > 0) where.subjectId = subjectId;
+    if (Number.isFinite(topicId) && topicId > 0) where.topicId = topicId;
 
     const rows = await Flashcard.findAll({
       where,
@@ -59,6 +61,11 @@ router.get('/flashcards', async (req, res) => {
         model: Subject,
         as: 'Subject',
         attributes: ['id', 'name'],
+        required: false
+      }, {
+        model: FlashcardTopic,
+        as: 'Topic',
+        attributes: ['id', 'name', 'sortOrder'],
         required: false
       }],
       order: [['sortOrder', 'ASC'], ['id', 'ASC']]

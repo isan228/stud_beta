@@ -3028,18 +3028,32 @@ function setupAdminEventListeners() {
     const uniFcUniversityFilter = document.getElementById('uniFcUniversityFilter');
     if (uniFcUniversityFilter) {
         uniFcUniversityFilter.addEventListener('change', async () => {
-            await fillUniFcSubjects(uniFcUniversityFilter.value, '', 'uniFcSubjectFilter');
+            await loadUniFcTopicsAdmin();
+            await fillUniFcTopics(uniFcUniversityFilter.value, '', 'uniFcTopicFilter');
             await loadUniFlashcardsAdmin();
         });
     }
-    const uniFcSubjectFilter = document.getElementById('uniFcSubjectFilter');
-    if (uniFcSubjectFilter) {
-        uniFcSubjectFilter.addEventListener('change', () => loadUniFlashcardsAdmin());
+    const uniFcTopicFilter = document.getElementById('uniFcTopicFilter');
+    if (uniFcTopicFilter) {
+        uniFcTopicFilter.addEventListener('change', () => loadUniFlashcardsAdmin());
     }
     const uniFcUniversityId = document.getElementById('uniFcUniversityId');
     if (uniFcUniversityId) {
         uniFcUniversityId.addEventListener('change', () => {
-            fillUniFcSubjects(uniFcUniversityId.value, '', 'uniFcSubjectId');
+            fillUniFcTopics(uniFcUniversityId.value, '', 'uniFcTopicId');
+        });
+    }
+    const addUniFcTopicBtn = document.getElementById('addUniFcTopicBtn');
+    if (addUniFcTopicBtn) {
+        addUniFcTopicBtn.addEventListener('click', () => addUniFcTopicAdmin());
+    }
+    const newUniFcTopicName = document.getElementById('newUniFcTopicName');
+    if (newUniFcTopicName) {
+        newUniFcTopicName.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addUniFcTopicAdmin();
+            }
         });
     }
 
@@ -4442,22 +4456,25 @@ async function fillSelectFromUniversities(selectId, selectedId = '') {
     }
 }
 
-async function fillUniFcSubjects(universityId, selectedId = '', selectId = 'uniFcSubjectId') {
+async function fillUniFcTopics(universityId, selectedId = '', selectId = 'uniFcTopicId') {
     const sel = document.getElementById(selectId);
     if (!sel) return;
-    sel.innerHTML = '<option value="">Без предмета / все</option>';
+    const isFilter = selectId === 'uniFcTopicFilter';
+    sel.innerHTML = isFilter
+        ? '<option value="">Все разделы</option>'
+        : '<option value="">Без раздела</option>';
     if (!universityId) return;
     try {
-        const response = await fetch(`${ADMIN_API_URL}/subjects?universityId=${encodeURIComponent(universityId)}&programType=university`, {
+        const response = await fetch(`${ADMIN_API_URL}/flashcard-topics?universityId=${encodeURIComponent(universityId)}`, {
             headers: adminAuthHeaders()
         });
         if (!response.ok) throw new Error('fail');
         const list = await response.json();
-        list.forEach((s) => {
+        list.forEach((t) => {
             const opt = document.createElement('option');
-            opt.value = s.id;
-            opt.textContent = s.name;
-            if (String(selectedId) === String(s.id)) opt.selected = true;
+            opt.value = t.id;
+            opt.textContent = t.name;
+            if (String(selectedId) === String(t.id)) opt.selected = true;
             sel.appendChild(opt);
         });
     } catch (e) {
@@ -4465,10 +4482,96 @@ async function fillUniFcSubjects(universityId, selectedId = '', selectId = 'uniF
     }
 }
 
+async function loadUniFcTopicsAdmin() {
+    const box = document.getElementById('uniFcTopicsList');
+    if (!box) return;
+    const universityId = document.getElementById('uniFcUniversityFilter')?.value;
+    if (!universityId) {
+        box.innerHTML = '<span style="color:var(--text-muted); font-size:0.9rem;">Выберите университет</span>';
+        return;
+    }
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/flashcard-topics?universityId=${encodeURIComponent(universityId)}`, {
+            headers: adminAuthHeaders()
+        });
+        if (!response.ok) throw new Error('fail');
+        const list = await response.json();
+        if (!list.length) {
+            box.innerHTML = '<span style="color:var(--text-muted); font-size:0.9rem;">Разделов пока нет</span>';
+            return;
+        }
+        box.innerHTML = list.map((t) => `
+            <span class="admin-tag-chip" style="display:inline-flex; align-items:center; gap:0.35rem; padding:0.35rem 0.55rem; border:1px solid var(--border-light); border-radius:999px; font-size:0.88rem;">
+                ${escapeAdminHtml(t.name)}
+                <button type="button" class="btn-link" style="border:none; background:transparent; cursor:pointer; color:var(--danger-color); padding:0; line-height:1;" onclick="deleteUniFcTopicAdmin(${t.id})" title="Удалить">×</button>
+            </span>
+        `).join('');
+    } catch (e) {
+        box.innerHTML = '<span style="color:var(--danger-color);">Ошибка загрузки разделов</span>';
+    }
+}
+
+async function addUniFcTopicAdmin() {
+    const universityId = document.getElementById('uniFcUniversityFilter')?.value;
+    const input = document.getElementById('newUniFcTopicName');
+    const name = String(input?.value || '').trim();
+    if (!universityId) {
+        showNotification('Сначала выберите университет', 'error');
+        return;
+    }
+    if (!name) {
+        showNotification('Введите название раздела', 'error');
+        return;
+    }
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/flashcard-topics`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${currentAdminToken}`
+            },
+            body: JSON.stringify({ name, universityId })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Ошибка');
+        if (input) input.value = '';
+        showNotification('Раздел добавлен', 'success');
+        await loadUniFcTopicsAdmin();
+        await fillUniFcTopics(universityId, '', 'uniFcTopicFilter');
+        const modalUni = document.getElementById('uniFcUniversityId')?.value;
+        if (modalUni && String(modalUni) === String(universityId)) {
+            await fillUniFcTopics(universityId, result.id || '', 'uniFcTopicId');
+        }
+    } catch (e) {
+        showNotification(e.message || 'Ошибка', 'error');
+    }
+}
+
+async function deleteUniFcTopicAdmin(id) {
+    if (!confirm('Удалить раздел? Карточки останутся без раздела.')) return;
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/flashcard-topics/${id}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${currentAdminToken}` }
+        });
+        if (!response.ok) throw new Error('fail');
+        showNotification('Раздел удалён', 'success');
+        const universityId = document.getElementById('uniFcUniversityFilter')?.value;
+        await loadUniFcTopicsAdmin();
+        await fillUniFcTopics(universityId, '', 'uniFcTopicFilter');
+        await loadUniFlashcardsAdmin();
+    } catch (e) {
+        showNotification('Ошибка удаления', 'error');
+    }
+}
+
+window.deleteUniFcTopicAdmin = deleteUniFcTopicAdmin;
+
 async function initUniFlashcardsAdmin() {
     await fillSelectFromUniversities('uniFcUniversityFilter');
     const uni = document.getElementById('uniFcUniversityFilter')?.value;
-    await fillUniFcSubjects(uni, '', 'uniFcSubjectFilter');
+    await loadUniFcTopicsAdmin();
+    await fillUniFcTopics(uni, '', 'uniFcTopicFilter');
     await loadUniFlashcardsAdmin();
 }
 
@@ -4481,8 +4584,8 @@ async function loadUniFlashcardsAdmin() {
         return;
     }
     const params = new URLSearchParams({ programType: 'university', universityId });
-    const subjectId = document.getElementById('uniFcSubjectFilter')?.value;
-    if (subjectId) params.set('subjectId', subjectId);
+    const topicId = document.getElementById('uniFcTopicFilter')?.value;
+    if (topicId) params.set('topicId', topicId);
     list.innerHTML = '<p style="color:var(--text-muted); padding:1rem;">Загрузка…</p>';
     try {
         const response = await fetch(`${ADMIN_API_URL}/flashcards?${params}`, {
@@ -4500,7 +4603,7 @@ async function loadUniFlashcardsAdmin() {
                     <div style="font-weight:700; margin-bottom:0.35rem;">${escapeAdminHtml(c.frontText)}</div>
                     <div style="color:var(--text-secondary); font-size:0.88rem; margin-bottom:0.35rem;">${escapeAdminHtml(c.backText)}</div>
                     <div style="font-size:0.8rem; color:var(--text-muted);">
-                        ${escapeAdminHtml(c.Subject?.name || 'без предмета')}
+                        ${escapeAdminHtml(c.Topic?.name || c.Subject?.name || 'без раздела')}
                         ${c.isFree ? ' · 🆓 бесплатная' : ' · по подписке'}
                         ${(c.frontImageUrl || c.backImageUrl) ? ' · 🖼' : ''}
                     </div>
@@ -4522,7 +4625,7 @@ async function openAddUniFlashcardModal() {
     document.getElementById('uniFlashcardModalTitle').textContent = 'Добавить карточку';
     const presetUni = document.getElementById('uniFcUniversityFilter')?.value || '';
     await fillSelectFromUniversities('uniFcUniversityId', presetUni);
-    await fillUniFcSubjects(presetUni || document.getElementById('uniFcUniversityId')?.value, '', 'uniFcSubjectId');
+    await fillUniFcTopics(presetUni || document.getElementById('uniFcUniversityId')?.value, document.getElementById('uniFcTopicFilter')?.value || '', 'uniFcTopicId');
     document.getElementById('uniFlashcardModal').style.display = 'block';
 }
 
@@ -4539,7 +4642,7 @@ async function editUniFlashcardAdmin(id) {
         document.getElementById('uniFcBackText').value = card.backText || '';
         document.getElementById('uniFcIsFree').checked = !!card.isFree;
         await fillSelectFromUniversities('uniFcUniversityId', card.universityId || '');
-        await fillUniFcSubjects(card.universityId || '', card.subjectId || '', 'uniFcSubjectId');
+        await fillUniFcTopics(card.universityId || '', card.topicId || '', 'uniFcTopicId');
         document.getElementById('uniFlashcardModal').style.display = 'block';
     } catch (e) {
         showNotification('Не удалось загрузить карточку', 'error');
@@ -4554,7 +4657,8 @@ async function saveUniFlashcardAdmin(e) {
         frontText: document.getElementById('uniFcFrontText')?.value || '',
         backText: document.getElementById('uniFcBackText')?.value || '',
         universityId: document.getElementById('uniFcUniversityId')?.value || null,
-        subjectId: document.getElementById('uniFcSubjectId')?.value || null,
+        topicId: document.getElementById('uniFcTopicId')?.value || null,
+        subjectId: null,
         isFree: !!document.getElementById('uniFcIsFree')?.checked,
         keyword: null
     };

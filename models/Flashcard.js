@@ -48,7 +48,13 @@ const Flashcard = sequelize.define('Flashcard', {
     type: DataTypes.INTEGER,
     allowNull: true,
     references: { model: 'Subjects', key: 'id' },
-    comment: 'Предмет (опционально)'
+    comment: 'Предмет (опционально, устаревшее — лучше topicId)'
+  },
+  topicId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: { model: 'FlashcardTopics', key: 'id' },
+    comment: 'Раздел / тематика колоды'
   },
   testId: {
     type: DataTypes.INTEGER,
@@ -91,6 +97,7 @@ const Flashcard = sequelize.define('Flashcard', {
     { fields: ['programType'] },
     { fields: ['universityId'] },
     { fields: ['subjectId'] },
+    { fields: ['topicId'] },
     { fields: ['isFree'] },
     { fields: ['testId', 'stepGroup', 'externalId'], name: 'flashcards_test_step_external' }
   ]

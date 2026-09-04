@@ -150,6 +150,18 @@ async function ensureUniversities() {
     );
   }
 
+  try {
+    const { seedDemoUniFlashcards } = require('./seedDemoUniFlashcards');
+    const seed = await seedDemoUniFlashcards({ universityId: kgma.id });
+    if (!seed.skipped && (seed.createdCount > 0 || seed.topicsCreated > 0)) {
+      console.log(
+        `✅ Демо-карточки КГМА: разделов +${seed.topicsCreated}, карточек +${seed.createdCount} (обновлено ${seed.updatedCount})`
+      );
+    }
+  } catch (e) {
+    console.warn('⚠️  seedDemoUniFlashcards:', e.message);
+  }
+
   return kgma;
 }
 

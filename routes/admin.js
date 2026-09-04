@@ -4,7 +4,7 @@ const multer = require('multer');
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const adminAuth = require('../middleware/adminAuth');
-const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, Editor, EditorAuditLog, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, BroadcastMessage, UserBroadcastNotification, Transaction, University, Faculty, SubjectFaculty, SubjectCourse, SubscriptionPlan, QuestionTag, QuestionTagMap, ScheduleEntry, Flashcard, FlashcardTagMap, sequelize } = require('../models');
+const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, Editor, EditorAuditLog, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, BroadcastMessage, UserBroadcastNotification, Transaction, University, Faculty, SubjectFaculty, SubjectCourse, SubscriptionPlan, QuestionTag, QuestionTagMap, ScheduleEntry, Flashcard, FlashcardTagMap, FlashcardTopic, sequelize } = require('../models');
 const { snapshotFromQuestion, logQuestionAudit } = require('../utils/questionAuditLog');
 const { ensurePlansForUniversity, getPlansForUniversity, ensurePlansForUsmle, getPlansForUsmle, ALLOWED_MONTHS, planTitle, uniPlanScope, USMLE_PLAN_SCOPE } = require('../utils/subscriptionPlans');
 const {
@@ -133,6 +133,11 @@ function flashcardInclude() {
     model: Subject,
     as: 'Subject',
     attributes: ['id', 'name', 'programType'],
+    required: false
+  }, {
+    model: FlashcardTopic,
+    as: 'Topic',
+    attributes: ['id', 'name', 'universityId', 'sortOrder'],
     required: false
   }];
 }
@@ -1962,6 +1967,7 @@ router.get('/flashcards', adminAuth, async (req, res) => {
     const testId = parseInt(req.query.testId, 10);
     const tagId = parseInt(req.query.tagId, 10);
     const subjectId = parseInt(req.query.subjectId, 10);
+    const topicId = parseInt(req.query.topicId, 10);
     const universityId = parseInt(req.query.universityId, 10);
     const stepGroup = String(req.query.stepGroup || '').trim();
     const programType = String(req.query.programType || '').trim().toLowerCase();
@@ -1971,6 +1977,7 @@ router.get('/flashcards', adminAuth, async (req, res) => {
     }
     if (Number.isFinite(testId) && testId > 0) where.testId = testId;
     if (Number.isFinite(subjectId) && subjectId > 0) where.subjectId = subjectId;
+    if (Number.isFinite(topicId) && topicId > 0) where.topicId = topicId;
     if (Number.isFinite(universityId) && universityId > 0) where.universityId = universityId;
     if (['step1', 'step2', 'step3'].includes(stepGroup)) where.stepGroup = stepGroup;
 
@@ -1988,6 +1995,100 @@ router.get('/flashcards', adminAuth, async (req, res) => {
     res.json(rows);
   } catch (error) {
     console.error('Ошибка списка flashcards:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+/** Разделы / тематики университетских карточек */
+router.get('/flashcard-topics', adminAuth, async (req, res) => {
+  try {
+    const universityId = parseInt(req.query.universityId, 10);
+    if (!Number.isFinite(universityId) || universityId <= 0) {
+      return res.status(400).json({ error: 'Укажите universityId' });
+    }
+    const rows = await FlashcardTopic.findAll({
+      where: { universityId, isActive: true },
+      order: [['sortOrder', 'ASC'], ['name', 'ASC']]
+    });
+    res.json(rows);
+  } catch (error) {
+    console.error('Ошибка списка flashcard-topics:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.post('/flashcard-topics', adminAuth, [
+  body('name').trim().notEmpty().withMessage('Укажите название раздела'),
+  body('universityId').isInt({ min: 1 })
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    const universityId = parseInt(req.body.universityId, 10);
+    const name = String(req.body.name || '').trim();
+    const uni = await University.findByPk(universityId);
+    if (!uni) return res.status(400).json({ error: 'Университет не найден' });
+
+    const existing = await FlashcardTopic.findOne({
+      where: { universityId, name: { [Op.iLike]: name } }
+    });
+    if (existing) {
+      if (!existing.isActive) {
+        existing.isActive = true;
+        existing.sortOrder = parseInt(req.body.sortOrder, 10) || existing.sortOrder || 0;
+        await existing.save();
+        return res.json(existing);
+      }
+      return res.status(400).json({ error: 'Такой раздел уже есть' });
+    }
+
+    const topic = await FlashcardTopic.create({
+      name,
+      universityId,
+      sortOrder: parseInt(req.body.sortOrder, 10) || 0,
+      isActive: true
+    });
+    res.status(201).json(topic);
+  } catch (error) {
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(400).json({ error: 'Такой раздел уже есть' });
+    }
+    console.error('Ошибка создания flashcard-topic:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.put('/flashcard-topics/:id', adminAuth, [
+  body('name').optional().trim().notEmpty()
+], async (req, res) => {
+  try {
+    const topic = await FlashcardTopic.findByPk(req.params.id);
+    if (!topic) return res.status(404).json({ error: 'Раздел не найден' });
+    if (req.body.name != null) topic.name = String(req.body.name).trim();
+    if (req.body.sortOrder != null) topic.sortOrder = parseInt(req.body.sortOrder, 10) || 0;
+    if (req.body.isActive != null) topic.isActive = !!req.body.isActive;
+    await topic.save();
+    res.json(topic);
+  } catch (error) {
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(400).json({ error: 'Такой раздел уже есть' });
+    }
+    console.error('Ошибка обновления flashcard-topic:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.delete('/flashcard-topics/:id', adminAuth, async (req, res) => {
+  try {
+    const topic = await FlashcardTopic.findByPk(req.params.id);
+    if (!topic) return res.status(404).json({ error: 'Раздел не найден' });
+    await Flashcard.update({ topicId: null }, { where: { topicId: topic.id } });
+    topic.isActive = false;
+    await topic.save();
+    res.json({ message: 'Раздел удалён' });
+  } catch (error) {
+    console.error('Ошибка удаления flashcard-topic:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
@@ -2041,11 +2142,13 @@ router.post('/flashcards', adminAuth, [
       sortOrder,
       universityId: rawUniversityId,
       subjectId: rawSubjectId,
+      topicId: rawTopicId,
       isFree
     } = req.body;
     const testId = rawTestId ? parseInt(rawTestId, 10) : null;
     const universityId = rawUniversityId ? parseInt(rawUniversityId, 10) : null;
     const subjectId = rawSubjectId ? parseInt(rawSubjectId, 10) : null;
+    const topicId = rawTopicId ? parseInt(rawTopicId, 10) : null;
 
     if (programType === 'usmle') {
       if (!['step1', 'step2', 'step3'].includes(String(stepGroup || ''))) {
@@ -2069,6 +2172,12 @@ router.post('/flashcards', adminAuth, [
           return res.status(400).json({ error: 'Предмет не найден для этого университета' });
         }
       }
+      if (topicId) {
+        const topic = await FlashcardTopic.findByPk(topicId);
+        if (!topic || !topic.isActive || Number(topic.universityId) !== universityId) {
+          return res.status(400).json({ error: 'Раздел не найден для этого университета' });
+        }
+      }
       if (testId) {
         const test = await Test.findByPk(testId);
         if (!test || test.programType !== 'university') {
@@ -2084,6 +2193,7 @@ router.post('/flashcards', adminAuth, [
       programType,
       universityId: programType === 'university' ? universityId : null,
       subjectId: programType === 'university' && Number.isFinite(subjectId) ? subjectId : null,
+      topicId: programType === 'university' && Number.isFinite(topicId) ? topicId : null,
       testId: Number.isFinite(testId) ? testId : null,
       stepGroup: programType === 'usmle' ? stepGroup : null,
       isFree: programType === 'university' ? !!isFree : false,
@@ -2125,6 +2235,7 @@ router.put('/flashcards/:id', adminAuth, [
       isActive,
       universityId: rawUniversityId,
       subjectId: rawSubjectId,
+      topicId: rawTopicId,
       isFree,
       programType: rawProgramType
     } = req.body;
@@ -2144,6 +2255,7 @@ router.put('/flashcards/:id', adminAuth, [
       if (stepGroup) card.stepGroup = stepGroup;
       card.universityId = null;
       card.subjectId = null;
+      card.topicId = null;
       card.isFree = false;
       if (rawTestId !== undefined) {
         const testId = rawTestId ? parseInt(rawTestId, 10) : null;
@@ -2177,6 +2289,16 @@ router.put('/flashcards/:id', adminAuth, [
           }
         }
         card.subjectId = Number.isFinite(subjectId) ? subjectId : null;
+      }
+      if (rawTopicId !== undefined) {
+        const topicId = rawTopicId ? parseInt(rawTopicId, 10) : null;
+        if (topicId) {
+          const topic = await FlashcardTopic.findByPk(topicId);
+          if (!topic || !topic.isActive || Number(topic.universityId) !== universityId) {
+            return res.status(400).json({ error: 'Раздел не найден для этого университета' });
+          }
+        }
+        card.topicId = Number.isFinite(topicId) ? topicId : null;
       }
       if (rawTestId !== undefined) {
         const testId = rawTestId ? parseInt(rawTestId, 10) : null;

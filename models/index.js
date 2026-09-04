@@ -31,6 +31,7 @@ const MedicalImage = require('./MedicalImage');
 const ScheduleEntry = require('./ScheduleEntry');
 const Flashcard = require('./Flashcard');
 const FlashcardTagMap = require('./FlashcardTagMap');
+const FlashcardTopic = require('./FlashcardTopic');
 
 // Определение связей
 User.hasMany(TestResult, { foreignKey: 'userId', as: 'TestResults' });
@@ -121,6 +122,10 @@ University.hasMany(Flashcard, { foreignKey: 'universityId', as: 'Flashcards', on
 Flashcard.belongsTo(University, { foreignKey: 'universityId', as: 'University' });
 Subject.hasMany(Flashcard, { foreignKey: 'subjectId', as: 'Flashcards', onDelete: 'SET NULL' });
 Flashcard.belongsTo(Subject, { foreignKey: 'subjectId', as: 'Subject' });
+University.hasMany(FlashcardTopic, { foreignKey: 'universityId', as: 'FlashcardTopics', onDelete: 'CASCADE' });
+FlashcardTopic.belongsTo(University, { foreignKey: 'universityId', as: 'University' });
+FlashcardTopic.hasMany(Flashcard, { foreignKey: 'topicId', as: 'Flashcards', onDelete: 'SET NULL' });
+Flashcard.belongsTo(FlashcardTopic, { foreignKey: 'topicId', as: 'Topic' });
 
 Subject.hasMany(Test, { foreignKey: 'subjectId', as: 'Tests' });
 Test.belongsTo(Subject, { foreignKey: 'subjectId', as: 'Subject' });
@@ -194,6 +199,7 @@ module.exports = {
   MedicalImage,
   ScheduleEntry,
   Flashcard,
-  FlashcardTagMap
+  FlashcardTagMap,
+  FlashcardTopic
 };
 
