@@ -2003,8 +2003,8 @@ router.get('/flashcards/:id', adminAuth, async (req, res) => {
 });
 
 router.post('/flashcards', adminAuth, [
-  body('frontText').trim().notEmpty().withMessage('Текст вопроса обязателен'),
-  body('backText').trim().notEmpty().withMessage('Текст ответа обязателен'),
+  body('frontText').customSanitizer((v) => String(v ?? '').trim() || ' ').custom((v) => String(v).length > 0),
+  body('backText').customSanitizer((v) => String(v ?? '').trim() || ' ').custom((v) => String(v).length > 0),
   body('stepGroup').isIn(['step1', 'step2', 'step3']).withMessage('Укажите Step 1/2/3')
 ], async (req, res) => {
   try {
@@ -2041,8 +2041,8 @@ router.post('/flashcards', adminAuth, [
 });
 
 router.put('/flashcards/:id', adminAuth, [
-  body('frontText').trim().notEmpty().withMessage('Текст вопроса обязателен'),
-  body('backText').trim().notEmpty().withMessage('Текст ответа обязателен'),
+  body('frontText').optional().customSanitizer((v) => String(v ?? '').trim() || ' '),
+  body('backText').optional().customSanitizer((v) => String(v ?? '').trim() || ' '),
   body('stepGroup').optional().isIn(['step1', 'step2', 'step3'])
 ], async (req, res) => {
   try {

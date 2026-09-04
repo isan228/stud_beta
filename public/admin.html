@@ -1344,15 +1344,15 @@
             <form id="flashcardImageForm">
                 <input type="hidden" id="fcImgId">
                 <div class="form-group">
-                    <label for="fcImgFrontText">Вопрос (Front)</label>
-                    <textarea id="fcImgFrontText" rows="4" required placeholder="Identify this rhythm"></textarea>
+                    <label for="fcImgFrontText">Вопрос (Front) — текст опционален, если есть картинка</label>
+                    <textarea id="fcImgFrontText" rows="3" placeholder="Или оставьте коротко: Identify the rhythm"></textarea>
                 </div>
                 <div class="form-group">
-                    <label for="fcImgBackText">Ответ (Back)</label>
-                    <textarea id="fcImgBackText" rows="4" required placeholder="Atrial fibrillation"></textarea>
+                    <label for="fcImgBackText">Ответ (Back) — текст опционален, если есть картинка</label>
+                    <textarea id="fcImgBackText" rows="3" placeholder="Или оставьте коротко: Atrial fibrillation"></textarea>
                 </div>
                 <div class="form-group">
-                    <label>Картинка Front</label>
+                    <label>Картинка Front (вопрос — например ECG без пометок)</label>
                     <input type="hidden" id="fcImgFrontPendingRemove" value="0">
                     <input type="file" id="fcImgFrontFile" accept="image/jpeg,image/png,image/gif,image/webp" style="display: none;">
                     <div class="fc-img-dropzone" id="fcImgFrontDrop" data-side="front" tabindex="0">
@@ -1366,7 +1366,7 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Картинка Back (опционально)</label>
+                    <label>Картинка Back (ответ — ECG со стрелками / пояснением)</label>
                     <input type="hidden" id="fcImgBackPendingRemove" value="0">
                     <input type="file" id="fcImgBackFile" accept="image/jpeg,image/png,image/gif,image/webp" style="display: none;">
                     <div class="fc-img-dropzone" id="fcImgBackDrop" data-side="back" tabindex="0">

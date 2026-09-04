@@ -817,6 +817,9 @@
 
 .fc-session-card {
     position: relative;
+    height: min(68vh, 720px);
+    min-height: 420px;
+    overflow: hidden;
 }
 
 .flashcards-card-head {
@@ -824,8 +827,9 @@
     justify-content: flex-end;
     align-items: center;
     gap: 0.75rem;
-    padding: 0.75rem 0.9rem 0;
+    padding: 0.65rem 0.85rem 0.35rem;
     border-bottom: none;
+    flex-shrink: 0;
 }
 
 .flashcards-category {
@@ -878,32 +882,58 @@
 }
 
 .flashcards-side-toggle button.active {
-    background: color-mix(in srgb, var(--primary-color) 8%, var(--card-bg));
-    border-color: var(--primary-color);
-    color: var(--primary-color);
+    background: #e8eaed;
+    border-color: #c5c9d1;
+    color: #1f2937;
     font-weight: 600;
+}
+
+html[data-theme="dark"] .flashcards-side-toggle button.active,
+[data-theme="dark"] .flashcards-side-toggle button.active {
+    background: #334155;
+    border-color: #475569;
+    color: #f8fafc;
 }
 
 .flashcards-card-body {
     flex: 1;
-    padding: 1.25rem 1.5rem 2rem;
+    padding: 0.35rem 1rem 1.25rem;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
     justify-content: flex-start;
-    gap: 1rem;
-    min-height: 260px;
+    gap: 0.85rem;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.fc-session-card.has-media .flashcards-card-body {
+    padding-top: 0.15rem;
+}
+
+.flashcard-image-wrap {
+    margin: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    background: #fff;
+    border: 1px solid var(--border-light);
+    border-radius: 0.15rem;
+    overflow: hidden;
 }
 
 .flashcard-image {
+    display: block;
     max-width: 100%;
-    max-height: 280px;
     width: auto;
     height: auto;
+    max-height: none;
     object-fit: contain;
-    border-radius: 0.5rem;
-    border: 1px solid var(--border-light);
-    background: var(--bg-secondary);
+    border: none;
+    border-radius: 0;
+    background: #fff;
 }
 
 .flashcard-text {
@@ -912,6 +942,10 @@
     text-align: left;
     width: 100%;
     color: var(--text-color);
+}
+
+.flashcard-text.has-image {
+    padding-top: 0.25rem;
 }
 
 .fc-blank,
@@ -930,7 +964,7 @@
 
 .fc-session-meta {
     display: grid;
-    grid-template-columns: 1fr auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 0.75rem;
     margin-bottom: 0.85rem;
@@ -1255,6 +1289,12 @@ html[data-theme="dark"] .fc-deck-card-img,
 [data-theme="dark"] .fc-deck-card-img,
 html[data-theme="dark"] .flashcard-image,
 [data-theme="dark"] .flashcard-image {
+    background: #0b1220;
+    border-color: var(--border-color);
+}
+
+html[data-theme="dark"] .flashcard-image-wrap,
+[data-theme="dark"] .flashcard-image-wrap {
     background: #0b1220;
     border-color: var(--border-color);
 }

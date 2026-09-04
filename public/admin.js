@@ -4938,9 +4938,26 @@ async function saveFlashcardAdmin(e) {
 async function saveFlashcardWithImagesAdmin(e) {
     e.preventDefault();
     const id = document.getElementById('fcImgId')?.value;
+    const frontTextRaw = document.getElementById('fcImgFrontText')?.value || '';
+    const backTextRaw = document.getElementById('fcImgBackText')?.value || '';
+    const hasFrontImg = Boolean(fcImgPendingFiles.front || document.getElementById('fcImgFrontFile')?.files?.[0]
+        || (document.getElementById('fcImgFrontPreview')?.querySelector('img') && document.getElementById('fcImgFrontPendingRemove')?.value !== '1'));
+    const hasBackImg = Boolean(fcImgPendingFiles.back || document.getElementById('fcImgBackFile')?.files?.[0]
+        || (document.getElementById('fcImgBackPreview')?.querySelector('img') && document.getElementById('fcImgBackPendingRemove')?.value !== '1'));
+
+    if (!frontTextRaw.trim() && !hasFrontImg) {
+        showNotification('Нужен текст или картинка Front', 'error');
+        return;
+    }
+    if (!backTextRaw.trim() && !hasBackImg) {
+        showNotification('Нужен текст или картинка Back', 'error');
+        return;
+    }
+
     const payload = {
-        frontText: document.getElementById('fcImgFrontText')?.value || '',
-        backText: document.getElementById('fcImgBackText')?.value || '',
+        // Для image-only карточек (как UWorld ECG) текст может быть пустым
+        frontText: frontTextRaw.trim() || ' ',
+        backText: backTextRaw.trim() || ' ',
         keyword: null,
         stepGroup: document.getElementById('fcImgStepGroup')?.value || 'step1',
         testId: document.getElementById('fcImgTestId')?.value || null,

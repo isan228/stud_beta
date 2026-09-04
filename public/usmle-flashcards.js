@@ -321,6 +321,36 @@
         `;
     }
 
+    function isBlankCardText(htmlOrText) {
+        const raw = String(htmlOrText || '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/&nbsp;/gi, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        return !raw;
+    }
+
+    function buildSessionSideHtml(card, side) {
+        const isBack = side === 'back';
+        const imageUrl = String(isBack ? (card.backImageUrl || '') : (card.frontImageUrl || '')).trim();
+        const textHtml = isBack
+            ? (card.backHtml || esc(card.backText || ''))
+            : (card.frontHtml || buildFrontHtmlClient(card.frontText));
+        const hasText = !isBlankCardText(isBack ? card.backText : card.frontText);
+
+        const img = imageUrl
+            ? `<figure class="flashcard-image-wrap"><img class="flashcard-image" src="${esc(imageUrl)}" alt="${isBack ? 'Back' : 'Front'}" loading="lazy"></figure>`
+            : '';
+        const text = hasText
+            ? `<div class="flashcard-text flashcard-text-${isBack ? 'back' : 'front'}${imageUrl ? ' has-image' : ''}">${textHtml}</div>`
+            : '';
+
+        if (!img && !text) {
+            return '<p class="flashcard-empty">Пустая карточка</p>';
+        }
+        return `${img}${text}`;
+    }
+
     function renderSessionCard() {
         const card = studyCards[studyIndex] || null;
         const body = document.getElementById('flashcardBody');
@@ -331,6 +361,7 @@
         const rateBox = document.getElementById('flashcardRateBox');
         const footerFront = document.getElementById('fcSessionFooterFront');
         const footerBack = document.getElementById('fcSessionFooterBack');
+        const shell = document.querySelector('.fc-session-card');
 
         if (!body) return;
 
@@ -339,6 +370,7 @@
             if (rateBox) rateBox.classList.add('hidden');
             if (footerFront) footerFront.classList.add('hidden');
             if (footerBack) footerBack.classList.add('hidden');
+            if (shell) shell.classList.remove('has-media');
             return;
         }
 
@@ -350,20 +382,17 @@
             `;
         }
 
+        const side = showBack ? 'back' : 'front';
+        const imageUrl = String(showBack ? (card.backImageUrl || '') : (card.frontImageUrl || '')).trim();
+        body.innerHTML = buildSessionSideHtml(card, side);
+        body.scrollTop = 0;
+        if (shell) shell.classList.toggle('has-media', Boolean(imageUrl));
+
         if (showBack) {
-            const img = String(card.backImageUrl || '').trim()
-                ? `<img class="flashcard-image" src="${esc(card.backImageUrl)}" alt="Back" loading="lazy">`
-                : '';
-            body.innerHTML = `${img}<div class="flashcard-text flashcard-text-back">${card.backHtml || esc(card.backText)}</div>`;
             if (footerFront) footerFront.classList.add('hidden');
             if (footerBack) footerBack.classList.remove('hidden');
             if (rateBox) rateBox.classList.remove('hidden');
         } else {
-            const img = String(card.frontImageUrl || '').trim()
-                ? `<img class="flashcard-image" src="${esc(card.frontImageUrl)}" alt="Front" loading="lazy">`
-                : '';
-            const frontHtml = card.frontHtml || buildFrontHtmlClient(card.frontText);
-            body.innerHTML = `${img}<div class="flashcard-text flashcard-text-front">${frontHtml}</div>`;
             if (footerFront) footerFront.classList.remove('hidden');
             if (footerBack) footerBack.classList.add('hidden');
             if (rateBox) rateBox.classList.add('hidden');
@@ -562,7 +591,7 @@
                                     <span class="fc-rate-label">Again</span>
                                 </button>
                                 <button type="button" class="fc-rate-btn fc-rate-good" id="flashcardRateGood">
-                                    <span class="fc-rate-interval">1d</span>
+                                    <span class="fc-rate-interval">&lt;10m</span>
                                     <span class="fc-rate-label">Good</span>
                                 </button>
                                 <button type="button" class="fc-rate-btn fc-rate-easy" id="flashcardRateEasy">
