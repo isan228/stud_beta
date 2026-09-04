@@ -54,16 +54,21 @@ function buildHighlightHtml(frontText, backText) {
     if (token.type === 'text') {
       const idx = back.indexOf(token.value, backPos);
       if (idx === -1) {
-        return `<span class="flashcard-answer-highlight">${escapeHtml(back)}</span>`;
+        // Не удалось сопоставить — показываем полный ответ
+        return escapeHtml(back);
       }
-      html += escapeHtml(back.slice(backPos, idx));
+      if (idx > backPos) {
+        html += escapeHtml(back.slice(backPos, idx));
+      }
+      // Важно: добавляем сам текст, не только пропуски
+      html += escapeHtml(back.slice(idx, idx + token.value.length));
       backPos = idx + token.value.length;
       continue;
     }
 
     const nextText = tokens.slice(i + 1).find((t) => t.type === 'text');
     if (!nextText) {
-      const answer = back.slice(backPos).trim();
+      const answer = back.slice(backPos);
       html += `<span class="flashcard-answer-highlight">${escapeHtml(answer)}</span>`;
       backPos = back.length;
       break;
@@ -71,7 +76,10 @@ function buildHighlightHtml(frontText, backText) {
 
     const nextIdx = back.indexOf(nextText.value, backPos);
     if (nextIdx === -1) {
-      return `<span class="flashcard-answer-highlight">${escapeHtml(back)}</span>`;
+      // Остаток ответа целиком + то, что уже собрали
+      html += `<span class="flashcard-answer-highlight">${escapeHtml(back.slice(backPos))}</span>`;
+      backPos = back.length;
+      break;
     }
 
     const answer = back.slice(backPos, nextIdx);
@@ -83,7 +91,7 @@ function buildHighlightHtml(frontText, backText) {
     html += escapeHtml(back.slice(backPos));
   }
 
-  return html;
+  return html || escapeHtml(back);
 }
 
 module.exports = {
