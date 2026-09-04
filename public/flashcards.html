@@ -39,26 +39,54 @@
     </nav>
 
     <main class="main-content">
-        <div class="container" style="max-width: 920px;">
-            <div class="page-header">
-                <h1>Карточки</h1>
-                <p class="page-description">Flashcards вашего университета. Бесплатные доступны всем; остальные — с подпиской.</p>
-            </div>
-
+        <div class="container">
             <div id="fcGate" class="tests-hub-empty" style="display:none;"></div>
 
-            <div id="fcApp" class="hidden">
-                <div class="fc-search-bar" style="margin-bottom:1rem;">
-                    <input type="search" id="fcSearchInput" class="fc-search-input search-input" placeholder="Поиск по предмету или тексту…" autocomplete="off">
+            <div id="fcApp" class="flashcards-page flashcards-ready-decks hidden">
+                <div class="fc-tabs">
+                    <button type="button" class="fc-tab active" id="fcTabBrowse">Browse</button>
+                    <button type="button" class="fc-tab" id="fcTabStudy">Study</button>
                 </div>
-                <div id="fcBrowseList" class="fc-browse-list"></div>
 
-                <div id="fcSessionPanel" class="hidden" style="margin-top:1.5rem;">
+                <div id="fcBrowsePanel">
+                    <div class="fc-search-bar">
+                        <input type="search" id="fcSearchInput" class="fc-search-input" placeholder="Search flashcards…" autocomplete="off">
+                    </div>
+                    <div id="fcBrowseList" class="fc-browse-list">
+                        <p class="flashcard-empty">Загрузка…</p>
+                    </div>
+                </div>
+
+                <div id="fcStudyPanel" class="hidden">
+                    <div class="fc-search-bar fc-study-search-row">
+                        <input type="search" id="fcStudySearchInput" class="fc-search-input" placeholder="Search deck names" autocomplete="off">
+                    </div>
+                    <div class="fc-study-table-wrap">
+                        <table class="fc-study-table">
+                            <thead>
+                                <tr>
+                                    <th>Deck</th>
+                                    <th>New</th>
+                                    <th>Learning</th>
+                                    <th>To Review</th>
+                                    <th>Last Used</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="fcStudyTableBody">
+                                <tr><td colspan="6" class="flashcard-empty">Загрузка…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="fcSessionPanel" class="hidden">
                     <div class="fc-session-meta">
                         <div id="flashcardCategory" class="flashcards-category"></div>
                         <div class="fc-session-view-label">Single Side View</div>
-                        <button type="button" class="fc-session-close" id="fcCloseSession" title="Close">×</button>
+                        <button type="button" class="fc-session-close" id="fcCloseSession" title="Close" aria-label="Close">×</button>
                     </div>
+
                     <div class="flashcards-card-shell fc-session-card">
                         <div class="flashcards-card-head">
                             <div class="flashcards-side-toggle">
@@ -67,15 +95,25 @@
                             </div>
                         </div>
                         <div id="flashcardBody" class="flashcards-card-body">
-                            <p class="flashcard-empty">Выберите карточку</p>
+                            <p class="flashcard-empty">Выберите колоду</p>
                         </div>
                     </div>
+
                     <div class="fc-session-footer">
+                        <div id="fcSessionStats" class="fc-session-stats">
+                            <span class="fc-stat-new">0</span>
+                            <span class="fc-stat-sep">·</span>
+                            <span class="fc-stat-learning">0</span>
+                            <span class="fc-stat-sep">·</span>
+                            <span class="fc-stat-review">0</span>
+                        </div>
+
                         <div id="fcSessionFooterFront" class="fc-session-actions">
                             <button type="button" class="fc-show-answer-btn" id="flashcardActionBtn">Show Answer</button>
                         </div>
+
                         <div id="fcSessionFooterBack" class="fc-session-actions hidden">
-                            <div class="fc-rate-box">
+                            <div class="fc-rate-box" id="flashcardRateBox">
                                 <button type="button" class="fc-rate-btn fc-rate-again" id="flashcardRateAgain">
                                     <span class="fc-rate-interval">&lt;1m</span>
                                     <span class="fc-rate-label">Again</span>
