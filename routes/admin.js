@@ -2102,7 +2102,7 @@ const flashcardImageStorage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, FLASHCARD_IMAGES_DIR),
   filename: (req, file, cb) => {
     const ext = safeImageExt(file.originalname, file.mimetype);
-    const side = String(req.params.side || 'front') === 'back' ? 'back' : 'front';
+    const side = req.flashcardImageSide === 'back' ? 'back' : 'front';
     cb(null, flashcardImageFilename(req.params.id, side, ext));
   }
 });
@@ -2155,7 +2155,7 @@ async function uploadFlashcardSideImage(req, res, side) {
 }
 
 router.post('/flashcards/:id/front-image', adminAuth, (req, res, next) => {
-  req.params.side = 'front';
+  req.flashcardImageSide = 'front';
   flashcardImageUpload.single('image')(req, res, (err) => {
     if (err) return res.status(400).json({ error: err.message || 'Ошибка загрузки файла' });
     next();
@@ -2163,7 +2163,7 @@ router.post('/flashcards/:id/front-image', adminAuth, (req, res, next) => {
 }, (req, res) => uploadFlashcardSideImage(req, res, 'front'));
 
 router.post('/flashcards/:id/back-image', adminAuth, (req, res, next) => {
-  req.params.side = 'back';
+  req.flashcardImageSide = 'back';
   flashcardImageUpload.single('image')(req, res, (err) => {
     if (err) return res.status(400).json({ error: err.message || 'Ошибка загрузки файла' });
     next();

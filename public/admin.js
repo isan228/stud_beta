@@ -4397,10 +4397,12 @@ window.deleteUsmleFlashcardAdmin = deleteUsmleFlashcardAdmin;
 
 /** Сторона для Ctrl+V скриншота в модалке картинок */
 let fcImgPasteSide = 'front';
+/** После кнопки «Вставить» следующий Ctrl+V идёт в эту сторону */
+let fcImgForcePasteSide = null;
 /** Надёжное хранение файлов (input.files после paste иногда сбрасывается) */
 const fcImgPendingFiles = { front: null, back: null };
 
-function resetFcImgSideUI(side) {
+function resetFcImgSideUI(side, { keepPendingRemove = false } = {}) {
     const isBack = side === 'back';
     const key = isBack ? 'back' : 'front';
     fcImgPendingFiles[key] = null;
@@ -4409,7 +4411,7 @@ function resetFcImgSideUI(side) {
     const removeBtn = document.getElementById(isBack ? 'fcImgBackRemoveBtn' : 'fcImgFrontRemoveBtn');
     const pending = document.getElementById(isBack ? 'fcImgBackPendingRemove' : 'fcImgFrontPendingRemove');
     if (input) input.value = '';
-    if (pending) pending.value = '0';
+    if (pending && !keepPendingRemove) pending.value = '0';
     if (removeBtn) removeBtn.style.display = 'none';
     if (preview) {
         preview.innerHTML = '';
@@ -4438,12 +4440,15 @@ function showFcImgSidePreview(side, imageUrl) {
 
 function resolveFcImgSide(sideOrEvent) {
     if (sideOrEvent === 'back' || sideOrEvent === 'front') return sideOrEvent;
-    const el = sideOrEvent?.target || sideOrEvent;
+    if (fcImgForcePasteSide === 'back' || fcImgForcePasteSide === 'front') {
+        return fcImgForcePasteSide;
+    }
+    const el = sideOrEvent?.target || sideOrEvent || document.activeElement;
     if (el && el.closest) {
-        if (el.closest('#fcImgBackDrop, #fcImgBackPasteBtn, #fcImgBackPickBtn, #fcImgBackText, #fcImgBackFile')) {
+        if (el.closest('#fcImgBackDrop, #fcImgBackPasteBtn, #fcImgBackPickBtn, #fcImgBackText, #fcImgBackFile, #fcImgBackPreview')) {
             return 'back';
         }
-        if (el.closest('#fcImgFrontDrop, #fcImgFrontPasteBtn, #fcImgFrontPickBtn, #fcImgFrontText, #fcImgFrontFile')) {
+        if (el.closest('#fcImgFrontDrop, #fcImgFrontPasteBtn, #fcImgFrontPickBtn, #fcImgFrontText, #fcImgFrontFile, #fcImgFrontPreview')) {
             return 'front';
         }
         const zone = el.closest('[data-side]');
@@ -4461,8 +4466,8 @@ function applyFcImgFileToSide(side, file) {
     }
     const mime = String(file.type || '');
     const name = String(file.name || '');
-    const looksImage = mime.startsWith('image/') || /\.(jpe?g|png|gif|webp)$/i.test(name);
-    if (!looksImage && mime && !mime.startsWith('image/')) {
+    const looksImage = mime.startsWith('image/') || /\.(jpe?g|png|gif|webp)$/i.test(name) || !mime;
+    if (!looksImage) {
         showNotification('В буфере нет изображения', 'error');
         return false;
     }
@@ -4472,30 +4477,39 @@ function applyFcImgFileToSide(side, file) {
     const removeBtn = document.getElementById(isBack ? 'fcImgBackRemoveBtn' : 'fcImgFrontRemoveBtn');
     const pending = document.getElementById(isBack ? 'fcImgBackPendingRemove' : 'fcImgFrontPendingRemove');
     const preview = document.getElementById(isBack ? 'fcImgBackPreview' : 'fcImgFrontPreview');
-    if (!input) return false;
+    if (!input || !preview) {
+        showNotification(`Не найдены поля для ${isBack ? 'Back' : 'Front'}`, 'error');
+        return false;
+    }
 
-    const ext = (mime.split('/')[1] || (name.split('.').pop()) || 'png').replace('jpeg', 'jpg');
-    const named = (file instanceof File && file.name)
-        ? file
-        : new File([file], `screenshot-${key}-${Date.now()}.${ext}`, { type: mime || 'image/png' });
+    const rawExt = (mime.split('/')[1] || (name.includes('.') ? name.split('.').pop() : '') || 'png')
+        .toLowerCase()
+        .replace('jpeg', 'jpg');
+    const ext = ['jpg', 'png', 'gif', 'webp'].includes(rawExt) ? rawExt : 'png';
+    const named = new File(
+        [file],
+        `screenshot-${key}-${Date.now()}.${ext}`,
+        { type: mime.startsWith('image/') ? mime : `image/${ext === 'jpg' ? 'jpeg' : ext}` }
+    );
 
     fcImgPendingFiles[key] = named;
     fcImgPasteSide = key;
+    fcImgForcePasteSide = null;
 
     try {
         const dt = new DataTransfer();
         dt.items.add(named);
+        input.dataset.skipChange = '1';
         input.files = dt.files;
     } catch (err) {
+        input.dataset.skipChange = '0';
         console.warn('DataTransfer set files failed', err);
     }
 
     if (pending) pending.value = '0';
-    if (preview) {
-        const url = URL.createObjectURL(named);
-        preview.innerHTML = `<img src="${url}" alt="Preview ${key}" class="question-image-preview-img">`;
-        preview.style.display = 'block';
-    }
+    const url = URL.createObjectURL(named);
+    preview.innerHTML = `<img src="${url}" alt="Preview ${key}" class="question-image-preview-img">`;
+    preview.style.display = 'block';
     if (removeBtn) removeBtn.style.display = 'inline-block';
     showNotification(`Скриншот добавлен (${isBack ? 'Back' : 'Front'})`, 'success');
     return true;
@@ -4504,8 +4518,11 @@ function applyFcImgFileToSide(side, file) {
 async function pasteFcImgFromClipboard(side) {
     const key = side === 'back' ? 'back' : 'front';
     fcImgPasteSide = key;
+    fcImgForcePasteSide = key;
     const drop = document.getElementById(key === 'back' ? 'fcImgBackDrop' : 'fcImgFrontDrop');
-    if (drop) drop.focus();
+    if (drop) {
+        try { drop.focus(); } catch (_) { /* ignore */ }
+    }
 
     try {
         if (navigator.clipboard && navigator.clipboard.read) {
@@ -4521,7 +4538,7 @@ async function pasteFcImgFromClipboard(side) {
     } catch (err) {
         console.warn('clipboard.read failed', err);
     }
-    showNotification(`Кликните зону ${key === 'back' ? 'Back' : 'Front'} и нажмите Ctrl+V`, 'info');
+    showNotification(`Сторона ${key === 'back' ? 'Back' : 'Front'} выбрана — нажмите Ctrl+V`, 'info');
 }
 
 function initFcImgFormControls() {
@@ -4541,6 +4558,7 @@ function initFcImgFormControls() {
                 e.preventDefault();
                 e.stopPropagation();
                 fcImgPasteSide = side;
+                fcImgForcePasteSide = side;
                 fileInput.click();
             });
         }
@@ -4554,8 +4572,13 @@ function initFcImgFormControls() {
         }
         if (dropzone && dropzone.dataset.bound !== '1') {
             dropzone.dataset.bound = '1';
-            dropzone.addEventListener('click', () => { fcImgPasteSide = side; });
-            dropzone.addEventListener('focus', () => { fcImgPasteSide = side; });
+            const markSide = () => {
+                fcImgPasteSide = side;
+                fcImgForcePasteSide = side;
+            };
+            dropzone.addEventListener('mousedown', markSide);
+            dropzone.addEventListener('click', markSide);
+            dropzone.addEventListener('focus', markSide);
             dropzone.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 dropzone.classList.add('is-dragover');
@@ -4564,28 +4587,49 @@ function initFcImgFormControls() {
             dropzone.addEventListener('drop', (e) => {
                 e.preventDefault();
                 dropzone.classList.remove('is-dragover');
-                fcImgPasteSide = side;
+                markSide();
                 const f = e.dataTransfer?.files?.[0];
                 if (f) applyFcImgFileToSide(side, f);
+            });
+            dropzone.addEventListener('paste', (e) => {
+                const items = e.clipboardData?.items;
+                if (!items) return;
+                for (const item of items) {
+                    if (!item.type || !item.type.startsWith('image/')) continue;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const file = item.getAsFile();
+                    if (file) applyFcImgFileToSide(side, file);
+                    break;
+                }
             });
         }
         if (fileInput && fileInput.dataset.bound !== '1') {
             fileInput.dataset.bound = '1';
             fileInput.addEventListener('change', () => {
+                // Не вызываем applyFcImgFileToSide — он сам ставит input.files и снова триггерит change
+                if (fileInput.dataset.skipChange === '1') {
+                    fileInput.dataset.skipChange = '0';
+                    return;
+                }
                 const pending = document.getElementById(side === 'back' ? 'fcImgBackPendingRemove' : 'fcImgFrontPendingRemove');
                 if (pending) pending.value = '0';
                 const files = Array.from(fileInput.files || []);
-                if (files[0]) {
-                    fcImgPendingFiles[side] = files[0];
-                    fcImgPasteSide = side;
-                }
                 const preview = document.getElementById(side === 'back' ? 'fcImgBackPreview' : 'fcImgFrontPreview');
-                if (preview && files.length) {
-                    preview.innerHTML = files.map((f) => {
-                        const url = URL.createObjectURL(f);
-                        return `<img src="${url}" alt="Preview" class="question-image-preview-img">`;
-                    }).join('');
-                    preview.style.display = 'block';
+                if (files[0]) {
+                    const f = files[0];
+                    const named = new File(
+                        [f],
+                        f.name || `upload-${side}-${Date.now()}.png`,
+                        { type: f.type || 'image/png' }
+                    );
+                    fcImgPendingFiles[side] = named;
+                    fcImgPasteSide = side;
+                    if (preview) {
+                        const url = URL.createObjectURL(named);
+                        preview.innerHTML = `<img src="${url}" alt="Preview" class="question-image-preview-img">`;
+                        preview.style.display = 'block';
+                    }
                 }
                 if (removeBtn) removeBtn.style.display = files.length ? 'inline-block' : 'none';
             });
@@ -4597,7 +4641,7 @@ function initFcImgFormControls() {
                 e.stopPropagation();
                 const pending = document.getElementById(side === 'back' ? 'fcImgBackPendingRemove' : 'fcImgFrontPendingRemove');
                 if (pending) pending.value = '1';
-                resetFcImgSideUI(side);
+                resetFcImgSideUI(side, { keepPendingRemove: true });
             });
         }
     });
@@ -4614,7 +4658,7 @@ function initFcImgFormControls() {
                 e.preventDefault();
                 e.stopPropagation();
                 const file = item.getAsFile();
-                const side = resolveFcImgSide(e);
+                const side = resolveFcImgSide(e) || resolveFcImgSide(document.activeElement);
                 if (file) applyFcImgFileToSide(side, file);
                 break;
             }
@@ -4779,7 +4823,6 @@ async function loadUsmleFlashcardsAdmin() {
                         <div style="font-size:0.8rem; color:var(--text-muted);">
                             ${escapeAdminHtml(c.stepGroup || '')} · ${escapeAdminHtml(c.Test?.name || 'без теста')} · ${escapeAdminHtml(tags)}
                             ${(c.frontImageUrl || c.backImageUrl) ? ' · 🖼' : ''}
-                            ${c.frontImageUrl || c.backImageUrl ? ' · 🖼' : ''}
                         </div>
                     </div>
                     <div style="display:flex; gap:0.35rem; flex-shrink:0;">
@@ -4819,6 +4862,7 @@ async function openAddUsmleFlashcardWithImagesModal() {
     document.getElementById('fcImgStepGroup').value = presetStep;
     const testFilter = document.getElementById('usmleFlashcardsTestFilter')?.value || '';
     fcImgPasteSide = 'front';
+    fcImgForcePasteSide = null;
     await Promise.all([
         fillFlashcardTagsSelect([], 'fcImgTagIds'),
         fillFlashcardTestsSelect(testFilter, 'fcImgTestId')
@@ -4837,6 +4881,7 @@ async function openEditFlashcardWithImagesModal(card) {
     showFcImgSidePreview('front', card.frontImageUrl || '');
     showFcImgSidePreview('back', card.backImageUrl || '');
     fcImgPasteSide = 'front';
+    fcImgForcePasteSide = null;
     await Promise.all([
         fillFlashcardTagsSelect((card.Tags || []).map((t) => t.id), 'fcImgTagIds'),
         fillFlashcardTestsSelect(card.testId || '', 'fcImgTestId')
@@ -4851,21 +4896,8 @@ async function editUsmleFlashcardAdmin(id) {
         });
         if (!response.ok) throw new Error('fail');
         const card = await response.json();
-        if (card.frontImageUrl || card.backImageUrl) {
-            await openEditFlashcardWithImagesModal(card);
-            return;
-        }
-        document.getElementById('flashcardId').value = card.id;
-        document.getElementById('flashcardFrontText').value = card.frontText || '';
-        document.getElementById('flashcardBackText').value = card.backText || '';
-        document.getElementById('flashcardStepGroup').value = card.stepGroup || 'step1';
-        document.getElementById('flashcardModalTitle').textContent = 'Редактировать flashcard';
-        document.getElementById('flashcardPreviewBox').style.display = 'none';
-        await Promise.all([
-            fillFlashcardTagsSelect((card.Tags || []).map((t) => t.id)),
-            fillFlashcardTestsSelect(card.testId || '')
-        ]);
-        document.getElementById('flashcardModal').style.display = 'block';
+        // Всегда модалка с картинками — иначе к текстовой карточке нельзя добавить Back image
+        await openEditFlashcardWithImagesModal(card);
     } catch (e) {
         showNotification('Не удалось загрузить flashcard', 'error');
     }
