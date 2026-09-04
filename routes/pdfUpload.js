@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const adminAuth = require('../middleware/adminAuth');
 const { Op } = require('sequelize');
-const { Question, Answer, Test, QuestionTag, QuestionTagMap, Flashcard, FlashcardTagMap } = require('../models');
+const { Question, Answer, Test, QuestionTag, QuestionTagMap, Flashcard, FlashcardTagMap, FlashcardTopic, Subject, University } = require('../models');
 const { parseLinkedQuestionsFromText } = require('../utils/usmleLinkedQuestions');
 const { parseFlashcardsFromText } = require('../utils/parseFlashcardsTxt');
 const { extractTxtAnswers, mapAnswersWithCorrect, isValidCorrectIndex, extractQuotedField, normalizeTxt } = require('../utils/txtQuestionAnswers');
@@ -101,10 +101,44 @@ async function syncFlashcardTagsByModels(flashcardId, tags) {
   return tags.map((t) => ({ id: t.id, name: t.name, slug: t.slug }));
 }
 
+async function findOrCreateUniFlashcardTopic(universityId, rawName) {
+  const name = String(rawName || '').trim();
+  if (!name || !universityId) return null;
+  let topic = await FlashcardTopic.findOne({
+    where: {
+      universityId,
+      name: { [Op.iLike]: name }
+    }
+  });
+  if (topic) {
+    if (!topic.isActive) {
+      topic.isActive = true;
+      await topic.save();
+    }
+    return topic;
+  }
+  try {
+    return await FlashcardTopic.create({
+      name,
+      universityId,
+      sortOrder: 0,
+      isActive: true
+    });
+  } catch (error) {
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return FlashcardTopic.findOne({
+        where: { universityId, name: { [Op.iLike]: name } }
+      });
+    }
+    throw error;
+  }
+}
+
 async function saveParsedFlashcards(cards, { testId, stepGroup = 'step1' } = {}) {
   const parsedTestId = testId ? parseInt(testId, 10) : null;
   const normalizedStep = ['step1', 'step2', 'step3'].includes(stepGroup) ? stepGroup : 'step1';
   const scopeWhere = {
+    programType: 'usmle',
     stepGroup: normalizedStep,
     isActive: true,
     testId: Number.isFinite(parsedTestId) ? parsedTestId : null
@@ -123,8 +157,13 @@ async function saveParsedFlashcards(cards, { testId, stepGroup = 'step1' } = {})
       frontText: card.frontText,
       backText: card.backText,
       keyword: card.keyword || null,
+      programType: 'usmle',
+      universityId: null,
+      subjectId: null,
+      topicId: null,
       testId: scopeWhere.testId,
       stepGroup: normalizedStep,
+      isFree: false,
       isActive: true
     };
 
@@ -140,6 +179,7 @@ async function saveParsedFlashcards(cards, { testId, stepGroup = 'step1' } = {})
       row.frontText = payload.frontText;
       row.backText = payload.backText;
       row.keyword = payload.keyword;
+      row.programType = 'usmle';
       await row.save();
       wasUpdated = true;
       updatedCount++;
@@ -178,9 +218,164 @@ async function saveParsedFlashcards(cards, { testId, stepGroup = 'step1' } = {})
   return { cards: savedCards, createdCount, updatedCount };
 }
 
+async function saveParsedUniversityFlashcards(cards, {
+  universityId,
+  subjectId = null,
+  isFree = false
+} = {}) {
+  const uniId = parseInt(universityId, 10);
+  const subjId = subjectId ? parseInt(subjectId, 10) : null;
+  if (!Number.isFinite(uniId) || uniId <= 0) {
+    throw new Error('Укажите университет');
+  }
+
+  const scopeWhere = {
+    programType: 'university',
+    universityId: uniId,
+    isActive: true
+  };
+
+  let nextSortOrder = await Flashcard.max('sortOrder', { where: scopeWhere });
+  nextSortOrder = Number.isFinite(nextSortOrder) ? nextSortOrder + 1 : 0;
+
+  const savedCards = [];
+  let createdCount = 0;
+  let updatedCount = 0;
+
+  for (const card of cards) {
+    const externalId = card.externalId != null ? String(card.externalId).trim() : '';
+    const topic = card.topicName
+      ? await findOrCreateUniFlashcardTopic(uniId, card.topicName)
+      : null;
+
+    const payload = {
+      frontText: card.frontText,
+      backText: card.backText,
+      keyword: card.keyword || null,
+      programType: 'university',
+      universityId: uniId,
+      subjectId: Number.isFinite(subjId) ? subjId : null,
+      topicId: topic?.id || null,
+      testId: null,
+      stepGroup: null,
+      isFree: !!isFree,
+      isActive: true
+    };
+
+    let row = null;
+    let wasUpdated = false;
+    if (externalId) {
+      row = await Flashcard.findOne({
+        where: { ...scopeWhere, externalId }
+      });
+    }
+
+    if (row) {
+      Object.assign(row, payload);
+      await row.save();
+      wasUpdated = true;
+      updatedCount++;
+    } else {
+      const sortFromId = externalId && /^\d+$/.test(externalId) ? parseInt(externalId, 10) : null;
+      row = await Flashcard.create({
+        ...payload,
+        externalId: externalId || null,
+        frontImageUrl: null,
+        backImageUrl: null,
+        sortOrder: Number.isFinite(sortFromId) ? sortFromId : nextSortOrder++
+      });
+      createdCount++;
+    }
+
+    savedCards.push({
+      id: row.id,
+      externalId: row.externalId,
+      frontText: row.frontText,
+      backText: row.backText,
+      keyword: row.keyword,
+      topicName: topic?.name || card.topicName || null,
+      topicId: row.topicId,
+      subjectId: row.subjectId,
+      updated: wasUpdated
+    });
+  }
+
+  return { cards: savedCards, createdCount, updatedCount };
+}
+
 async function handleFlashcardsTxtUpload(req, res) {
   if (!req.file) {
     res.status(400).json({ error: 'TXT файл не загружен' });
+    return;
+  }
+
+  const programType = String(req.body.programType || 'usmle').toLowerCase() === 'university'
+    ? 'university'
+    : 'usmle';
+
+  if (programType === 'university') {
+    const universityId = parseInt(req.body.universityId, 10);
+    const subjectId = req.body.subjectId ? parseInt(req.body.subjectId, 10) : null;
+    const isFree = req.body.isFree === true || req.body.isFree === 'true' || req.body.isFree === '1';
+
+    if (!Number.isFinite(universityId) || universityId <= 0) {
+      res.status(400).json({ error: 'Выберите университет' });
+      return;
+    }
+    const uni = await University.findByPk(universityId);
+    if (!uni) {
+      res.status(404).json({ error: 'Университет не найден' });
+      return;
+    }
+
+    let defaultTopic = null;
+    if (Number.isFinite(subjectId) && subjectId > 0) {
+      const subject = await Subject.findByPk(subjectId);
+      if (!subject || subject.programType !== 'university' || Number(subject.universityId) !== universityId) {
+        res.status(400).json({ error: 'Предмет не найден для этого университета' });
+        return;
+      }
+      defaultTopic = subject.name;
+    }
+
+    const text = req.file.buffer.toString('utf8');
+    if (!text || text.trim().length === 0) {
+      res.status(400).json({ error: 'TXT файл пуст', message: 'Убедитесь, что файл содержит текст.' });
+      return;
+    }
+
+    const cards = parseFlashcardsFromText(text, {
+      requireTopic: !defaultTopic,
+      defaultTopic: defaultTopic || null
+    });
+    const stats = cards._parseStats || {};
+    if (cards.length === 0) {
+      let hint = 'Нужны поля "ID", "Front", "Back". Тема: === Раздел === или поле Topic.';
+      if (stats.idBlocks === 0) {
+        hint = 'В файле не найдено ни одного "ID":"...". Проверьте кавычки и формат.';
+      } else if (stats.missingFrontBack > 0 && stats.accepted === 0) {
+        hint = `Найдено блоков ID: ${stats.idBlocks}, но нет пар Front/Back (можно Q/A).`;
+      } else if (stats.missingTopic > 0 && stats.accepted === 0) {
+        hint = 'Укажите темы через === Раздел === или выберите предмет (станет темой по умолчанию).';
+      }
+      res.status(400).json({ error: `Не удалось найти flashcards в TXT. ${hint}`, stats });
+      return;
+    }
+
+    const { cards: savedCards, createdCount, updatedCount } = await saveParsedUniversityFlashcards(cards, {
+      universityId,
+      subjectId: Number.isFinite(subjectId) ? subjectId : null,
+      isFree
+    });
+    const parts = [`${savedCards.length} flashcards`];
+    if (createdCount) parts.push(`${createdCount} новых`);
+    if (updatedCount) parts.push(`${updatedCount} обновлено`);
+    res.json({
+      message: `Успешно: ${parts.join(', ')}`,
+      cards: savedCards,
+      createdCount,
+      updatedCount
+    });
     return;
   }
 

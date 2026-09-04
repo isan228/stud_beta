@@ -336,19 +336,25 @@
                             <select id="uniFcUniversityFilter" class="form-group input" style="min-width:14rem;">
                                 <option value="">Выберите университет</option>
                             </select>
+                            <select id="uniFcSubjectFilter" class="form-group input" style="min-width:12rem;">
+                                <option value="">Все предметы</option>
+                            </select>
                             <select id="uniFcTopicFilter" class="form-group input" style="min-width:12rem;">
                                 <option value="">Все разделы</option>
                             </select>
                             <button type="button" class="btn btn-primary" id="addUniFlashcardBtn">+ Карточка</button>
+                            <button type="button" class="btn btn-secondary" id="uploadUniTxtFlashcardsBtn">📇 TXT flashcards</button>
+                            <button type="button" class="btn btn-secondary" id="addUniFlashcardWithImagesBtn">🖼 Карточка с картинами</button>
                         </div>
                     </div>
                     <p class="page-description" style="margin-bottom:1rem;">
-                        Карточки для студентов выбранного университета. Сначала добавьте <strong>разделы (тематику)</strong>, затем карточки. Галочка «Бесплатная» — доступна без подписки.
+                        Выберите университет и предмет. Дальше — как в USMLE: одна карточка, TXT или карточка с картинами.
+                        Разделы из TXT (<code>=== Тема ===</code>) создаются автоматически. Галочка «Бесплатная» — без подписки.
                     </p>
                     <div class="admin-subs-panel" style="margin-bottom:1.25rem; padding:1rem; border:1px solid var(--border-light); border-radius:0.5rem;">
                         <h3 style="margin:0 0 0.65rem; font-size:1rem;">Разделы (тематика)</h3>
                         <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin-bottom:0.75rem;">
-                            <input type="text" id="newUniFcTopicName" class="form-group input" placeholder="Новый раздел, напр. Анатомия" style="flex:1; min-width:12rem;">
+                            <input type="text" id="newUniFcTopicName" class="form-group input" placeholder="Новый раздел, напр. Сердечно-сосудистая система" style="flex:1; min-width:12rem;">
                             <button type="button" class="btn btn-primary btn-sm" id="addUniFcTopicBtn">+ Раздел</button>
                         </div>
                         <div id="uniFcTopicsList" style="display:flex; flex-wrap:wrap; gap:0.5rem;"></div>
@@ -1410,10 +1416,10 @@
                         <p style="margin:0; font-size:0.8rem; color:var(--text-muted);">JPG/PNG/WEBP · или Ctrl+V / сюда скриншот</p>
                     </div>
                 </div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;" id="fcImgUsmleMeta">
                     <div class="form-group">
                         <label for="fcImgStepGroup">Step</label>
-                        <select id="fcImgStepGroup" required>
+                        <select id="fcImgStepGroup">
                             <option value="step1">Step 1</option>
                             <option value="step2">Step 2</option>
                             <option value="step3">Step 3</option>
@@ -1426,11 +1432,90 @@
                         </select>
                     </div>
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="fcImgUsmleTagsWrap">
                     <label for="fcImgTagIds">Тег / система</label>
                     <select id="fcImgTagIds" multiple size="5" style="width:100%; min-height: 7rem;"></select>
                 </div>
+                <input type="hidden" id="fcImgProgramType" value="usmle">
+                <div id="fcImgUniMeta" style="display:none;">
+                    <div class="form-group">
+                        <label for="fcImgUniversityId">Университет</label>
+                        <select id="fcImgUniversityId"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="fcImgSubjectId">Предмет</label>
+                        <select id="fcImgSubjectId">
+                            <option value="">Без предмета</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="fcImgTopicId">Раздел (тематика)</label>
+                        <select id="fcImgTopicId">
+                            <option value="">Без раздела</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="display:flex; align-items:center; gap:0.5rem;">
+                        <input type="checkbox" id="fcImgIsFree">
+                        <label for="fcImgIsFree" style="margin:0;">Бесплатная (без подписки)</label>
+                    </div>
+                </div>
                 <button type="submit" class="btn btn-primary">Сохранить</button>
+                <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="uniTxtFlashcardsUploadModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 680px;">
+            <span class="modal-close">&times;</span>
+            <h2>📇 Университет: flashcards TXT</h2>
+            <form id="uniTxtFlashcardsUploadForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="uniTxtFcUniversityId">Университет</label>
+                    <select id="uniTxtFcUniversityId" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="uniTxtFcSubjectId">Предмет</label>
+                    <select id="uniTxtFcSubjectId" required>
+                        <option value="">Выберите предмет</option>
+                    </select>
+                </div>
+                <div class="form-group" style="display:flex; align-items:center; gap:0.5rem;">
+                    <input type="checkbox" id="uniTxtFcIsFree">
+                    <label for="uniTxtFcIsFree" style="margin:0;">Все карточки из файла — бесплатные</label>
+                </div>
+                <div class="form-group">
+                    <label for="uniTxtFlashcardsFile">TXT файл</label>
+                    <input type="file" id="uniTxtFlashcardsFile" accept=".txt" required>
+                    <div style="background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius); margin-top: 0.5rem;">
+                        <p style="margin: 0 0 0.5rem 0; font-weight: 600; color: var(--text-primary);">Формат (как USMLE):</p>
+                        <pre style="margin: 0; font-size: 0.875rem; white-space: pre-wrap; word-wrap: break-word; color: var(--text-secondary); font-family: 'Courier New', monospace;">=== Анатомия сердца ===
+"ID":"1"
+"Front":"Самая крупная артерия — ______."
+"Back":"Самая крупная артерия — аорта."
+
+"ID":"2"
+"Front":"..."
+"Back":"..."
+
+=== Физиология ===
+"ID":"3"
+"Front":"..."
+"Back":"..."</pre>
+                        <p style="margin: 0.75rem 0 0; font-size: 0.85rem; color: var(--text-muted);">
+                            Заголовки <code>=== Раздел ===</code> создают тематику колоды.
+                            Если разделов нет — используется название выбранного предмета.
+                            Повторный ID в этом университете обновит карточку.
+                        </p>
+                    </div>
+                </div>
+                <div id="uniTxtFlashcardsUploadProgress" style="display: none; margin: 1rem 0;">
+                    <div style="background: var(--bg-secondary); border-radius: var(--radius); padding: 0.25rem; height: 24px;">
+                        <div id="uniTxtFlashcardsUploadProgressBar" style="background: linear-gradient(90deg, var(--primary-color), var(--primary-light)); height: 100%; border-radius: var(--radius); width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75rem; font-weight: 600;"></div>
+                    </div>
+                    <p id="uniTxtFlashcardsUploadStatus" style="margin-top: 0.5rem; color: var(--text-secondary); font-size: 0.9rem; text-align: center;">Обработка...</p>
+                </div>
+                <button type="submit" class="btn btn-primary">Загрузить</button>
                 <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
             </form>
         </div>
@@ -1524,6 +1609,12 @@
                 <div class="form-group">
                     <label for="uniFcUniversityId">Университет</label>
                     <select id="uniFcUniversityId" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="uniFcSubjectId">Предмет</label>
+                    <select id="uniFcSubjectId">
+                        <option value="">Без предмета</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label for="uniFcTopicId">Раздел (тематика)</label>
