@@ -2130,6 +2130,13 @@ router.post('/flashcards', adminAuth, [
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
+    try {
+      const { ensureFlashcardsSchema } = require('../utils/ensureFlashcardsSchema');
+      await ensureFlashcardsSchema();
+    } catch (e) {
+      console.warn('ensureFlashcardsSchema (create):', e.message);
+    }
+
     const programType = String(req.body.programType || 'usmle').toLowerCase() === 'university'
       ? 'university'
       : 'usmle';

@@ -309,6 +309,13 @@ async function handleFlashcardsTxtUpload(req, res) {
     return;
   }
 
+  try {
+    const { ensureFlashcardsSchema } = require('../utils/ensureFlashcardsSchema');
+    await ensureFlashcardsSchema();
+  } catch (e) {
+    console.warn('ensureFlashcardsSchema (upload):', e.message);
+  }
+
   const programType = String(req.body.programType || 'usmle').toLowerCase() === 'university'
     ? 'university'
     : 'usmle';

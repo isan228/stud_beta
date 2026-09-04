@@ -268,6 +268,12 @@ sequelize.authenticate()
     } catch (e) {
       console.warn('universityId DROP NOT NULL (after sync):', e.message);
     }
+    try {
+      const { ensureFlashcardsSchema } = require('./utils/ensureFlashcardsSchema');
+      await ensureFlashcardsSchema();
+    } catch (e) {
+      console.warn('ensureFlashcardsSchema:', e.message);
+    }
     const { ensureUniversities } = require('./utils/ensureUniversities');
     await ensureUniversities();
     try {
