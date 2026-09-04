@@ -124,6 +124,16 @@ function flashcardInclude() {
     attributes: ['id', 'name', 'slug'],
     through: { attributes: [] },
     required: false
+  }, {
+    model: University,
+    as: 'University',
+    attributes: ['id', 'name', 'shortName'],
+    required: false
+  }, {
+    model: Subject,
+    as: 'Subject',
+    attributes: ['id', 'name', 'programType'],
+    required: false
   }];
 }
 
@@ -1945,15 +1955,23 @@ router.delete('/question-tags/:id', adminAuth, async (req, res) => {
   }
 });
 
-// USMLE Flashcards
+// Flashcards (USMLE + university)
 router.get('/flashcards', adminAuth, async (req, res) => {
   try {
     const where = { isActive: true };
     const testId = parseInt(req.query.testId, 10);
     const tagId = parseInt(req.query.tagId, 10);
+    const subjectId = parseInt(req.query.subjectId, 10);
+    const universityId = parseInt(req.query.universityId, 10);
     const stepGroup = String(req.query.stepGroup || '').trim();
+    const programType = String(req.query.programType || '').trim().toLowerCase();
 
+    if (programType === 'university' || programType === 'usmle') {
+      where.programType = programType;
+    }
     if (Number.isFinite(testId) && testId > 0) where.testId = testId;
+    if (Number.isFinite(subjectId) && subjectId > 0) where.subjectId = subjectId;
+    if (Number.isFinite(universityId) && universityId > 0) where.universityId = universityId;
     if (['step1', 'step2', 'step3'].includes(stepGroup)) where.stepGroup = stepGroup;
 
     const include = flashcardInclude();
@@ -2005,19 +2023,57 @@ router.get('/flashcards/:id', adminAuth, async (req, res) => {
 router.post('/flashcards', adminAuth, [
   body('frontText').customSanitizer((v) => String(v ?? '').trim() || ' ').custom((v) => String(v).length > 0),
   body('backText').customSanitizer((v) => String(v ?? '').trim() || ' ').custom((v) => String(v).length > 0),
-  body('stepGroup').isIn(['step1', 'step2', 'step3']).withMessage('Укажите Step 1/2/3')
+  body('programType').optional().isIn(['university', 'usmle'])
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-    const { frontText, backText, testId: rawTestId, stepGroup, tagIds, sortOrder } = req.body;
+    const programType = String(req.body.programType || 'usmle').toLowerCase() === 'university'
+      ? 'university'
+      : 'usmle';
+    const {
+      frontText,
+      backText,
+      testId: rawTestId,
+      stepGroup,
+      tagIds,
+      sortOrder,
+      universityId: rawUniversityId,
+      subjectId: rawSubjectId,
+      isFree
+    } = req.body;
     const testId = rawTestId ? parseInt(rawTestId, 10) : null;
+    const universityId = rawUniversityId ? parseInt(rawUniversityId, 10) : null;
+    const subjectId = rawSubjectId ? parseInt(rawSubjectId, 10) : null;
 
-    if (testId) {
-      const test = await Test.findByPk(testId, { include: [{ model: Subject, as: 'Subject' }] });
-      if (!test || test.programType !== 'usmle') {
-        return res.status(400).json({ error: 'USMLE-тест не найден' });
+    if (programType === 'usmle') {
+      if (!['step1', 'step2', 'step3'].includes(String(stepGroup || ''))) {
+        return res.status(400).json({ error: 'Укажите Step 1/2/3' });
+      }
+      if (testId) {
+        const test = await Test.findByPk(testId);
+        if (!test || test.programType !== 'usmle') {
+          return res.status(400).json({ error: 'USMLE-тест не найден' });
+        }
+      }
+    } else {
+      if (!Number.isFinite(universityId) || universityId <= 0) {
+        return res.status(400).json({ error: 'Выберите университет' });
+      }
+      const uni = await University.findByPk(universityId);
+      if (!uni) return res.status(400).json({ error: 'Университет не найден' });
+      if (subjectId) {
+        const subject = await Subject.findByPk(subjectId);
+        if (!subject || subject.programType !== 'university' || Number(subject.universityId) !== universityId) {
+          return res.status(400).json({ error: 'Предмет не найден для этого университета' });
+        }
+      }
+      if (testId) {
+        const test = await Test.findByPk(testId);
+        if (!test || test.programType !== 'university') {
+          return res.status(400).json({ error: 'Университетский тест не найден' });
+        }
       }
     }
 
@@ -2025,13 +2081,19 @@ router.post('/flashcards', adminAuth, [
       frontText: String(frontText).trim(),
       backText: String(backText).trim(),
       keyword: null,
+      programType,
+      universityId: programType === 'university' ? universityId : null,
+      subjectId: programType === 'university' && Number.isFinite(subjectId) ? subjectId : null,
       testId: Number.isFinite(testId) ? testId : null,
-      stepGroup,
+      stepGroup: programType === 'usmle' ? stepGroup : null,
+      isFree: programType === 'university' ? !!isFree : false,
       sortOrder: parseInt(sortOrder, 10) || 0,
       isActive: true
     });
 
-    await syncFlashcardTags(card.id, tagIds);
+    if (programType === 'usmle') {
+      await syncFlashcardTags(card.id, tagIds);
+    }
     const full = await Flashcard.findByPk(card.id, { include: flashcardInclude() });
     res.status(201).json(full);
   } catch (error) {
@@ -2043,7 +2105,8 @@ router.post('/flashcards', adminAuth, [
 router.put('/flashcards/:id', adminAuth, [
   body('frontText').optional().customSanitizer((v) => String(v ?? '').trim() || ' '),
   body('backText').optional().customSanitizer((v) => String(v ?? '').trim() || ' '),
-  body('stepGroup').optional().isIn(['step1', 'step2', 'step3'])
+  body('stepGroup').optional().isIn(['step1', 'step2', 'step3']),
+  body('programType').optional().isIn(['university', 'usmle'])
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -2052,28 +2115,85 @@ router.put('/flashcards/:id', adminAuth, [
     const card = await Flashcard.findByPk(req.params.id);
     if (!card) return res.status(404).json({ error: 'Карточка не найдена' });
 
-    const { frontText, backText, testId: rawTestId, stepGroup, tagIds, sortOrder, isActive } = req.body;
+    const {
+      frontText,
+      backText,
+      testId: rawTestId,
+      stepGroup,
+      tagIds,
+      sortOrder,
+      isActive,
+      universityId: rawUniversityId,
+      subjectId: rawSubjectId,
+      isFree,
+      programType: rawProgramType
+    } = req.body;
+
+    const programType = rawProgramType
+      ? (String(rawProgramType).toLowerCase() === 'university' ? 'university' : 'usmle')
+      : (card.programType || 'usmle');
+
     if (frontText != null) card.frontText = String(frontText).trim();
     if (backText != null) card.backText = String(backText).trim();
-    // keyword больше не используем — всегда очищаем при сохранении из админки
     card.keyword = null;
-    if (stepGroup) card.stepGroup = stepGroup;
+    card.programType = programType;
     if (sortOrder != null) card.sortOrder = parseInt(sortOrder, 10) || 0;
     if (isActive != null) card.isActive = !!isActive;
 
-    if (rawTestId !== undefined) {
-      const testId = rawTestId ? parseInt(rawTestId, 10) : null;
-      if (testId) {
-        const test = await Test.findByPk(testId);
-        if (!test || test.programType !== 'usmle') {
-          return res.status(400).json({ error: 'USMLE-тест не найден' });
+    if (programType === 'usmle') {
+      if (stepGroup) card.stepGroup = stepGroup;
+      card.universityId = null;
+      card.subjectId = null;
+      card.isFree = false;
+      if (rawTestId !== undefined) {
+        const testId = rawTestId ? parseInt(rawTestId, 10) : null;
+        if (testId) {
+          const test = await Test.findByPk(testId);
+          if (!test || test.programType !== 'usmle') {
+            return res.status(400).json({ error: 'USMLE-тест не найден' });
+          }
         }
+        card.testId = Number.isFinite(testId) ? testId : null;
       }
-      card.testId = Number.isFinite(testId) ? testId : null;
+    } else {
+      card.stepGroup = null;
+      if (isFree != null) card.isFree = !!isFree;
+      const universityId = rawUniversityId !== undefined
+        ? (rawUniversityId ? parseInt(rawUniversityId, 10) : null)
+        : card.universityId;
+      if (!Number.isFinite(universityId) || universityId <= 0) {
+        return res.status(400).json({ error: 'Выберите университет' });
+      }
+      const uni = await University.findByPk(universityId);
+      if (!uni) return res.status(400).json({ error: 'Университет не найден' });
+      card.universityId = universityId;
+
+      if (rawSubjectId !== undefined) {
+        const subjectId = rawSubjectId ? parseInt(rawSubjectId, 10) : null;
+        if (subjectId) {
+          const subject = await Subject.findByPk(subjectId);
+          if (!subject || subject.programType !== 'university' || Number(subject.universityId) !== universityId) {
+            return res.status(400).json({ error: 'Предмет не найден для этого университета' });
+          }
+        }
+        card.subjectId = Number.isFinite(subjectId) ? subjectId : null;
+      }
+      if (rawTestId !== undefined) {
+        const testId = rawTestId ? parseInt(rawTestId, 10) : null;
+        if (testId) {
+          const test = await Test.findByPk(testId);
+          if (!test || test.programType !== 'university') {
+            return res.status(400).json({ error: 'Университетский тест не найден' });
+          }
+        }
+        card.testId = Number.isFinite(testId) ? testId : null;
+      }
     }
 
     await card.save();
-    if (tagIds !== undefined) await syncFlashcardTags(card.id, tagIds);
+    if (programType === 'usmle' && tagIds !== undefined) {
+      await syncFlashcardTags(card.id, tagIds);
+    }
 
     const full = await Flashcard.findByPk(card.id, { include: flashcardInclude() });
     res.json(full);

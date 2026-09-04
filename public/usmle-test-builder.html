@@ -434,7 +434,7 @@
             <a href="/tests" class="nav-link">Тесты</a>
             <a href="/usmle" class="nav-link active">USMLE</a>
             <a href="/rating" class="nav-link">Рейтинг</a>
-            <a href="/about" class="nav-link">О нас</a>
+            <a href="/flashcards" class="nav-link">Карточки</a>
             <a href="/favorites" class="nav-link" id="favoritesLink" style="display:none;">Избранное</a>
             <a href="/subscriptions" class="nav-link" id="subscriptionsLink" style="display:none;">Подписки</a>
             <a href="/profile" class="nav-link" id="profileLink" style="display:none;">Профиль</a>
@@ -860,9 +860,11 @@
                 timer: useTimer ? Math.max(1, timerMins) * 60 : null,
                 instantFeedbackMode,
                 instantFeedbackLockedQuestions: {},
-                isCustomUsmle: true
+                isCustomUsmle: true,
+                programType: 'usmle'
             }));
 
+            try { sessionStorage.setItem('programType', 'usmle'); } catch (_) {}
             window.location.href = '/test';
         } catch (err) {
             if (typeof showNotification === 'function')

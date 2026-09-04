@@ -32,6 +32,24 @@ const Flashcard = sequelize.define('Flashcard', {
     allowNull: true,
     comment: 'URL изображения на обороте'
   },
+  programType: {
+    type: DataTypes.ENUM('university', 'usmle'),
+    allowNull: false,
+    defaultValue: 'usmle',
+    comment: 'university = карточки вуза; usmle = Step flashcards'
+  },
+  universityId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: { model: 'Universities', key: 'id' },
+    comment: 'Университет для university-карточек'
+  },
+  subjectId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: { model: 'Subjects', key: 'id' },
+    comment: 'Предмет (опционально)'
+  },
   testId: {
     type: DataTypes.INTEGER,
     allowNull: true,
@@ -39,8 +57,15 @@ const Flashcard = sequelize.define('Flashcard', {
   },
   stepGroup: {
     type: DataTypes.ENUM('step1', 'step2', 'step3'),
+    allowNull: true,
+    defaultValue: null,
+    comment: 'Только для USMLE'
+  },
+  isFree: {
+    type: DataTypes.BOOLEAN,
     allowNull: false,
-    defaultValue: 'step1'
+    defaultValue: false,
+    comment: 'Бесплатная карточка (без подписки)'
   },
   externalId: {
     type: DataTypes.STRING(64),
@@ -63,6 +88,10 @@ const Flashcard = sequelize.define('Flashcard', {
     { fields: ['testId'] },
     { fields: ['stepGroup'] },
     { fields: ['isActive'] },
+    { fields: ['programType'] },
+    { fields: ['universityId'] },
+    { fields: ['subjectId'] },
+    { fields: ['isFree'] },
     { fields: ['testId', 'stepGroup', 'externalId'], name: 'flashcards_test_step_external' }
   ]
 });

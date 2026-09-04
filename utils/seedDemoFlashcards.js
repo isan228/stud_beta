@@ -105,6 +105,7 @@ async function seedDemoFlashcards(options = {}) {
     const where = {
       stepGroup,
       isActive: true,
+      programType: 'usmle',
       externalId: externalId || null
     };
     if (testId != null) where.testId = testId;
@@ -118,6 +119,7 @@ async function seedDemoFlashcards(options = {}) {
       row.frontText = card.frontText;
       row.backText = card.backText;
       row.keyword = card.keyword || null;
+      row.programType = 'usmle';
       await row.save();
       updatedCount += 1;
     } else {
@@ -128,11 +130,13 @@ async function seedDemoFlashcards(options = {}) {
         frontText: card.frontText,
         backText: card.backText,
         keyword: card.keyword || null,
+        programType: 'usmle',
         testId,
         stepGroup,
         externalId: externalId || null,
         frontImageUrl: null,
         backImageUrl: null,
+        isFree: false,
         sortOrder: Number.isFinite(sortFromId) ? sortFromId : 0,
         isActive: true
       });

@@ -79,6 +79,7 @@
                     <button class="admin-tab" data-tab="subjects">Предметы</button>
                     <button class="admin-tab" data-tab="tests">Тесты</button>
                     <button class="admin-tab" data-tab="questions">Вопросы</button>
+                    <button class="admin-tab" data-tab="uniFlashcards">Карточки</button>
                     <button class="admin-tab" data-tab="editors">Редакторы</button>
                     <button class="admin-tab" data-tab="audit">Журнал правок</button>
                     <button class="admin-tab" data-tab="news">Новости</button>
@@ -325,6 +326,28 @@
                         </div>
                     </div>
                     <div id="questionsList" class="admin-list"></div>
+                </div>
+
+                <!-- Карточки университета -->
+                <div id="uniFlashcardsTab" class="admin-tab-content">
+                    <div class="admin-section-header">
+                        <h2>Карточки (университет)</h2>
+                        <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+                            <select id="uniFcUniversityFilter" class="form-group input" style="min-width:14rem;">
+                                <option value="">Выберите университет</option>
+                            </select>
+                            <select id="uniFcSubjectFilter" class="form-group input" style="min-width:12rem;">
+                                <option value="">Все предметы</option>
+                            </select>
+                            <button type="button" class="btn btn-primary" id="addUniFlashcardBtn">+ Карточка</button>
+                        </div>
+                    </div>
+                    <p class="page-description" style="margin-bottom:1rem;">
+                        Карточки для студентов выбранного университета. Галочка «Бесплатная» — доступна без подписки.
+                    </p>
+                    <div id="uniFlashcardsList" class="admin-list">
+                        <p style="color:var(--text-muted); text-align:center; padding:1.5rem;">Выберите университет</p>
+                    </div>
                 </div>
 
                 <!-- Редакторы вопросов -->
@@ -1477,6 +1500,40 @@
                     <label>Ответы</label>
                     <div id="answersList"></div>
                     <button type="button" class="btn btn-secondary" id="addAnswerBtn">+ Добавить ответ</button>
+                </div>
+                <button type="submit" class="btn btn-primary">Сохранить</button>
+                <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="uniFlashcardModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 640px;">
+            <span class="modal-close">&times;</span>
+            <h2 id="uniFlashcardModalTitle">Карточка университета</h2>
+            <form id="uniFlashcardForm">
+                <input type="hidden" id="uniFcId">
+                <div class="form-group">
+                    <label for="uniFcUniversityId">Университет</label>
+                    <select id="uniFcUniversityId" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="uniFcSubjectId">Предмет (опционально)</label>
+                    <select id="uniFcSubjectId">
+                        <option value="">Без предмета</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="uniFcFrontText">Вопрос (Front)</label>
+                    <textarea id="uniFcFrontText" rows="4" required placeholder="Текст вопроса или с пропусками ______"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="uniFcBackText">Ответ (Back)</label>
+                    <textarea id="uniFcBackText" rows="4" required placeholder="Полный ответ"></textarea>
+                </div>
+                <div class="form-group" style="display:flex; align-items:center; gap:0.5rem;">
+                    <input type="checkbox" id="uniFcIsFree">
+                    <label for="uniFcIsFree" style="margin:0;">Бесплатная (без подписки)</label>
                 </div>
                 <button type="submit" class="btn btn-primary">Сохранить</button>
                 <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>

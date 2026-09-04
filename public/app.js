@@ -58,6 +58,90 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     // Время на каждый вопрос: { [questionId]: секунды }
     let questionTimes = {};
     let _questionViewStart = null;
+    let _lastViewedQuestionId = null;
+    let _usmleQuestionLiveTimer = null;
+
+    const USMLE_SUBJECT_TAG_NAMES = new Set([
+        'anatomy', 'behavioral science', 'histology', 'physiology', 'pharmacology',
+        'embryology', 'genetics', 'biostatistics', 'immunology', 'microbiology',
+        'pathology', 'pathophysiology', 'biochemistry'
+    ]);
+
+    function isUsmleTestSession() {
+        if (getProgramType() === 'usmle') return true;
+        try {
+            const raw = sessionStorage.getItem('testData');
+            if (!raw) return false;
+            const data = JSON.parse(raw);
+            return !!(data.isCustomUsmle || data.programType === 'usmle');
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function formatQuestionClock(totalSec) {
+        const s = Math.max(0, Math.floor(Number(totalSec) || 0));
+        const m = Math.floor(s / 60);
+        const sec = s % 60;
+        return `${m}:${String(sec).padStart(2, '0')}`;
+    }
+
+    function splitUsmleQuestionTags(tags) {
+        const subjects = [];
+        const systems = [];
+        for (const t of tags || []) {
+            const name = String(t?.name || t || '').trim();
+            if (!name) continue;
+            if (USMLE_SUBJECT_TAG_NAMES.has(name.toLowerCase())) subjects.push(name);
+            else systems.push(name);
+        }
+        return {
+            subjects: [...new Set(subjects)],
+            systems: [...new Set(systems)]
+        };
+    }
+
+    function stopUsmleQuestionLiveTimer() {
+        if (_usmleQuestionLiveTimer) {
+            clearInterval(_usmleQuestionLiveTimer);
+            _usmleQuestionLiveTimer = null;
+        }
+    }
+
+    function updateUsmleQuestionMeta(question) {
+        const box = document.getElementById('usmleQuestionMeta');
+        if (!box) return;
+
+        if (!isUsmleTestSession() || !question) {
+            box.hidden = true;
+            stopUsmleQuestionLiveTimer();
+            return;
+        }
+
+        box.hidden = false;
+        const { subjects, systems } = splitUsmleQuestionTags(question.Tags || question.tags || []);
+        const subEl = document.getElementById('usmleMetaSubject');
+        const sysEl = document.getElementById('usmleMetaSystem');
+        if (subEl) {
+            const val = subEl.querySelector('.usmle-meta-value');
+            if (val) val.textContent = subjects.length ? subjects.join(', ') : '—';
+        }
+        if (sysEl) {
+            const val = sysEl.querySelector('.usmle-meta-value');
+            if (val) val.textContent = systems.length ? systems.join(', ') : '—';
+        }
+
+        const paintTime = () => {
+            const base = Number(questionTimes[question.id] || 0);
+            const live = _questionViewStart ? Math.floor((Date.now() - _questionViewStart) / 1000) : 0;
+            const el = document.getElementById('usmleMetaQuestionTimeValue');
+            if (el) el.textContent = formatQuestionClock(base + live);
+        };
+
+        stopUsmleQuestionLiveTimer();
+        paintTime();
+        _usmleQuestionLiveTimer = setInterval(paintTime, 1000);
+    }
     let chatPollInterval = null;
     let isChatOpen = false;
     let pendingDeviceAlerts = [];
@@ -1890,7 +1974,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 startTime: testStartTime,
                 timer: useTimer ? timerMinutes * 60 : null,
                 instantFeedbackMode: instantMode,
-                instantFeedbackLockedQuestions
+                instantFeedbackLockedQuestions,
+                programType: getProgramType()
             }));
 
             // Переходим на страницу теста
@@ -2160,13 +2245,12 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
         const question = currentQuestions[currentQuestionIndex];
 
-        // Сохраняем время на предыдущий вопрос
-        if (_questionViewStart !== null && currentQuestionIndex > 0) {
-            const prevQ = currentQuestions[currentQuestionIndex - 1];
-            if (prevQ) {
-                questionTimes[prevQ.id] = (questionTimes[prevQ.id] || 0) + Math.floor((Date.now() - _questionViewStart) / 1000);
-            }
+        // Сохраняем время на предыдущий просмотренный вопрос
+        if (_questionViewStart !== null && _lastViewedQuestionId != null) {
+            questionTimes[_lastViewedQuestionId] = (questionTimes[_lastViewedQuestionId] || 0)
+                + Math.floor((Date.now() - _questionViewStart) / 1000);
         }
+        _lastViewedQuestionId = question.id;
         _questionViewStart = Date.now();
 
         const progress = ((currentQuestionIndex + 1) / currentQuestions.length) * 100;
@@ -2184,6 +2268,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         progressFillEl.style.width = `${progress}%`;
         progressTextEl.textContent =
             `Вопрос ${currentQuestionIndex + 1} из ${currentQuestions.length}`;
+
+        updateUsmleQuestionMeta(question);
 
         // Проверяем наличие ответов
         if (!question.Answers || question.Answers.length === 0) {
@@ -2346,13 +2432,15 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         if (testTimer) {
             clearInterval(testTimer);
         }
+        stopUsmleQuestionLiveTimer();
 
         const timeSpent = Math.floor((Date.now() - testStartTime) / 1000);
 
         // Фиксируем время на текущий (последний просматриваемый) вопрос
-        if (_questionViewStart !== null && currentQuestions[currentQuestionIndex]) {
-            const curQ = currentQuestions[currentQuestionIndex];
-            questionTimes[curQ.id] = (questionTimes[curQ.id] || 0) + Math.floor((Date.now() - _questionViewStart) / 1000);
+        if (_questionViewStart !== null && _lastViewedQuestionId != null) {
+            questionTimes[_lastViewedQuestionId] = (questionTimes[_lastViewedQuestionId] || 0)
+                + Math.floor((Date.now() - _questionViewStart) / 1000);
+            _questionViewStart = null;
         }
 
         const answeredQuestions = currentQuestions.filter(question => {

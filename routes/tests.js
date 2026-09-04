@@ -13,6 +13,69 @@ const { userHasUniversityAccess, userHasUsmleAccess } = require('../utils/adminU
 /** Весь API /usmle/* — только с активной подпиской USMLE */
 router.use('/usmle', requireUsmleSubscription);
 
+/** Университетские flashcards — бесплатные всем авторизованным; остальные по подписке */
+router.get('/flashcards', async (req, res) => {
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ error: 'Требуется авторизация', code: 'AUTH_REQUIRED' });
+    }
+
+    let user;
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      user = await User.findByPk(decoded.userId, {
+        attributes: ['id', 'universityId', 'subscriptionEndDate', 'email', 'username']
+      });
+    } catch {
+      return res.status(401).json({ error: 'Недействительный токен', code: 'AUTH_REQUIRED' });
+    }
+    if (!user) {
+      return res.status(401).json({ error: 'Пользователь не найден', code: 'AUTH_REQUIRED' });
+    }
+
+    const subjectId = parseInt(req.query.subjectId, 10);
+    const universityIdQuery = parseInt(req.query.universityId, 10);
+    const universityId = (Number.isFinite(universityIdQuery) && universityIdQuery > 0)
+      ? universityIdQuery
+      : (user.universityId || null);
+
+    if (!universityId) {
+      return res.json([]);
+    }
+
+    const hasPaid = await userHasUniversityAccess(user);
+    const where = {
+      isActive: true,
+      programType: 'university',
+      universityId: Number(universityId)
+    };
+    if (!hasPaid) where.isFree = true;
+    if (Number.isFinite(subjectId) && subjectId > 0) where.subjectId = subjectId;
+
+    const rows = await Flashcard.findAll({
+      where,
+      include: [{
+        model: Subject,
+        as: 'Subject',
+        attributes: ['id', 'name'],
+        required: false
+      }],
+      order: [['sortOrder', 'ASC'], ['id', 'ASC']]
+    });
+
+    res.json(rows.map((row) => {
+      const json = row.toJSON();
+      json.frontHtml = buildFrontHtml(json.frontText);
+      json.backHtml = buildHighlightHtml(json.frontText, json.backText);
+      return json;
+    }));
+  } catch (error) {
+    console.error('Ошибка university flashcards:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 function tryGetUserIdFromRequest(req) {
   const token = req.header('Authorization')?.replace('Bearer ', '');
   if (!token) return null;
@@ -1023,7 +1086,7 @@ router.get('/usmle/flashcards', async (req, res) => {
 
     async function query(where) {
       return Flashcard.findAll({
-        where: { isActive: true, ...where },
+        where: { isActive: true, programType: 'usmle', ...where },
         include,
         order: [['sortOrder', 'ASC'], ['id', 'ASC']]
       });
@@ -1045,7 +1108,9 @@ router.get('/usmle/flashcards', async (req, res) => {
     if (!rows.length) {
       const stepWhere = { isActive: true };
       if (normalizedStep) stepWhere.stepGroup = normalizedStep;
-      const existingForStep = await Flashcard.count({ where: stepWhere });
+      const existingForStep = await Flashcard.count({
+        where: { ...stepWhere, programType: 'usmle' }
+      });
       if (existingForStep === 0) {
         try {
           const { seedDemoFlashcards } = require('../utils/seedDemoFlashcards');

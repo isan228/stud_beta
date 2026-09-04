@@ -151,6 +151,7 @@ const pages = {
   '/subscriptions': 'subscriptions.html',
   '/usmle-test-builder': 'usmle-test-builder.html',
   '/usmle-flashcards': 'usmle-flashcards.html',
+  '/flashcards': 'flashcards.html',
   '/schedule': 'schedule.html',
   '/download': 'download.html'
 };

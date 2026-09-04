@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" href="/img/icon.svg" type="image/svg+xml">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#2563eb">
+    <title>Карточки - stud.kg</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="usmle-app.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand"><a href="/"><h1>stud.kg</h1></a></div>
+            <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Меню">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <a href="/" class="nav-link">Главная</a>
+                <a href="/tests" class="nav-link">Тесты</a>
+                <a href="/schedule" class="nav-link">Расписание</a>
+                <a href="/usmle" class="nav-link">USMLE</a>
+                <a href="/rating" class="nav-link">Рейтинг</a>
+                <a href="/flashcards" class="nav-link active">Карточки</a>
+                <a href="/favorites" class="nav-link" id="favoritesLink" style="display: none;">Избранное</a>
+                <a href="/subscriptions" class="nav-link" id="subscriptionsLink" style="display: none;">Подписки</a>
+                <a href="/profile" class="nav-link" id="profileLink" style="display: none;">Профиль</a>
+                <div class="nav-actions">
+                    <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему">
+                        <span class="theme-icon">🌙</span>
+                    </button>
+                    <a href="/login" class="btn btn-primary" id="loginBtn">Войти</a>
+                    <a href="/register" class="btn btn-secondary" id="registerBtn">Регистрация</a>
+                    <button class="btn btn-logout" id="logoutBtn" style="display: none;">Выход</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="container" style="max-width: 920px;">
+            <div class="page-header">
+                <h1>Карточки</h1>
+                <p class="page-description">Flashcards вашего университета. Бесплатные доступны всем; остальные — с подпиской.</p>
+            </div>
+
+            <div id="fcGate" class="tests-hub-empty" style="display:none;"></div>
+
+            <div id="fcApp" class="hidden">
+                <div class="fc-search-bar" style="margin-bottom:1rem;">
+                    <input type="search" id="fcSearchInput" class="fc-search-input search-input" placeholder="Поиск по предмету или тексту…" autocomplete="off">
+                </div>
+                <div id="fcBrowseList" class="fc-browse-list"></div>
+
+                <div id="fcSessionPanel" class="hidden" style="margin-top:1.5rem;">
+                    <div class="fc-session-meta">
+                        <div id="flashcardCategory" class="flashcards-category"></div>
+                        <div class="fc-session-view-label">Single Side View</div>
+                        <button type="button" class="fc-session-close" id="fcCloseSession" title="Close">×</button>
+                    </div>
+                    <div class="flashcards-card-shell fc-session-card">
+                        <div class="flashcards-card-head">
+                            <div class="flashcards-side-toggle">
+                                <button type="button" id="flashcardToggleFront" class="active">Front</button>
+                                <button type="button" id="flashcardToggleBack">Back</button>
+                            </div>
+                        </div>
+                        <div id="flashcardBody" class="flashcards-card-body">
+                            <p class="flashcard-empty">Выберите карточку</p>
+                        </div>
+                    </div>
+                    <div class="fc-session-footer">
+                        <div id="fcSessionFooterFront" class="fc-session-actions">
+                            <button type="button" class="fc-show-answer-btn" id="flashcardActionBtn">Show Answer</button>
+                        </div>
+                        <div id="fcSessionFooterBack" class="fc-session-actions hidden">
+                            <div class="fc-rate-box">
+                                <button type="button" class="fc-rate-btn fc-rate-again" id="flashcardRateAgain">
+                                    <span class="fc-rate-interval">&lt;1m</span>
+                                    <span class="fc-rate-label">Again</span>
+                                </button>
+                                <button type="button" class="fc-rate-btn fc-rate-good" id="flashcardRateGood">
+                                    <span class="fc-rate-interval">&lt;10m</span>
+                                    <span class="fc-rate-label">Good</span>
+                                </button>
+                                <button type="button" class="fc-rate-btn fc-rate-easy" id="flashcardRateEasy">
+                                    <span class="fc-rate-interval">4d</span>
+                                    <span class="fc-rate-label">Easy</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="notification" class="notification"></div>
+    <script src="app.js"></script>
+    <script src="flashcards.js"></script>
+</body>
+</html>

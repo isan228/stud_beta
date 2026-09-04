@@ -117,6 +117,10 @@ FlashcardTagMap.belongsTo(Flashcard, { foreignKey: 'flashcardId', as: 'Flashcard
 FlashcardTagMap.belongsTo(QuestionTag, { foreignKey: 'tagId', as: 'Tag' });
 Test.hasMany(Flashcard, { foreignKey: 'testId', as: 'Flashcards', onDelete: 'SET NULL' });
 Flashcard.belongsTo(Test, { foreignKey: 'testId', as: 'Test' });
+University.hasMany(Flashcard, { foreignKey: 'universityId', as: 'Flashcards', onDelete: 'CASCADE' });
+Flashcard.belongsTo(University, { foreignKey: 'universityId', as: 'University' });
+Subject.hasMany(Flashcard, { foreignKey: 'subjectId', as: 'Flashcards', onDelete: 'SET NULL' });
+Flashcard.belongsTo(Subject, { foreignKey: 'subjectId', as: 'Subject' });
 
 Subject.hasMany(Test, { foreignKey: 'subjectId', as: 'Tests' });
 Test.belongsTo(Subject, { foreignKey: 'subjectId', as: 'Subject' });

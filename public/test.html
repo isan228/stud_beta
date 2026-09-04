@@ -48,6 +48,13 @@
                     <div id="favoriteContainer"></div>
                 </div>
             </div>
+            <div id="usmleQuestionMeta" class="usmle-question-meta" hidden>
+                <div class="usmle-meta-row">
+                    <span class="usmle-meta-chip usmle-meta-subject" id="usmleMetaSubject"><span class="usmle-meta-label">Subject</span> <span class="usmle-meta-value">—</span></span>
+                    <span class="usmle-meta-chip usmle-meta-system" id="usmleMetaSystem"><span class="usmle-meta-label">System</span> <span class="usmle-meta-value">—</span></span>
+                    <span class="usmle-meta-chip usmle-meta-time" id="usmleMetaQuestionTime" title="Время на этот вопрос">⏱ <span id="usmleMetaQuestionTimeValue">0:00</span></span>
+                </div>
+            </div>
             <div id="testContent" class="test-content"></div>
             <div class="test-actions">
                 <button class="btn btn-secondary" id="prevQuestion" style="display: none;">Назад</button>
@@ -147,6 +154,12 @@
                         window.startTimer(data.timer);
                     }
                     
+                    // Помечаем USMLE-сессию для мета-бара (Subject / System / время)
+                    if (data.isCustomUsmle || data.programType === 'usmle') {
+                        try { sessionStorage.setItem('programType', 'usmle'); } catch (_) {}
+                        if (typeof window.setProgramType === 'function') window.setProgramType('usmle');
+                    }
+
                     // Показываем первый вопрос
                     // Небольшая задержка, чтобы убедиться, что все функции загружены
                     setTimeout(() => {

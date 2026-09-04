@@ -3018,6 +3018,31 @@ function setupAdminEventListeners() {
     }
     initFcImgFormControls();
 
+    const addUniFlashcardBtn = document.getElementById('addUniFlashcardBtn');
+    if (addUniFlashcardBtn) addUniFlashcardBtn.addEventListener('click', () => openAddUniFlashcardModal());
+    const uniFlashcardForm = document.getElementById('uniFlashcardForm');
+    if (uniFlashcardForm && !uniFlashcardForm.dataset.bound) {
+        uniFlashcardForm.dataset.bound = '1';
+        uniFlashcardForm.addEventListener('submit', saveUniFlashcardAdmin);
+    }
+    const uniFcUniversityFilter = document.getElementById('uniFcUniversityFilter');
+    if (uniFcUniversityFilter) {
+        uniFcUniversityFilter.addEventListener('change', async () => {
+            await fillUniFcSubjects(uniFcUniversityFilter.value, '', 'uniFcSubjectFilter');
+            await loadUniFlashcardsAdmin();
+        });
+    }
+    const uniFcSubjectFilter = document.getElementById('uniFcSubjectFilter');
+    if (uniFcSubjectFilter) {
+        uniFcSubjectFilter.addEventListener('change', () => loadUniFlashcardsAdmin());
+    }
+    const uniFcUniversityId = document.getElementById('uniFcUniversityId');
+    if (uniFcUniversityId) {
+        uniFcUniversityId.addEventListener('change', () => {
+            fillUniFcSubjects(uniFcUniversityId.value, '', 'uniFcSubjectId');
+        });
+    }
+
     const usmleTestsSubjectFilter = document.getElementById('usmleTestsSubjectFilter');
     if (usmleTestsSubjectFilter) {
         usmleTestsSubjectFilter.addEventListener('change', () => {
@@ -4395,6 +4420,183 @@ window.saveEditQuestionTag = saveEditQuestionTag;
 window.editUsmleFlashcardAdmin = editUsmleFlashcardAdmin;
 window.deleteUsmleFlashcardAdmin = deleteUsmleFlashcardAdmin;
 
+// ── Университетские карточки ──
+async function fillSelectFromUniversities(selectId, selectedId = '') {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/universities`, { headers: adminAuthHeaders() });
+        if (!response.ok) throw new Error('fail');
+        const list = await response.json();
+        const keepFirst = sel.options[0] && !sel.options[0].value ? sel.options[0].outerHTML : '';
+        sel.innerHTML = keepFirst || '<option value="">Выберите университет</option>';
+        list.forEach((u) => {
+            const opt = document.createElement('option');
+            opt.value = u.id;
+            opt.textContent = u.shortName || u.name;
+            if (String(selectedId) === String(u.id)) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function fillUniFcSubjects(universityId, selectedId = '', selectId = 'uniFcSubjectId') {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Без предмета / все</option>';
+    if (!universityId) return;
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/subjects?universityId=${encodeURIComponent(universityId)}&programType=university`, {
+            headers: adminAuthHeaders()
+        });
+        if (!response.ok) throw new Error('fail');
+        const list = await response.json();
+        list.forEach((s) => {
+            const opt = document.createElement('option');
+            opt.value = s.id;
+            opt.textContent = s.name;
+            if (String(selectedId) === String(s.id)) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function initUniFlashcardsAdmin() {
+    await fillSelectFromUniversities('uniFcUniversityFilter');
+    const uni = document.getElementById('uniFcUniversityFilter')?.value;
+    await fillUniFcSubjects(uni, '', 'uniFcSubjectFilter');
+    await loadUniFlashcardsAdmin();
+}
+
+async function loadUniFlashcardsAdmin() {
+    const list = document.getElementById('uniFlashcardsList');
+    if (!list) return;
+    const universityId = document.getElementById('uniFcUniversityFilter')?.value;
+    if (!universityId) {
+        list.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:1.5rem;">Выберите университет</p>';
+        return;
+    }
+    const params = new URLSearchParams({ programType: 'university', universityId });
+    const subjectId = document.getElementById('uniFcSubjectFilter')?.value;
+    if (subjectId) params.set('subjectId', subjectId);
+    list.innerHTML = '<p style="color:var(--text-muted); padding:1rem;">Загрузка…</p>';
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/flashcards?${params}`, {
+            headers: { Authorization: `Bearer ${currentAdminToken}` }
+        });
+        if (!response.ok) throw new Error('fail');
+        const cards = await response.json();
+        if (!cards.length) {
+            list.innerHTML = '<p style="color:var(--text-muted); padding:1rem;">Карточек пока нет</p>';
+            return;
+        }
+        list.innerHTML = cards.map((c) => `
+            <div class="admin-list-item" style="align-items:flex-start;">
+                <div style="flex:1; min-width:0;">
+                    <div style="font-weight:700; margin-bottom:0.35rem;">${escapeAdminHtml(c.frontText)}</div>
+                    <div style="color:var(--text-secondary); font-size:0.88rem; margin-bottom:0.35rem;">${escapeAdminHtml(c.backText)}</div>
+                    <div style="font-size:0.8rem; color:var(--text-muted);">
+                        ${escapeAdminHtml(c.Subject?.name || 'без предмета')}
+                        ${c.isFree ? ' · 🆓 бесплатная' : ' · по подписке'}
+                        ${(c.frontImageUrl || c.backImageUrl) ? ' · 🖼' : ''}
+                    </div>
+                </div>
+                <div style="display:flex; gap:0.35rem; flex-shrink:0;">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="editUniFlashcardAdmin(${c.id})">✏️</button>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="deleteUniFlashcardAdmin(${c.id})">🗑</button>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        list.innerHTML = '<p style="color:var(--danger-color); padding:1rem;">Ошибка загрузки</p>';
+    }
+}
+
+async function openAddUniFlashcardModal() {
+    document.getElementById('uniFcId').value = '';
+    document.getElementById('uniFlashcardForm').reset();
+    document.getElementById('uniFlashcardModalTitle').textContent = 'Добавить карточку';
+    const presetUni = document.getElementById('uniFcUniversityFilter')?.value || '';
+    await fillSelectFromUniversities('uniFcUniversityId', presetUni);
+    await fillUniFcSubjects(presetUni || document.getElementById('uniFcUniversityId')?.value, '', 'uniFcSubjectId');
+    document.getElementById('uniFlashcardModal').style.display = 'block';
+}
+
+async function editUniFlashcardAdmin(id) {
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/flashcards/${id}`, {
+            headers: { Authorization: `Bearer ${currentAdminToken}` }
+        });
+        if (!response.ok) throw new Error('fail');
+        const card = await response.json();
+        document.getElementById('uniFcId').value = card.id;
+        document.getElementById('uniFlashcardModalTitle').textContent = 'Редактировать карточку';
+        document.getElementById('uniFcFrontText').value = card.frontText || '';
+        document.getElementById('uniFcBackText').value = card.backText || '';
+        document.getElementById('uniFcIsFree').checked = !!card.isFree;
+        await fillSelectFromUniversities('uniFcUniversityId', card.universityId || '');
+        await fillUniFcSubjects(card.universityId || '', card.subjectId || '', 'uniFcSubjectId');
+        document.getElementById('uniFlashcardModal').style.display = 'block';
+    } catch (e) {
+        showNotification('Не удалось загрузить карточку', 'error');
+    }
+}
+
+async function saveUniFlashcardAdmin(e) {
+    e.preventDefault();
+    const id = document.getElementById('uniFcId')?.value;
+    const payload = {
+        programType: 'university',
+        frontText: document.getElementById('uniFcFrontText')?.value || '',
+        backText: document.getElementById('uniFcBackText')?.value || '',
+        universityId: document.getElementById('uniFcUniversityId')?.value || null,
+        subjectId: document.getElementById('uniFcSubjectId')?.value || null,
+        isFree: !!document.getElementById('uniFcIsFree')?.checked,
+        keyword: null
+    };
+    const url = id ? `${ADMIN_API_URL}/flashcards/${id}` : `${ADMIN_API_URL}/flashcards`;
+    const method = id ? 'PUT' : 'POST';
+    try {
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${currentAdminToken}`
+            },
+            body: JSON.stringify(payload)
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Ошибка сохранения');
+        document.getElementById('uniFlashcardModal').style.display = 'none';
+        showNotification('Карточка сохранена', 'success');
+        await loadUniFlashcardsAdmin();
+    } catch (err) {
+        showNotification(err.message || 'Ошибка сохранения', 'error');
+    }
+}
+
+async function deleteUniFlashcardAdmin(id) {
+    if (!confirm('Удалить карточку?')) return;
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/flashcards/${id}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${currentAdminToken}` }
+        });
+        if (!response.ok) throw new Error('fail');
+        showNotification('Карточка удалена', 'success');
+        await loadUniFlashcardsAdmin();
+    } catch (e) {
+        showNotification('Ошибка удаления', 'error');
+    }
+}
+
+window.editUniFlashcardAdmin = editUniFlashcardAdmin;
+window.deleteUniFlashcardAdmin = deleteUniFlashcardAdmin;
+
 /** Сторона для Ctrl+V скриншота в модалке картинок */
 let fcImgPasteSide = 'front';
 /** После кнопки «Вставить» следующий Ctrl+V идёт в эту сторону */
@@ -4801,6 +5003,7 @@ async function loadUsmleFlashcardsAdmin() {
     if (testId) params.set('testId', testId);
     if (tagId) params.set('tagId', tagId);
     if (stepGroup) params.set('stepGroup', stepGroup);
+    params.set('programType', 'usmle');
 
     list.innerHTML = '<p style="color:var(--text-muted); padding:1rem;">Загрузка…</p>';
     try {
@@ -4910,6 +5113,7 @@ async function saveFlashcardAdmin(e) {
         frontText: document.getElementById('flashcardFrontText')?.value || '',
         backText: document.getElementById('flashcardBackText')?.value || '',
         keyword: null,
+        programType: 'usmle',
         stepGroup: document.getElementById('flashcardStepGroup')?.value || 'step1',
         testId: document.getElementById('flashcardTestId')?.value || null,
         tagIds: Array.from(document.getElementById('flashcardTagIds')?.selectedOptions || []).map((o) => parseInt(o.value, 10))
@@ -4959,6 +5163,7 @@ async function saveFlashcardWithImagesAdmin(e) {
         frontText: frontTextRaw.trim() || ' ',
         backText: backTextRaw.trim() || ' ',
         keyword: null,
+        programType: 'usmle',
         stepGroup: document.getElementById('fcImgStepGroup')?.value || 'step1',
         testId: document.getElementById('fcImgTestId')?.value || null,
         tagIds: Array.from(document.getElementById('fcImgTagIds')?.selectedOptions || []).map((o) => parseInt(o.value, 10))
@@ -6188,6 +6393,9 @@ function switchTab(tabName) {
             loadUniversitiesForQuestionsFilter();
             loadTestsForFilters();
             renderQuestionsSelectPrompt();
+            break;
+        case 'uniFlashcards':
+            initUniFlashcardsAdmin();
             break;
         case 'editors':
             loadEditors();
