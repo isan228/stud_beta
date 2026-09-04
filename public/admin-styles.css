@@ -925,6 +925,45 @@
     margin-bottom: 0.45rem;
 }
 
+.admin-subs-collapsible details {
+    margin: 0;
+}
+
+.admin-subs-collapse-summary {
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0;
+}
+
+.admin-subs-collapse-summary::-webkit-details-marker {
+    display: none;
+}
+
+.admin-subs-collapse-summary::after {
+    content: '▸';
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    transition: transform 0.15s ease;
+    flex-shrink: 0;
+}
+
+.admin-subs-collapsible details[open] > .admin-subs-collapse-summary {
+    margin-bottom: 0.45rem;
+}
+
+.admin-subs-collapsible details[open] > .admin-subs-collapse-summary::after {
+    transform: rotate(90deg);
+}
+
+.admin-subs-collapse-body {
+    padding-top: 0.15rem;
+}
+
 .admin-subs-uni-select {
     width: 100%;
     padding: 0.7rem 0.85rem;
