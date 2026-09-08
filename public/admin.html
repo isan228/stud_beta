@@ -2023,7 +2023,7 @@
     </div>
 
     <div id="editorModal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 560px;">
+        <div class="modal-content" style="max-width: 640px;">
             <span class="modal-close">&times;</span>
             <h2 id="editorModalTitle">Добавить редактора</h2>
             <form id="editorForm">
@@ -2042,16 +2042,31 @@
                 </div>
                 <div class="form-group editor-perms-block">
                     <div class="editor-perms-title">Права доступа</div>
-                    <p class="editor-perms-hint">Отметьте галочками, к чему у редактора будет доступ в админке.</p>
+                    <p class="editor-perms-hint">Сначала отметьте USMLE или университет, затем снизу выберите предметы и разделы.</p>
 
                     <label class="editor-perm-card" for="editorPermUsmle">
                         <input type="checkbox" id="editorPermUsmle">
                         <span class="editor-perm-check" aria-hidden="true"></span>
                         <span class="editor-perm-text">
                             <strong>USMLE</strong>
-                            <small>Предметы, тесты, вопросы, карточки, теги</small>
+                            <small>Программа Step 1 / 2 / 3</small>
                         </span>
                     </label>
+                    <div id="editorPermUsmleDetails" class="editor-perm-details" hidden>
+                        <label class="editor-perm-mini">
+                            <input type="checkbox" id="editorPermUsmleAllSubjects" checked>
+                            <span>Все предметы USMLE</span>
+                        </label>
+                        <div id="editorPermUsmleSubjects" class="editor-perm-subjects"></div>
+                        <label class="editor-perm-mini">
+                            <input type="checkbox" id="editorPermUsmleFlashcards" checked>
+                            <span>Карточки USMLE</span>
+                        </label>
+                        <label class="editor-perm-mini">
+                            <input type="checkbox" id="editorPermUsmleMedical" checked>
+                            <span>Medical Library (изображения)</span>
+                        </label>
+                    </div>
 
                     <div class="editor-perms-subtitle">Университеты</div>
                     <div id="editorPermUniversities" class="editor-perm-list"></div>

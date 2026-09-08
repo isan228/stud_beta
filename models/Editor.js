@@ -27,12 +27,15 @@ const Editor = sequelize.define('Editor', {
   },
   /**
    * Права редактора:
-   * { usmle: boolean, universityIds: number[] }
+   * {
+   *   usmle: { enabled, allSubjects, subjectIds[], flashcards, medicalImages },
+   *   universities: [{ universityId, allSubjects, subjectIds[], flashcards }]
+   * }
    */
   permissions: {
     type: DataTypes.JSONB,
     allowNull: true,
-    defaultValue: { usmle: false, universityIds: [] }
+    defaultValue: { usmle: { enabled: false, allSubjects: true, subjectIds: [], flashcards: false, medicalImages: false }, universities: [] }
   },
   createdAt: {
     type: DataTypes.DATE,

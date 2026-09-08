@@ -2304,6 +2304,10 @@ router.post('/flashcards', adminAuth, [
     const subjectId = rawSubjectId ? parseInt(rawSubjectId, 10) : null;
     const topicId = rawTopicId ? parseInt(rawTopicId, 10) : null;
 
+    if (!canAccessFlashcards(req.scope, { programType, universityId })) {
+      return denyScope(res, 'Нет прав на карточки');
+    }
+
     if (programType === 'usmle') {
       if (!['step1', 'step2', 'step3'].includes(String(stepGroup || ''))) {
         return res.status(400).json({ error: 'Укажите Step 1/2/3' });
@@ -2826,7 +2830,11 @@ router.put('/subjects/:id', adminAuth, [
     if (!subject) {
       return res.status(404).json({ error: 'Предмет не найден' });
     }
-    if (!canAccessScope(req.scope, { programType: subject.programType, universityId: subject.universityId })) {
+    if (!canAccessScope(req.scope, {
+      programType: subject.programType,
+      universityId: subject.universityId,
+      subjectId: subject.id
+    })) {
       return denyScope(res);
     }
 
@@ -3098,7 +3106,11 @@ router.put('/tests/:id', adminAuth, [
     if (!test) {
       return res.status(404).json({ error: 'Тест не найден' });
     }
-    if (!canAccessScope(req.scope, { programType: test.programType, universityId: test.universityId })) {
+    if (!canAccessScope(req.scope, {
+      programType: test.programType,
+      universityId: test.universityId,
+      subjectId: test.subjectId
+    })) {
       return denyScope(res);
     }
 

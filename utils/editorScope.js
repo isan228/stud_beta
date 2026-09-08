@@ -25,13 +25,18 @@ function normalizeUniversityEntry(raw, fallbackId) {
   const universityId = parseInt(raw.universityId ?? raw.id ?? fallbackId, 10);
   if (!Number.isFinite(universityId) || universityId <= 0) return null;
   const subjectIds = toIntList(raw.subjectIds);
-  const allSubjects = raw.allSubjects === false || raw.allSubjects === 'false' || raw.allSubjects === 0
-    ? false
-    : toBool(raw.allSubjects, subjectIds.length === 0);
+  let allSubjects;
+  if (raw.allSubjects === false || raw.allSubjects === 'false' || raw.allSubjects === 0) {
+    allSubjects = false;
+  } else if (raw.allSubjects === true || raw.allSubjects === 'true' || raw.allSubjects === 1) {
+    allSubjects = true;
+  } else {
+    allSubjects = subjectIds.length === 0;
+  }
   return {
     universityId,
-    allSubjects: allSubjects || subjectIds.length === 0,
-    subjectIds,
+    allSubjects,
+    subjectIds: allSubjects ? [] : subjectIds,
     flashcards: toBool(raw.flashcards, true)
   };
 }
@@ -57,13 +62,18 @@ function normalizePermissions(raw) {
     const explicitEnabled = src.usmle.enabled !== undefined
       ? toBool(src.usmle.enabled, false)
       : true;
-    const allSubjects = src.usmle.allSubjects === false || src.usmle.allSubjects === 'false'
-      ? false
-      : toBool(src.usmle.allSubjects, subjectIds.length === 0);
+    let allSubjects;
+    if (src.usmle.allSubjects === false || src.usmle.allSubjects === 'false' || src.usmle.allSubjects === 0) {
+      allSubjects = false;
+    } else if (src.usmle.allSubjects === true || src.usmle.allSubjects === 'true' || src.usmle.allSubjects === 1) {
+      allSubjects = true;
+    } else {
+      allSubjects = subjectIds.length === 0;
+    }
     usmle = {
       enabled: explicitEnabled,
-      allSubjects: explicitEnabled ? (allSubjects || subjectIds.length === 0) : false,
-      subjectIds: explicitEnabled ? subjectIds : [],
+      allSubjects: explicitEnabled ? allSubjects : false,
+      subjectIds: explicitEnabled && !allSubjects ? subjectIds : [],
       flashcards: explicitEnabled ? toBool(src.usmle.flashcards, true) : false,
       medicalImages: explicitEnabled ? toBool(src.usmle.medicalImages, true) : false
     };

@@ -174,10 +174,26 @@ function applyActorUiRestrictions() {
         const tab = btn.getAttribute('data-tab');
         let show = true;
         if (isEditor && fullAdminOnlyTabs.has(tab)) show = false;
-        if (isEditor && tab === 'usmle' && !currentScope?.usmle) show = false;
-        if (isEditor && tab === 'uniFlashcards' && !currentScope?.usmle && !(currentScope?.universityIds || []).length) {
-            // карточки универов могут быть — оставим если есть универы
-            show = (currentScope?.universityIds || []).length > 0;
+        if (isEditor && tab === 'usmle') {
+            const ua = currentScope?.usmleAccess;
+            const hasUsmleContent = !!ua?.enabled && (
+                ua.allSubjects || (ua.subjectIds || []).length > 0 || ua.flashcards || ua.medicalImages
+            );
+            if (!hasUsmleContent) show = false;
+        }
+        if (isEditor && tab === 'uniFlashcards') {
+            const uniIds = currentScope?.universityIds || [];
+            const hasUniFc = uniIds.some((id) => !!currentScope?.uniAccess?.[id]?.flashcards);
+            show = hasUniFc;
+        }
+        if (isEditor && (tab === 'subjects' || tab === 'tests' || tab === 'questions')) {
+            const ua = currentScope?.usmleAccess;
+            const hasUsmleSubjects = !!ua?.enabled && (ua.allSubjects || (ua.subjectIds || []).length > 0);
+            const hasUniSubjects = (currentScope?.universityIds || []).some((id) => {
+                const u = currentScope?.uniAccess?.[id];
+                return u && (u.allSubjects || (u.subjectIds || []).length > 0);
+            });
+            if (!hasUsmleSubjects && !hasUniSubjects) show = false;
         }
         btn.style.display = show ? '' : 'none';
     });
@@ -212,11 +228,23 @@ function applyActorUiRestrictions() {
 function updateEditorPermSelectedCount() {
     const countEl = document.getElementById('editorPermSelectedCount');
     if (!countEl) return;
-    const usmle = !!document.getElementById('editorPermUsmle')?.checked;
-    const uniCount = document.querySelectorAll('#editorPermUniversities input[type="checkbox"]:checked').length;
+    const p = collectEditorPermissionsFromForm();
     const parts = [];
-    if (usmle) parts.push('USMLE');
-    if (uniCount) parts.push(`${uniCount} универ.`);
+    if (p.usmle?.enabled) {
+        const sub = p.usmle.allSubjects
+            ? 'все предметы'
+            : `${(p.usmle.subjectIds || []).length} предм.`;
+        const extras = [];
+        if (p.usmle.flashcards) extras.push('карточки');
+        if (p.usmle.medicalImages) extras.push('library');
+        parts.push(`USMLE (${[sub, ...extras].join(', ')})`);
+    }
+    for (const u of p.universities || []) {
+        const sub = u.allSubjects ? 'все предметы' : `${(u.subjectIds || []).length} предм.`;
+        const extras = [];
+        if (u.flashcards) extras.push('карточки');
+        parts.push(`универ. #${u.universityId} (${[sub, ...extras].join(', ')})`);
+    }
     if (!parts.length) {
         countEl.textContent = 'Ничего не выбрано — отметьте галочками';
         countEl.classList.remove('is-ready');
@@ -227,21 +255,121 @@ function updateEditorPermSelectedCount() {
 }
 
 function collectEditorPermissionsFromForm() {
-    const usmle = !!document.getElementById('editorPermUsmle')?.checked;
-    const universityIds = [...document.querySelectorAll('#editorPermUniversities input[type="checkbox"]:checked')]
-        .map((el) => parseInt(el.value, 10))
-        .filter((id) => Number.isFinite(id) && id > 0);
-    return { usmle, universityIds };
+    const usmleEnabled = !!document.getElementById('editorPermUsmle')?.checked;
+    const usmleAll = !!document.getElementById('editorPermUsmleAllSubjects')?.checked;
+    const usmleSubjectIds = usmleEnabled && !usmleAll
+        ? [...document.querySelectorAll('#editorPermUsmleSubjects input[data-subject-id]:checked')]
+            .map((el) => parseInt(el.getAttribute('data-subject-id'), 10))
+            .filter((id) => Number.isFinite(id) && id > 0)
+        : [];
+    const usmle = {
+        enabled: usmleEnabled,
+        allSubjects: usmleEnabled ? usmleAll : false,
+        subjectIds: usmleSubjectIds,
+        flashcards: usmleEnabled ? !!document.getElementById('editorPermUsmleFlashcards')?.checked : false,
+        medicalImages: usmleEnabled ? !!document.getElementById('editorPermUsmleMedical')?.checked : false
+    };
+
+    const universities = [];
+    document.querySelectorAll('#editorPermUniversities .editor-perm-uni-block').forEach((block) => {
+        const uniCb = block.querySelector('input[data-uni-id]');
+        if (!uniCb?.checked) return;
+        const universityId = parseInt(uniCb.getAttribute('data-uni-id'), 10);
+        if (!Number.isFinite(universityId) || universityId <= 0) return;
+        const allSubjects = !!block.querySelector('input[data-uni-all-subjects]')?.checked;
+        const subjectIds = !allSubjects
+            ? [...block.querySelectorAll('input[data-uni-subject-id]:checked')]
+                .map((el) => parseInt(el.getAttribute('data-uni-subject-id'), 10))
+                .filter((id) => Number.isFinite(id) && id > 0)
+            : [];
+        universities.push({
+            universityId,
+            allSubjects,
+            subjectIds,
+            flashcards: !!block.querySelector('input[data-uni-flashcards]')?.checked
+        });
+    });
+
+    return { usmle, universities };
 }
 
-async function fillEditorUniversityCheckboxes(selectedIds = []) {
+function renderSubjectCheckboxes(container, subjects, selectedIds, attrs) {
+    if (!container) return;
+    const selected = new Set((selectedIds || []).map((id) => parseInt(id, 10)));
+    if (!subjects.length) {
+        container.innerHTML = '<span style="color:var(--text-muted);font-size:0.8rem;">Предметов пока нет</span>';
+        return;
+    }
+    const idAttr = attrs.subjectAttr || 'data-subject-id';
+    container.innerHTML = subjects.map((s) => {
+        const id = parseInt(s.id, 10);
+        const checked = selected.has(id) ? 'checked' : '';
+        return `<label class="editor-perm-mini">
+            <input type="checkbox" ${idAttr}="${id}" ${checked}>
+            <span>${escapeAdminHtml(s.name)}</span>
+        </label>`;
+    }).join('');
+    container.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+        input.addEventListener('change', updateEditorPermSelectedCount);
+    });
+}
+
+async function fetchSubjectsForPerms(programType, universityId) {
+    const params = new URLSearchParams({ compact: '1' });
+    if (programType === 'usmle') params.set('programType', 'usmle');
+    else {
+        params.set('programType', 'university');
+        if (universityId) params.set('universityId', String(universityId));
+    }
+    const response = await fetch(`${ADMIN_API_URL}/subjects?${params}`, { headers: adminAuthHeaders() });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
+}
+
+function syncUsmlePermDetailsVisibility() {
+    const enabled = !!document.getElementById('editorPermUsmle')?.checked;
+    const details = document.getElementById('editorPermUsmleDetails');
+    if (details) details.hidden = !enabled;
+    const allSubjects = !!document.getElementById('editorPermUsmleAllSubjects')?.checked;
+    const box = document.getElementById('editorPermUsmleSubjects');
+    if (box) box.classList.toggle('is-disabled', allSubjects);
+    updateEditorPermSelectedCount();
+}
+
+async function loadUsmleSubjectPermOptions(selectedIds = []) {
+    const box = document.getElementById('editorPermUsmleSubjects');
+    if (!box) return;
+    box.innerHTML = '<span style="color:var(--text-muted);font-size:0.8rem;">Загрузка…</span>';
+    try {
+        const subjects = await fetchSubjectsForPerms('usmle');
+        renderSubjectCheckboxes(box, subjects, selectedIds, { subjectAttr: 'data-subject-id' });
+    } catch (_) {
+        box.innerHTML = '<span style="color:var(--danger-color);font-size:0.8rem;">Не удалось загрузить предметы</span>';
+    }
+    syncUsmlePermDetailsVisibility();
+}
+
+function syncUniBlockDetails(block) {
+    if (!block) return;
+    const enabled = !!block.querySelector('input[data-uni-id]')?.checked;
+    const details = block.querySelector('.editor-perm-details');
+    if (details) details.hidden = !enabled;
+    const allSubjects = !!block.querySelector('input[data-uni-all-subjects]')?.checked;
+    const box = block.querySelector('.editor-perm-subjects');
+    if (box) box.classList.toggle('is-disabled', allSubjects);
+    updateEditorPermSelectedCount();
+}
+
+async function fillEditorUniversityCheckboxes(selectedUniversities = []) {
     const box = document.getElementById('editorPermUniversities');
     if (!box) return;
-    const selected = new Set(
-        (selectedIds || [])
-            .map((id) => parseInt(id, 10))
-            .filter((id) => Number.isFinite(id) && id > 0)
-    );
+    const selectedMap = new Map();
+    (selectedUniversities || []).forEach((u) => {
+        const id = parseInt(u.universityId ?? u.id, 10);
+        if (Number.isFinite(id) && id > 0) selectedMap.set(id, u);
+    });
+
     try {
         const response = await fetch(`${ADMIN_API_URL}/universities?compact=1`, { headers: adminAuthHeaders() });
         if (!response.ok) throw new Error();
@@ -251,27 +379,64 @@ async function fillEditorUniversityCheckboxes(selectedIds = []) {
             updateEditorPermSelectedCount();
             return;
         }
+
         box.innerHTML = universities.map((u) => {
             const id = parseInt(u.id, 10);
-            const isChecked = selected.has(id);
+            const sel = selectedMap.get(id);
+            const isChecked = !!sel;
+            const allSubjects = sel ? sel.allSubjects !== false : true;
+            const flashcards = sel ? sel.flashcards !== false : true;
             const title = escapeAdminHtml(u.shortName || u.name);
             const sub = u.shortName && u.name ? escapeAdminHtml(u.name) : 'Контент этого университета';
             return `
-            <label class="editor-perm-card">
-                <input type="checkbox" value="${id}" ${isChecked ? 'checked' : ''}>
-                <span class="editor-perm-check" aria-hidden="true"></span>
-                <span class="editor-perm-text">
-                    <strong>${title}</strong>
-                    <small>${sub}</small>
-                </span>
-            </label>
-        `;
+            <div class="editor-perm-uni-block" data-uni-block="${id}">
+                <label class="editor-perm-card">
+                    <input type="checkbox" data-uni-id="${id}" ${isChecked ? 'checked' : ''}>
+                    <span class="editor-perm-check" aria-hidden="true"></span>
+                    <span class="editor-perm-text">
+                        <strong>${title}</strong>
+                        <small>${sub}</small>
+                    </span>
+                </label>
+                <div class="editor-perm-details" ${isChecked ? '' : 'hidden'}>
+                    <label class="editor-perm-mini">
+                        <input type="checkbox" data-uni-all-subjects ${allSubjects ? 'checked' : ''}>
+                        <span>Все предметы</span>
+                    </label>
+                    <div class="editor-perm-subjects ${allSubjects ? 'is-disabled' : ''}" data-uni-subjects="${id}">
+                        <span style="color:var(--text-muted);font-size:0.8rem;">Загрузка…</span>
+                    </div>
+                    <label class="editor-perm-mini">
+                        <input type="checkbox" data-uni-flashcards ${flashcards ? 'checked' : ''}>
+                        <span>Карточки</span>
+                    </label>
+                </div>
+            </div>`;
         }).join('');
 
-        box.querySelectorAll('input[type="checkbox"]').forEach((input) => {
-            input.checked = selected.has(parseInt(input.value, 10));
-            input.addEventListener('change', updateEditorPermSelectedCount);
-        });
+        for (const block of box.querySelectorAll('.editor-perm-uni-block')) {
+            const uniId = parseInt(block.getAttribute('data-uni-block'), 10);
+            const sel = selectedMap.get(uniId);
+            const subjectsBox = block.querySelector('[data-uni-subjects]');
+            const subjects = await fetchSubjectsForPerms('university', uniId);
+            renderSubjectCheckboxes(
+                subjectsBox,
+                subjects,
+                sel && !sel.allSubjects ? (sel.subjectIds || []) : [],
+                { subjectAttr: 'data-uni-subject-id' }
+            );
+
+            block.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+                input.addEventListener('change', () => {
+                    if (input.hasAttribute('data-uni-id') || input.hasAttribute('data-uni-all-subjects')) {
+                        syncUniBlockDetails(block);
+                    } else {
+                        updateEditorPermSelectedCount();
+                    }
+                });
+            });
+            syncUniBlockDetails(block);
+        }
         updateEditorPermSelectedCount();
     } catch (e) {
         box.innerHTML = '<span style="color:var(--danger-color);font-size:0.85rem;">Не удалось загрузить университеты</span>';
@@ -285,21 +450,82 @@ function normalizeEditorPermissionsClient(raw) {
         try { src = JSON.parse(src); } catch (_) { src = {}; }
     }
     if (!src || typeof src !== 'object') src = {};
-    return {
-        usmle: src.usmle === true || src.usmle === 1 || src.usmle === '1' || String(src.usmle).toLowerCase() === 'true',
-        universityIds: Array.isArray(src.universityIds)
-            ? src.universityIds.map((id) => parseInt(id, 10)).filter((id) => Number.isFinite(id) && id > 0)
-            : []
-    };
+
+    let usmle;
+    if (src.usmle && typeof src.usmle === 'object') {
+        usmle = {
+            enabled: src.usmle.enabled !== false,
+            allSubjects: src.usmle.allSubjects !== false,
+            subjectIds: Array.isArray(src.usmle.subjectIds) ? src.usmle.subjectIds : [],
+            flashcards: src.usmle.flashcards !== false,
+            medicalImages: src.usmle.medicalImages !== false
+        };
+        if (src.usmle.enabled === false) usmle.enabled = false;
+    } else {
+        const enabled = src.usmle === true || src.usmle === 1 || src.usmle === '1' || String(src.usmle).toLowerCase() === 'true';
+        usmle = {
+            enabled,
+            allSubjects: true,
+            subjectIds: [],
+            flashcards: enabled,
+            medicalImages: enabled
+        };
+    }
+
+    let universities = [];
+    if (Array.isArray(src.universities) && src.universities.length) {
+        universities = src.universities.map((u) => ({
+            universityId: parseInt(u.universityId ?? u.id, 10),
+            allSubjects: u.allSubjects !== false,
+            subjectIds: Array.isArray(u.subjectIds) ? u.subjectIds : [],
+            flashcards: u.flashcards !== false
+        })).filter((u) => Number.isFinite(u.universityId) && u.universityId > 0);
+    } else if (Array.isArray(src.universityIds)) {
+        universities = src.universityIds.map((id) => ({
+            universityId: parseInt(id, 10),
+            allSubjects: true,
+            subjectIds: [],
+            flashcards: true
+        })).filter((u) => Number.isFinite(u.universityId) && u.universityId > 0);
+    }
+
+    return { usmle, universities };
 }
 
 function formatEditorPermissionsLabel(permissions) {
-    const p = permissions || {};
+    const p = normalizeEditorPermissionsClient(permissions);
     const parts = [];
-    if (p.usmle) parts.push('USMLE');
-    const n = Array.isArray(p.universityIds) ? p.universityIds.length : 0;
+    if (p.usmle?.enabled) {
+        const sub = p.usmle.allSubjects ? 'все предм.' : `${(p.usmle.subjectIds || []).length} предм.`;
+        parts.push(`USMLE (${sub})`);
+    }
+    const n = (p.universities || []).length;
     if (n) parts.push(`${n} универ.`);
     return parts.length ? parts.join(' · ') : 'нет прав';
+}
+
+function bindEditorPermFormHandlers() {
+    const usmleEl = document.getElementById('editorPermUsmle');
+    if (usmleEl && usmleEl.dataset.bound !== '1') {
+        usmleEl.dataset.bound = '1';
+        usmleEl.addEventListener('change', async () => {
+            if (usmleEl.checked) await loadUsmleSubjectPermOptions([]);
+            else syncUsmlePermDetailsVisibility();
+            updateEditorPermSelectedCount();
+        });
+    }
+    const allEl = document.getElementById('editorPermUsmleAllSubjects');
+    if (allEl && allEl.dataset.bound !== '1') {
+        allEl.dataset.bound = '1';
+        allEl.addEventListener('change', syncUsmlePermDetailsVisibility);
+    }
+    ['editorPermUsmleFlashcards', 'editorPermUsmleMedical'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el && el.dataset.bound !== '1') {
+            el.dataset.bound = '1';
+            el.addEventListener('change', updateEditorPermSelectedCount);
+        }
+    });
 }
 
 function setAdminSidebarOpen(open) {
@@ -6574,15 +6800,26 @@ async function openEditorModal(isEdit = false, permissions = null) {
         : '(мин. 6 символов)';
     const perms = normalizeEditorPermissionsClient(permissions);
     document.getElementById('editorModal').style.display = 'block';
-    await fillEditorUniversityCheckboxes(perms.universityIds);
+    const modalContent = document.querySelector('#editorModal .modal-content');
+    if (modalContent) modalContent.style.maxWidth = '640px';
+    bindEditorPermFormHandlers();
+
     const usmleEl = document.getElementById('editorPermUsmle');
-    if (usmleEl) {
-        usmleEl.checked = !!perms.usmle;
-        if (usmleEl.dataset.bound !== '1') {
-            usmleEl.dataset.bound = '1';
-            usmleEl.addEventListener('change', updateEditorPermSelectedCount);
-        }
+    if (usmleEl) usmleEl.checked = !!perms.usmle?.enabled;
+    const usmleAll = document.getElementById('editorPermUsmleAllSubjects');
+    if (usmleAll) usmleAll.checked = perms.usmle?.allSubjects !== false;
+    const usmleFc = document.getElementById('editorPermUsmleFlashcards');
+    if (usmleFc) usmleFc.checked = perms.usmle?.flashcards !== false;
+    const usmleMed = document.getElementById('editorPermUsmleMedical');
+    if (usmleMed) usmleMed.checked = perms.usmle?.medicalImages !== false;
+
+    if (perms.usmle?.enabled) {
+        await loadUsmleSubjectPermOptions(perms.usmle.allSubjects ? [] : (perms.usmle.subjectIds || []));
+    } else {
+        syncUsmlePermDetailsVisibility();
     }
+
+    await fillEditorUniversityCheckboxes(perms.universities || []);
     updateEditorPermSelectedCount();
 }
 
@@ -6634,10 +6871,22 @@ async function saveEditorAccount(e) {
     const password = document.getElementById('editorPassword').value;
     const isActive = document.getElementById('editorIsActive').checked;
     const permissions = collectEditorPermissionsFromForm();
-
-    if (!permissions.usmle && !permissions.universityIds.length) {
+    const hasUsmle = !!permissions.usmle?.enabled;
+    const hasUni = Array.isArray(permissions.universities) && permissions.universities.length > 0;
+    if (!hasUsmle && !hasUni) {
         showNotification('Выберите USMLE и/или хотя бы один университет', 'error');
         return;
+    }
+    if (hasUsmle && !permissions.usmle.allSubjects && !(permissions.usmle.subjectIds || []).length
+        && !permissions.usmle.flashcards && !permissions.usmle.medicalImages) {
+        showNotification('Для USMLE отметьте предметы, карточки или Medical Library', 'error');
+        return;
+    }
+    for (const u of permissions.universities) {
+        if (!u.allSubjects && !(u.subjectIds || []).length && !u.flashcards) {
+            showNotification(`Университет #${u.universityId}: выберите предметы или карточки`, 'error');
+            return;
+        }
     }
 
     try {
