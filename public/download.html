@@ -16,10 +16,30 @@
             <div class="nav-brand">
                 <a href="/"><h1>stud.kg</h1></a>
             </div>
+            <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Меню">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
             <div class="nav-menu" id="navMenu">
                 <a href="/" class="nav-link">Главная</a>
                 <a href="/tests" class="nav-link">Тесты</a>
-                <a href="/download" class="nav-link">Приложение</a>
+                <a href="/schedule" class="nav-link">Расписание</a>
+                <a href="/usmle" class="nav-link">USMLE</a>
+                <a href="/rating" class="nav-link">Рейтинг</a>
+                <a href="/flashcards" class="nav-link">Карточки</a>
+                <a href="/favorites" class="nav-link" id="favoritesLink" style="display: none;">Избранное</a>
+                <a href="/subscriptions" class="nav-link" id="subscriptionsLink" style="display: none;">Подписки</a>
+                <a href="/profile" class="nav-link" id="profileLink" style="display: none;">Профиль</a>
+                <a href="/download" class="nav-link active">Приложение</a>
+                <div class="nav-actions">
+                    <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему">
+                        <span class="theme-icon"></span>
+                    </button>
+                    <a href="/login" class="btn btn-primary" id="loginBtn">Войти</a>
+                    <a href="/register" class="btn btn-secondary" id="registerBtn">Регистрация</a>
+                    <button class="btn btn-logout" id="logoutBtn" style="display: none;">Выход</button>
+                </div>
             </div>
         </div>
     </nav>
@@ -58,7 +78,13 @@
         </div>
     </main>
 
+    <script src="app.js"></script>
     <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof initTheme === 'function') initTheme();
+            if (typeof loadUser === 'function') loadUser();
+            if (typeof setupEventListeners === 'function') setupEventListeners();
+        });
         (async function () {
             const btn = document.getElementById('apkDownloadBtn');
             const status = document.getElementById('apkStatus');

@@ -184,15 +184,83 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     function updateThemeIcon(theme) {
         const themeToggle = document.getElementById('themeToggle');
-        if (themeToggle) {
-            const icon = themeToggle.querySelector('.theme-icon');
-            if (icon) {
-                icon.textContent = theme === 'dark' ? '☀️' : '🌙';
+        if (!themeToggle) return;
+        const moon = '<svg class="theme-svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" aria-hidden="true"><path d="M18 13.5A7 7 0 0 1 10.5 6 6.5 6.5 0 1 0 18 13.5Z"/></svg>';
+        const sun = '<svg class="theme-svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/><path d="M12 3v2.2M12 18.8V21M4.2 12H6.4M17.6 12h2.2M6.2 6.2l1.6 1.6M16.2 16.2l1.6 1.6M6.2 17.8l1.6-1.6M16.2 7.8l1.6-1.6"/></svg>';
+        const svg = theme === 'dark' ? sun : moon;
+        const icon = themeToggle.querySelector('.theme-icon');
+        if (icon) {
+            icon.innerHTML = svg;
+        } else {
+            themeToggle.innerHTML = svg;
+        }
+    }
+
+    function userDisplayName(user) {
+        return String(user?.username || user?.name || 'Студент').trim() || 'Студент';
+    }
+
+    function userInitials(name) {
+        const parts = String(name || 'S').trim().split(/\s+/).filter(Boolean);
+        if (!parts.length) return 'S';
+        if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+
+    function userSubscriptionChipLabel(user) {
+        if (!user) return '';
+        if (user.isAdminAccount) return 'Админ';
+        const end = user.subscriptionEndDate ? new Date(user.subscriptionEndDate) : null;
+        if (end && !Number.isNaN(end.getTime()) && end > new Date()) return 'Подписка активна';
+        if (user.usmleSubscriptionActive === true) return 'USMLE активен';
+        const usmleEnd = user.usmleSubscriptionEndDate ? new Date(user.usmleSubscriptionEndDate) : null;
+        if (usmleEnd && !Number.isNaN(usmleEnd.getTime()) && usmleEnd > new Date()) return 'USMLE активен';
+        return 'Нет подписки';
+    }
+
+    function updateNavUserChip() {
+        const actions = document.querySelector('.nav-actions');
+        if (!actions) return;
+
+        let chip = document.getElementById('navUserChip');
+        const profileLink = document.getElementById('profileLink');
+
+        if (!currentUser) {
+            if (chip) chip.remove();
+            if (profileLink) profileLink.classList.remove('nav-link-hidden-desktop');
+            return;
+        }
+
+        const name = userDisplayName(currentUser);
+        const sub = userSubscriptionChipLabel(currentUser);
+        const initials = userInitials(name);
+
+        if (!chip) {
+            chip = document.createElement('a');
+            chip.id = 'navUserChip';
+            chip.className = 'nav-user-chip';
+            chip.href = '/profile';
+            const themeBtn = document.getElementById('themeToggle');
+            if (themeBtn && themeBtn.parentElement === actions) {
+                actions.insertBefore(chip, themeBtn);
             } else {
-                // Если нет .theme-icon, обновляем текст кнопки
-                themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
+                actions.insertBefore(chip, actions.firstChild);
             }
         }
+
+        chip.innerHTML = `
+            <span class="nav-user-avatar" aria-hidden="true">${initials.replace(/</g, '')}</span>
+            <span class="nav-user-meta">
+                <strong class="nav-user-name"></strong>
+                <span class="nav-user-sub"></span>
+            </span>`;
+        const nameEl = chip.querySelector('.nav-user-name');
+        const subEl = chip.querySelector('.nav-user-sub');
+        if (nameEl) nameEl.textContent = name;
+        if (subEl) subEl.textContent = sub;
+        chip.classList.toggle('is-active-sub', sub.includes('актив'));
+        chip.classList.toggle('is-expired-sub', sub === 'Нет подписки');
+        if (profileLink) profileLink.classList.add('nav-link-hidden-desktop');
     }
 
     // Загрузка пользователя
@@ -265,6 +333,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             if (subscriptionsLink) subscriptionsLink.style.display = 'none';
         }
 
+        updateNavUserChip();
         ensureUserChatVisibility();
         ensureSubscriptionAlertVisibility();
     }
@@ -3414,10 +3483,31 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 if (usernameEl && user.username) usernameEl.textContent = user.username;
                 if (emailEl && user.email) emailEl.textContent = user.email;
                 const universityEl = document.getElementById('userUniversity');
+                const uniLabel = user.University
+                    ? `${user.University.shortName} — ${user.University.name}`
+                    : 'Не указан';
                 if (universityEl) {
-                    universityEl.textContent = user.University
-                        ? `${user.University.shortName} — ${user.University.name}`
-                        : 'Не указан';
+                    universityEl.textContent = uniLabel;
+                }
+
+                const heroName = document.getElementById('profileHeroName');
+                const heroAvatar = document.getElementById('profileHeroAvatar');
+                const heroLine = document.getElementById('profileHeroLine');
+                const heroSubBadge = document.getElementById('profileHeroSubBadge');
+                const heroCoinsBadge = document.getElementById('profileHeroCoinsBadge');
+                const displayName = user.username || 'Студент';
+                if (heroName) heroName.textContent = displayName;
+                if (heroAvatar) heroAvatar.textContent = userInitials(displayName);
+                if (heroLine) {
+                    heroLine.textContent = [user.email, uniLabel !== 'Не указан' ? uniLabel : null].filter(Boolean).join(' · ');
+                }
+                if (heroCoinsBadge) heroCoinsBadge.textContent = `${user.coins || 0} монет`;
+                if (heroSubBadge) {
+                    const end = user.subscriptionEndDate ? new Date(user.subscriptionEndDate) : null;
+                    const active = end && !Number.isNaN(end.getTime()) && end > new Date();
+                    heroSubBadge.textContent = active ? 'Подписка активна' : 'Нет подписки';
+                    heroSubBadge.classList.toggle('is-ok', !!active);
+                    heroSubBadge.classList.toggle('is-warn', !active);
                 }
 
                 // Направление: факультет + курс
@@ -3677,7 +3767,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                                     ${percentage >= 80 ? 'Отлично' : percentage >= 60 ? 'Хорошо' : 'Нужно улучшить'}
                                 </span>
                                 <button class="btn btn-secondary" onclick="showTestAnalysis(${result.id})" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
-                                    📊 Разбор
+                                    Разбор
                                 </button>
                             </div>
                         </div>
@@ -3688,7 +3778,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 if (recentList) {
                     recentList.innerHTML = `
                     <div style="text-align: center; padding: 3rem 2rem; background-color: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--border-light);">
-                        <div style="font-size: 4rem; margin-bottom: 1rem;">📊</div>
+                        <div style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: var(--text-muted);">Нет результатов</div>
                         <h3 style="margin-bottom: 0.5rem; color: var(--text-color);">Нет результатов прохождения тестов</h3>
                         <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Начните прохождение тестов, чтобы увидеть здесь свою статистику</p>
                         <a href="/tests" class="btn btn-primary">Начать тестирование</a>
@@ -4467,7 +4557,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                                 return `<tr>
                                     <td>${dateStr}</td>
                                     <td>${t.planLabel || 'Подписка'}${t.promoCode ? ` <small>(${t.promoCode})</small>` : ''}</td>
-                                    <td>${t.amount} сом${t.coinsUsed ? ` <small>(−${t.coinsUsed} 🪙)</small>` : ''}</td>
+                                    <td>${t.amount} сом${t.coinsUsed ? ` <small>(−${t.coinsUsed} монет)</small>` : ''}</td>
                                     <td>${statusBadge(t.status)}</td>
                                     <td>${renewBtn}</td>
                                 </tr>`;

@@ -37,14 +37,17 @@
             <div class="nav-menu" id="navMenu">
                 <a href="/" class="nav-link">Главная</a>
                 <a href="/tests" class="nav-link">Тесты</a>
+                <a href="/schedule" class="nav-link">Расписание</a>
                 <a href="/usmle" class="nav-link">USMLE</a>
                 <a href="/rating" class="nav-link">Рейтинг</a>
-                <a href="/flashcards" class="nav-link active">Карточки</a>
+                <a href="/flashcards" class="nav-link">Карточки</a>
                 <a href="/favorites" class="nav-link" id="favoritesLink" style="display: none;">Избранное</a>
+                <a href="/subscriptions" class="nav-link" id="subscriptionsLink" style="display: none;">Подписки</a>
                 <a href="/profile" class="nav-link" id="profileLink" style="display: none;">Профиль</a>
+                <a href="/download" class="nav-link">Приложение</a>
                 <div class="nav-actions">
                     <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему">
-                        <span class="theme-icon">🌙</span>
+                        <span class="theme-icon"></span>
                     </button>
                     <a href="/login" class="btn btn-primary" id="loginBtn">Войти</a>
                     <a href="/register" class="btn btn-secondary" id="registerBtn">Регистрация</a>
@@ -67,7 +70,7 @@
             <!-- О проекте -->
             <section class="about-section animate-on-scroll">
                 <div class="about-card">
-                    <div class="about-icon">🎓</div>
+                    <div class="about-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10 12 4l9 6M5 10v9h14v-9M9 19v-5h6v5"/></svg></div>
                     <h2>Что из себя представляет проект</h2>
                     <p>
                         <strong>stud.kg</strong> — это современная образовательная платформа, созданная специально для
@@ -87,7 +90,7 @@
             <!-- Цели и задачи -->
             <section class="about-section animate-on-scroll">
                 <div class="about-card">
-                    <div class="about-icon">🎯</div>
+                    <div class="about-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.25"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.25" fill="currentColor"/></svg></div>
                     <h2>Зачем и для чего создан проект</h2>
                     <p>
                         Проект создан с целью помочь студентам систематизировать и улучшить свою подготовку к экзаменам.
@@ -132,7 +135,7 @@
             <!-- Как работает сайт -->
             <section class="about-section animate-on-scroll">
                 <div class="about-card">
-                    <div class="about-icon">⚙️</div>
+                    <div class="about-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M4.9 6.4l1.6 1.6M17.5 16l1.6 1.6M3.5 12h2.2M18.3 12h2.2M4.9 17.6l1.6-1.6M17.5 8l1.6-1.6"/></svg></div>
                     <h2>Как работает сайт</h2>
                     <p>
                         Наша платформа построена на современных веб-технологиях и предоставляет простой и понятный
@@ -176,52 +179,52 @@
             <!-- Основной функционал -->
             <section class="about-section animate-on-scroll">
                 <div class="about-card">
-                    <div class="about-icon">🚀</div>
+                    <div class="about-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c4 3 6 7 6 11a6 6 0 0 1-12 0c0-4 2-8 6-11Z"/><path d="M9.5 14.5 7 19M14.5 14.5 17 19"/></svg></div>
                     <h2>Основной функционал</h2>
                     <div class="features-grid-about">
                         <div class="feature-item-about">
-                            <div class="feature-icon-about">📚</div>
+                            <div class="feature-icon-about" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4v16H5V4Zm5 0h4v16h-4V4Zm5 0h4v16h-4V4Z"/></svg></div>
                             <h3>Обширная база тестов</h3>
                             <p>Доступ к тестам по математике, физике, химии, истории, биологии и многим другим предметам
                             </p>
                         </div>
                         <div class="feature-item-about">
-                            <div class="feature-icon-about">⚙️</div>
+                            <div class="feature-icon-about" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M4.9 6.4l1.6 1.6M17.5 16l1.6 1.6M3.5 12h2.2M18.3 12h2.2M4.9 17.6l1.6-1.6M17.5 8l1.6-1.6"/></svg></div>
                             <h3>Гибкие настройки</h3>
                             <p>Настраивайте количество вопросов, включайте таймер, перемешивайте ответы для более
                                 реалистичной подготовки</p>
                         </div>
                         <div class="feature-item-about">
-                            <div class="feature-icon-about">⭐</div>
+                            <div class="feature-icon-about" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.4 4.9L20 9l-4 3.9.9 5.6L12 16.3 7.1 18.5 8 12.9 4 9l5.6-1.1L12 3Z"/></svg></div>
                             <h3>Система избранного</h3>
                             <p>Сохраняйте сложные вопросы для повторения и создавайте персональные тесты из избранного
                             </p>
                         </div>
                         <div class="feature-item-about">
-                            <div class="feature-icon-about">📊</div>
+                            <div class="feature-icon-about" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19V10M12 19V5M19 19v-7"/></svg></div>
                             <h3>Детальная статистика</h3>
                             <p>Отслеживайте прогресс, точность ответов, поддерживайте ежедневные стрики занятий</p>
                         </div>
                         <div class="feature-item-about">
-                            <div class="feature-icon-about">🎯</div>
+                            <div class="feature-icon-about" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.25"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.25" fill="currentColor"/></svg></div>
                             <h3>Анализ результатов</h3>
                             <p>Просматривайте детальные результаты каждого теста с указанием правильных и неправильных
                                 ответов</p>
                         </div>
                         <div class="feature-item-about">
-                            <div class="feature-icon-about">🌓</div>
+                            <div class="feature-icon-about" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.25"/><path d="M12 4a8.25 8.25 0 0 0 0 16V4Z" fill="currentColor"/></svg></div>
                             <h3>Удобный интерфейс</h3>
                             <p>Современный дизайн с поддержкой темной и светлой темы для комфортной работы в любое время
                             </p>
                         </div>
                         <div class="feature-item-about">
-                            <div class="feature-icon-about">📱</div>
+                            <div class="feature-icon-about" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 17h2"/></svg></div>
                             <h3>Адаптивный дизайн</h3>
                             <p>Полностью адаптивный интерфейс, работающий на всех устройствах: компьютерах, планшетах и
                                 смартфонах</p>
                         </div>
                         <div class="feature-item-about">
-                            <div class="feature-icon-about">🔒</div>
+                            <div class="feature-icon-about" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
                             <h3>Безопасность</h3>
                             <p>Ваши данные защищены современными методами шифрования и безопасного хранения</p>
                         </div>
@@ -232,7 +235,7 @@
             <!-- Социальные сети -->
             <section class="about-section animate-on-scroll">
                 <div class="about-card">
-                    <div class="about-icon">📱</div>
+                    <div class="about-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 17h2"/></svg></div>
                     <h2>Следите за нами в социальных сетях</h2>
                     <p>
                         Присоединяйтесь к нашему сообществу, чтобы быть в курсе новостей, обновлений и полезных

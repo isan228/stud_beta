@@ -44,13 +44,13 @@
 
             <div id="fcApp" class="flashcards-page flashcards-ready-decks hidden">
                 <div class="fc-tabs">
-                    <button type="button" class="fc-tab active" id="fcTabBrowse">Browse</button>
-                    <button type="button" class="fc-tab" id="fcTabStudy">Study</button>
+                    <button type="button" class="fc-tab active" id="fcTabBrowse">Каталог</button>
+                    <button type="button" class="fc-tab" id="fcTabStudy">Учёба</button>
                 </div>
 
                 <div id="fcBrowsePanel">
                     <div class="fc-search-bar">
-                        <input type="search" id="fcSearchInput" class="fc-search-input" placeholder="Search flashcards…" autocomplete="off">
+                        <input type="search" id="fcSearchInput" class="fc-search-input" placeholder="Поиск карточек…" autocomplete="off">
                     </div>
                     <div id="fcBrowseList" class="fc-browse-list">
                         <p class="flashcard-empty">Загрузка…</p>
@@ -59,17 +59,17 @@
 
                 <div id="fcStudyPanel" class="hidden">
                     <div class="fc-search-bar fc-study-search-row">
-                        <input type="search" id="fcStudySearchInput" class="fc-search-input" placeholder="Search deck names" autocomplete="off">
+                        <input type="search" id="fcStudySearchInput" class="fc-search-input" placeholder="Поиск колод" autocomplete="off">
                     </div>
                     <div class="fc-study-table-wrap">
                         <table class="fc-study-table">
                             <thead>
                                 <tr>
-                                    <th>Deck</th>
-                                    <th>New</th>
-                                    <th>Learning</th>
-                                    <th>To Review</th>
-                                    <th>Last Used</th>
+                                    <th>Колода</th>
+                                    <th>Новые</th>
+                                    <th>Изучение</th>
+                                    <th>Повтор</th>
+                                    <th>Последний раз</th>
                                     <th></th>
                                 </tr>
                             </thead>
@@ -83,15 +83,15 @@
                 <div id="fcSessionPanel" class="hidden">
                     <div class="fc-session-meta">
                         <div id="flashcardCategory" class="flashcards-category"></div>
-                        <div class="fc-session-view-label">Single Side View</div>
-                        <button type="button" class="fc-session-close" id="fcCloseSession" title="Close" aria-label="Close">×</button>
+                        <div class="fc-session-view-label">Одна сторона</div>
+                        <button type="button" class="fc-session-close" id="fcCloseSession" title="Закрыть" aria-label="Закрыть">×</button>
                     </div>
 
                     <div class="flashcards-card-shell fc-session-card">
                         <div class="flashcards-card-head">
                             <div class="flashcards-side-toggle">
-                                <button type="button" id="flashcardToggleFront" class="active">Front</button>
-                                <button type="button" id="flashcardToggleBack">Back</button>
+                                <button type="button" id="flashcardToggleFront" class="active">Лицо</button>
+                                <button type="button" id="flashcardToggleBack">Оборот</button>
                             </div>
                         </div>
                         <div id="flashcardBody" class="flashcards-card-body">
@@ -109,22 +109,22 @@
                         </div>
 
                         <div id="fcSessionFooterFront" class="fc-session-actions">
-                            <button type="button" class="fc-show-answer-btn" id="flashcardActionBtn">Show Answer</button>
+                            <button type="button" class="fc-show-answer-btn" id="flashcardActionBtn">Показать ответ</button>
                         </div>
 
                         <div id="fcSessionFooterBack" class="fc-session-actions hidden">
                             <div class="fc-rate-box" id="flashcardRateBox">
                                 <button type="button" class="fc-rate-btn fc-rate-again" id="flashcardRateAgain">
                                     <span class="fc-rate-interval">&lt;1m</span>
-                                    <span class="fc-rate-label">Again</span>
+                                    <span class="fc-rate-label">Снова</span>
                                 </button>
                                 <button type="button" class="fc-rate-btn fc-rate-good" id="flashcardRateGood">
                                     <span class="fc-rate-interval">&lt;10m</span>
-                                    <span class="fc-rate-label">Good</span>
+                                    <span class="fc-rate-label">Норм</span>
                                 </button>
                                 <button type="button" class="fc-rate-btn fc-rate-easy" id="flashcardRateEasy">
                                     <span class="fc-rate-interval">4d</span>
-                                    <span class="fc-rate-label">Easy</span>
+                                    <span class="fc-rate-label">Легко</span>
                                 </button>
                             </div>
                         </div>

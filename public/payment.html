@@ -156,13 +156,26 @@
     <nav class="navbar">
         <div class="container">
             <div class="nav-brand">
-                <a href="/">
-                    <h1>STUD.kg</h1>
-                </a>
+                <a href="/"><h1>stud.kg</h1></a>
             </div>
-            <div class="nav-menu">
+            <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Меню">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
                 <a href="/" class="nav-link">Главная</a>
-                <a href="/profile" class="nav-link">Профиль</a>
+                <a href="/tests" class="nav-link">Тесты</a>
+                <a href="/subscriptions" class="nav-link" id="subscriptionsLink">Подписки</a>
+                <a href="/profile" class="nav-link" id="profileLink">Профиль</a>
+                <div class="nav-actions">
+                    <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему">
+                        <span class="theme-icon"></span>
+                    </button>
+                    <a href="/login" class="btn btn-primary" id="loginBtn">Войти</a>
+                    <a href="/register" class="btn btn-secondary" id="registerBtn">Регистрация</a>
+                    <button class="btn btn-logout" id="logoutBtn" style="display: none;">Выход</button>
+                </div>
             </div>
         </div>
     </nav>
@@ -462,6 +475,8 @@
                 console.log('Тестовый режим: работа без авторизации');
             }
         });
+        if (typeof initTheme === 'function') initTheme();
+        if (typeof setupEventListeners === 'function') setupEventListeners();
     </script>
 </body>
 

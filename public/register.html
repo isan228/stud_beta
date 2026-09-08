@@ -23,7 +23,7 @@
 
         /* Left panel — illustration / brand */
         .auth-hero {
-            background: linear-gradient(145deg, #1d4ed8 0%, #4f46e5 60%, #7c3aed 100%);
+            background: linear-gradient(145deg, #0f172a 0%, #1e3a8a 52%, #1d4ed8 100%);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -59,12 +59,21 @@
             margin-bottom: 1.5rem;
         }
 
-        .auth-hero-emoji {
-            font-size: 5rem;
-            line-height: 1;
-            margin-bottom: 1.5rem;
-            display: block;
-            filter: drop-shadow(0 4px 16px rgba(0,0,0,.3));
+        .auth-hero-mark {
+            width: 72px;
+            height: 72px;
+            margin: 0 auto 1.5rem;
+            border-radius: 18px;
+            display: grid;
+            place-items: center;
+            background: rgba(255,255,255,.12);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,.18);
+        }
+
+        .auth-hero-mark svg {
+            width: 36px;
+            height: 36px;
         }
 
         .auth-hero h2 {
@@ -254,9 +263,10 @@
             left: .9rem;
             top: 50%;
             transform: translateY(-50%);
-            font-size: 1.1rem;
             pointer-events: none;
-            line-height: 1;
+            line-height: 0;
+            color: var(--text-muted);
+            display: inline-flex;
         }
 
         .auth-field input,
@@ -569,8 +579,10 @@
     <aside class="auth-hero" aria-hidden="true">
         <div class="auth-hero-inner">
             <a href="/" class="auth-hero-logo">stud.kg</a>
-            <span class="auth-hero-emoji">🚀</span>
-            <h2>Присоединяйся бесплатно!</h2>
+            <div class="auth-hero-mark" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5h8.5a3.5 3.5 0 0 1 0 7H9v7M9 12h6.5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            <h2>Создайте аккаунт и начните подготовку</h2>
             <p>Создай аккаунт за пару минут и начни готовиться к экзаменам уже сегодня.</p>
             <ol class="auth-hero-steps">
                 <li><span class="step-num">1</span> Заполни основные данные</li>
@@ -618,7 +630,7 @@
                     <div class="auth-field">
                         <label for="regUsername">Никнейм</label>
                         <div class="auth-field-input">
-                            <span class="field-icon">👤</span>
+                            <span class="field-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="8" r="3.25"/><path d="M5.5 19.5c1.6-3.2 4-4.75 6.5-4.75s4.9 1.55 6.5 4.75" stroke-linecap="round"/></svg></span>
                             <input
                                 type="text"
                                 id="regUsername"
@@ -636,7 +648,7 @@
                     <div class="auth-field">
                         <label for="regEmail">Email</label>
                         <div class="auth-field-input">
-                            <span class="field-icon">✉️</span>
+                            <span class="field-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg></span>
                             <input
                                 type="email"
                                 id="regEmail"
@@ -652,7 +664,7 @@
                     <div class="auth-field">
                         <label for="regUniversity">Университет</label>
                         <div class="auth-field-input">
-                            <span class="field-icon">🏛️</span>
+                            <span class="field-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M3 10 12 4l9 6M5 10v9h14v-9M9 19v-5h6v5"/></svg></span>
                             <select id="regUniversity" name="universityId" required>
                                 <option value="">Загрузка…</option>
                             </select>
@@ -673,7 +685,7 @@
                     <div class="auth-field">
                         <label for="regPassword">Пароль</label>
                         <div class="auth-field-input">
-                            <span class="field-icon">🔒</span>
+                            <span class="field-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span>
                             <input
                                 type="password"
                                 id="regPassword"
@@ -684,7 +696,7 @@
                                 placeholder="Минимум 6 символов"
                                 class="has-toggle"
                             >
-                            <button type="button" class="pass-toggle" aria-label="Показать/скрыть пароль" data-target="regPassword">👁</button>
+                            <button type="button" class="pass-toggle" aria-label="Показать/скрыть пароль" data-target="regPassword">Показать</button>
                         </div>
                         <div class="pass-strength">
                             <div class="pass-strength-bar" id="passStrengthBar"></div>
@@ -696,7 +708,7 @@
                     <div class="auth-field">
                         <label for="regConfirmPassword">Повторите пароль</label>
                         <div class="auth-field-input">
-                            <span class="field-icon">🔏</span>
+                            <span class="field-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span>
                             <input
                                 type="password"
                                 id="regConfirmPassword"
@@ -706,7 +718,7 @@
                                 placeholder="Повторите пароль"
                                 class="has-toggle"
                             >
-                            <button type="button" class="pass-toggle" aria-label="Показать/скрыть пароль" data-target="regConfirmPassword">👁</button>
+                            <button type="button" class="pass-toggle" aria-label="Показать/скрыть пароль" data-target="regConfirmPassword">Показать</button>
                         </div>
                         <span class="field-error-msg" id="err-confirm"></span>
                     </div>
@@ -728,7 +740,7 @@
                         <div class="auth-field" id="promoCodeGroup">
                             <label for="regPromoCode">Реферальный код</label>
                             <div class="auth-field-input">
-                                <span class="field-icon">🎟️</span>
+                                <span class="field-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M4 9.5 9.5 4l10.5 10.5L14 20.5 4 9.5Z"/><circle cx="9" cy="9" r="1.25" fill="currentColor"/></svg></span>
                                 <input
                                     type="text"
                                     id="regPromoCode"
@@ -737,7 +749,7 @@
                                 >
                             </div>
                             <small id="regPromoCodeHint" style="display:none; color: var(--success-color, #16a34a);">
-                                ✅ Вы уже перешли по бонусной ссылке
+                                Бонусная ссылка уже применена
                             </small>
                         </div>
                     </div>
@@ -855,7 +867,7 @@
             if (!inp) return;
             const isPass = inp.type === 'password';
             inp.type = isPass ? 'text' : 'password';
-            btn.textContent = isPass ? '🙈' : '👁';
+            btn.textContent = isPass ? 'Скрыть' : 'Показать';
         });
     });
 

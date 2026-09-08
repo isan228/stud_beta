@@ -38,15 +38,17 @@
             <div class="nav-menu" id="navMenu">
                 <a href="/" class="nav-link">Главная</a>
                 <a href="/tests" class="nav-link">Тесты</a>
+                <a href="/schedule" class="nav-link">Расписание</a>
                 <a href="/usmle" class="nav-link">USMLE</a>
                 <a href="/rating" class="nav-link">Рейтинг</a>
                 <a href="/flashcards" class="nav-link">Карточки</a>
                 <a href="/favorites" class="nav-link" id="favoritesLink">Избранное</a>
                 <a href="/subscriptions" class="nav-link" id="subscriptionsLink">Подписки</a>
-                <a href="/profile" class="nav-link" id="profileLink">Профиль</a>
+                <a href="/profile" class="nav-link active" id="profileLink">Профиль</a>
+                <a href="/download" class="nav-link">Приложение</a>
                 <div class="nav-actions">
                     <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему">
-                        <span class="theme-icon">🌙</span>
+                        <span class="theme-icon"></span>
                     </button>
                     <a href="/login" class="btn btn-primary" id="loginBtn" style="display: none;">Войти</a>
                     <a href="/register" class="btn btn-secondary" id="registerBtn"
@@ -59,15 +61,22 @@
 
     <main class="main-content">
         <div class="container">
-            <div class="page-header">
-                <h1>Личный кабинет</h1>
-                <p class="page-description">
-                    Отслеживайте свой прогресс, анализируйте результаты и поддерживайте мотивацию
-                    через систему стриков ежедневных занятий.
-                </p>
+            <div class="profile-hero">
+                <div class="profile-hero-avatar" id="profileHeroAvatar" aria-hidden="true">S</div>
+                <div class="profile-hero-meta">
+                    <h1 id="profileHeroName">Личный кабинет</h1>
+                    <p class="profile-hero-line" id="profileHeroLine">Загрузка профиля…</p>
+                    <div class="profile-hero-badges">
+                        <span class="profile-badge" id="profileHeroSubBadge">Подписка</span>
+                        <span class="profile-badge" id="profileHeroCoinsBadge">0 монет</span>
+                    </div>
+                </div>
             </div>
             <div class="account-warning">
-                <p class="account-warning-title">⚠️ Внимание</p>
+                <p class="account-warning-title">
+                    <svg class="warn-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 9v4M12 17h.01"/><path d="M10.3 4.8 2.8 18a2 2 0 0 0 1.7 3h15a2 2 0 0 0 1.7-3L13.7 4.8a2 2 0 0 0-3.4 0Z" stroke-linejoin="round"/></svg>
+                    Внимание
+                </p>
                 <p class="account-warning-text">
                     Передача доступа к аккаунту третьим лицам запрещена. При нарушении —
                     аккаунт удаляется без возможности восстановления.
@@ -81,8 +90,8 @@
                         <p><strong>Email:</strong> <span id="userEmail">-</span></p>
                         <p><strong>Университет:</strong> <span id="userUniversity">-</span></p>
                         <p><strong>Дата регистрации:</strong> <span id="userCreatedAt">-</span></p>
-                        <p><strong>Баланс монеток:</strong> <span id="userCoins"
-                                style="color: var(--primary-color); font-weight: 600;">0</span> 🪙</p>
+                        <p><strong>Баланс монет:</strong> <span id="userCoins"
+                                style="color: var(--primary-color); font-weight: 600;">0</span></p>
                         <p><strong>Подписка действует до:</strong> <span id="userSubscriptionEnd"
                                 style="color: var(--primary-color); font-weight: 600;">-</span>
                             <a href="/subscriptions" id="renewSubscriptionBtn" class="btn btn-sm btn-primary"
@@ -165,8 +174,8 @@
                                 <strong style="color: var(--text-color);">Как это работает:</strong><br>
                                 • Отправьте ссылку другу<br>
                                 • Друг регистрируется по вашей ссылке и покупает подписку<br>
-                                • Вы получаете <strong style="color: var(--success-color);">50 монеток</strong> 🪙<br>
-                                • Друг получает <strong style="color: var(--success-color);">50 монеток</strong> 🪙
+                                • Вы получаете <strong style="color: var(--success-color);">50 монет</strong><br>
+                                • Друг получает <strong style="color: var(--success-color);">50 монет</strong>
                             </p>
                         </div>
                     </div>
