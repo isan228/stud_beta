@@ -21,30 +21,19 @@
     <link rel="stylesheet" href="admin-styles.css">
 </head>
 <body>
-    <nav class="navbar">
+    <nav class="navbar admin-login-nav" id="adminTopNav">
         <div class="container">
             <div class="nav-brand">
                 <a href="/"><h1>STUD.kg</h1></a>
             </div>
-            <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Меню">
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
             <div class="nav-menu" id="navMenu">
                 <a href="/" class="nav-link">Главная</a>
                 <a href="/admin" class="nav-link active">Админ-панель</a>
-                <div class="nav-actions">
-                    <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему">
-                        <span class="theme-icon">🌙</span>
-                    </button>
-                    <button class="btn btn-logout" id="logoutBtn">Выход</button>
-                </div>
             </div>
         </div>
     </nav>
 
-    <main class="main-content">
+    <main class="main-content admin-main">
         <div id="adminLoginPage" class="admin-page">
             <div class="container">
                 <div class="auth-container">
@@ -64,82 +53,198 @@
             </div>
         </div>
 
-        <div id="adminDashboardPage" class="admin-page" style="display: none;">
-            <div class="container">
-                <div class="page-header">
-                    <h1>Админ-панель</h1>
-                    <p class="page-description">Управление платформой STUD.kg</p>
-                </div>
+        <div id="adminDashboardPage" class="admin-page admin-dashboard-page" style="display: none;">
+            <div class="admin-shell">
+                <button type="button" class="admin-sidebar-backdrop" id="adminSidebarBackdrop" aria-label="Закрыть меню"></button>
+                <aside class="admin-sidebar" id="adminSidebar" aria-label="Навигация админ-панели">
+                    <div class="admin-sidebar-brand">
+                        <a href="/" class="admin-sidebar-brand-link" title="На сайт">
+                            <span class="admin-sidebar-mark" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5h8.5a3.5 3.5 0 0 1 0 7H9v7M9 12h6.5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                            </span>
+                            <span class="admin-sidebar-brand-text">
+                                <strong>stud.kg</strong>
+                                <span>Админ-панель</span>
+                            </span>
+                        </a>
+                    </div>
 
-                <div class="admin-tabs">
-                    <button class="admin-tab active" data-tab="dashboard">Дашборд</button>
-                    <button class="admin-tab" data-tab="users">Пользователи</button>
-                    <button class="admin-tab" data-tab="devices">Новые устройства</button>
-                    <button class="admin-tab" data-tab="universities">Университеты</button>
-                    <button class="admin-tab" data-tab="subjects">Предметы</button>
-                    <button class="admin-tab" data-tab="tests">Тесты</button>
-                    <button class="admin-tab" data-tab="questions">Вопросы</button>
-                    <button class="admin-tab" data-tab="uniFlashcards">Карточки</button>
-                    <button class="admin-tab" data-tab="editors">Редакторы</button>
-                    <button class="admin-tab" data-tab="audit">Журнал правок</button>
-                    <button class="admin-tab" data-tab="news">Новости</button>
-                    <button class="admin-tab" data-tab="schedule">Расписание</button>
-                    <button class="admin-tab" data-tab="messages">Обратная связь</button>
-                    <button class="admin-tab" data-tab="chats">Чаты</button>
-                    <button class="admin-tab" data-tab="documents">Документы</button>
-                    <button class="admin-tab" data-tab="promo">Промокоды</button>
-                    <button class="admin-tab" data-tab="subscriptions">Подписки</button>
-                    <button class="admin-tab" data-tab="usmle">USMLE</button>
-                    <button class="admin-tab" data-tab="analytics">Аналитика</button>
-                </div>
+                    <div class="admin-user-card" id="adminUserCard">
+                        <span class="admin-user-avatar" id="adminUserAvatar" aria-hidden="true">A</span>
+                        <span class="admin-user-meta">
+                            <strong class="admin-user-name" id="adminUserName">Администратор</strong>
+                            <span class="admin-user-role" id="adminUserRole">Полный доступ</span>
+                        </span>
+                    </div>
+
+                    <nav class="admin-side-nav admin-tabs" aria-label="Разделы">
+                        <div class="admin-nav-group">
+                            <div class="admin-nav-group-title">Пользователи</div>
+                            <button type="button" class="admin-tab active" data-tab="dashboard" data-title="Дашборд">
+                                <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 4h7v7H4V4zm9 0h7v5h-7V4zM4 13h7v7H4v-7zm9 3h7v4h-7v-4z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg></span>
+                                <span class="admin-tab-label">Дашборд</span>
+                            </button>
+                            <button type="button" class="admin-tab" data-tab="users" data-title="Пользователи">
+                                <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.25" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M3.5 19c1.2-2.8 3.2-4.2 5.5-4.2S13.3 16.2 14.5 19M16.5 8.5a2.5 2.5 0 1 1 0 5M17.2 14.2c1.8.4 3.2 1.7 4.3 4.8" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg></span>
+                                <span class="admin-tab-label">Пользователи</span>
+                            </button>
+                            <button type="button" class="admin-tab" data-tab="devices" data-title="Новые устройства">
+                                <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M11 17h2" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg></span>
+                                <span class="admin-tab-label">Устройства</span>
+                            </button>
+                            <button type="button" class="admin-tab" data-tab="analytics" data-title="Аналитика">
+                                <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 19V10M12 19V5M19 19v-7" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg></span>
+                                <span class="admin-tab-label">Аналитика</span>
+                            </button>
+                        </div>
+
+                        <div class="admin-nav-group">
+                            <div class="admin-nav-group-title">Контент</div>
+                            <button type="button" class="admin-tab" data-tab="universities" data-title="Университеты">
+                                <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10 12 4l9 6M5 10v9h14v-9M9 19v-5h6v5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg></span>
+                                <span class="admin-tab-label">Университеты</span>
+                            </button>
+                            <button type="button" class="admin-tab" data-tab="subjects" data-title="Предметы">
+                                <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 4h4v16H5V4Zm5 0h4v16h-4V4Zm5 0h4v16h-4V4Z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg></span>
+                                <span class="admin-tab-label">Предметы</span>
+                            </button>
+                            <button type="button" class="admin-tab" data-tab="tests" data-title="Тесты">
+                                <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M9 8h6M9 12h6M9 16h4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg></span>
+                                <span class="admin-tab-label">Тесты</span>
+                            </button>
+                            <button type="button" class="admin-tab" data-tab="questions" data-title="Вопросы">
+                                <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.25" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.4 2.3c-.7.35-1.15.9-1.15 1.7V14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><circle cx="12" cy="17" r="1" fill="currentColor"/></svg></span>
+                                <span class="admin-tab-label">Вопросы</span>
+                            </button>
+                            <button type="button" class="admin-tab" data-tab="uniFlashcards" data-title="Карточки">
+                                <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="14" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M8 4h10a2 2 0 0 1 2 2v10" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg></span>
+                                <span class="admin-tab-label">Карточки</span>
+                            </button>
+                            <button type="button" class="admin-tab" data-tab="usmle" data-title="USMLE">
+                                <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M4.9 6.4l2.1 2.1M17 15.5l2.1 2.1M3 12h3M18 12h3M4.9 17.6l2.1-2.1M17 8.5l2.1-2.1" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><circle cx="12" cy="12" r="3.25" fill="none" stroke="currentColor" stroke-width="1.75"/></svg></span>
+                                <span class="admin-tab-label">USMLE</span>
+                            </button>
+                        </div>
+
+                        <div class="admin-nav-group">
+                            <div class="admin-nav-group-title">Операции</div>
+                            <button type="button" class="admin-tab" data-tab="subscriptions" data-title="Подписки">
+                                <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M3 10h18M8 14h3" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg></span>
+                                <span class="admin-tab-label">Подписки</span>
+                            </button>
+                            <button type="button" class="admin-tab" data-tab="promo" data-title="Промокоды">
+                                <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 9.5 9.5 4l10.5 10.5L14 20.5 4 9.5Z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/><circle cx="9" cy="9" r="1.25" fill="currentColor"/></svg></span>
+                                <span class="admin-tab-label">Промокоды</span>
+                            </button>
+                            <button type="button" class="admin-tab" data-tab="editors" data-title="Редакторы">
+                                <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 4.5 19.5 10M4 20l1.8-6.6L15.2 4l4.8 4.8-9.4 9.4L4 20Z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg></span>
+                                <span class="admin-tab-label">Редакторы</span>
+                            </button>
+                            <button type="button" class="admin-tab" data-tab="audit" data-title="Журнал правок">
+                                <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 4h10a1 1 0 0 1 1 1v15l-3-2-3 2-3-2-3 2V5a1 1 0 0 1 1-1Z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/><path d="M9 9h6M9 13h4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg></span>
+                                <span class="admin-tab-label">Журнал</span>
+                            </button>
+                            <button type="button" class="admin-tab" data-tab="documents" data-title="Документы">
+                                <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h8l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/><path d="M15 3v5h5M9 13h6M9 17h6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg></span>
+                                <span class="admin-tab-label">Документы</span>
+                            </button>
+                        </div>
+
+                        <div class="admin-nav-group">
+                            <div class="admin-nav-group-title">Коммуникации</div>
+                            <button type="button" class="admin-tab" data-tab="news" data-title="Новости">
+                                <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h12v14H4V5zm14 3h2v11a2 2 0 0 1-2 2H7" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/><path d="M7 9h6M7 13h6M7 17h4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg></span>
+                                <span class="admin-tab-label">Новости</span>
+                            </button>
+                            <button type="button" class="admin-tab" data-tab="schedule" data-title="Расписание">
+                                <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M8 3v4M16 3v4M4 10h16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg></span>
+                                <span class="admin-tab-label">Расписание</span>
+                            </button>
+                            <button type="button" class="admin-tab" data-tab="messages" data-title="Обратная связь">
+                                <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 6h16v10H8l-4 3V6Z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg></span>
+                                <span class="admin-tab-label">Обратная связь</span>
+                            </button>
+                            <button type="button" class="admin-tab" data-tab="chats" data-title="Чаты">
+                                <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 6h10a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H9l-4 3V8a2 2 0 0 1 2-2Z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/><path d="M15 10h3a2 2 0 0 1 2 2v5l-2.5-1.8H15a2 2 0 0 1-2-2v-.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg></span>
+                                <span class="admin-tab-label">Чаты</span>
+                            </button>
+                        </div>
+                    </nav>
+
+                    <div class="admin-sidebar-footer">
+                        <button type="button" class="admin-footer-btn" id="themeToggle" aria-label="Переключить тему">
+                            <span class="theme-icon admin-theme-svg" aria-hidden="true"></span>
+                            <span>Тема</span>
+                        </button>
+                        <a href="/" class="admin-footer-btn">На сайт</a>
+                        <button type="button" class="admin-footer-btn is-danger" id="logoutBtn">Выход</button>
+                    </div>
+                </aside>
+
+                <div class="admin-shell-main">
+                    <header class="admin-topbar">
+                        <div class="admin-topbar-left">
+                            <button type="button" class="admin-topbar-toggle" id="adminSidebarToggle" aria-label="Меню">
+                                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+                            </button>
+                            <div>
+                                <h1 id="adminPageTitle">Дашборд</h1>
+                                <p class="admin-topbar-sub">Управление платформой stud.kg</p>
+                            </div>
+                        </div>
+                        <div class="admin-topbar-actions">
+                            <button type="button" class="btn btn-secondary btn-sm" data-tab-jump="users">К пользователям</button>
+                        </div>
+                    </header>
+                    <div class="admin-shell-content">
 
                 <!-- Дашборд -->
                 <div id="dashboardTab" class="admin-tab-content active">
                     <div class="admin-stats-grid">
                         <div class="admin-stat-card">
-                            <div class="admin-stat-icon">👥</div>
+                            <div class="admin-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.25" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M3.5 19c1.2-2.8 3.2-4.2 5.5-4.2S13.3 16.2 14.5 19M16.5 8.5a2.5 2.5 0 1 1 0 5M17.2 14.2c1.8.4 3.2 1.7 4.3 4.8" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg></div>
                             <div class="admin-stat-info">
                                 <div class="admin-stat-value" id="statTotalUsers">0</div>
                                 <div class="admin-stat-label">Пользователей</div>
                             </div>
                         </div>
                         <div class="admin-stat-card">
-                            <div class="admin-stat-icon">📚</div>
+                            <div class="admin-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 4h4v16H5V4Zm5 0h4v16h-4V4Zm5 0h4v16h-4V4Z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg></div>
                             <div class="admin-stat-info">
                                 <div class="admin-stat-value" id="statTotalSubjects">0</div>
                                 <div class="admin-stat-label">Предметов</div>
                             </div>
                         </div>
                         <div class="admin-stat-card">
-                            <div class="admin-stat-icon">📝</div>
+                            <div class="admin-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M9 8h6M9 12h6M9 16h4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg></div>
                             <div class="admin-stat-info">
                                 <div class="admin-stat-value" id="statTotalTests">0</div>
                                 <div class="admin-stat-label">Тестов</div>
                             </div>
                         </div>
                         <div class="admin-stat-card">
-                            <div class="admin-stat-icon">❓</div>
+                            <div class="admin-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.25" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.4 2.3c-.7.35-1.15.9-1.15 1.7V14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><circle cx="12" cy="17" r="1" fill="currentColor"/></svg></div>
                             <div class="admin-stat-info">
                                 <div class="admin-stat-value" id="statTotalQuestions">0</div>
                                 <div class="admin-stat-label">Вопросов</div>
                             </div>
                         </div>
                         <div class="admin-stat-card">
-                            <div class="admin-stat-icon">📊</div>
+                            <div class="admin-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 19V10M12 19V5M19 19v-7" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg></div>
                             <div class="admin-stat-info">
                                 <div class="admin-stat-value" id="statTotalResults">0</div>
                                 <div class="admin-stat-label">Результатов</div>
                             </div>
                         </div>
                         <div class="admin-stat-card">
-                            <div class="admin-stat-icon">✉️</div>
+                            <div class="admin-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 6h16v10H8l-4 3V6Z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg></div>
                             <div class="admin-stat-info">
                                 <div class="admin-stat-value" id="statNewMessages">0</div>
                                 <div class="admin-stat-label">Новых сообщений</div>
                             </div>
                         </div>
                         <div class="admin-stat-card">
-                            <div class="admin-stat-icon">📱</div>
+                            <div class="admin-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M11 17h2" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg></div>
                             <div class="admin-stat-info">
                                 <div class="admin-stat-value" id="statNewDevices">0</div>
                                 <div class="admin-stat-label">Новых устройств</div>
@@ -151,35 +256,35 @@
                         <h3>Пользователи: регистрации и оплаты</h3>
                         <div class="admin-stats-grid" style="margin-bottom: 1rem;">
                             <div class="admin-stat-card">
-                                <div class="admin-stat-icon">🆓</div>
-                                <div class="admin-stat-info">
+                                <div class="admin-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.25" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M8 12h8M12 8v8" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg></div>
+                            <div class="admin-stat-info">
                                     <div class="admin-stat-value" id="statFreeRegistration">0</div>
                                     <div class="admin-stat-label">Бесплатная регистрация</div>
                                 </div>
                             </div>
                             <div class="admin-stat-card">
-                                <div class="admin-stat-icon">🏫</div>
+                                <div class="admin-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10 12 4l9 6M5 10v9h14v-9M9 19v-5h6v5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg></div>
                                 <div class="admin-stat-info">
                                     <div class="admin-stat-value" id="statUniversityPaid">0</div>
                                     <div class="admin-stat-label">Оплатили университет</div>
                                 </div>
                             </div>
                             <div class="admin-stat-card">
-                                <div class="admin-stat-icon">🩺</div>
+                                <div class="admin-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M4.9 6.4l2.1 2.1M17 15.5l2.1 2.1M3 12h3M18 12h3M4.9 17.6l2.1-2.1M17 8.5l2.1-2.1" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><circle cx="12" cy="12" r="3.25" fill="none" stroke="currentColor" stroke-width="1.75"/></svg></div>
                                 <div class="admin-stat-info">
                                     <div class="admin-stat-value" id="statUsmlePaid">0</div>
                                     <div class="admin-stat-label">Оплатили USMLE</div>
                                 </div>
                             </div>
                             <div class="admin-stat-card">
-                                <div class="admin-stat-icon">✅</div>
+                                <div class="admin-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 7 10 17l-5-5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
                                 <div class="admin-stat-info">
                                     <div class="admin-stat-value" id="statActiveUniversity">0</div>
                                     <div class="admin-stat-label">Активна подписка универа</div>
                                 </div>
                             </div>
                             <div class="admin-stat-card">
-                                <div class="admin-stat-icon">✅</div>
+                                <div class="admin-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 7 10 17l-5-5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
                                 <div class="admin-stat-info">
                                     <div class="admin-stat-value" id="statActiveUsmle">0</div>
                                     <div class="admin-stat-label">Активна подписка USMLE</div>
@@ -340,8 +445,8 @@
                                 <option value="">Все предметы</option>
                             </select>
                             <button type="button" class="btn btn-primary" id="addUniFlashcardBtn">+ Карточка</button>
-                            <button type="button" class="btn btn-secondary" id="uploadUniTxtFlashcardsBtn">📇 TXT flashcards</button>
-                            <button type="button" class="btn btn-secondary" id="addUniFlashcardWithImagesBtn">🖼 Карточка с картинами</button>
+                            <button type="button" class="btn btn-secondary" id="uploadUniTxtFlashcardsBtn">TXT flashcards</button>
+                            <button type="button" class="btn btn-secondary" id="addUniFlashcardWithImagesBtn">Карточка с картинами</button>
                         </div>
                     </div>
                     <p class="page-description" style="margin-bottom:1rem;">
@@ -977,8 +1082,10 @@
                     </div>
                 </div>
 
-            </div>
-        </div>
+                    </div><!-- .admin-shell-content -->
+                </div><!-- .admin-shell-main -->
+            </div><!-- .admin-shell -->
+        </div><!-- #adminDashboardPage -->
     </main>
 
     <!-- Модальные окна -->
@@ -1467,7 +1574,7 @@
     <div id="uniTxtFlashcardsUploadModal" class="modal" style="display: none;">
         <div class="modal-content" style="max-width: 680px;">
             <span class="modal-close">&times;</span>
-            <h2>📇 Университет: flashcards TXT</h2>
+            <h2>Университет: flashcards TXT</h2>
             <form id="uniTxtFlashcardsUploadForm" enctype="multipart/form-data">
                 <div class="form-group">
                     <label for="uniTxtFcUniversityId">Университет</label>

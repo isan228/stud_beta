@@ -122,15 +122,62 @@ function toggleTheme(e) {
 
 function updateThemeIcon(theme) {
     const themeToggle = document.getElementById('themeToggle');
-    if (themeToggle) {
-        const icon = themeToggle.querySelector('.theme-icon');
-        if (icon) {
-            icon.textContent = theme === 'dark' ? '☀️' : '🌙';
-        } else {
-            // Если нет .theme-icon, обновляем текст кнопки
-            themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
-        }
+    if (!themeToggle) return;
+    const icon = themeToggle.querySelector('.theme-icon');
+    const moon = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" aria-hidden="true"><path d="M18 13.5A7 7 0 0 1 10.5 6 6.5 6.5 0 1 0 18 13.5Z"/></svg>';
+    const sun = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/><path d="M12 3v2.2M12 18.8V21M4.2 12H6.4M17.6 12h2.2M6.2 6.2l1.6 1.6M16.2 16.2l1.6 1.6M6.2 17.8l1.6-1.6M16.2 7.8l1.6-1.6"/></svg>';
+    const svg = theme === 'dark' ? sun : moon;
+    if (icon) {
+        icon.innerHTML = svg;
+    } else {
+        themeToggle.innerHTML = svg;
     }
+}
+
+function adminInitials(name) {
+    const parts = String(name || 'A').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return 'A';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+function updateAdminUserCard() {
+    const nameEl = document.getElementById('adminUserName');
+    const roleEl = document.getElementById('adminUserRole');
+    const avatarEl = document.getElementById('adminUserAvatar');
+    const name = currentAdmin?.username || currentAdmin?.name || 'Администратор';
+    if (nameEl) nameEl.textContent = name;
+    if (roleEl) roleEl.textContent = currentAdmin?.role || 'Полный доступ';
+    if (avatarEl) avatarEl.textContent = adminInitials(name);
+}
+
+function setAdminSidebarOpen(open) {
+    const sidebar = document.getElementById('adminSidebar');
+    const backdrop = document.getElementById('adminSidebarBackdrop');
+    if (!sidebar) return;
+    sidebar.classList.toggle('open', open);
+    if (backdrop) backdrop.classList.toggle('show', open);
+    document.body.classList.toggle('admin-nav-open', open);
+}
+
+function setupAdminSidebarUi() {
+    const toggle = document.getElementById('adminSidebarToggle');
+    const backdrop = document.getElementById('adminSidebarBackdrop');
+    const sidebar = document.getElementById('adminSidebar');
+    if (toggle && sidebar) {
+        toggle.addEventListener('click', () => {
+            setAdminSidebarOpen(!sidebar.classList.contains('open'));
+        });
+    }
+    if (backdrop) {
+        backdrop.addEventListener('click', () => setAdminSidebarOpen(false));
+    }
+    document.querySelectorAll('[data-tab-jump]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const tab = btn.getAttribute('data-tab-jump');
+            if (tab) switchTab(tab);
+        });
+    });
 }
 
 // Инициализация
@@ -180,13 +227,21 @@ async function fetchAdmin() {
 }
 
 function showAdminLogin() {
+    document.body.classList.remove('admin-app-mode', 'admin-nav-open');
     document.getElementById('adminLoginPage').style.display = 'block';
     document.getElementById('adminDashboardPage').style.display = 'none';
+    const topNav = document.getElementById('adminTopNav');
+    if (topNav) topNav.style.display = '';
 }
 
 function showAdminDashboard() {
+    document.body.classList.add('admin-app-mode');
     document.getElementById('adminLoginPage').style.display = 'none';
     document.getElementById('adminDashboardPage').style.display = 'block';
+    const topNav = document.getElementById('adminTopNav');
+    if (topNav) topNav.style.display = 'none';
+    updateAdminUserCard();
+    setAdminSidebarOpen(false);
 }
 
 // Вход администратора
@@ -2857,6 +2912,7 @@ function setupAdminEventListeners() {
             switchTab(tabName);
         });
     });
+    setupAdminSidebarUi();
 
     // Кнопки добавления
     const addSubjectBtn = document.getElementById('addSubjectBtn');
@@ -4561,13 +4617,13 @@ async function loadUniFlashcardsAdmin() {
                     <div style="color:var(--text-secondary); font-size:0.88rem; margin-bottom:0.35rem;">${escapeAdminHtml(c.backText)}</div>
                     <div style="font-size:0.8rem; color:var(--text-muted);">
                         ${escapeAdminHtml(c.Topic?.name || 'без предмета')}
-                        ${c.isFree ? ' · 🆓 бесплатная' : ' · по подписке'}
-                        ${(c.frontImageUrl || c.backImageUrl) ? ' · 🖼' : ''}
+                        ${c.isFree ? ' · бесплатная' : ' · по подписке'}
+                        ${(c.frontImageUrl || c.backImageUrl) ? ' · с изображениями' : ''}
                     </div>
                 </div>
                 <div style="display:flex; gap:0.35rem; flex-shrink:0;">
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="editUniFlashcardAdmin(${c.id})">✏️</button>
-                    <button type="button" class="btn btn-danger btn-sm" onclick="deleteUniFlashcardAdmin(${c.id})">🗑</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="editUniFlashcardAdmin(${c.id})">Изменить</button>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="deleteUniFlashcardAdmin(${c.id})">Удалить</button>
                 </div>
             </div>
         `).join('');
@@ -6585,13 +6641,23 @@ function setupAuditEventListeners() {
 
 // Переключение табов
 function switchTab(tabName) {
+    const tabBtn = document.querySelector(`.admin-tab[data-tab="${tabName}"]`);
+    const tabContent = document.getElementById(`${tabName}Tab`);
+    if (!tabBtn || !tabContent) return;
+
     // Убираем активный класс со всех табов и контента
     document.querySelectorAll('.admin-tab').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.admin-tab-content').forEach(content => content.classList.remove('active'));
 
     // Активируем выбранный таб
-    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-    document.getElementById(`${tabName}Tab`).classList.add('active');
+    tabBtn.classList.add('active');
+    tabContent.classList.add('active');
+
+    const titleEl = document.getElementById('adminPageTitle');
+    if (titleEl) {
+        titleEl.textContent = tabBtn.getAttribute('data-title') || tabBtn.textContent.trim() || 'Админ-панель';
+    }
+    setAdminSidebarOpen(false);
 
     // Загружаем данные для таба
     if (tabName !== 'chats') {
