@@ -213,7 +213,11 @@ function collectEditorPermissionsFromForm() {
 async function fillEditorUniversityCheckboxes(selectedIds = []) {
     const box = document.getElementById('editorPermUniversities');
     if (!box) return;
-    const selected = new Set((selectedIds || []).map(Number));
+    const selected = new Set(
+        (selectedIds || [])
+            .map((id) => parseInt(id, 10))
+            .filter((id) => Number.isFinite(id) && id > 0)
+    );
     try {
         const response = await fetch(`${ADMIN_API_URL}/universities?compact=1`, { headers: adminAuthHeaders() });
         if (!response.ok) throw new Error();
@@ -222,15 +226,38 @@ async function fillEditorUniversityCheckboxes(selectedIds = []) {
             box.innerHTML = '<span style="color:var(--text-muted);font-size:0.85rem;">Нет университетов</span>';
             return;
         }
-        box.innerHTML = universities.map((u) => `
+        box.innerHTML = universities.map((u) => {
+            const id = parseInt(u.id, 10);
+            const isChecked = selected.has(id);
+            return `
             <label style="display:flex;align-items:center;gap:0.45rem;cursor:pointer;font-size:0.92rem;">
-                <input type="checkbox" value="${u.id}" ${selected.has(Number(u.id)) ? 'checked' : ''}>
+                <input type="checkbox" value="${id}" ${isChecked ? 'checked' : ''}>
                 <span>${escapeAdminHtml(u.shortName || u.name)}${u.shortName && u.name ? ` <span style="color:var(--text-muted)">— ${escapeAdminHtml(u.name)}</span>` : ''}</span>
             </label>
-        `).join('');
+        `;
+        }).join('');
+
+        // Надёжно выставляем состояние после вставки в DOM
+        box.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+            input.checked = selected.has(parseInt(input.value, 10));
+        });
     } catch (e) {
         box.innerHTML = '<span style="color:var(--danger-color);font-size:0.85rem;">Не удалось загрузить университеты</span>';
     }
+}
+
+function normalizeEditorPermissionsClient(raw) {
+    let src = raw;
+    if (typeof src === 'string') {
+        try { src = JSON.parse(src); } catch (_) { src = {}; }
+    }
+    if (!src || typeof src !== 'object') src = {};
+    return {
+        usmle: src.usmle === true || src.usmle === 1 || src.usmle === '1' || String(src.usmle).toLowerCase() === 'true',
+        universityIds: Array.isArray(src.universityIds)
+            ? src.universityIds.map((id) => parseInt(id, 10)).filter((id) => Number.isFinite(id) && id > 0)
+            : []
+    };
 }
 
 function formatEditorPermissionsLabel(permissions) {
@@ -6486,11 +6513,11 @@ async function openEditorModal(isEdit = false, permissions = null) {
     document.getElementById('editorPasswordHint').textContent = isEdit
         ? '(оставьте пустым, чтобы не менять)'
         : '(мин. 6 символов)';
-    const perms = permissions || { usmle: false, universityIds: [] };
+    const perms = normalizeEditorPermissionsClient(permissions);
+    document.getElementById('editorModal').style.display = 'block';
+    await fillEditorUniversityCheckboxes(perms.universityIds);
     const usmleEl = document.getElementById('editorPermUsmle');
     if (usmleEl) usmleEl.checked = !!perms.usmle;
-    await fillEditorUniversityCheckboxes(perms.universityIds || []);
-    document.getElementById('editorModal').style.display = 'block';
 }
 
 window.editEditorAccount = async function(editorId) {
@@ -6508,7 +6535,7 @@ window.editEditorAccount = async function(editorId) {
         document.getElementById('editorDisplayName').value = ed.displayName || '';
         document.getElementById('editorPassword').value = '';
         document.getElementById('editorIsActive').checked = ed.isActive !== false;
-        await openEditorModal(true, ed.permissions || { usmle: false, universityIds: [] });
+        await openEditorModal(true, ed.permissions);
     } catch (error) {
         showNotification('Ошибка загрузки редактора', 'error');
     }

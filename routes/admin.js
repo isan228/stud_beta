@@ -474,7 +474,8 @@ router.put('/editors/:id', adminAuth, requireFullAdmin, [
       if (!hasAnyPermission(permissions) && req.body.isActive !== false && editor.isActive) {
         return res.status(400).json({ error: 'Выдайте хотя бы одно право: USMLE или университет' });
       }
-      editor.permissions = permissions;
+      editor.set('permissions', permissions);
+      editor.changed('permissions', true);
     }
     await editor.save();
 

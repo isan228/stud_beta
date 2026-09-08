@@ -1,12 +1,16 @@
 const { Op } = require('sequelize');
 
 function normalizePermissions(raw) {
-  const src = raw && typeof raw === 'object' ? raw : {};
+  let src = raw;
+  if (typeof src === 'string') {
+    try { src = JSON.parse(src); } catch (_) { src = {}; }
+  }
+  if (!src || typeof src !== 'object' || Array.isArray(src)) src = {};
   const universityIds = Array.isArray(src.universityIds)
     ? [...new Set(src.universityIds.map((id) => parseInt(id, 10)).filter((id) => Number.isFinite(id) && id > 0))]
     : [];
   return {
-    usmle: Boolean(src.usmle),
+    usmle: src.usmle === true || src.usmle === 1 || src.usmle === '1' || String(src.usmle).toLowerCase() === 'true',
     universityIds
   };
 }
