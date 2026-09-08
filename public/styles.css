@@ -2192,6 +2192,80 @@ html[data-theme="dark"] .navbar {
     max-width: 1100px;
 }
 
+/* USMLE: на весь экран */
+body.usmle-test-session .main-content {
+    padding: 0.65rem 0 1.25rem;
+    min-height: calc(100vh - 64px);
+}
+
+body.usmle-test-session .navbar {
+    padding: 0.55rem 0;
+}
+
+body.usmle-test-session .test-session-container.container,
+body.usmle-test-session .test-session-container {
+    max-width: none;
+    width: 100%;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+}
+
+body.usmle-test-session .test-header {
+    margin-bottom: 0.65rem;
+}
+
+body.usmle-test-session .usmle-question-meta {
+    margin-bottom: 0.75rem;
+}
+
+body.usmle-test-session .test-session-layout.has-usmle-qnav {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 0.75rem;
+    min-height: calc(100vh - 11rem);
+}
+
+body.usmle-test-session .usmle-qnav {
+    width: 64px;
+    top: 4.25rem;
+    max-height: calc(100vh - 5rem);
+    height: calc(100vh - 5rem);
+}
+
+body.usmle-test-session .test-content {
+    margin-bottom: 1rem;
+    min-height: calc(100vh - 14rem);
+    padding: 1.5rem 1.75rem;
+}
+
+body.usmle-test-session .test-actions {
+    margin-top: 0;
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    padding: 0.65rem 0;
+    background: color-mix(in srgb, var(--bg-color) 92%, transparent);
+    backdrop-filter: blur(8px);
+}
+
+body.usmle-test-session .question-item h3,
+body.usmle-test-session .question-text,
+body.usmle-test-session .usmle-question-stem {
+    font-size: 1.05rem;
+    line-height: 1.65;
+}
+
+@media (min-width: 1400px) {
+    body.usmle-test-session .test-session-container.container,
+    body.usmle-test-session .test-session-container {
+        padding-left: 1.25rem;
+        padding-right: 1.25rem;
+    }
+
+    body.usmle-test-session .test-content {
+        padding: 1.75rem 2.25rem;
+    }
+}
+
 .test-session-layout {
     display: block;
 }
@@ -2473,6 +2547,27 @@ body.dark-theme .usmle-edu-objective-label {
 }
 
 @media (max-width: 768px) {
+    body.usmle-test-session .test-session-container.container,
+    body.usmle-test-session .test-session-container {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+
+    body.usmle-test-session .test-session-layout.has-usmle-qnav {
+        min-height: 0;
+    }
+
+    body.usmle-test-session .usmle-qnav {
+        width: 100%;
+        height: auto;
+        max-height: none;
+    }
+
+    body.usmle-test-session .test-content {
+        min-height: 0;
+        padding: 1rem;
+    }
+
     .test-session-layout.has-usmle-qnav {
         grid-template-columns: 1fr;
         gap: 0.75rem;
