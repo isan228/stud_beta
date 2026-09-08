@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const adminAuth = require('../middleware/adminAuth');
+const { requireFullAdmin } = adminAuth;
 const { Setting } = require('../models');
 
 const DOC_DIR = path.join(__dirname, '../public/documents');
@@ -40,7 +41,7 @@ const upload = multer({
   }
 });
 
-router.post('/upload-document', adminAuth, upload.fields([
+router.post('/upload-document', adminAuth, requireFullAdmin, upload.fields([
   { name: 'documentOffer', maxCount: 1 },
   { name: 'documentPrivacy', maxCount: 1 }
 ]), async (req, res) => {

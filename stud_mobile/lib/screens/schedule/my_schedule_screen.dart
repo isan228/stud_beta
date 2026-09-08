@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/schedule.dart';
+import '../../services/schedule_notification_service.dart';
 import '../../services/schedule_service.dart';
 import '../profile/my_schedule_card.dart';
 
@@ -17,6 +18,8 @@ class _MyScheduleScreenState extends ConsumerState<MyScheduleScreen> {
   String? _weekStart;
   bool _loading = true;
   String? _error;
+  bool _remindersEnabled = true;
+  bool _savingReminders = false;
 
   @override
   void initState() {
@@ -38,19 +41,60 @@ class _MyScheduleScreenState extends ConsumerState<MyScheduleScreen> {
       _error = null;
     });
     try {
-      final schedule = await ref.read(scheduleServiceProvider).getMyWeek(weekStart: _weekStart);
+      final svc = ref.read(scheduleServiceProvider);
+      final schedule = await svc.getMyWeek(weekStart: _weekStart);
+      SchedulePrefs? prefs;
+      try {
+        prefs = await svc.getMyPrefs();
+      } catch (_) {}
       if (!mounted) return;
       setState(() {
         _schedule = schedule;
         _weekStart = schedule.weekStart;
+        if (prefs != null) _remindersEnabled = prefs.remindersEnabled;
         _loading = false;
       });
+      await _syncLocalNotifications(schedule);
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _error = e.toString();
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _syncLocalNotifications(MyWeekSchedule schedule) async {
+    final notifications = ScheduleNotificationService.instance;
+    await notifications.init();
+    if (_remindersEnabled) {
+      await notifications.requestPermission();
+      await notifications.scheduleDailyTomorrowReminder(week: schedule);
+    } else {
+      await notifications.cancelScheduleReminders();
+    }
+  }
+
+  Future<void> _toggleReminders(bool value) async {
+    setState(() {
+      _remindersEnabled = value;
+      _savingReminders = true;
+    });
+    try {
+      await ref.read(scheduleServiceProvider).saveMyPrefs(remindersEnabled: value);
+      if (_schedule != null) await _syncLocalNotifications(_schedule!);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(value ? 'Уведомления о парах включены' : 'Уведомления выключены')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _remindersEnabled = !value);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось сохранить: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _savingReminders = false);
     }
   }
 
@@ -72,6 +116,16 @@ class _MyScheduleScreenState extends ConsumerState<MyScheduleScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            Card(
+              child: SwitchListTile(
+                secondary: const Icon(Icons.notifications_active_outlined),
+                title: const Text('Уведомления о парах'),
+                subtitle: const Text('Напоминание в 17:00 о занятиях на завтра'),
+                value: _remindersEnabled,
+                onChanged: _savingReminders ? null : _toggleReminders,
+              ),
+            ),
+            const SizedBox(height: 12),
             Row(
               children: [
                 IconButton(onPressed: () => _shiftWeek(-7), icon: const Icon(Icons.chevron_left)),

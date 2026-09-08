@@ -167,6 +167,7 @@ function applyActorUiRestrictions() {
     document.body.classList.toggle('admin-is-editor', isEditor);
 
     const fullAdminOnlyTabs = new Set([
+        'dashboard', 'devices', 'analytics', 'audit', 'documents', 'schedule',
         'users', 'subscriptions', 'promo', 'editors', 'news', 'messages', 'chats'
     ]);
     document.querySelectorAll('.admin-tab[data-tab]').forEach((btn) => {
@@ -192,11 +193,11 @@ function applyActorUiRestrictions() {
     const addUniversityBtn = document.getElementById('addUniversityBtn');
     if (addUniversityBtn) addUniversityBtn.style.display = isEditor ? 'none' : '';
 
-    // Если активный таб скрыт — перейти на dashboard / subjects
+    // Если активный таб скрыт — перейти на доступный раздел (для редактора — предметы)
     const activeTabBtn = document.querySelector('.admin-tab.active');
     if (activeTabBtn && activeTabBtn.style.display === 'none') {
         const fallback = document.querySelector('.admin-tab[data-tab="subjects"]:not([style*="display: none"])')
-            || document.querySelector('.admin-tab[data-tab="dashboard"]')
+            || document.querySelector('.admin-tab[data-tab="tests"]:not([style*="display: none"])')
             || document.querySelector('.admin-tab[data-tab]:not([style*="display: none"])');
         if (fallback) switchTab(fallback.getAttribute('data-tab'));
     }
@@ -349,6 +350,17 @@ function checkAdminAuth() {
     }
 }
 
+function openDefaultAdminTab() {
+    if (currentActorType === 'editor') {
+        const fallback = document.querySelector('.admin-tab[data-tab="subjects"]:not([style*="display: none"])')
+            || document.querySelector('.admin-tab[data-tab="tests"]:not([style*="display: none"])')
+            || document.querySelector('.admin-tab[data-tab]:not([style*="display: none"])');
+        if (fallback) switchTab(fallback.getAttribute('data-tab'));
+        return;
+    }
+    switchTab('dashboard');
+}
+
 async function fetchAdmin() {
     try {
         const response = await fetch(`${ADMIN_API_URL}/me`, {
@@ -365,7 +377,7 @@ async function fetchAdmin() {
                 : { full: false, usmle: !!data.admin?.permissions?.usmle, universityIds: data.admin?.permissions?.universityIds || [] });
             showAdminDashboard();
             applyActorUiRestrictions();
-            loadDashboard();
+            openDefaultAdminTab();
         } else {
             showAdminLogin();
         }
@@ -446,7 +458,7 @@ async function handleAdminLogin(e) {
             
             showAdminDashboard();
             applyActorUiRestrictions();
-            loadDashboard();
+            openDefaultAdminTab();
         } else {
             const errorMsg = result.error || result.message || 'Ошибка входа';
             console.error('Ошибка входа:', errorMsg);

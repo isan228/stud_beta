@@ -1,15 +1,59 @@
 <!DOCTYPE html>
 <html lang="ru">
-
 <head>
     <meta charset="UTF-8">
     <link rel="icon" type="image/png" sizes="48x48" href="/img/icon-48.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/img/icon-192.png">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#2563eb">
     <title>Скачать приложение — stud.kg</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        .mobile-hero {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 2.5rem 1.25rem 3rem;
+        }
+        .mobile-hero h1 {
+            font-size: clamp(1.6rem, 4vw, 2.2rem);
+            margin: 0 0 0.75rem;
+        }
+        .mobile-apk-card {
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            border: 1px solid var(--border-light);
+            background: var(--card-bg);
+            box-shadow: var(--shadow);
+        }
+        .mobile-apk-card h2 { margin: 0 0 0.5rem; }
+        .mobile-features {
+            display: grid;
+            gap: 0.65rem;
+            margin: 1.25rem 0 0;
+            padding: 0;
+            list-style: none;
+        }
+        .mobile-features li {
+            display: flex;
+            gap: 0.55rem;
+            align-items: flex-start;
+            color: var(--text-secondary);
+            line-height: 1.45;
+        }
+        .mobile-features li::before {
+            content: '✓';
+            color: var(--primary-color);
+            font-weight: 700;
+        }
+        #apkDownloadBtn {
+            min-height: 52px;
+            font-size: 1.05rem;
+            width: 100%;
+            justify-content: center;
+        }
+    </style>
 </head>
-
 <body>
     <nav class="navbar">
         <div class="container">
@@ -17,20 +61,14 @@
                 <a href="/"><h1>stud.kg</h1></a>
             </div>
             <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Меню">
-                <span></span>
-                <span></span>
-                <span></span>
+                <span></span><span></span><span></span>
             </button>
             <div class="nav-menu" id="navMenu">
                 <a href="/" class="nav-link">Главная</a>
                 <a href="/tests" class="nav-link">Тесты</a>
                 <a href="/schedule" class="nav-link">Расписание</a>
                 <a href="/usmle" class="nav-link">USMLE</a>
-                <a href="/rating" class="nav-link">Рейтинг</a>
-                <a href="/flashcards" class="nav-link">Карточки</a>
-                <a href="/favorites" class="nav-link" id="favoritesLink" style="display: none;">Избранное</a>
                 <a href="/subscriptions" class="nav-link" id="subscriptionsLink" style="display: none;">Подписки</a>
-                <a href="/profile" class="nav-link" id="profileLink" style="display: none;">Профиль</a>
                 <a href="/mobile" class="nav-link active">Приложение</a>
                 <div class="nav-actions">
                     <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему">
@@ -45,34 +83,41 @@
     </nav>
 
     <main class="main-content">
-        <div class="container" style="max-width: 640px; padding: 3rem 1.25rem;">
-            <h1 class="section-title" style="text-align: left;">Мобильное приложение</h1>
-            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
-                Установите stud.kg на Android: тесты, USMLE, расписание, рейтинг и подписки — как на сайте.
+        <div class="mobile-hero">
+            <h1>Мобильное приложение stud.kg</h1>
+            <p style="color: var(--text-secondary); margin: 0 0 0.5rem;">
+                Тесты, USMLE, расписание КГМА, рейтинг и подписки — на Android.
             </p>
-            <p id="apkVersion" style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;"></p>
+            <p id="apkVersion" style="color: var(--text-muted); font-size: 0.9rem; margin: 0 0 1rem;"></p>
 
-            <div class="card" style="padding: 1.5rem; margin-bottom: 1.5rem;" id="apkCard">
-                <h2 style="margin-bottom: 0.5rem;">Android (APK)</h2>
+            <div class="mobile-apk-card" id="apkCard">
+                <h2>Скачать APK</h2>
                 <p id="apkStatus" style="color: var(--text-muted); margin-bottom: 1rem;">Проверяем файл…</p>
                 <a id="apkDownloadBtn" class="btn btn-large btn-primary" href="/downloads/stud.kg.apk" download style="display: none;">
-                    Скачать APK
+                    Скачать APK для Android
                 </a>
-                <p id="apkMissing" style="display: none; color: var(--warning-color);">
+                <p id="apkMissing" style="display: none; color: var(--warning-color); margin: 0;">
                     APK ещё не загружен на сервер. Скоро появится здесь.
                 </p>
+                <ul class="mobile-features">
+                    <li>Виджет расписания на главном экране приложения</li>
+                    <li>Уведомления о парах на завтра</li>
+                    <li>Тесты университета и USMLE</li>
+                    <li>Подписки и профиль</li>
+                </ul>
                 <ol style="margin-top: 1.25rem; color: var(--text-secondary); line-height: 1.7; padding-left: 1.25rem;">
                     <li>Откройте эту страницу на телефоне Android</li>
                     <li>Нажмите «Скачать APK»</li>
-                    <li>Разрешите установку из этого источника (Настройки → безопасность)</li>
+                    <li>Разрешите установку из этого источника</li>
                     <li>Установите и откройте stud.kg</li>
                 </ol>
             </div>
 
             <p style="color: var(--text-muted); font-size: 0.9rem;">
-                iPhone: пока только через сайт в Safari. Версия для App Store — позже.
+                iPhone: пока через сайт в Safari. App Store — позже.
             </p>
-            <p style="margin-top: 1rem;">
+            <p style="margin-top: 1rem; display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                <a href="/subscriptions" class="btn btn-secondary">Подписки</a>
                 <a href="/" class="btn btn-secondary">На главную</a>
             </p>
         </div>
@@ -96,7 +141,7 @@
                     const mb = size > 0 ? ` (${(size / (1024 * 1024)).toFixed(1)} МБ)` : '';
                     status.textContent = 'Готово к установке' + mb;
                     const ver = document.getElementById('apkVersion');
-                    if (ver) ver.textContent = 'Версия 1.1.0 — расписание, группа в профиле, уведомления о парах';
+                    if (ver) ver.textContent = 'Версия 1.2.0 — расписание, уведомления, USMLE';
                     btn.style.display = 'inline-flex';
                 } else {
                     status.style.display = 'none';
@@ -109,5 +154,4 @@
         })();
     </script>
 </body>
-
 </html>

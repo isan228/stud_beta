@@ -227,6 +227,35 @@ router.put('/my-prefs', auth, async (req, res) => {
       user.universityId = kgmaUni.id;
     }
 
+    const remindersOnly =
+      Object.prototype.hasOwnProperty.call(req.body, 'remindersEnabled') &&
+      !req.body.kgmaFacultyId &&
+      !req.body.course &&
+      !req.body.kgmaGroupId;
+
+    if (remindersOnly) {
+      if (!user.kgmaGroupId) {
+        return res.status(400).json({ error: 'Сначала выберите группу в расписании' });
+      }
+      const remindersEnabled =
+        req.body.remindersEnabled !== false && req.body.remindersEnabled !== 'false';
+      user.scheduleRemindersEnabled = remindersEnabled;
+      await user.save();
+      return res.json({
+        ok: true,
+        message: remindersEnabled
+          ? 'Напоминания включены. Каждый день около 17:00 придёт уведомление о завтрашних парах.'
+          : 'Напоминания выключены.',
+        prefs: {
+          facultyId: user.facultyId,
+          course: user.course,
+          kgmaGroupId: user.kgmaGroupId,
+          groupName: user.groupName,
+          remindersEnabled: user.scheduleRemindersEnabled
+        }
+      });
+    }
+
     const kgmaFacultyId = String(req.body.kgmaFacultyId || '').trim();
     const course = parseInt(req.body.course, 10);
     const kgmaGroupId = String(req.body.kgmaGroupId || '').trim();

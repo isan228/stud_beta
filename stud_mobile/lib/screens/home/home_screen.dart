@@ -8,6 +8,7 @@ import '../../models/stats.dart';
 import '../../models/test.dart';
 import '../../services/stats_service.dart';
 import '../../services/tests_service.dart';
+import 'home_schedule_widget.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -66,6 +67,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           _HeroBanner(onStart: () => context.go('/tests')),
+          const SizedBox(height: 16),
+          const HomeScheduleWidget(),
           const SizedBox(height: 20),
           if (_platformStats != null) _StatsRow(stats: _platformStats!),
           const SizedBox(height: 24),

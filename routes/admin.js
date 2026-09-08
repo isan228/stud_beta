@@ -502,7 +502,7 @@ router.delete('/editors/:id', adminAuth, requireFullAdmin, async (req, res) => {
 });
 
 // Журнал правок редакторов и админов
-router.get('/audit-logs', adminAuth, async (req, res) => {
+router.get('/audit-logs', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 30, 1), 100);
@@ -688,7 +688,7 @@ function resolveAnalyticsRange(query) {
 }
 
 // Аналитика: регистрации, оплаты, продления за период
-router.get('/analytics', adminAuth, async (req, res) => {
+router.get('/analytics', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const range = resolveAnalyticsRange(req.query);
     if (range.error) {
@@ -861,7 +861,7 @@ router.get('/analytics', adminAuth, async (req, res) => {
 });
 
 // Статистика для админки
-router.get('/dashboard/stats', adminAuth, async (req, res) => {
+router.get('/dashboard/stats', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const now = new Date();
     const [
@@ -3670,7 +3670,7 @@ function buildScheduleWhere(query) {
   return where;
 }
 
-router.get('/schedule/kgma/meta', adminAuth, async (req, res) => {
+router.get('/schedule/kgma/meta', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const meta = await fetchKgmaMeta();
     const facultyId = req.query.facultyId;
@@ -3689,7 +3689,7 @@ router.get('/schedule/kgma/meta', adminAuth, async (req, res) => {
   }
 });
 
-router.get('/schedule/kgma/week', adminAuth, async (req, res) => {
+router.get('/schedule/kgma/week', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const kgmaGroupId = String(req.query.kgmaGroupId || '').trim();
     if (!kgmaGroupId) {
@@ -3704,7 +3704,7 @@ router.get('/schedule/kgma/week', adminAuth, async (req, res) => {
   }
 });
 
-router.post('/schedule/kgma/import', adminAuth, async (req, res) => {
+router.post('/schedule/kgma/import', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const {
       kgmaFacultyId,
@@ -3770,7 +3770,7 @@ router.post('/schedule/kgma/import', adminAuth, async (req, res) => {
   }
 });
 
-router.get('/schedule/kgma/sync-status', adminAuth, async (req, res) => {
+router.get('/schedule/kgma/sync-status', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const lastSyncDate = await getLastSyncDate();
     const lastResult = await getLastSyncResult();
@@ -3787,7 +3787,7 @@ router.get('/schedule/kgma/sync-status', adminAuth, async (req, res) => {
   }
 });
 
-router.post('/schedule/kgma/sync-all', adminAuth, async (req, res) => {
+router.post('/schedule/kgma/sync-all', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const force = req.body?.force === true;
     setImmediate(async () => {
@@ -3807,7 +3807,7 @@ router.post('/schedule/kgma/sync-all', adminAuth, async (req, res) => {
   }
 });
 
-router.get('/schedule/groups', adminAuth, async (req, res) => {
+router.get('/schedule/groups', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const query = { ...req.query };
     delete query.groupName;
@@ -3826,7 +3826,7 @@ router.get('/schedule/groups', adminAuth, async (req, res) => {
   }
 });
 
-router.get('/schedule', adminAuth, async (req, res) => {
+router.get('/schedule', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const entries = await ScheduleEntry.findAll({
       where: buildScheduleWhere(req.query),
@@ -3845,7 +3845,7 @@ router.get('/schedule', adminAuth, async (req, res) => {
   }
 });
 
-router.get('/schedule/:id', adminAuth, async (req, res) => {
+router.get('/schedule/:id', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const entry = await ScheduleEntry.findByPk(req.params.id, { include: scheduleInclude() });
     if (!entry) {
@@ -3858,7 +3858,7 @@ router.get('/schedule/:id', adminAuth, async (req, res) => {
   }
 });
 
-router.post('/schedule', adminAuth, [
+router.post('/schedule', adminAuth, requireFullAdmin, [
   body('universityId').isInt({ min: 1 }).withMessage('Укажите университет'),
   body('facultyId').isInt({ min: 1 }).withMessage('Укажите факультет'),
   body('course').isInt({ min: 1, max: 6 }).withMessage('Курс должен быть от 1 до 6'),
@@ -3923,7 +3923,7 @@ router.post('/schedule', adminAuth, [
   }
 });
 
-router.put('/schedule/:id', adminAuth, [
+router.put('/schedule/:id', adminAuth, requireFullAdmin, [
   body('course').optional().isInt({ min: 1, max: 6 }),
   body('dayOfWeek').optional().isInt({ min: 1, max: 6 }),
   body('subjectName').optional().trim().notEmpty(),
@@ -4013,7 +4013,7 @@ router.put('/schedule/:id', adminAuth, [
   }
 });
 
-router.delete('/schedule/:id', adminAuth, async (req, res) => {
+router.delete('/schedule/:id', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const entry = await ScheduleEntry.findByPk(req.params.id);
     if (!entry) {
@@ -4216,7 +4216,7 @@ router.get('/dashboard/contact-stats', adminAuth, requireFullAdmin, async (req, 
 const DOC_KEYS = { publicOfferUrl: 'publicOfferUrl', privacyPolicyUrl: 'privacyPolicyUrl' };
 
 // Получить ссылки на документы (оферта, политика) для админки
-router.get('/settings/docs', adminAuth, async (req, res) => {
+router.get('/settings/docs', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const rows = await Setting.findAll({ where: { key: Object.values(DOC_KEYS) } });
     const map = {};
@@ -4232,7 +4232,7 @@ router.get('/settings/docs', adminAuth, async (req, res) => {
 });
 
 // Сохранить ссылки на документы
-router.put('/settings/docs', adminAuth, [
+router.put('/settings/docs', adminAuth, requireFullAdmin, [
   body('publicOfferUrl').optional({ values: 'null' }).isString().trim(),
   body('privacyPolicyUrl').optional({ values: 'null' }).isString().trim()
 ], async (req, res) => {

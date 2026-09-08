@@ -154,11 +154,12 @@ const pages = {
   '/usmle-flashcards': 'usmle-flashcards.html',
   '/flashcards': 'flashcards.html',
   '/schedule': 'schedule.html',
-  '/download': 'download.html'
+  '/mobile': 'mobile.html'
 };
 
 // Старый URL новостей → программа USMLE
 app.get('/news', (req, res) => res.redirect(301, '/usmle'));
+app.get('/download', (req, res) => res.redirect(301, '/mobile'));
 
 // Обработка маршрутов страниц
 Object.keys(pages).forEach(route => {
