@@ -8,49 +8,14 @@ const {
   QuestionTag
 } = require('../models');
 const { parseFlashcardsFromText } = require('./parseFlashcardsTxt');
-const { normalizeTagName, slugifyTag } = require('./usmleTagNormalize');
+const { normalizeTagName, ensureCanonicalTag } = require('./usmleTagNormalize');
 
 const SAMPLE_PATH = path.join(__dirname, '../data/sample-usmle-flashcards.txt');
 
 async function findOrCreateTagByName(rawName) {
   const name = normalizeTagName(String(rawName || '').trim());
   if (!name) return null;
-
-  const existing = await QuestionTag.findOne({
-    where: {
-      [Op.or]: [
-        { name: { [Op.iLike]: name } },
-        { slug: slugifyTag(name) }
-      ]
-    }
-  });
-  if (existing) {
-    if (!existing.isActive) {
-      existing.isActive = true;
-      await existing.save();
-    }
-    return existing;
-  }
-
-  try {
-    return await QuestionTag.create({
-      name,
-      slug: slugifyTag(name),
-      isActive: true
-    });
-  } catch (error) {
-    if (error.name === 'SequelizeUniqueConstraintError') {
-      return QuestionTag.findOne({
-        where: {
-          [Op.or]: [
-            { name: { [Op.iLike]: name } },
-            { slug: slugifyTag(name) }
-          ]
-        }
-      });
-    }
-    throw error;
-  }
+  return ensureCanonicalTag(name);
 }
 
 async function syncFlashcardTag(flashcardId, tag) {

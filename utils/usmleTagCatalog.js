@@ -1,4 +1,4 @@
-/** Канонические Subject / System теги USMLE */
+/** Канонические Subject / System теги USMLE — фиксированный список, не редактируется. */
 
 const USMLE_SUBJECTS = [
   'Anatomy',
@@ -42,7 +42,11 @@ const USMLE_SYSTEMS = [
   'Pulmonary & Critical Care',
   'Renal, Urinary Systems & Electrolytes',
   'Rheumatology/Orthopedics & Sports',
-  'Social Sciences (Ethics/Legal/Professional)',
+  'Social Sciences (Ethics/Legal/Professional)'
+];
+
+/** Только для flashcards (не Subject/System в конструкторе вопросов) */
+const USMLE_FLASHCARD_EXTRA_TAGS = [
   'Electrocardiogram (ECG) Images'
 ];
 
@@ -51,6 +55,9 @@ const USMLE_SYSTEMS = [
  * Короткие Subject (Biochemistry, Genetics…) НЕ сливаем с "(General Principles)".
  */
 const TAG_ALIASES = {
+  'behavioral science': 'Behavioral Science',
+  behavioral: 'Behavioral Science',
+
   cardiology: 'Cardiovascular System',
   cardiovascular: 'Cardiovascular System',
   'cv system': 'Cardiovascular System',
@@ -123,8 +130,16 @@ const TAG_ALIASES = {
   'pharmacology general principles': 'Pharmacology (General Principles)'
 };
 
+const ALL_FIXED_USMLE_TAGS = [
+  ...USMLE_SUBJECTS,
+  ...USMLE_SYSTEMS,
+  ...USMLE_FLASHCARD_EXTRA_TAGS
+];
+
 module.exports = {
   USMLE_SUBJECTS,
   USMLE_SYSTEMS,
+  USMLE_FLASHCARD_EXTRA_TAGS,
+  ALL_FIXED_USMLE_TAGS,
   TAG_ALIASES
 };

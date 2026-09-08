@@ -2,12 +2,10 @@
  * Темы flashcards USMLE (Subject + System + спец. категории).
  * Имена нормализуются через resolveFlashcardTopic().
  */
-const { USMLE_SUBJECTS, USMLE_SYSTEMS } = require('./usmleTagCatalog');
+const { USMLE_SUBJECTS, USMLE_SYSTEMS, USMLE_FLASHCARD_EXTRA_TAGS } = require('./usmleTagCatalog');
 const { normalizeTagName } = require('./usmleTagNormalize');
 
-const USMLE_FLASHCARD_EXTRA_TOPICS = [
-  'Electrocardiogram (ECG) Images'
-];
+const USMLE_FLASHCARD_EXTRA_TOPICS = USMLE_FLASHCARD_EXTRA_TAGS;
 
 const FLASHCARD_TOPIC_ALIASES = {
   'renal, urinary systems, & electrolytes': 'Renal, Urinary Systems & Electrolytes',
@@ -110,11 +108,9 @@ function resolveFlashcardTopic(rawName) {
   if (FLASHCARD_TOPIC_ALIASES[keyNoParen]) return FLASHCARD_TOPIC_ALIASES[keyNoParen];
 
   const normalized = normalizeTagName(trimmed);
-  if (CANONICAL_BY_LOWER.has(normalized.toLowerCase())) {
-    return CANONICAL_BY_LOWER.get(normalized.toLowerCase());
-  }
+  if (normalized) return normalized;
 
-  return normalized;
+  return '';
 }
 
 module.exports = {

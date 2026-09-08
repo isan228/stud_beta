@@ -1,18 +1,23 @@
 const { QuestionTag } = require('../models');
-const { USMLE_SUBJECTS, USMLE_SYSTEMS } = require('./usmleTagCatalog');
-const { slugifyTag, mergeMatchingUsmleTags } = require('./usmleTagNormalize');
+const {
+  USMLE_SUBJECTS,
+  USMLE_SYSTEMS,
+  USMLE_FLASHCARD_EXTRA_TAGS,
+  ALL_FIXED_USMLE_TAGS
+} = require('./usmleTagCatalog');
+const { slugifyTag, mergeMatchingUsmleTags, ensureCanonicalTag } = require('./usmleTagNormalize');
 
 async function ensureUsmleTagsSeeded() {
-  const allTagNames = [...USMLE_SUBJECTS, ...USMLE_SYSTEMS];
   let created = 0;
 
-  for (const name of allTagNames) {
+  for (const name of ALL_FIXED_USMLE_TAGS) {
     const slug = slugifyTag(name);
     const [, wasCreated] = await QuestionTag.findOrCreate({
       where: { slug },
       defaults: { name, slug, isActive: true }
     });
     if (wasCreated) created++;
+    else await ensureCanonicalTag(name);
   }
 
   if (created > 0) {
@@ -26,4 +31,9 @@ async function ensureUsmleTagsSeeded() {
   }
 }
 
-module.exports = { ensureUsmleTagsSeeded, USMLE_SUBJECTS, USMLE_SYSTEMS };
+module.exports = {
+  ensureUsmleTagsSeeded,
+  USMLE_SUBJECTS,
+  USMLE_SYSTEMS,
+  USMLE_FLASHCARD_EXTRA_TAGS
+};

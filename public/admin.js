@@ -3512,10 +3512,6 @@ function setupAdminEventListeners() {
     if (saveUsmlePlansBtn) {
         saveUsmlePlansBtn.addEventListener('click', saveUsmlePlansAdmin);
     }
-    const addQuestionTagBtn = document.getElementById('addQuestionTagBtn');
-    if (addQuestionTagBtn) {
-        addQuestionTagBtn.addEventListener('click', createQuestionTagAdmin);
-    }
     const mergeQuestionTagsBtn = document.getElementById('mergeQuestionTagsBtn');
     if (mergeQuestionTagsBtn) {
         mergeQuestionTagsBtn.addEventListener('click', mergeQuestionTagsAdmin);
@@ -4320,67 +4316,53 @@ async function saveUsmlePlansAdmin() {
 async function loadAdminQuestionTags() {
     const list = document.getElementById('adminQuestionTagsList');
     if (!list) return;
+    const SUBJECTS = [
+        'Anatomy', 'Behavioral Science', 'Histology', 'Physiology', 'Pharmacology',
+        'Embryology', 'Genetics', 'Biostatistics', 'Immunology', 'Microbiology',
+        'Pathology', 'Pathophysiology', 'Biochemistry'
+    ];
+    const SYSTEMS = [
+        'Allergy & Immunology', 'Biochemistry (General Principles)', 'Biostatistics & Epidemiology',
+        'Cardiovascular System', 'Dermatology', 'Ear, Nose & Throat (ENT)',
+        'Endocrine, Diabetes & Metabolism', 'Female Reproductive System & Breast',
+        'Gastrointestinal & Nutrition', 'Genetics (General Principles)', 'Hematology & Oncology',
+        'Infectious Diseases', 'Male Reproductive System', 'Microbiology (General Principles)',
+        'Miscellaneous (Multisystem)', 'Nervous System', 'Ophthalmology',
+        'Pathology (General Principles)', 'Pharmacology (General Principles)',
+        'Poisoning & Environmental Exposure', 'Pregnancy, Childbirth & Puerperium',
+        'Psychiatric/Behavioral & Substance Use Disorder', 'Pulmonary & Critical Care',
+        'Renal, Urinary Systems & Electrolytes', 'Rheumatology/Orthopedics & Sports',
+        'Social Sciences (Ethics/Legal/Professional)'
+    ];
     try {
         const response = await fetch(`${ADMIN_API_URL}/question-tags`, {
             headers: { 'Authorization': `Bearer ${currentAdminToken}` }
         });
         if (!response.ok) throw new Error('fail');
         const tags = await response.json();
-        if (!tags.length) {
-            list.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">Тегов пока нет</p>';
-            return;
-        }
-        list.innerHTML = tags.map((t) => `
-            <div id="qtag-row-${t.id}" style="display:flex;align-items:center;gap:0.4rem;padding:0.35rem 0;border-bottom:1px solid var(--border-light);">
-                <span id="qtag-name-${t.id}" style="flex:1;font-weight:600;font-size:0.87rem;">${t.name}</span>
-                <input id="qtag-input-${t.id}" type="text" value="${t.name.replace(/"/g, '&quot;')}"
-                    style="flex:1;display:none;padding:0.25rem 0.4rem;font-size:0.87rem;border:1px solid var(--border-color);border-radius:6px;">
-                <button type="button" class="btn btn-secondary btn-sm" id="qtag-edit-btn-${t.id}"
-                    onclick="startEditQuestionTag(${t.id})" style="padding:0.2rem 0.5rem;font-size:0.75rem;">✏️</button>
-                <button type="button" class="btn btn-primary btn-sm" id="qtag-save-btn-${t.id}"
-                    onclick="saveEditQuestionTag(${t.id})" style="display:none;padding:0.2rem 0.5rem;font-size:0.75rem;">✓</button>
-                <button type="button" class="btn btn-secondary btn-sm" id="qtag-cancel-btn-${t.id}"
-                    onclick="cancelEditQuestionTag(${t.id})" style="display:none;padding:0.2rem 0.5rem;font-size:0.75rem;">✕</button>
-                <button type="button" class="btn btn-danger btn-sm" id="qtag-del-btn-${t.id}"
-                    onclick="deleteQuestionTagAdmin(${t.id})" style="padding:0.2rem 0.5rem;font-size:0.75rem;">🗑</button>
+        const byName = new Map((Array.isArray(tags) ? tags : []).map((t) => [String(t.name).toLowerCase(), t]));
+        const chip = (name) => {
+            const row = byName.get(name.toLowerCase());
+            const ok = Boolean(row);
+            return `<span style="display:inline-block;margin:0.15rem 0.25rem 0.15rem 0;padding:0.2rem 0.45rem;border-radius:999px;font-size:0.78rem;border:1px solid var(--border-light);background:${ok ? 'color-mix(in srgb, var(--primary-color) 12%, var(--card-bg))' : 'var(--bg-secondary)'};opacity:${ok ? '1' : '0.55'};">${escapeAdminHtml(name)}</span>`;
+        };
+        list.innerHTML = `
+            <div style="margin-bottom:0.75rem;">
+                <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.35rem;">Subjects</div>
+                <div>${SUBJECTS.map(chip).join('')}</div>
             </div>
-        `).join('');
+            <div>
+                <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.35rem;">Systems</div>
+                <div>${SYSTEMS.map(chip).join('')}</div>
+            </div>
+        `;
     } catch (e) {
         list.innerHTML = '<p style="color:var(--danger-color);">Ошибка загрузки тегов</p>';
     }
 }
 
-async function createQuestionTagAdmin() {
-    const input = document.getElementById('newQuestionTagName');
-    const name = (input?.value || '').trim();
-    if (!name) {
-        showNotification('Введите название тега', 'error');
-        return;
-    }
-    try {
-        const response = await fetch(`${ADMIN_API_URL}/question-tags`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${currentAdminToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ name })
-        });
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) {
-            showNotification(result.error || 'Ошибка создания тега', 'error');
-            return;
-        }
-        if (input) input.value = '';
-        showNotification('Тег создан', 'success');
-        await loadAdminQuestionTags();
-    } catch (e) {
-        showNotification('Ошибка создания тега', 'error');
-    }
-}
-
 async function mergeQuestionTagsAdmin() {
-    if (!confirm('Слить совпадающие теги?\n\nНапример: Cardiology → Cardiovascular System, Endocrine → Endocrine, Diabetes & Metabolism.\nСвязи с вопросами сохранятся.')) {
+    if (!confirm('Синхронизировать теги с фиксированным каталогом?\n\nАлиасы (Cardiology → Cardiovascular System и т.п.) сольются, лишние теги скроются.')) {
         return;
     }
     try {
@@ -4390,73 +4372,15 @@ async function mergeQuestionTagsAdmin() {
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) {
-            showNotification(result.error || 'Ошибка слияния', 'error');
+            showNotification(result.error || 'Ошибка синхронизации', 'error');
             return;
         }
         showNotification(result.message || 'Готово', 'success');
         await loadAdminQuestionTags();
     } catch (e) {
-        showNotification('Ошибка слияния тегов', 'error');
+        showNotification('Ошибка синхронизации тегов', 'error');
     }
 }
-
-async function deleteQuestionTagAdmin(id) {
-    if (!confirm('Удалить тег?')) return;
-    try {
-        const response = await fetch(`${ADMIN_API_URL}/question-tags/${id}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${currentAdminToken}` }
-        });
-        if (!response.ok) {
-            showNotification('Не удалось удалить тег', 'error');
-            return;
-        }
-        await loadAdminQuestionTags();
-    } catch (e) {
-        showNotification('Ошибка удаления тега', 'error');
-    }
-}
-
-function startEditQuestionTag(id) {
-    document.getElementById(`qtag-name-${id}`).style.display = 'none';
-    document.getElementById(`qtag-input-${id}`).style.display = '';
-    document.getElementById(`qtag-input-${id}`).focus();
-    document.getElementById(`qtag-edit-btn-${id}`).style.display = 'none';
-    document.getElementById(`qtag-del-btn-${id}`).style.display = 'none';
-    document.getElementById(`qtag-save-btn-${id}`).style.display = '';
-    document.getElementById(`qtag-cancel-btn-${id}`).style.display = '';
-}
-
-function cancelEditQuestionTag(id) {
-    document.getElementById(`qtag-name-${id}`).style.display = '';
-    document.getElementById(`qtag-input-${id}`).style.display = 'none';
-    document.getElementById(`qtag-edit-btn-${id}`).style.display = '';
-    document.getElementById(`qtag-del-btn-${id}`).style.display = '';
-    document.getElementById(`qtag-save-btn-${id}`).style.display = 'none';
-    document.getElementById(`qtag-cancel-btn-${id}`).style.display = 'none';
-}
-
-async function saveEditQuestionTag(id) {
-    const newName = (document.getElementById(`qtag-input-${id}`)?.value || '').trim();
-    if (!newName) { showNotification('Название не может быть пустым', 'error'); return; }
-    try {
-        const resp = await fetch(`${ADMIN_API_URL}/question-tags/${id}`, {
-            method: 'PUT',
-            headers: { 'Authorization': `Bearer ${currentAdminToken}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: newName })
-        });
-        const result = await resp.json().catch(() => ({}));
-        if (!resp.ok) { showNotification(result.error || 'Ошибка сохранения', 'error'); return; }
-        showNotification('Тег обновлён', 'success');
-        await loadAdminQuestionTags();
-    } catch (e) {
-        showNotification('Ошибка сохранения тега', 'error');
-    }
-}
-
-window.startEditQuestionTag = startEditQuestionTag;
-window.cancelEditQuestionTag = cancelEditQuestionTag;
-window.saveEditQuestionTag = saveEditQuestionTag;
 window.editUsmleFlashcardAdmin = editUsmleFlashcardAdmin;
 window.deleteUsmleFlashcardAdmin = deleteUsmleFlashcardAdmin;
 

@@ -15,7 +15,14 @@ const {
   setSubjectFaculties,
   setSubjectCourses
 } = require('../utils/ensureFaculties');
-const { normalizeTagName, slugifyTag: slugifyTagNorm, mergeMatchingUsmleTags } = require('../utils/usmleTagNormalize');
+const {
+  normalizeTagName,
+  slugifyTag: slugifyTagNorm,
+  mergeMatchingUsmleTags,
+  isCanonicalUsmleTag,
+  USMLE_SUBJECTS,
+  USMLE_SYSTEMS
+} = require('../utils/usmleTagNormalize');
 const {
   fetchKgmaMeta,
   listKgmaCourses,
@@ -84,7 +91,8 @@ async function syncQuestionTags(questionId, tagIds) {
   await QuestionTagMap.destroy({ where: { questionId } });
   if (!ids.length) return [];
 
-  const tags = await QuestionTag.findAll({ where: { id: { [Op.in]: ids }, isActive: true } });
+  const tags = (await QuestionTag.findAll({ where: { id: { [Op.in]: ids }, isActive: true } }))
+    .filter((t) => isCanonicalUsmleTag(t.name));
   for (const tag of tags) {
     await QuestionTagMap.findOrCreate({
       where: { questionId, tagId: tag.id },
@@ -102,7 +110,8 @@ async function syncFlashcardTags(flashcardId, tagIds) {
   await FlashcardTagMap.destroy({ where: { flashcardId } });
   if (!ids.length) return [];
 
-  const tags = await QuestionTag.findAll({ where: { id: { [Op.in]: ids }, isActive: true } });
+  const tags = (await QuestionTag.findAll({ where: { id: { [Op.in]: ids }, isActive: true } }))
+    .filter((t) => isCanonicalUsmleTag(t.name));
   for (const tag of tags) {
     await FlashcardTagMap.findOrCreate({
       where: { flashcardId, tagId: tag.id },
@@ -1872,26 +1881,35 @@ router.put('/usmle-subscription-plans', adminAuth, [
   }
 });
 
-// Теги вопросов USMLE
+// Теги вопросов USMLE — фиксированный каталог Subject/System (не CRUD)
 router.get('/question-tags', adminAuth, async (req, res) => {
   try {
-    const tags = await QuestionTag.findAll({ order: [['name', 'ASC']] });
-    res.json(tags);
+    const tags = await QuestionTag.findAll({
+      where: { isActive: true },
+      order: [['name', 'ASC']]
+    });
+    // Массив канонических тегов — совместимо с селектами админки/flashcards
+    res.json(tags.filter((t) => isCanonicalUsmleTag(t.name)));
   } catch (error) {
     console.error('Ошибка получения тегов:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
-/** Слить совпадающие/алиасные теги (Cardiology → Cardiovascular System и т.п.) */
+/** Слить алиасы в канонические и скрыть неизвестные */
 router.post('/question-tags/merge-duplicates', adminAuth, async (req, res) => {
   try {
     const result = await mergeMatchingUsmleTags();
-    const tags = await QuestionTag.findAll({ order: [['name', 'ASC']] });
+    const tags = await QuestionTag.findAll({
+      where: { isActive: true },
+      order: [['name', 'ASC']]
+    });
     res.json({
-      message: `Слито тегов: ${result.mergedTags}, перенесено связей: ${result.movedLinks}`,
+      message: `Слито: ${result.mergedTags}, связей: ${result.movedLinks}, скрыто лишних: ${result.deactivated || 0}`,
       ...result,
-      tags
+      tags: tags.filter((t) => isCanonicalUsmleTag(t.name)),
+      subjects: USMLE_SUBJECTS,
+      systems: USMLE_SYSTEMS
     });
   } catch (error) {
     console.error('Ошибка слияния тегов:', error);
@@ -1899,65 +1917,22 @@ router.post('/question-tags/merge-duplicates', adminAuth, async (req, res) => {
   }
 });
 
-router.post('/question-tags', adminAuth, [
-  body('name').trim().notEmpty().withMessage('Название тега обязательно')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-    const name = normalizeTagName(String(req.body.name).trim()) || String(req.body.name).trim();
-    const slug = req.body.slug ? slugifyTag(req.body.slug) : slugifyTag(name);
-    const tag = await QuestionTag.create({
-      name,
-      slug,
-      isActive: req.body.isActive === undefined ? true : (req.body.isActive === true || req.body.isActive === 'true')
-    });
-    res.status(201).json(tag);
-  } catch (error) {
-    console.error('Ошибка создания тега:', error);
-    if (error.name === 'SequelizeUniqueConstraintError') {
-      return res.status(400).json({ error: 'Тег с таким именем уже существует' });
-    }
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
+router.post('/question-tags', adminAuth, async (req, res) => {
+  res.status(403).json({
+    error: 'Теги USMLE фиксированы (Subjects / Systems). Добавлять нельзя — парсер сам сопоставляет совпадения.'
+  });
 });
 
-router.put('/question-tags/:id', adminAuth, [
-  body('name').trim().notEmpty().withMessage('Название тега обязательно')
-], async (req, res) => {
-  try {
-    const tag = await QuestionTag.findByPk(req.params.id);
-    if (!tag) return res.status(404).json({ error: 'Тег не найден' });
-    tag.name = String(req.body.name).trim();
-    if (req.body.slug) tag.slug = slugifyTag(req.body.slug);
-    if (req.body.isActive !== undefined) {
-      tag.isActive = req.body.isActive === true || req.body.isActive === 'true';
-    }
-    await tag.save();
-    res.json(tag);
-  } catch (error) {
-    console.error('Ошибка обновления тега:', error);
-    if (error.name === 'SequelizeUniqueConstraintError') {
-      return res.status(400).json({ error: 'Тег с таким именем уже существует' });
-    }
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
+router.put('/question-tags/:id', adminAuth, async (req, res) => {
+  res.status(403).json({
+    error: 'Теги USMLE фиксированы. Редактирование отключено.'
+  });
 });
 
 router.delete('/question-tags/:id', adminAuth, async (req, res) => {
-  try {
-    const tag = await QuestionTag.findByPk(req.params.id);
-    if (!tag) return res.status(404).json({ error: 'Тег не найден' });
-    await QuestionTagMap.destroy({ where: { tagId: tag.id } });
-    await FlashcardTagMap.destroy({ where: { tagId: tag.id } });
-    await tag.destroy();
-    res.json({ message: 'Тег удалён' });
-  } catch (error) {
-    console.error('Ошибка удаления тега:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
+  res.status(403).json({
+    error: 'Теги USMLE фиксированы. Удаление отключено.'
+  });
 });
 
 // Flashcards (USMLE + university)

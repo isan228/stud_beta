@@ -7,7 +7,7 @@ const { Question, Answer, Test, QuestionTag, QuestionTagMap, Flashcard, Flashcar
 const { parseLinkedQuestionsFromText } = require('../utils/usmleLinkedQuestions');
 const { parseFlashcardsFromText } = require('../utils/parseFlashcardsTxt');
 const { extractTxtAnswers, mapAnswersWithCorrect, isValidCorrectIndex, extractQuotedField, normalizeTxt } = require('../utils/txtQuestionAnswers');
-const { normalizeTagName, slugifyTag } = require('../utils/usmleTagNormalize');
+const { normalizeTagName, slugifyTag, resolveCanonicalTagsByNames } = require('../utils/usmleTagNormalize');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -31,50 +31,9 @@ function parseTagNames(raw) {
     .filter(Boolean))];
 }
 
+/** Только фиксированные Subject/System/(ECG) — неизвестные из TXT пропускаются. */
 async function findOrCreateTagsByNames(tagNames) {
-  const names = parseTagNames(Array.isArray(tagNames) ? tagNames.join(',') : tagNames);
-  const result = [];
-  for (const name of names) {
-    const existing = await QuestionTag.findOne({
-      where: {
-        [Op.or]: [
-          { name: { [Op.iLike]: name } },
-          { slug: slugifyTag(name) }
-        ]
-      }
-    });
-    if (existing) {
-      if (!existing.isActive) {
-        existing.isActive = true;
-        await existing.save();
-      }
-      result.push(existing);
-      continue;
-    }
-    try {
-      const created = await QuestionTag.create({
-        name,
-        slug: slugifyTag(name),
-        isActive: true
-      });
-      result.push(created);
-    } catch (error) {
-      if (error.name === 'SequelizeUniqueConstraintError') {
-        const again = await QuestionTag.findOne({
-          where: {
-            [Op.or]: [
-              { name: { [Op.iLike]: name } },
-              { slug: slugifyTag(name) }
-            ]
-          }
-        });
-        if (again) result.push(again);
-      } else {
-        throw error;
-      }
-    }
-  }
-  return result;
+  return resolveCanonicalTagsByNames(tagNames);
 }
 
 async function syncQuestionTagsByModels(questionId, tags) {

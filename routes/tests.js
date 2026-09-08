@@ -800,27 +800,26 @@ router.get('/usmle/tags/grouped', async (req, res) => {
       idsByTag.get(tid).push(qid);
     }
 
-    const { USMLE_SUBJECTS } = require('../utils/ensureUsmleTagsSeeded');
-    const SUBJECTS = new Set(USMLE_SUBJECTS.map(s => s.toLowerCase()));
+    const { USMLE_SUBJECTS, USMLE_SYSTEMS } = require('../utils/usmleTagCatalog');
+    const SUBJECTS = new Set(USMLE_SUBJECTS.map((s) => s.toLowerCase()));
+    const SYSTEMS = new Set(USMLE_SYSTEMS.map((s) => s.toLowerCase()));
 
     const subjects = [];
     const systems = [];
 
     for (const tag of tags) {
+      const key = String(tag.name || '').toLowerCase();
+      if (!SUBJECTS.has(key) && !SYSTEMS.has(key)) continue;
       const questionIds = idsByTag.get(tag.id) || [];
       const item = {
         id: tag.id,
         name: tag.name,
         slug: tag.slug,
         questionCount: questionIds.length,
-        // Для кросс-фильтрации счётчиков Subjects ↔ Systems в конструкторе
         questionIds
       };
-      if (SUBJECTS.has(tag.name.toLowerCase())) {
-        subjects.push(item);
-      } else {
-        systems.push(item);
-      }
+      if (SUBJECTS.has(key)) subjects.push(item);
+      else systems.push(item);
     }
 
     let testMeta = null;
@@ -1054,15 +1053,16 @@ router.post('/usmle/custom-test/questions', async (req, res) => {
   }
 });
 
-/** Теги USMLE (для фильтрации) */
+/** Теги USMLE (для фильтрации) — только фиксированный каталог */
 router.get('/usmle/tags', async (req, res) => {
   try {
+    const { isCanonicalUsmleTag } = require('../utils/usmleTagNormalize');
     const tags = await QuestionTag.findAll({
       where: { isActive: true },
       attributes: ['id', 'name', 'slug'],
       order: [['name', 'ASC']]
     });
-    res.json(tags);
+    res.json(tags.filter((t) => isCanonicalUsmleTag(t.name)));
   } catch (error) {
     console.error('Ошибка получения тегов USMLE:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
