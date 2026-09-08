@@ -10,33 +10,54 @@
     <link rel="manifest" href="/site.webmanifest">
     <meta property="og:image" content="https://stud.kg/img/icon-192.png">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-    <meta name="theme-color" content="#2563eb">
+    <meta name="theme-color" content="#1e3a5f">
     <title>Разбор ошибок - stud.kg</title>
     <link rel="stylesheet" href="styles.css">
 </head>
-<body class="test-review-page">
-    <nav class="navbar">
-        <div class="container">
-            <div class="nav-brand">
-                <a href="/"><h1>stud.kg</h1></a>
-            </div>
+<body class="test-review-page uworld-review-page">
+    <header class="uworld-review-topbar">
+        <div class="uworld-review-topbar-left">
+            <span id="reviewItemLabel">Item 1 of 1</span>
+            <span class="uworld-review-qid" id="reviewQuestionId"></span>
         </div>
-    </nav>
+        <div class="uworld-review-topbar-nav">
+            <button type="button" class="uworld-review-nav-btn" id="reviewPrevBtn">‹ Previous</button>
+            <button type="button" class="uworld-review-nav-btn" id="reviewNextBtn">Next ›</button>
+        </div>
+        <div class="uworld-review-topbar-right">
+            <a href="/test-result" class="uworld-review-nav-btn" id="backToResultBtn">Результаты</a>
+            <a href="/tests" class="uworld-review-end-btn" id="endReviewBtn">End Review</a>
+        </div>
+    </header>
 
-    <main class="main-content">
-        <div class="container test-review-container">
-            <div class="test-review-header">
-                <h1 id="testReviewTitle">Разбор ошибок</h1>
-                <div class="test-review-actions">
-                    <a href="/test-result" class="btn btn-secondary" id="backToResultBtn">К результатам</a>
-                    <a href="/tests" class="btn btn-primary" id="backToTestsBtn">К тестам</a>
+    <div class="uworld-review-shell">
+        <aside class="usmle-qnav uworld-review-qnav" id="reviewQuestionNav" aria-label="Навигация по вопросам">
+            <div class="usmle-qnav-title">Items</div>
+            <ol class="usmle-qnav-list" id="reviewQuestionNavList"></ol>
+        </aside>
+
+        <div class="uworld-review-split" id="reviewSplit">
+            <section class="uworld-review-pane uworld-review-left" id="reviewLeft">
+                <div style="padding:2rem;color:#64748b;">Загрузка…</div>
+            </section>
+            <section class="uworld-review-pane uworld-review-right" id="reviewRight">
+                <div class="uworld-review-expl-head">
+                    <span>Explanation</span>
                 </div>
-            </div>
-            <div id="testReviewContent">
-                <div style="text-align:center;padding:2.5rem;color:var(--text-secondary);">Загрузка разбора…</div>
-            </div>
+                <div id="reviewExplanationBody" class="uworld-review-expl-body"></div>
+            </section>
         </div>
-    </main>
+    </div>
+
+    <footer class="uworld-review-footer">
+        <div class="uworld-review-footer-left">
+            <span id="reviewTestName">Разбор теста</span>
+            <span id="reviewScoreSummary"></span>
+        </div>
+        <div class="uworld-review-footer-right">
+            <a href="/tests" class="uworld-review-end-btn" id="endReviewBtnFooter">End Review</a>
+        </div>
+    </footer>
 
     <div id="notification" class="notification"></div>
     <script src="usmle-linked-question.js"></script>

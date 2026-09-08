@@ -1,5 +1,10 @@
 (function () {
     const API_URL = window.API_URL || '/api';
+    const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+    let reviewData = null;
+    let peerStats = {};
+    let currentIndex = 0;
 
     function esc(text) {
         return String(text || '')
@@ -43,16 +48,18 @@
 
     function findCorrectAnswer(question, questionResult) {
         if (questionResult?.correctAnswerId) {
-            const byId = question.Answers?.find((a) => a.id === questionResult.correctAnswerId);
+            const byId = (question.Answers || []).find((a) => a.id === questionResult.correctAnswerId);
             if (byId) return byId;
         }
         return (question.Answers || []).find((a) => isAnswerCorrectFlag(a.isCorrect)) || null;
     }
 
     function fmtTime(totalSec) {
-        if (!totalSec && totalSec !== 0) return '';
-        const m = Math.floor(totalSec / 60);
-        const s = totalSec % 60;
+        if (totalSec == null || totalSec === '') return '—';
+        const n = Number(totalSec) || 0;
+        const m = Math.floor(n / 60);
+        const s = n % 60;
+        if (m <= 0) return `${s} sec`;
         return `${m}:${String(s).padStart(2, '0')}`;
     }
 
@@ -74,112 +81,203 @@
             testName: raw.testName || raw.Test?.name || '',
             subjectName: raw.subjectName || raw.Test?.Subject?.name || '',
             programType: raw.programType || (raw.isCustomUsmle ? 'usmle' : 'university'),
-            isCustomUsmle: !!raw.isCustomUsmle
+            isCustomUsmle: !!raw.isCustomUsmle,
+            questionTimes: raw.questionTimes || {}
         };
     }
 
-    function renderReviewHtml(data) {
-        const percentage = data.percentage;
-        const incorrectCount = data.total - data.score;
-        const timeLabel = data.timeSpent != null ? fmtTime(data.timeSpent) : '';
-        const isUsmle = !!(data.isCustomUsmle || data.programType === 'usmle');
-        const questionTimes = data.questionTimes || {};
-        const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    function getNavLinkFlags(questions) {
+        const flags = (questions || []).map(() => ({ linked: false, start: false, mid: false, end: false }));
+        const getKey = window.UsmleLinkedQuestion?.getLinkedClusterKey;
+        if (!getKey) return flags;
+        let i = 0;
+        while (i < questions.length) {
+            const key = getKey(questions[i] && questions[i].text);
+            if (!key) { i += 1; continue; }
+            let j = i + 1;
+            while (j < questions.length && getKey(questions[j] && questions[j].text) === key) j += 1;
+            if (j - i >= 2) {
+                for (let k = i; k < j; k += 1) {
+                    flags[k].linked = true;
+                    flags[k].start = k === i;
+                    flags[k].end = k === j - 1;
+                    flags[k].mid = k > i && k < j - 1;
+                }
+            }
+            i = j;
+        }
+        return flags;
+    }
 
-        const itemsHtml = (data.questions || []).map((question, index) => {
-            const questionResult = data.results[question.id];
-            if (!questionResult) return '';
+    function letterForAnswer(question, answerId) {
+        const idx = (question.Answers || []).findIndex((a) => a.id === answerId);
+        return idx >= 0 ? (LETTERS[idx] || String(idx + 1)) : '—';
+    }
 
-            const userAnswerId = data.answers[question.id];
-            const userAnswer = (question.Answers || []).find((a) => a.id === parseInt(userAnswerId, 10));
-            const correctAnswer = findCorrectAnswer(question, questionResult);
-            const isCorrect = !!questionResult.correct;
-            const qTime = questionTimes[question.id];
-            const bodyHtml = window.UsmleLinkedQuestion?.renderUsmleQuestionBodyHtml
-                ? window.UsmleLinkedQuestion.renderUsmleQuestionBodyHtml(question.text, {
-                    isFirstInLinkedGroup: window.UsmleLinkedQuestion.isFirstLinkedQuestionInList?.(data.questions, index) || false
-                })
-                : esc(question.text);
-
-            const explanationHtml = (question.explanation || normalizeImageUrls(question.explanationImageUrls || question.explanationImageUrl).length)
-                ? (
-                    typeof window.renderQuestionExplanationHtml === 'function'
-                        ? window.renderQuestionExplanationHtml(question.explanation, question.explanationImageUrls || question.explanationImageUrl)
-                        : `<div class="question-explanation-box"><div class="question-explanation-label">Объяснение</div><div class="question-explanation-text">${esc(question.explanation).replace(/\n/g, '<br>')}</div></div>`
-                )
-                : '';
-
+    function renderNav() {
+        const list = document.getElementById('reviewQuestionNavList');
+        if (!list || !reviewData) return;
+        const flags = getNavLinkFlags(reviewData.questions);
+        list.innerHTML = reviewData.questions.map((q, index) => {
+            const f = flags[index] || {};
+            const res = reviewData.results[q.id] || {};
+            const active = index === currentIndex;
+            const classes = [
+                'usmle-qnav-item',
+                active ? 'is-active' : '',
+                res.correct ? 'is-answered is-reviewed' : '',
+                res.correct === false ? 'is-answered' : '',
+                f.linked ? 'is-linked' : '',
+                f.start ? 'is-linked-start' : '',
+                f.mid ? 'is-linked-mid' : '',
+                f.end ? 'is-linked-end' : ''
+            ].filter(Boolean).join(' ');
             return `
-                <article class="test-review-item ${isCorrect ? 'is-correct' : 'is-incorrect'}" id="review-q-${index + 1}">
-                    <div class="test-review-item-head">
-                        <div class="test-review-item-num">${index + 1}</div>
-                        <div style="flex:1;min-width:0;">
-                            <div class="test-review-question">${bodyHtml}</div>
-                            ${renderImages(question.imageUrls || question.imageUrl, 'Иллюстрация к вопросу')}
-                            <span class="test-review-badge ${isCorrect ? 'is-correct' : 'is-incorrect'}">
-                                ${isCorrect ? '✓ Правильно' : '✗ Неправильно'}
-                            </span>
-                            ${isUsmle && qTime ? `<span style="margin-left:0.5rem;font-size:0.78rem;color:var(--text-muted);">⏱ ${fmtTime(qTime)}</span>` : ''}
-                        </div>
-                    </div>
-
-                    <div class="test-review-answers">
-                        ${!isCorrect ? `
-                            <div class="test-review-label" style="color:var(--danger-color);">Ваш ответ</div>
-                            <div class="test-review-answer-row is-user">${esc(userAnswer?.text || 'Не отвечено')}</div>
-                        ` : ''}
-                        <div class="test-review-label" style="color:var(--success-color);">Правильный ответ</div>
-                        <div class="test-review-answer-row is-correct-choice">${esc(correctAnswer?.text || 'Не найден')}</div>
-                        ${(question.Answers || []).length ? `
-                            <div class="test-review-label" style="margin-top:0.85rem;">Все варианты</div>
-                            ${(question.Answers || []).map((answer, ai) => {
-                                const ok = isAnswerCorrectFlag(answer.isCorrect) || (correctAnswer && answer.id === correctAnswer.id);
-                                const isUser = parseInt(userAnswerId, 10) === answer.id;
-                                return `
-                                    <div class="test-review-answer-row ${ok ? 'is-correct-choice' : ''} ${isUser && !ok ? 'is-user' : ''}">
-                                        ${isUsmle ? `<strong style="margin-right:0.35rem;">${letters[ai] || ai + 1}.</strong>` : ''}
-                                        ${ok ? '✓ ' : isUser ? '✗ ' : ''}${esc(answer.text)}
-                                        ${renderImages(answer.imageUrls || answer.imageUrl, 'Иллюстрация к ответу')}
-                                    </div>
-                                `;
-                            }).join('')}
-                        ` : ''}
-                    </div>
-
-                    ${explanationHtml ? `<div class="test-review-explanation-wrap">${explanationHtml}</div>` : ''}
-                </article>
+                <li class="${classes}">
+                    <button type="button" class="usmle-qnav-btn" data-q-index="${index}" aria-current="${active ? 'true' : 'false'}">
+                        <span class="usmle-qnav-rail" aria-hidden="true"><span class="usmle-qnav-dot"></span></span>
+                        <span class="usmle-qnav-num">${index + 1}</span>
+                    </button>
+                </li>
             `;
         }).join('');
 
-        return `
-            <section class="test-review-summary">
-                ${data.testName ? `<h2 style="margin:0 0 1rem;font-size:1.1rem;">${esc(data.testName)}${data.subjectName ? ` · ${esc(data.subjectName)}` : ''}</h2>` : ''}
-                <div class="test-review-summary-grid">
-                    <div class="test-review-stat">
-                        <div class="test-review-stat-value">${data.score}/${data.total}</div>
-                        <div class="test-review-stat-label">Правильных</div>
-                    </div>
-                    <div class="test-review-stat">
-                        <div class="test-review-stat-value" style="color:${percentage >= 80 ? 'var(--success-color)' : percentage >= 60 ? 'var(--primary-color)' : 'var(--danger-color)'}">${percentage}%</div>
-                        <div class="test-review-stat-label">Точность</div>
-                    </div>
-                    <div class="test-review-stat">
-                        <div class="test-review-stat-value" style="color:var(--danger-color)">${incorrectCount}</div>
-                        <div class="test-review-stat-label">Ошибок</div>
-                    </div>
-                    ${timeLabel ? `
-                        <div class="test-review-stat">
-                            <div class="test-review-stat-value" style="color:var(--text-secondary)">${timeLabel}</div>
-                            <div class="test-review-stat-label">Время</div>
-                        </div>
-                    ` : ''}
+        list.querySelectorAll('.usmle-qnav-btn').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const idx = parseInt(btn.getAttribute('data-q-index'), 10);
+                if (Number.isFinite(idx)) goTo(idx);
+            });
+        });
+    }
+
+    function renderCurrent() {
+        if (!reviewData) return;
+        const questions = reviewData.questions;
+        const question = questions[currentIndex];
+        if (!question) return;
+
+        const left = document.getElementById('reviewLeft');
+        const explBody = document.getElementById('reviewExplanationBody');
+        const itemLabel = document.getElementById('reviewItemLabel');
+        const qidEl = document.getElementById('reviewQuestionId');
+        const prevBtn = document.getElementById('reviewPrevBtn');
+        const nextBtn = document.getElementById('reviewNextBtn');
+
+        if (itemLabel) itemLabel.textContent = `Item ${currentIndex + 1} of ${questions.length}`;
+        if (qidEl) qidEl.textContent = question.id != null ? `Question Id: ${question.id}` : '';
+        if (prevBtn) prevBtn.disabled = currentIndex <= 0;
+        if (nextBtn) nextBtn.disabled = currentIndex >= questions.length - 1;
+
+        const questionResult = reviewData.results[question.id] || {};
+        const userAnswerId = reviewData.answers[question.id];
+        const userAnswer = (question.Answers || []).find((a) => a.id === parseInt(userAnswerId, 10));
+        const correctAnswer = findCorrectAnswer(question, questionResult);
+        const isCorrect = !!questionResult.correct;
+        const omitted = userAnswerId == null || userAnswerId === '';
+        const qTime = (reviewData.questionTimes || {})[question.id];
+        const qPeer = peerStats[question.id] || peerStats[String(question.id)] || {};
+        const correctPct = qPeer.correctPercent;
+        const byAnswer = qPeer.byAnswerId || {};
+
+        let statusText = 'Correct';
+        let statusClass = 'is-ok';
+        if (omitted) {
+            statusText = 'Omitted';
+            statusClass = 'is-omit';
+        } else if (!isCorrect) {
+            statusText = 'Incorrect';
+            statusClass = 'is-bad';
+        }
+
+        const bodyHtml = window.UsmleLinkedQuestion?.renderUsmleQuestionBodyHtml
+            ? window.UsmleLinkedQuestion.renderUsmleQuestionBodyHtml(question.text, {
+                isFirstInLinkedGroup: window.UsmleLinkedQuestion.isFirstLinkedQuestionInList?.(questions, currentIndex) || false
+            })
+            : `<div class="question-text">${esc(question.text)}</div>`;
+
+        const answersHtml = (question.Answers || []).map((answer, ai) => {
+            const letter = LETTERS[ai] || String(ai + 1);
+            const ok = isAnswerCorrectFlag(answer.isCorrect) || (correctAnswer && answer.id === correctAnswer.id);
+            const isUser = parseInt(userAnswerId, 10) === answer.id;
+            const pct = byAnswer[answer.id] != null ? byAnswer[answer.id] : byAnswer[String(answer.id)];
+            const pctLabel = pct != null ? ` (${pct}%)` : '';
+            return `
+                <div class="uworld-review-choice ${ok ? 'is-correct' : ''} ${isUser && !ok ? 'is-user-wrong' : ''} ${isUser && ok ? 'is-user-correct' : ''}">
+                    <span class="uworld-review-choice-mark" aria-hidden="true">${ok ? '✓' : (isUser ? '✗' : '')}</span>
+                    <span class="uworld-review-choice-letter">${letter}.</span>
+                    <span class="uworld-review-choice-text">${esc(answer.text)}${pctLabel ? `<span class="uworld-review-choice-pct">${esc(pctLabel)}</span>` : ''}</span>
+                    ${renderImages(answer.imageUrls || answer.imageUrl, 'Иллюстрация к ответу')}
                 </div>
-            </section>
-            <section class="test-review-list">
-                <h2 style="margin:0 0 0.25rem;font-size:1.15rem;">Детальный разбор по вопросам</h2>
-                ${itemsHtml || '<p style="color:var(--text-secondary);">Нет данных для разбора.</p>'}
-            </section>
+            `;
+        }).join('');
+
+        left.innerHTML = `
+            <div class="uworld-review-stem">
+                ${bodyHtml}
+                ${renderImages(question.imageUrls || question.imageUrl, 'Иллюстрация к вопросу')}
+            </div>
+            <div class="uworld-review-choices">
+                ${answersHtml}
+            </div>
+            <div class="uworld-review-resultbar ${statusClass}">
+                <div class="uworld-review-resultbar-row">
+                    <span class="uworld-review-status">${statusText}</span>
+                    <span class="uworld-review-correct-ans">Correct Answer: <strong>${correctAnswer ? letterForAnswer(question, correctAnswer.id) : '—'}</strong></span>
+                </div>
+                <div class="uworld-review-resultbar-meta">
+                    <span title="Процент пользователей, ответивших правильно">
+                        ▦ ${correctPct != null ? `${correctPct}% Answered Correctly` : '— Answered Correctly'}
+                    </span>
+                    <span title="Ваше время на вопрос">⏱ ${fmtTime(qTime)}</span>
+                    ${!omitted ? `<span>Your answer: <strong>${letterForAnswer(question, parseInt(userAnswerId, 10))}</strong>${userAnswer?.text ? ` — ${esc(userAnswer.text)}` : ''}</span>` : ''}
+                </div>
+            </div>
         `;
+
+        const explanationHtml = (question.explanation || normalizeImageUrls(question.explanationImageUrls || question.explanationImageUrl).length)
+            ? (
+                typeof window.renderQuestionExplanationHtml === 'function'
+                    ? window.renderQuestionExplanationHtml(question.explanation, question.explanationImageUrls || question.explanationImageUrl)
+                    : `<div class="question-explanation-box"><div class="question-explanation-label">Explanation</div><div class="question-explanation-text">${esc(question.explanation).replace(/\n/g, '<br>')}</div></div>`
+            )
+            : '<p class="uworld-review-no-expl">Объяснение для этого вопроса пока не добавлено.</p>';
+
+        if (explBody) {
+            explBody.innerHTML = explanationHtml;
+            const isUsmle = !!(reviewData.isCustomUsmle || reviewData.programType === 'usmle');
+            if (isUsmle && typeof window.applyMedicalLinkify === 'function') {
+                window.applyMedicalLinkify(explBody);
+            }
+        }
+
+        renderNav();
+    }
+
+    function goTo(index) {
+        if (!reviewData) return;
+        const next = Math.max(0, Math.min(reviewData.questions.length - 1, Number(index)));
+        currentIndex = next;
+        renderCurrent();
+    }
+
+    async function loadPeerStats(questions) {
+        const ids = (questions || []).map((q) => q.id).filter((id) => Number.isFinite(Number(id)));
+        if (!ids.length) return {};
+        try {
+            const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers.Authorization = `Bearer ${token}`;
+            const response = await fetch(`${API_URL}/stats/question-peer-stats`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ questionIds: ids })
+            });
+            if (!response.ok) return {};
+            const data = await response.json();
+            return data.stats || {};
+        } catch (_) {
+            return {};
+        }
     }
 
     async function loadFromApi(resultId) {
@@ -209,55 +307,61 @@
             try { await window.loadUser(); } catch (_) { /* ignore */ }
         }
 
-        const content = document.getElementById('testReviewContent');
-        const title = document.getElementById('testReviewTitle');
-        if (!content) return;
-
+        const left = document.getElementById('reviewLeft');
         const params = new URLSearchParams(window.location.search);
         const resultId = params.get('resultId');
 
-        let data = null;
         try {
-            if (resultId) {
-                data = await loadFromApi(resultId);
-            } else {
-                data = loadFromSession();
-            }
+            reviewData = resultId ? await loadFromApi(resultId) : loadFromSession();
         } catch (err) {
-            console.error(err);
-            content.innerHTML = `<div style="text-align:center;padding:2rem;"><p style="color:var(--danger-color);">${esc(err.message || 'Ошибка загрузки')}</p><a class="btn btn-primary" href="/tests">К тестам</a></div>`;
+            if (left) {
+                left.innerHTML = `<div style="padding:2rem;"><p style="color:var(--danger-color);">${esc(err.message || 'Ошибка')}</p><a class="btn btn-primary" href="/tests">К тестам</a></div>`;
+            }
             return;
         }
 
-        if (!data || !data.questions || !data.results) {
-            content.innerHTML = `
-                <div style="text-align:center;padding:2.5rem;">
-                    <p style="color:var(--text-secondary);margin-bottom:1rem;">Данные разбора недоступны. Пройдите тест ещё раз.</p>
-                    <a class="btn btn-primary" href="/tests">К тестам</a>
-                </div>
-            `;
+        if (!reviewData || !reviewData.questions || !reviewData.results) {
+            if (left) {
+                left.innerHTML = `
+                    <div style="padding:2rem;text-align:center;">
+                        <p style="color:#64748b;margin-bottom:1rem;">Данные разбора недоступны.</p>
+                        <a class="btn btn-primary" href="/tests">К тестам</a>
+                    </div>
+                `;
+            }
             return;
         }
 
-        const isUsmle = !!(data.isCustomUsmle || data.programType === 'usmle');
+        const isUsmle = !!(reviewData.isCustomUsmle || reviewData.programType === 'usmle');
         if (isUsmle && typeof window.setProgramType === 'function') {
             window.setProgramType('usmle');
         }
 
-        if (title) {
-            title.textContent = data.testName ? `Разбор: ${data.testName}` : 'Разбор ошибок';
+        const endBtns = [document.getElementById('endReviewBtn'), document.getElementById('endReviewBtnFooter')];
+        const testsHref = isUsmle ? '/usmle' : '/tests';
+        endBtns.forEach((el) => { if (el) el.href = testsHref; });
+
+        const testNameEl = document.getElementById('reviewTestName');
+        if (testNameEl) {
+            testNameEl.textContent = reviewData.testName || 'Разбор теста';
+        }
+        const scoreEl = document.getElementById('reviewScoreSummary');
+        if (scoreEl) {
+            scoreEl.textContent = `${reviewData.score}/${reviewData.total} · ${reviewData.percentage}%`;
         }
 
-        const backTests = document.getElementById('backToTestsBtn');
-        if (backTests) {
-            backTests.href = isUsmle ? '/usmle' : '/tests';
-        }
+        peerStats = await loadPeerStats(reviewData.questions);
 
-        content.innerHTML = renderReviewHtml(data);
+        document.getElementById('reviewPrevBtn')?.addEventListener('click', () => goTo(currentIndex - 1));
+        document.getElementById('reviewNextBtn')?.addEventListener('click', () => goTo(currentIndex + 1));
 
-        if (isUsmle && typeof window.applyMedicalLinkify === 'function') {
-            await window.applyMedicalLinkify(content);
-        }
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') goTo(currentIndex - 1);
+            if (e.key === 'ArrowRight') goTo(currentIndex + 1);
+        });
+
+        currentIndex = 0;
+        renderCurrent();
     }
 
     document.addEventListener('DOMContentLoaded', init);

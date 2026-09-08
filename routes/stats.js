@@ -227,6 +227,87 @@ router.get('/leaderboard', async (req, res) => {
   }
 });
 
+// Статистика ответов пользователей по вопросам (для разбора)
+router.post('/stats/question-peer-stats', auth, async (req, res) => {
+  try {
+    const rawIds = Array.isArray(req.body?.questionIds) ? req.body.questionIds : [];
+    const questionIds = [...new Set(rawIds.map((id) => parseInt(id, 10)).filter((id) => Number.isFinite(id) && id > 0))];
+    if (!questionIds.length) {
+      return res.json({ stats: {} });
+    }
+    if (questionIds.length > 200) {
+      return res.status(400).json({ error: 'Слишком много вопросов' });
+    }
+
+    const sourceRows = await TestResult.findAll({
+      attributes: ['answers', 'results'],
+      where: {
+        [Op.or]: [
+          { answers: { [Op.ne]: null } },
+          { results: { [Op.ne]: null } }
+        ]
+      },
+      order: [['id', 'DESC']],
+      limit: 4000
+    });
+
+    const stats = {};
+    for (const qid of questionIds) {
+      stats[qid] = {
+        attempts: 0,
+        correctCount: 0,
+        correctPercent: null,
+        byAnswerId: {}
+      };
+    }
+
+    for (const row of sourceRows) {
+      const answers = row.answers && typeof row.answers === 'object' ? row.answers : {};
+      const results = row.results && typeof row.results === 'object' ? row.results : {};
+      for (const qid of questionIds) {
+        const key = String(qid);
+        const hasAnswer = Object.prototype.hasOwnProperty.call(answers, key) || Object.prototype.hasOwnProperty.call(answers, qid);
+        const hasResult = Object.prototype.hasOwnProperty.call(results, key) || Object.prototype.hasOwnProperty.call(results, qid);
+        if (!hasAnswer && !hasResult) continue;
+
+        const qStats = stats[qid];
+        qStats.attempts += 1;
+
+        const resultEntry = results[key] ?? results[qid];
+        if (resultEntry && resultEntry.correct === true) {
+          qStats.correctCount += 1;
+        }
+
+        const answerIdRaw = answers[key] ?? answers[qid];
+        const answerId = parseInt(answerIdRaw, 10);
+        if (Number.isFinite(answerId)) {
+          if (!qStats.byAnswerId[answerId]) qStats.byAnswerId[answerId] = 0;
+          qStats.byAnswerId[answerId] += 1;
+        }
+      }
+    }
+
+    for (const qid of questionIds) {
+      const qStats = stats[qid];
+      qStats.correctPercent = qStats.attempts > 0
+        ? Math.round((qStats.correctCount / qStats.attempts) * 100)
+        : null;
+      const byAnswerPercent = {};
+      for (const [answerId, count] of Object.entries(qStats.byAnswerId)) {
+        byAnswerPercent[answerId] = qStats.attempts > 0
+          ? Math.round((count / qStats.attempts) * 100)
+          : 0;
+      }
+      qStats.byAnswerId = byAnswerPercent;
+    }
+
+    res.json({ stats });
+  } catch (error) {
+    console.error('Ошибка peer-stats:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 // Получить детальный результат теста для разбора
 router.get('/stats/test-result/:id', auth, async (req, res) => {
   try {
