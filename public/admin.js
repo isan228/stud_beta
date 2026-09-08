@@ -202,6 +202,23 @@ function applyActorUiRestrictions() {
     }
 }
 
+function updateEditorPermSelectedCount() {
+    const countEl = document.getElementById('editorPermSelectedCount');
+    if (!countEl) return;
+    const usmle = !!document.getElementById('editorPermUsmle')?.checked;
+    const uniCount = document.querySelectorAll('#editorPermUniversities input[type="checkbox"]:checked').length;
+    const parts = [];
+    if (usmle) parts.push('USMLE');
+    if (uniCount) parts.push(`${uniCount} универ.`);
+    if (!parts.length) {
+        countEl.textContent = 'Ничего не выбрано — отметьте галочками';
+        countEl.classList.remove('is-ready');
+        return;
+    }
+    countEl.textContent = `Выбрано: ${parts.join(' · ')}`;
+    countEl.classList.add('is-ready');
+}
+
 function collectEditorPermissionsFromForm() {
     const usmle = !!document.getElementById('editorPermUsmle')?.checked;
     const universityIds = [...document.querySelectorAll('#editorPermUniversities input[type="checkbox"]:checked')]
@@ -224,25 +241,34 @@ async function fillEditorUniversityCheckboxes(selectedIds = []) {
         const universities = await response.json();
         if (!universities.length) {
             box.innerHTML = '<span style="color:var(--text-muted);font-size:0.85rem;">Нет университетов</span>';
+            updateEditorPermSelectedCount();
             return;
         }
         box.innerHTML = universities.map((u) => {
             const id = parseInt(u.id, 10);
             const isChecked = selected.has(id);
+            const title = escapeAdminHtml(u.shortName || u.name);
+            const sub = u.shortName && u.name ? escapeAdminHtml(u.name) : 'Контент этого университета';
             return `
-            <label style="display:flex;align-items:center;gap:0.45rem;cursor:pointer;font-size:0.92rem;">
+            <label class="editor-perm-card">
                 <input type="checkbox" value="${id}" ${isChecked ? 'checked' : ''}>
-                <span>${escapeAdminHtml(u.shortName || u.name)}${u.shortName && u.name ? ` <span style="color:var(--text-muted)">— ${escapeAdminHtml(u.name)}</span>` : ''}</span>
+                <span class="editor-perm-check" aria-hidden="true"></span>
+                <span class="editor-perm-text">
+                    <strong>${title}</strong>
+                    <small>${sub}</small>
+                </span>
             </label>
         `;
         }).join('');
 
-        // Надёжно выставляем состояние после вставки в DOM
         box.querySelectorAll('input[type="checkbox"]').forEach((input) => {
             input.checked = selected.has(parseInt(input.value, 10));
+            input.addEventListener('change', updateEditorPermSelectedCount);
         });
+        updateEditorPermSelectedCount();
     } catch (e) {
         box.innerHTML = '<span style="color:var(--danger-color);font-size:0.85rem;">Не удалось загрузить университеты</span>';
+        updateEditorPermSelectedCount();
     }
 }
 
@@ -6517,7 +6543,14 @@ async function openEditorModal(isEdit = false, permissions = null) {
     document.getElementById('editorModal').style.display = 'block';
     await fillEditorUniversityCheckboxes(perms.universityIds);
     const usmleEl = document.getElementById('editorPermUsmle');
-    if (usmleEl) usmleEl.checked = !!perms.usmle;
+    if (usmleEl) {
+        usmleEl.checked = !!perms.usmle;
+        if (usmleEl.dataset.bound !== '1') {
+            usmleEl.dataset.bound = '1';
+            usmleEl.addEventListener('change', updateEditorPermSelectedCount);
+        }
+    }
+    updateEditorPermSelectedCount();
 }
 
 window.editEditorAccount = async function(editorId) {

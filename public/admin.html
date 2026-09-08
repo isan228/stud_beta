@@ -2040,17 +2040,22 @@
                     <label for="editorPassword">Пароль <span id="editorPasswordHint" style="font-weight: normal; color: var(--text-muted);">(мин. 6 символов)</span></label>
                     <input type="password" id="editorPassword" minlength="6" autocomplete="new-password">
                 </div>
-                <div class="form-group" style="border: 1px solid var(--border-light); border-radius: 0.5rem; padding: 0.85rem 1rem; background: var(--bg-secondary);">
-                    <label style="display:block; margin-bottom: 0.55rem; font-weight: 700;">Права доступа</label>
-                    <p style="margin: 0 0 0.75rem; font-size: 0.85rem; color: var(--text-muted);">
-                        Редактор получит тот же функционал админки, но только в выбранных разделах.
-                    </p>
-                    <label style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem; cursor:pointer;">
+                <div class="form-group editor-perms-block">
+                    <div class="editor-perms-title">Права доступа</div>
+                    <p class="editor-perms-hint">Отметьте галочками, к чему у редактора будет доступ в админке.</p>
+
+                    <label class="editor-perm-card" for="editorPermUsmle">
                         <input type="checkbox" id="editorPermUsmle">
-                        <span><strong>USMLE</strong> — предметы, тесты, вопросы, карточки, теги</span>
+                        <span class="editor-perm-check" aria-hidden="true"></span>
+                        <span class="editor-perm-text">
+                            <strong>USMLE</strong>
+                            <small>Предметы, тесты, вопросы, карточки, теги</small>
+                        </span>
                     </label>
-                    <div style="font-weight:600; margin-bottom:0.4rem;">Университеты</div>
-                    <div id="editorPermUniversities" style="max-height: 180px; overflow:auto; display:flex; flex-direction:column; gap:0.35rem;"></div>
+
+                    <div class="editor-perms-subtitle">Университеты</div>
+                    <div id="editorPermUniversities" class="editor-perm-list"></div>
+                    <div id="editorPermSelectedCount" class="editor-perms-count">Ничего не выбрано</div>
                 </div>
                 <div class="form-group checkbox-group" id="editorActiveGroup" style="display: none;">
                     <label>
