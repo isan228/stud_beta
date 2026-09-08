@@ -193,6 +193,12 @@ function applyActorUiRestrictions() {
     const addUniversityBtn = document.getElementById('addUniversityBtn');
     if (addUniversityBtn) addUniversityBtn.style.display = isEditor ? 'none' : '';
 
+    const usmleStatsCard = document.getElementById('usmleStatsCard');
+    if (usmleStatsCard) usmleStatsCard.style.display = isEditor ? 'none' : '';
+    const usmlePlansBox = document.getElementById('usmleAdminPlansBox');
+    const usmlePlansCard = usmlePlansBox?.closest('.admin-subs-uni-card');
+    if (usmlePlansCard) usmlePlansCard.style.display = isEditor ? 'none' : '';
+
     // Если активный таб скрыт — перейти на доступный раздел (для редактора — предметы)
     const activeTabBtn = document.querySelector('.admin-tab.active');
     if (activeTabBtn && activeTabBtn.style.display === 'none') {
@@ -4085,7 +4091,14 @@ async function saveSubscriptionPlansAdmin(e) {
 }
 
 async function loadUsmleStatsAdmin() {
+    if (currentActorType === 'editor') {
+        const card = document.getElementById('usmleStatsCard');
+        if (card) card.style.display = 'none';
+        return;
+    }
     try {
+        const card = document.getElementById('usmleStatsCard');
+        if (card) card.style.display = '';
         const response = await fetch(`${ADMIN_API_URL}/usmle-stats`, {
             headers: { 'Authorization': `Bearer ${currentAdminToken}` }
         });
@@ -4110,6 +4123,12 @@ async function loadUsmleStatsAdmin() {
 }
 
 async function loadUsmlePlansAdmin() {
+    if (currentActorType === 'editor') {
+        const box = document.getElementById('usmleAdminPlansBox');
+        const card = box?.closest('.admin-subs-uni-card');
+        if (card) card.style.display = 'none';
+        return;
+    }
     try {
         const response = await fetch(`${ADMIN_API_URL}/usmle-subscription-plans`, {
             headers: { 'Authorization': `Bearer ${currentAdminToken}` }
@@ -4118,6 +4137,8 @@ async function loadUsmlePlansAdmin() {
         const data = await response.json();
         const box = document.getElementById('usmleAdminPlansBox');
         if (box) box.style.display = 'block';
+        const card = box?.closest('.admin-subs-uni-card');
+        if (card) card.style.display = '';
         (data.plans || []).forEach((p) => {
             const el = document.getElementById(`usmlePrice${p.months}`);
             if (el) el.value = p.price;

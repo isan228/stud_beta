@@ -9,8 +9,13 @@ const {
   normalizePermissions,
   hasAnyPermission,
   canAccessScope,
+  canAccessFlashcards,
+  canAccessMedicalImages,
   denyScope,
   scopeProgramUniversityWhere,
+  scopeSubjectWhere,
+  scopeTestWhere,
+  scopeFlashcardWhere,
   mergeWhere,
   serializeEditor
 } = require('../utils/editorScope');
@@ -57,6 +62,7 @@ const {
   flashcardImageFilename,
   deleteFlashcardImageFile
 } = require('../utils/flashcardImages');
+const { IMAGE_UPLOAD_MAX_BYTES } = require('../utils/uploadLimits');
 const schedulePublic = require('./schedule');
 const { Op, QueryTypes } = require('sequelize');
 const { Sequelize } = require('sequelize');
@@ -98,7 +104,11 @@ async function assertQuestionScope(req, res, questionId) {
     res.status(404).json({ error: 'Вопрос не найден' });
     return null;
   }
-  if (!canAccessScope(req.scope, meta)) {
+  if (!canAccessScope(req.scope, {
+    programType: meta.programType,
+    universityId: meta.universityId,
+    subjectId: meta.question?.subjectId || meta.question?.Test?.subjectId || null
+  })) {
     denyScope(res);
     return null;
   }
@@ -113,7 +123,11 @@ async function assertTestScope(req, res, testId) {
     res.status(404).json({ error: 'Тест не найден' });
     return null;
   }
-  if (!canAccessScope(req.scope, { programType: test.programType, universityId: test.universityId })) {
+  if (!canAccessScope(req.scope, {
+    programType: test.programType,
+    universityId: test.universityId,
+    subjectId: test.subjectId
+  })) {
     denyScope(res);
     return null;
   }
@@ -128,7 +142,11 @@ async function assertSubjectScope(req, res, subjectId) {
     res.status(404).json({ error: 'Предмет не найден' });
     return null;
   }
-  if (!canAccessScope(req.scope, { programType: subject.programType, universityId: subject.universityId })) {
+  if (!canAccessScope(req.scope, {
+    programType: subject.programType,
+    universityId: subject.universityId,
+    subjectId: subject.id
+  })) {
     denyScope(res);
     return null;
   }
@@ -1883,7 +1901,7 @@ router.put('/subscription-plans/:universityId', adminAuth, requireFullAdmin, [
 });
 
 // Статистика подписок USMLE
-router.get('/usmle-stats', adminAuth, async (req, res) => {
+router.get('/usmle-stats', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const now = new Date();
 
@@ -2089,11 +2107,8 @@ router.delete('/question-tags/:id', adminAuth, async (req, res) => {
 
 // Flashcards (USMLE + university)
 router.get('/flashcards', adminAuth, async (req, res) => {
-  if (!req.scope?.full && !req.scope?.usmle) {
-    return denyScope(res, 'Нет прав на USMLE');
-  }
   try {
-    const where = { isActive: true };
+    let where = { isActive: true };
     const testId = parseInt(req.query.testId, 10);
     const tagId = parseInt(req.query.tagId, 10);
     const subjectId = parseInt(req.query.subjectId, 10);
@@ -2110,6 +2125,8 @@ router.get('/flashcards', adminAuth, async (req, res) => {
     if (Number.isFinite(topicId) && topicId > 0) where.topicId = topicId;
     if (Number.isFinite(universityId) && universityId > 0) where.universityId = universityId;
     if (['step1', 'step2', 'step3'].includes(stepGroup)) where.stepGroup = stepGroup;
+
+    where = mergeWhere(where, scopeFlashcardWhere(req.scope));
 
     const include = flashcardInclude();
     if (Number.isFinite(tagId) && tagId > 0) {
@@ -2488,7 +2505,7 @@ const flashcardImageStorage = multer.diskStorage({
 
 const flashcardImageUpload = multer({
   storage: flashcardImageStorage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: IMAGE_UPLOAD_MAX_BYTES },
   fileFilter: (req, file, cb) => {
     const name = file.originalname || '';
     const extOk = /\.(jpe?g|png|gif|webp)$/i.test(name);
@@ -2590,7 +2607,11 @@ router.get('/subjects/:id', adminAuth, async (req, res) => {
     if (!subject) {
       return res.status(404).json({ error: 'Предмет не найден' });
     }
-    if (!canAccessScope(req.scope, { programType: subject.programType, universityId: subject.universityId })) {
+    if (!canAccessScope(req.scope, {
+      programType: subject.programType,
+      universityId: subject.universityId,
+      subjectId: subject.id
+    })) {
       return denyScope(res);
     }
     res.json(serializeSubjectCourses(subject.toJSON()));
@@ -2611,7 +2632,7 @@ router.get('/subjects', adminAuth, async (req, res) => {
     } else if (req.query.programType === 'university' || req.query.program === 'university') {
       where.programType = 'university';
     }
-    where = mergeWhere(where, scopeProgramUniversityWhere(req.scope));
+    where = mergeWhere(where, scopeSubjectWhere(req.scope));
 
     const facultyId = parseInt(req.query.facultyId, 10);
     const courseFilter = parseInt(req.query.course, 10);
@@ -2734,6 +2755,15 @@ router.post('/subjects', adminAuth, [
 
     if (!canAccessScope(req.scope, { programType, universityId })) {
       return denyScope(res);
+    }
+    // Создание нового предмета — только если разрешены «все предметы» в этом разделе
+    if (!req.scope?.full) {
+      const okAll = programType === 'usmle'
+        ? !!req.scope.usmleAccess?.allSubjects
+        : !!req.scope.uniAccess?.[universityId]?.allSubjects;
+      if (!okAll) {
+        return denyScope(res, 'Нет прав создавать предметы — только выбранные');
+      }
     }
 
     const existing = await Subject.findOne({
@@ -2928,7 +2958,11 @@ router.get('/tests/:id', adminAuth, async (req, res) => {
     if (!test) {
       return res.status(404).json({ error: 'Тест не найден' });
     }
-    if (!canAccessScope(req.scope, { programType: test.programType, universityId: test.universityId })) {
+    if (!canAccessScope(req.scope, {
+      programType: test.programType,
+      universityId: test.universityId,
+      subjectId: test.subjectId
+    })) {
       return denyScope(res);
     }
     res.json(test);
@@ -2954,7 +2988,7 @@ router.get('/tests', adminAuth, async (req, res) => {
     } else if (req.query.programType === 'university' || req.query.program === 'university') {
       where.programType = 'university';
     }
-    where = mergeWhere(where, scopeProgramUniversityWhere(req.scope));
+    where = mergeWhere(where, scopeTestWhere(req.scope));
 
     if (req.query.compact === '1') {
       const tests = await Test.findAll({
@@ -3005,7 +3039,11 @@ router.post('/tests', adminAuth, [
     if (!subject) {
       return res.status(400).json({ error: 'Предмет не найден' });
     }
-    if (!canAccessScope(req.scope, { programType: subject.programType, universityId: subject.universityId })) {
+    if (!canAccessScope(req.scope, {
+      programType: subject.programType,
+      universityId: subject.universityId,
+      subjectId: subject.id
+    })) {
       return denyScope(res);
     }
     if (!subject.universityId && subject.programType !== 'usmle') {

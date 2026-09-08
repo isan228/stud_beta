@@ -16,6 +16,7 @@ const {
   removeImageUrl,
   stringifyImageUrls
 } = require('../utils/mediaField');
+const { IMAGE_UPLOAD_MAX_BYTES } = require('../utils/uploadLimits');
 
 function shouldAppendImage(req) {
   return String(req.query.append || req.body?.append || '').toLowerCase() === 'true';
@@ -121,7 +122,7 @@ function createQuestionImageRouter(authMiddleware) {
 
   const upload = multer({
     storage,
-    limits: { fileSize: 5 * 1024 * 1024 },
+    limits: { fileSize: IMAGE_UPLOAD_MAX_BYTES },
     fileFilter: imageFileFilter
   });
 
@@ -145,7 +146,7 @@ function createQuestionImageRouter(authMiddleware) {
   });
   const explanationUpload = multer({
     storage: explanationStorage,
-    limits: { fileSize: 5 * 1024 * 1024 },
+    limits: { fileSize: IMAGE_UPLOAD_MAX_BYTES },
     fileFilter: imageFileFilter
   });
 
@@ -169,7 +170,7 @@ function createQuestionImageRouter(authMiddleware) {
   });
   const answerUpload = multer({
     storage: answerStorage,
-    limits: { fileSize: 5 * 1024 * 1024 },
+    limits: { fileSize: IMAGE_UPLOAD_MAX_BYTES },
     fileFilter: imageFileFilter
   });
 

@@ -3,6 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { MedicalImage } = require('../models');
+const { IMAGE_UPLOAD_MAX_BYTES } = require('../utils/uploadLimits');
 
 const router = express.Router();
 
@@ -21,7 +22,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: IMAGE_UPLOAD_MAX_BYTES },
   fileFilter: (_req, file, cb) => {
     if (/^image\/(jpeg|png|gif|webp)$/i.test(file.mimetype)) cb(null, true);
     else cb(new Error('Только изображения'));
