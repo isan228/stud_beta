@@ -330,7 +330,7 @@
         if (typeof window.showTestAnalysis === 'function') {
           window.showTestAnalysis(Number(id));
         } else {
-          window.location.href = `/test-result?resultId=${id}`;
+          window.location.href = `/test-review?resultId=${id}`;
         }
         return;
       }

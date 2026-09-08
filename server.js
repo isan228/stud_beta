@@ -136,6 +136,7 @@ const pages = {
   '/test-settings': 'test-settings.html',
   '/test': 'test.html',
   '/test-result': 'test-result.html',
+  '/test-review': 'test-review.html',
   '/about': 'about.html',
   '/favorites': 'favorites.html',
   '/profile': 'profile.html',

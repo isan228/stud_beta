@@ -2866,20 +2866,259 @@ html[data-theme="dark"] .question-image-preview-img,
     background: rgba(255, 255, 255, 0.06);
 }
 
-/* Медицинский глоссарий — ссылки на термины */
+/* Медицинский глоссарий — синие «пилюли» как в UWorld */
 .medical-term-link {
-    color: var(--primary-color, #2563eb);
-    text-decoration: underline dotted;
-    text-underline-offset: 2px;
+    display: inline;
+    color: #fff !important;
+    background: #2563eb;
+    text-decoration: none !important;
     cursor: pointer;
-    font-weight: inherit;
+    font-weight: 600;
+    font-size: 0.92em;
+    line-height: 1.35;
     border: none;
-    background: none;
-    padding: 0;
+    border-radius: 999px;
+    padding: 0.12em 0.55em;
+    margin: 0 0.08em;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    white-space: normal;
+    vertical-align: baseline;
+    transition: background 0.15s ease, filter 0.15s ease;
 }
 .medical-term-link:hover {
-    text-decoration: underline solid;
-    opacity: 0.85;
+    background: #1d4ed8;
+    text-decoration: none !important;
+    opacity: 1;
+    filter: brightness(1.05);
+}
+.medical-term-link:focus-visible {
+    outline: 2px solid #93c5fd;
+    outline-offset: 2px;
+}
+
+.usmle-medical-library {
+    margin-top: 1.35rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+}
+[data-theme="dark"] .usmle-medical-library,
+body.dark-theme .usmle-medical-library {
+    border-top-color: var(--border-light);
+}
+.usmle-medical-library-title {
+    font-weight: 700;
+    font-size: 1rem;
+    color: #111827;
+    margin-bottom: 0.55rem;
+}
+[data-theme="dark"] .usmle-medical-library-title,
+body.dark-theme .usmle-medical-library-title {
+    color: var(--text-color);
+}
+.usmle-medical-library-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+.usmle-medical-library-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: #2563eb;
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-decoration: none;
+    cursor: pointer;
+}
+.usmle-medical-library-link:hover {
+    text-decoration: underline;
+}
+.usmle-medical-library-icon {
+    width: 1.05rem;
+    height: 1.05rem;
+    flex-shrink: 0;
+    color: #60a5fa;
+}
+
+/* Страница разбора ошибок */
+body.test-review-page .main-content {
+    padding-top: 1rem;
+    padding-bottom: 3rem;
+    background: #f5f8fa;
+}
+[data-theme="dark"] body.test-review-page .main-content,
+body.dark-theme.test-review-page .main-content {
+    background: var(--bg-color);
+}
+.test-review-container {
+    max-width: none;
+    width: 100%;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+.test-review-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+    margin-bottom: 1.25rem;
+}
+.test-review-header h1 {
+    margin: 0;
+    font-size: 1.45rem;
+    color: var(--text-color);
+}
+.test-review-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+}
+.test-review-summary {
+    margin-bottom: 1.5rem;
+    padding: 1.25rem 1.35rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-light);
+    background: var(--card-bg);
+}
+.test-review-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.85rem;
+}
+.test-review-stat {
+    text-align: center;
+}
+.test-review-stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--primary-color);
+}
+.test-review-stat-label {
+    margin-top: 0.25rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+.test-review-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+.test-review-item {
+    padding: 1.25rem 1.35rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-light);
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+[data-theme="dark"] .test-review-item,
+body.dark-theme .test-review-item {
+    background: var(--card-bg);
+}
+.test-review-item.is-correct {
+    border-left: 4px solid var(--success-color);
+}
+.test-review-item.is-incorrect {
+    border-left: 4px solid var(--danger-color);
+}
+.test-review-item-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    margin-bottom: 1rem;
+}
+.test-review-item-num {
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+.test-review-item.is-correct .test-review-item-num {
+    background: var(--success-color);
+}
+.test-review-item.is-incorrect .test-review-item-num {
+    background: var(--danger-color);
+}
+.test-review-question {
+    font-size: 1.02rem;
+    font-weight: 600;
+    line-height: 1.55;
+    color: var(--text-color);
+}
+.test-review-badge {
+    display: inline-block;
+    margin-top: 0.65rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.25rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+.test-review-badge.is-correct {
+    background: rgba(16, 185, 129, 0.12);
+    color: var(--success-color);
+}
+.test-review-badge.is-incorrect {
+    background: rgba(220, 38, 38, 0.12);
+    color: var(--danger-color);
+}
+.test-review-answers {
+    margin-top: 1rem;
+}
+.test-review-answer-row {
+    padding: 0.7rem 0.9rem;
+    margin: 0.45rem 0;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-light);
+    background: var(--bg-secondary);
+}
+.test-review-answer-row.is-user {
+    border-color: var(--danger-color);
+    background: rgba(220, 38, 38, 0.08);
+}
+.test-review-answer-row.is-correct-choice {
+    border-color: var(--success-color);
+    background: rgba(16, 185, 129, 0.1);
+}
+.test-review-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+    color: var(--text-secondary);
+}
+.test-review-explanation-wrap {
+    margin-top: 1.1rem;
+    padding: 1.1rem 1.2rem;
+    border-radius: 0.5rem;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+}
+[data-theme="dark"] .test-review-explanation-wrap,
+body.dark-theme .test-review-explanation-wrap {
+    background: color-mix(in srgb, var(--bg-secondary) 90%, #000);
+    border-color: var(--border-light);
+}
+.test-review-explanation-wrap .usmle-explanation-box {
+    border-top: none;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+}
+@media (min-width: 1100px) {
+    .test-review-container {
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
 }
 
 .test-actions {

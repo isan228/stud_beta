@@ -46,7 +46,7 @@
                     <div id="testEndExplanationsContent"></div>
                 </div>
                 <div class="result-card-actions" style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem;">
-                    <button type="button" class="btn btn-secondary" id="showAnalysisBtn" style="display: none;">📊 Разбор теста</button>
+                    <a href="/test-review" class="btn btn-secondary" id="showAnalysisBtn" style="display: none;">Разбор ошибок</a>
                     <button type="button" class="btn btn-secondary" id="retakeTestBtn" style="display: none;">Перепройти тест</button>
                     <a href="/tests" class="btn btn-primary">Вернуться к тестам</a>
                 </div>
@@ -351,17 +351,13 @@
                 
                 showTestResults(currentResultData);
                 renderTestEndExplanationsSection(currentResultData);
-                
-                // Автоматически открываем разбор и привязываем кнопку
-                if (currentResultData.questions && currentResultData.results) {
-                    showTestAnalysisFromSession(currentResultData);
 
+                if (currentResultData.questions && currentResultData.results) {
                     const showAnalysisBtn = document.getElementById('showAnalysisBtn');
                     if (showAnalysisBtn) {
-                        showAnalysisBtn.style.display = 'block';
-                        showAnalysisBtn.addEventListener('click', () => {
-                            showTestAnalysisFromSession(currentResultData);
-                        });
+                        showAnalysisBtn.style.display = 'inline-flex';
+                        const resultId = new URLSearchParams(window.location.search).get('resultId');
+                        showAnalysisBtn.href = resultId ? `/test-review?resultId=${encodeURIComponent(resultId)}` : '/test-review';
                     }
                 }
 

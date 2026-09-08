@@ -2330,6 +2330,54 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 el.innerHTML = linkifyMedicalTerms(el.innerHTML, kws);
             });
         }
+        appendMedicalLibrarySections(root);
+    }
+
+    function appendMedicalLibrarySections(root = document) {
+        const boxes = root.querySelectorAll?.('.question-explanation-box, .usmle-explanation-box');
+        if (!boxes || !boxes.length) return;
+        boxes.forEach((box) => {
+            if (box.querySelector('.usmle-medical-library')) return;
+            const links = [...box.querySelectorAll('a.medical-term-link')];
+            if (!links.length) return;
+            const seen = new Set();
+            const items = [];
+            links.forEach((a) => {
+                const key = String(a.dataset.medicalId || a.dataset.imgTitle || a.textContent || '').trim().toLowerCase();
+                if (!key || seen.has(key)) return;
+                seen.add(key);
+                items.push({
+                    id: a.dataset.medicalId || '',
+                    title: a.dataset.imgTitle || a.textContent || '',
+                    url: a.dataset.imgUrl || ''
+                });
+            });
+            if (!items.length) return;
+            const library = document.createElement('div');
+            library.className = 'usmle-medical-library';
+            library.innerHTML = `
+                <div class="usmle-medical-library-title">Medical Library</div>
+                <ul class="usmle-medical-library-list">
+                    ${items.map((item) => `
+                        <li>
+                            <a href="#" class="usmle-medical-library-link"
+                               data-medical-id="${escapeHtmlStr(item.id)}"
+                               data-img-url="${String(item.url || '').replace(/"/g, '&quot;')}"
+                               data-img-title="${String(item.title || '').replace(/"/g, '&quot;')}"
+                               onclick="openMedicalImagePopup(event,this)">
+                                <svg class="usmle-medical-library-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                    <path d="M7 3h8l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.7"/>
+                                    <path d="M15 3v4h4" stroke="currentColor" stroke-width="1.7"/>
+                                    <path d="M9 12h6M9 16h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                                </svg>
+                                <span>${escapeHtmlStr(item.title)}</span>
+                            </a>
+                        </li>
+                    `).join('')}
+                </ul>
+            `;
+            box.appendChild(library);
+        });
     }
 
     function normalizeImageUrls(value) {
@@ -3158,8 +3206,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 instantFeedbackMode: !!instantFeedbackMode
             }));
 
-            // Переходим на страницу результатов
-            window.location.href = '/test-result';
+            // Переходим на страницу разбора ошибок
+            window.location.href = '/test-review';
         } catch (error) {
             console.error('Ошибка завершения теста:', error);
             showNotification('Ошибка завершения теста', 'error');
@@ -4871,263 +4919,14 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         configurable: true
     });
 
-    // Разбор теста
+    // Разбор теста — отдельная страница
     async function showTestAnalysis(resultId) {
-        const modal = document.getElementById('testAnalysisModal');
-        const content = document.getElementById('testAnalysisContent');
-        const title = document.getElementById('testAnalysisTitle');
-
-        if (!modal || !content) {
-            showNotification('Модальное окно не найдено', 'error');
+        const id = Number(resultId);
+        if (Number.isFinite(id) && id > 0) {
+            window.location.href = `/test-review?resultId=${id}`;
             return;
         }
-
-        // Показываем модальное окно
-        modal.style.display = 'block';
-        content.innerHTML = `
-        <div style="text-align: center; padding: 2rem;">
-            <div class="spinner" style="border: 4px solid var(--bg-secondary); border-top: 4px solid var(--primary-color); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto;"></div>
-            <p style="margin-top: 1rem; color: var(--text-secondary);">Загрузка разбора...</p>
-        </div>
-    `;
-
-        try {
-            const response = await fetch(`${API_URL}/stats/test-result/${resultId}`, {
-                headers: {
-                    'Authorization': `Bearer ${currentToken}`
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error('Ошибка загрузки разбора');
-            }
-
-            const data = await response.json();
-            const result = data.result;
-
-            if (!result.questions || !result.results) {
-                content.innerHTML = `
-                <div style="text-align: center; padding: 2rem;">
-                    <p style="color: var(--text-secondary);">Детальная информация о тесте недоступна. Эта функция доступна только для тестов, пройденных после обновления системы.</p>
-                </div>
-            `;
-                return;
-            }
-
-            const testName = result.Test?.name || 'Неизвестный тест';
-            const subjectName = result.Test?.Subject?.name || '';
-            const percentage = Math.round((result.score / result.totalQuestions) * 100);
-            const date = new Date(result.createdAt);
-            const timeSpentMinutes = result.timeSpent ? Math.floor(result.timeSpent / 60) : 0;
-            const timeSpentSeconds = result.timeSpent ? result.timeSpent % 60 : 0;
-
-            title.textContent = `Разбор: ${testName}`;
-
-            // Подсчитываем статистику
-            const correctCount = result.score;
-            const incorrectCount = result.totalQuestions - result.score;
-            const correctPercentage = percentage;
-
-            content.innerHTML = `
-            <div style="margin-bottom: 2rem; padding: 1.5rem; background: linear-gradient(135deg, var(--card-bg) 0%, var(--bg-secondary) 100%); border-radius: var(--radius-lg); border: 1px solid var(--border-light);">
-                <h3 style="margin-bottom: 1rem; color: var(--text-color);">Общая информация</h3>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
-                    <div>
-                        <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 0.25rem;">Тест</p>
-                        <p style="font-weight: 600; color: var(--text-color);">${testName}</p>
-                    </div>
-                    ${subjectName ? `
-                        <div>
-                            <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 0.25rem;">Предмет</p>
-                            <p style="font-weight: 600; color: var(--text-color);">${subjectName}</p>
-                        </div>
-                    ` : ''}
-                    <div>
-                        <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 0.25rem;">Дата прохождения</p>
-                        <p style="font-weight: 600; color: var(--text-color);">${date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-                    </div>
-                    ${result.timeSpent ? `
-                        <div>
-                            <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 0.25rem;">Время</p>
-                            <p style="font-weight: 600; color: var(--text-color);">${timeSpentMinutes}:${timeSpentSeconds.toString().padStart(2, '0')}</p>
-                        </div>
-                    ` : ''}
-                </div>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-light);">
-                    <div style="text-align: center;">
-                        <p style="font-size: 2rem; font-weight: 700; color: var(--primary-color); line-height: 1;">${result.score}/${result.totalQuestions}</p>
-                        <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">Правильных ответов</p>
-                    </div>
-                    <div style="text-align: center;">
-                        <p style="font-size: 2rem; font-weight: 700; color: ${correctPercentage >= 80 ? 'var(--success-color)' : correctPercentage >= 60 ? 'var(--primary-color)' : 'var(--danger-color)'}; line-height: 1;">${correctPercentage}%</p>
-                        <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">Точность</p>
-                    </div>
-                    <div style="text-align: center;">
-                        <p style="font-size: 2rem; font-weight: 700; color: var(--success-color); line-height: 1;">${correctCount}</p>
-                        <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">Правильно</p>
-                    </div>
-                    <div style="text-align: center;">
-                        <p style="font-size: 2rem; font-weight: 700; color: var(--danger-color); line-height: 1;">${incorrectCount}</p>
-                        <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">Ошибок</p>
-                    </div>
-                </div>
-            </div>
-            
-            <h3 style="margin-bottom: 1rem; color: var(--text-color);">Детальный разбор по вопросам</h3>
-            ${result.questions.map((question, index) => {
-                const questionResult = result.results[question.id];
-                if (!questionResult) return '';
-
-                const userAnswerId = result.answers[question.id];
-                const userAnswer = question.Answers?.find(a => a.id === parseInt(userAnswerId));
-                // Ищем правильный ответ: сначала по correctAnswerId из результатов, потом по isCorrect
-                let correctAnswer = null;
-
-                if (questionResult.correctAnswerId) {
-                    correctAnswer = question.Answers?.find(a => a.id === questionResult.correctAnswerId);
-                }
-                if (!correctAnswer) {
-                    // Ищем по isCorrect (проверяем все возможные форматы)
-                    correctAnswer = question.Answers?.find(a => {
-                        if (a.isCorrect === true) return true;
-                        if (a.isCorrect === false || a.isCorrect === null || a.isCorrect === undefined) return false;
-                        if (a.isCorrect === 1 || a.isCorrect === '1') return true;
-                        if (a.isCorrect === 0 || a.isCorrect === '0') return false;
-                        if (typeof a.isCorrect === 'string') {
-                            const str = a.isCorrect.toLowerCase().trim();
-                            return str === 'true' || str === 't' || str === '1';
-                        }
-                        return Boolean(a.isCorrect);
-                    });
-                }
-
-                // Если все еще не найден, пробуем найти первый ответ с isCorrect
-                if (!correctAnswer && question.Answers) {
-                    for (const answer of question.Answers) {
-                        let isCorrect = false;
-                        if (answer.isCorrect === true) {
-                            isCorrect = true;
-                        } else if (answer.isCorrect === false || answer.isCorrect === null || answer.isCorrect === undefined) {
-                            isCorrect = false;
-                        } else if (answer.isCorrect === 1 || answer.isCorrect === '1') {
-                            isCorrect = true;
-                        } else if (answer.isCorrect === 0 || answer.isCorrect === '0') {
-                            isCorrect = false;
-                        } else if (typeof answer.isCorrect === 'string') {
-                            const str = answer.isCorrect.toLowerCase().trim();
-                            isCorrect = str === 'true' || str === 't' || str === '1';
-                        } else {
-                            isCorrect = Boolean(answer.isCorrect);
-                        }
-                        if (isCorrect) {
-                            correctAnswer = answer;
-                            break;
-                        }
-                    }
-                }
-
-                const isCorrect = questionResult.correct;
-
-                return `
-                    <div class="test-analysis-item ${isCorrect ? 'correct' : 'incorrect'}">
-                        <div style="display: flex; align-items: start; gap: 1rem; margin-bottom: 1rem;">
-                            <div style="min-width: 2rem; height: 2rem; border-radius: 50%; background: ${isCorrect ? 'var(--success-color)' : 'var(--danger-color)'}; color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.875rem;">
-                                ${index + 1}
-                            </div>
-                            <div style="flex: 1;">
-                                <div class="test-analysis-question">${usmleLinked().renderUsmleQuestionBodyHtml
-                                    ? usmleLinked().renderUsmleQuestionBodyHtml(question.text, {
-                                        isFirstInLinkedGroup: usmleLinked().isFirstLinkedQuestionInList?.(result.questions, index) || false
-                                    })
-                                    : question.text}</div>
-                                ${question.imageUrl ? `<figure class="question-image-wrap"><img src="${String(question.imageUrl).replace(/"/g, '')}" alt="Иллюстрация к вопросу" class="question-image" loading="lazy" decoding="async"></figure>` : ''}
-                                <div style="margin-top: 0.75rem;">
-                                    <span style="padding: 0.25rem 0.75rem; border-radius: 0.25rem; font-size: 0.875rem; font-weight: 600; background-color: ${isCorrect ? 'rgba(16, 185, 129, 0.1)' : 'rgba(220, 38, 38, 0.1)'}; color: ${isCorrect ? 'var(--success-color)' : 'var(--danger-color)'};">
-                                        ${isCorrect ? '✓ Правильно' : '✗ Неправильно'}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                        ${!isCorrect ? `
-                            <div style="margin-top: 1rem;">
-                                <div class="test-analysis-label" style="color: var(--danger-color);">Ваш ответ:</div>
-                                <div class="test-analysis-answer user-answer">
-                                    ${userAnswer?.text || 'Не отвечено'}
-                                </div>
-                            </div>
-                        ` : ''}
-                        <div style="margin-top: ${!isCorrect ? '1rem' : '0'};">
-                            <div class="test-analysis-label" style="color: var(--success-color);">Правильный ответ:</div>
-                            <div class="test-analysis-answer correct-answer">
-                                ${correctAnswer?.text || (question.Answers && question.Answers.length > 0 ?
-                        '<span style="color: var(--danger-color);">⚠️ Правильный ответ не отмечен в тесте. Проверьте настройки теста в админ-панели.</span>' :
-                        'Не найден')}
-                            </div>
-                        </div>
-                        ${!isCorrect && question.Answers && question.Answers.length > 0 ? `
-                            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-light);">
-                                <div class="test-analysis-label">Все варианты ответов:</div>
-                                ${question.Answers.map(answer => `
-                                    ${(() => {
-                                // Нормализуем isCorrect для отображения
-                                let isAnswerCorrect = false;
-                                if (answer.isCorrect === true) {
-                                    isAnswerCorrect = true;
-                                } else if (answer.isCorrect === false || answer.isCorrect === null || answer.isCorrect === undefined) {
-                                    isAnswerCorrect = false;
-                                } else if (answer.isCorrect === 1 || answer.isCorrect === '1') {
-                                    isAnswerCorrect = true;
-                                } else if (answer.isCorrect === 0 || answer.isCorrect === '0') {
-                                    isAnswerCorrect = false;
-                                } else if (typeof answer.isCorrect === 'string') {
-                                    const str = answer.isCorrect.toLowerCase().trim();
-                                    isAnswerCorrect = str === 'true' || str === 't' || str === '1';
-                                } else {
-                                    isAnswerCorrect = Boolean(answer.isCorrect);
-                                }
-                                return `
-                                    <div class="test-analysis-answer" style="border: ${isAnswerCorrect ? '2px solid var(--success-color)' : answer.id === parseInt(userAnswerId) ? '2px solid var(--danger-color)' : '1px solid var(--border-light)'}; background: ${isAnswerCorrect ? 'rgba(16, 185, 129, 0.1)' : answer.id === parseInt(userAnswerId) ? 'rgba(220, 38, 38, 0.1)' : 'var(--card-bg)'};">
-                                        <span>${isAnswerCorrect ? '✓ ' : answer.id === parseInt(userAnswerId) ? '✗ ' : ''}${answer.text}</span>
-                                        ${answer.imageUrl ? `<img src="${String(answer.imageUrl).replace(/"/g, '')}" alt="" class="answer-option-image" loading="lazy" decoding="async">` : ''}
-                                    </div>
-                                        `;
-                            })()}
-                                `).join('')}
-                            </div>
-                        ` : ''}
-                        ${(question.explanation || question.explanationImageUrl) ? `
-                            <div style="margin-top: 1rem;">
-                                ${renderQuestionExplanationHtml(question.explanation, question.explanationImageUrl)}
-                            </div>
-                        ` : ''}
-                    </div>
-                `;
-            }).join('')}
-        `;
-
-            // Обработчик закрытия модального окна
-            const closeBtn = document.getElementById('testAnalysisModalClose');
-            if (closeBtn) {
-                closeBtn.onclick = () => {
-                    modal.style.display = 'none';
-                };
-            }
-
-            // Закрытие по клику вне модального окна
-            modal.onclick = (e) => {
-                if (e.target === modal) {
-                    modal.style.display = 'none';
-                }
-            };
-
-        } catch (error) {
-            console.error('Ошибка загрузки разбора:', error);
-            content.innerHTML = `
-            <div style="text-align: center; padding: 2rem;">
-                <p style="color: var(--danger-color);">Ошибка загрузки разбора теста. Попробуйте позже.</p>
-            </div>
-        `;
-        }
+        window.location.href = '/test-review';
     }
 
     // Экспорт функции для использования в HTML

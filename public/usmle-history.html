@@ -61,8 +61,7 @@
     }
 
     function openReview(resultId) {
-        sessionStorage.setItem('usmleReviewResultId', String(resultId));
-        window.location.href = '/test-result';
+        window.location.href = `/test-review?resultId=${encodeURIComponent(resultId)}`;
     }
 
     async function loadHistory(bank) {
