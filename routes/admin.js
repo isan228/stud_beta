@@ -4,6 +4,16 @@ const multer = require('multer');
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const adminAuth = require('../middleware/adminAuth');
+const { requireFullAdmin } = require('../middleware/adminAuth');
+const {
+  normalizePermissions,
+  hasAnyPermission,
+  canAccessScope,
+  denyScope,
+  scopeProgramUniversityWhere,
+  mergeWhere,
+  serializeEditor
+} = require('../utils/editorScope');
 const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, Editor, EditorAuditLog, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, BroadcastMessage, UserBroadcastNotification, Transaction, University, Faculty, SubjectFaculty, SubjectCourse, SubscriptionPlan, QuestionTag, QuestionTagMap, ScheduleEntry, Flashcard, FlashcardTagMap, FlashcardTopic, sequelize } = require('../models');
 const { snapshotFromQuestion, logQuestionAudit } = require('../utils/questionAuditLog');
 const { ensurePlansForUniversity, getPlansForUniversity, ensurePlansForUsmle, getPlansForUsmle, ALLOWED_MONTHS, planTitle, uniPlanScope, USMLE_PLAN_SCOPE } = require('../utils/subscriptionPlans');
@@ -50,6 +60,80 @@ const {
 const schedulePublic = require('./schedule');
 const { Op, QueryTypes } = require('sequelize');
 const { Sequelize } = require('sequelize');
+
+function getAuditActor(req) {
+  if (req.actorType === 'editor' && req.editor) {
+    return {
+      actorType: 'editor',
+      actorId: req.editor.id,
+      actorUsername: req.editor.username
+    };
+  }
+  return {
+    actorType: 'admin',
+    actorId: req.admin?.id,
+    actorUsername: req.admin?.username
+  };
+}
+
+async function loadQuestionScopeMeta(questionId) {
+  const question = await Question.findByPk(questionId, {
+    include: [{
+      model: Test,
+      as: 'Test',
+      attributes: ['id', 'programType', 'universityId', 'subjectId']
+    }]
+  });
+  if (!question) return null;
+  return {
+    question,
+    programType: question.Test?.programType || 'university',
+    universityId: question.Test?.universityId || null
+  };
+}
+
+async function assertQuestionScope(req, res, questionId) {
+  const meta = await loadQuestionScopeMeta(questionId);
+  if (!meta) {
+    res.status(404).json({ error: 'Вопрос не найден' });
+    return null;
+  }
+  if (!canAccessScope(req.scope, meta)) {
+    denyScope(res);
+    return null;
+  }
+  return meta;
+}
+
+async function assertTestScope(req, res, testId) {
+  const test = await Test.findByPk(testId, {
+    attributes: ['id', 'programType', 'universityId', 'subjectId', 'name']
+  });
+  if (!test) {
+    res.status(404).json({ error: 'Тест не найден' });
+    return null;
+  }
+  if (!canAccessScope(req.scope, { programType: test.programType, universityId: test.universityId })) {
+    denyScope(res);
+    return null;
+  }
+  return test;
+}
+
+async function assertSubjectScope(req, res, subjectId) {
+  const subject = await Subject.findByPk(subjectId, {
+    attributes: ['id', 'programType', 'universityId', 'name']
+  });
+  if (!subject) {
+    res.status(404).json({ error: 'Предмет не найден' });
+    return null;
+  }
+  if (!canAccessScope(req.scope, { programType: subject.programType, universityId: subject.universityId })) {
+    denyScope(res);
+    return null;
+  }
+  return subject;
+}
 
 function subjectFacultyInclude() {
   return {
@@ -183,7 +267,7 @@ async function attachTestCountsToSubjects(subjects) {
   });
 }
 
-// Вход администратора
+// Вход администратора или редактора (единая форма /admin)
 router.post('/login', [
   body('username').notEmpty().withMessage('Имя пользователя обязательно'),
   body('password').notEmpty().withMessage('Пароль обязателен')
@@ -195,52 +279,72 @@ router.post('/login', [
     }
 
     const { username, password } = req.body;
-    
-    console.log('Попытка входа администратора:', { username, passwordLength: password?.length });
-    
-    // Ищем администратора (без учета регистра для username)
-    const admin = await Admin.findOne({ 
-      where: Sequelize.where(
-        Sequelize.fn('LOWER', Sequelize.col('username')), 
-        username.toLowerCase()
-      )
-    });
 
-    if (!admin) {
-      console.log('Администратор не найден:', username);
-      // Проверяем, есть ли вообще администраторы
-      const adminCount = await Admin.count();
-      console.log('Всего администраторов в БД:', adminCount);
-      return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
-    }
-
-    console.log('Администратор найден:', { id: admin.id, username: admin.username });
-    
-    const isMatch = await admin.comparePassword(password);
-    console.log('Проверка пароля:', isMatch);
-    
-    if (!isMatch) {
-      return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
-    }
-
-    // Проверяем наличие JWT_SECRET
     if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'your_jwt_secret_key_here') {
       console.error('ОШИБКА: JWT_SECRET не установлен или установлен на значение по умолчанию!');
       return res.status(500).json({ error: 'Ошибка конфигурации сервера. Установите JWT_SECRET в .env файле.' });
     }
-    
-    const token = jwt.sign({ adminId: admin.id, role: admin.role }, process.env.JWT_SECRET, { expiresIn: '24h' });
-    console.log('Токен создан успешно для администратора:', admin.username);
 
-    res.json({
+    // 1) Админ
+    const admin = await Admin.findOne({
+      where: Sequelize.where(
+        Sequelize.fn('LOWER', Sequelize.col('username')),
+        username.toLowerCase()
+      )
+    });
+
+    if (admin) {
+      const isMatch = await admin.comparePassword(password);
+      if (!isMatch) {
+        return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
+      }
+      const token = jwt.sign({ adminId: admin.id, role: admin.role }, process.env.JWT_SECRET, { expiresIn: '24h' });
+      return res.json({
+        message: 'Вход выполнен успешно',
+        token,
+        actorType: 'admin',
+        admin: {
+          id: admin.id,
+          username: admin.username,
+          email: admin.email,
+          role: admin.role
+        }
+      });
+    }
+
+    // 2) Редактор
+    const editor = await Editor.findOne({
+      where: Sequelize.where(
+        Sequelize.fn('LOWER', Sequelize.col('username')),
+        username.toLowerCase()
+      )
+    });
+    if (!editor || !editor.isActive) {
+      return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
+    }
+    const editorMatch = await editor.comparePassword(password);
+    if (!editorMatch) {
+      return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
+    }
+    if (!hasAnyPermission(editor.permissions)) {
+      return res.status(403).json({ error: 'У редактора нет выданных прав. Обратитесь к администратору.' });
+    }
+
+    const permissions = normalizePermissions(editor.permissions);
+    const token = jwt.sign({ editorId: editor.id }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    return res.json({
       message: 'Вход выполнен успешно',
       token,
+      actorType: 'editor',
       admin: {
-        id: admin.id,
-        username: admin.username,
-        email: admin.email,
-        role: admin.role
-      }
+        id: editor.id,
+        username: editor.username,
+        email: null,
+        role: 'editor',
+        displayName: editor.displayName,
+        permissions
+      },
+      editor: serializeEditor(editor)
     });
   } catch (error) {
     console.error('Ошибка входа администратора:', error);
@@ -248,10 +352,29 @@ router.post('/login', [
   }
 });
 
-// Получить текущего администратора
+// Получить текущего администратора / редактора
 router.get('/me', adminAuth, async (req, res) => {
   try {
+    if (req.actorType === 'editor' && req.editor) {
+      const permissions = normalizePermissions(req.editor.permissions);
+      return res.json({
+        actorType: 'editor',
+        scope: req.scope,
+        admin: {
+          id: req.editor.id,
+          username: req.editor.username,
+          email: null,
+          role: 'editor',
+          displayName: req.editor.displayName,
+          permissions
+        },
+        editor: serializeEditor(req.editor)
+      });
+    }
+
     res.json({
+      actorType: 'admin',
+      scope: req.scope,
       admin: {
         id: req.admin.id,
         username: req.admin.username,
@@ -266,23 +389,23 @@ router.get('/me', adminAuth, async (req, res) => {
 });
 
 // Управление аккаунтами редакторов вопросов
-router.get('/editors', adminAuth, async (req, res) => {
+router.get('/editors', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const editors = await Editor.findAll({
-      attributes: ['id', 'username', 'displayName', 'isActive', 'createdAt', 'updatedAt'],
+      attributes: ['id', 'username', 'displayName', 'isActive', 'permissions', 'createdAt', 'updatedAt'],
       order: [['createdAt', 'DESC']]
     });
-    res.json(editors);
+    res.json(editors.map(serializeEditor));
   } catch (error) {
     console.error('Ошибка получения редакторов:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
-router.post('/editors', adminAuth, [
+router.post('/editors', adminAuth, requireFullAdmin, [
   body('username').trim().isLength({ min: 3, max: 50 }).withMessage('Логин от 3 до 50 символов'),
   body('password').isLength({ min: 6 }).withMessage('Пароль минимум 6 символов'),
-  body('displayName').optional().trim().isLength({ max: 100 })
+  body('displayName').optional({ nullable: true }).trim().isLength({ max: 100 })
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -291,6 +414,11 @@ router.post('/editors', adminAuth, [
     }
 
     const { username, password, displayName } = req.body;
+    const permissions = normalizePermissions(req.body.permissions);
+    if (!hasAnyPermission(permissions)) {
+      return res.status(400).json({ error: 'Выдайте хотя бы одно право: USMLE или университет' });
+    }
+
     const existing = await Editor.findOne({
       where: Sequelize.where(
         Sequelize.fn('LOWER', Sequelize.col('username')),
@@ -305,25 +433,20 @@ router.post('/editors', adminAuth, [
       username: username.trim(),
       password,
       displayName: displayName?.trim() || null,
-      isActive: true
+      isActive: true,
+      permissions
     });
 
-    res.status(201).json({
-      id: editor.id,
-      username: editor.username,
-      displayName: editor.displayName,
-      isActive: editor.isActive,
-      createdAt: editor.createdAt
-    });
+    res.status(201).json(serializeEditor(editor));
   } catch (error) {
     console.error('Ошибка создания редактора:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
-router.put('/editors/:id', adminAuth, [
+router.put('/editors/:id', adminAuth, requireFullAdmin, [
   body('password').optional().isLength({ min: 6 }).withMessage('Пароль минимум 6 символов'),
-  body('displayName').optional().trim().isLength({ max: 100 }),
+  body('displayName').optional({ nullable: true }).trim().isLength({ max: 100 }),
   body('isActive').optional().isBoolean()
 ], async (req, res) => {
   try {
@@ -346,22 +469,23 @@ router.put('/editors/:id', adminAuth, [
     if (req.body.password) {
       editor.password = req.body.password;
     }
+    if (req.body.permissions !== undefined) {
+      const permissions = normalizePermissions(req.body.permissions);
+      if (!hasAnyPermission(permissions) && req.body.isActive !== false && editor.isActive) {
+        return res.status(400).json({ error: 'Выдайте хотя бы одно право: USMLE или университет' });
+      }
+      editor.permissions = permissions;
+    }
     await editor.save();
 
-    res.json({
-      id: editor.id,
-      username: editor.username,
-      displayName: editor.displayName,
-      isActive: editor.isActive,
-      updatedAt: editor.updatedAt
-    });
+    res.json(serializeEditor(editor));
   } catch (error) {
     console.error('Ошибка обновления редактора:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
-router.delete('/editors/:id', adminAuth, async (req, res) => {
+router.delete('/editors/:id', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const editor = await Editor.findByPk(req.params.id);
     if (!editor) {
@@ -887,7 +1011,7 @@ router.get('/dashboard/stats', adminAuth, async (req, res) => {
 });
 
 // Список чатов пользователей для админа
-router.get('/chats', adminAuth, async (req, res) => {
+router.get('/chats', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const lastRows = await sequelize.query(
       `SELECT DISTINCT ON ("userId") id, "userId", text, "isAdmin", "isRead", "createdAt"
@@ -949,7 +1073,7 @@ router.get('/chats', adminAuth, async (req, res) => {
 });
 
 // Сообщения конкретного чата
-router.get('/chats/:userId/messages', adminAuth, async (req, res) => {
+router.get('/chats/:userId/messages', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const userId = parseInt(req.params.userId, 10);
     const user = await User.findByPk(userId, { attributes: ['id', 'username', 'email'] });
@@ -970,7 +1094,7 @@ router.get('/chats/:userId/messages', adminAuth, async (req, res) => {
 });
 
 // Ответ админа пользователю
-router.post('/chats/:userId/messages', adminAuth, [
+router.post('/chats/:userId/messages', adminAuth, requireFullAdmin, [
   body('text')
     .trim()
     .isLength({ min: 1, max: 4000 })
@@ -1003,7 +1127,7 @@ router.post('/chats/:userId/messages', adminAuth, [
 });
 
 // Пометить сообщения пользователя как прочитанные админом
-router.put('/chats/:userId/read', adminAuth, async (req, res) => {
+router.put('/chats/:userId/read', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const userId = parseInt(req.params.userId, 10);
     const [updated] = await ChatMessage.update(
@@ -1025,7 +1149,7 @@ router.put('/chats/:userId/read', adminAuth, async (req, res) => {
 });
 
 // Массовое уведомление всем пользователям (колокольчик на сайте)
-router.get('/broadcast-notifications', adminAuth, async (req, res) => {
+router.get('/broadcast-notifications', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 15));
     const rows = await BroadcastMessage.findAll({
@@ -1040,7 +1164,7 @@ router.get('/broadcast-notifications', adminAuth, async (req, res) => {
   }
 });
 
-router.post('/broadcast-notifications', adminAuth, [
+router.post('/broadcast-notifications', adminAuth, requireFullAdmin, [
   body('title')
     .trim()
     .isLength({ min: 1, max: 200 })
@@ -1093,7 +1217,7 @@ router.post('/broadcast-notifications', adminAuth, [
 });
 
 // Уведомления о входе пользователей с новых устройств
-router.get('/device-alerts', adminAuth, async (req, res) => {
+router.get('/device-alerts', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 20;
@@ -1128,7 +1252,7 @@ router.get('/device-alerts', adminAuth, async (req, res) => {
 });
 
 // Пометить уведомление о новом устройстве как прочитанное
-router.put('/device-alerts/:id/read', adminAuth, async (req, res) => {
+router.put('/device-alerts/:id/read', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const alert = await UserDeviceAlert.findByPk(req.params.id);
     if (!alert) {
@@ -1146,7 +1270,7 @@ router.put('/device-alerts/:id/read', adminAuth, async (req, res) => {
 });
 
 // Управление пользователями
-router.get('/users', adminAuth, async (req, res) => {
+router.get('/users', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
@@ -1198,7 +1322,7 @@ router.get('/users', adminAuth, async (req, res) => {
 });
 
 // Сброс пароля пользователя администратором
-router.put('/users/:id/password', adminAuth, [
+router.put('/users/:id/password', adminAuth, requireFullAdmin, [
   body('newPassword').isLength({ min: 6 }).withMessage('Новый пароль должен быть минимум 6 символов')
 ], async (req, res) => {
   try {
@@ -1223,7 +1347,7 @@ router.put('/users/:id/password', adminAuth, [
 });
 
 // Обновить количество монет пользователя (дельта или абсолютное значение)
-router.put('/users/:id/coins', adminAuth, async (req, res) => {
+router.put('/users/:id/coins', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const user = await User.findByPk(req.params.id);
     if (!user) {
@@ -1268,7 +1392,7 @@ router.put('/users/:id/coins', adminAuth, async (req, res) => {
 
 
 // Удалить пользователя
-router.delete('/users/:id', adminAuth, async (req, res) => {
+router.delete('/users/:id', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const user = await User.findByPk(req.params.id);
     if (!user) {
@@ -1292,8 +1416,16 @@ router.delete('/users/:id', adminAuth, async (req, res) => {
 // Управление университетами
 router.get('/universities', adminAuth, async (req, res) => {
   try {
+    const where = {};
+    if (!req.scope?.full) {
+      const ids = req.scope?.universityIds || [];
+      if (!ids.length) return res.json([]);
+      where.id = { [Op.in]: ids };
+    }
+
     if (req.query.compact === '1') {
       const universities = await University.findAll({
+        where,
         attributes: ['id', 'name', 'shortName', 'isActive'],
         order: [['shortName', 'ASC']]
       });
@@ -1301,6 +1433,7 @@ router.get('/universities', adminAuth, async (req, res) => {
     }
 
     const universities = await University.findAll({
+      where,
       order: [['shortName', 'ASC']]
     });
 
@@ -1333,6 +1466,9 @@ router.get('/universities/:id', adminAuth, async (req, res) => {
     if (!university) {
       return res.status(404).json({ error: 'Университет не найден' });
     }
+    if (!canAccessScope(req.scope, { programType: 'university', universityId: university.id })) {
+      return denyScope(res);
+    }
     res.json(university);
   } catch (error) {
     console.error('Ошибка получения университета:', error);
@@ -1340,7 +1476,7 @@ router.get('/universities/:id', adminAuth, async (req, res) => {
   }
 });
 
-router.post('/universities', adminAuth, [
+router.post('/universities', adminAuth, requireFullAdmin, [
   body('name').trim().notEmpty().withMessage('Название обязательно'),
   body('shortName').trim().isLength({ min: 2, max: 50 }).withMessage('Краткое название: 2–50 символов'),
   body('description').optional({ nullable: true }),
@@ -1381,7 +1517,7 @@ router.post('/universities', adminAuth, [
   }
 });
 
-router.put('/universities/:id', adminAuth, [
+router.put('/universities/:id', adminAuth, requireFullAdmin, [
   body('name').trim().notEmpty().withMessage('Название обязательно'),
   body('shortName').trim().isLength({ min: 2, max: 50 }).withMessage('Краткое название: 2–50 символов'),
   body('description').optional({ nullable: true }),
@@ -1432,7 +1568,7 @@ router.put('/universities/:id', adminAuth, [
   }
 });
 
-router.delete('/universities/:id', adminAuth, async (req, res) => {
+router.delete('/universities/:id', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const university = await University.findByPk(req.params.id);
     if (!university) {
@@ -1463,6 +1599,15 @@ router.get('/faculties', adminAuth, async (req, res) => {
     if (req.query.universityId) {
       where.universityId = parseInt(req.query.universityId, 10);
     }
+    if (!req.scope?.full) {
+      const ids = req.scope?.universityIds || [];
+      if (!ids.length) return res.json([]);
+      if (where.universityId) {
+        if (!ids.includes(Number(where.universityId))) return res.json([]);
+      } else {
+        where.universityId = { [Op.in]: ids };
+      }
+    }
     const faculties = await Faculty.findAll({
       where,
       include: [{
@@ -1491,6 +1636,9 @@ router.post('/faculties', adminAuth, [
     }
 
     const universityId = parseInt(req.body.universityId, 10);
+    if (!canAccessScope(req.scope, { programType: 'university', universityId })) {
+      return denyScope(res);
+    }
     const university = await University.findByPk(universityId);
     if (!university) {
       return res.status(400).json({ error: 'Университет не найден' });
@@ -1598,7 +1746,7 @@ router.delete('/faculties/:id', adminAuth, async (req, res) => {
 });
 
 // Тарифы подписок по университетам
-router.get('/subscription-plans', adminAuth, async (req, res) => {
+router.get('/subscription-plans', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const universities = await University.findAll({
       attributes: ['id', 'name', 'shortName', 'isActive'],
@@ -1624,7 +1772,7 @@ router.get('/subscription-plans', adminAuth, async (req, res) => {
   }
 });
 
-router.get('/subscription-plans/:universityId', adminAuth, async (req, res) => {
+router.get('/subscription-plans/:universityId', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const university = await University.findByPk(req.params.universityId, {
       attributes: ['id', 'name', 'shortName', 'isActive']
@@ -1647,7 +1795,7 @@ router.get('/subscription-plans/:universityId', adminAuth, async (req, res) => {
   }
 });
 
-router.put('/subscription-plans/:universityId', adminAuth, [
+router.put('/subscription-plans/:universityId', adminAuth, requireFullAdmin, [
   body('plans').isArray({ min: 1 }).withMessage('Нужен массив тарифов')
 ], async (req, res) => {
   try {
@@ -1796,7 +1944,7 @@ router.get('/usmle-stats', adminAuth, async (req, res) => {
 });
 
 // Тарифы USMLE
-router.get('/usmle-subscription-plans', adminAuth, async (req, res) => {
+router.get('/usmle-subscription-plans', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const plans = await getPlansForUsmle({ includeInactive: true });
     res.json({ programType: 'usmle', plans });
@@ -1806,7 +1954,7 @@ router.get('/usmle-subscription-plans', adminAuth, async (req, res) => {
   }
 });
 
-router.put('/usmle-subscription-plans', adminAuth, [
+router.put('/usmle-subscription-plans', adminAuth, requireFullAdmin, [
   body('plans').isArray({ min: 1 }).withMessage('Нужен массив тарифов')
 ], async (req, res) => {
   try {
@@ -1883,6 +2031,9 @@ router.put('/usmle-subscription-plans', adminAuth, [
 
 // Теги вопросов USMLE — фиксированный каталог Subject/System (не CRUD)
 router.get('/question-tags', adminAuth, async (req, res) => {
+  if (!req.scope?.full && !req.scope?.usmle) {
+    return denyScope(res, 'Нет прав на USMLE');
+  }
   try {
     const tags = await QuestionTag.findAll({
       where: { isActive: true },
@@ -1937,6 +2088,9 @@ router.delete('/question-tags/:id', adminAuth, async (req, res) => {
 
 // Flashcards (USMLE + university)
 router.get('/flashcards', adminAuth, async (req, res) => {
+  if (!req.scope?.full && !req.scope?.usmle) {
+    return denyScope(res, 'Нет прав на USMLE');
+  }
   try {
     const where = { isActive: true };
     const testId = parseInt(req.query.testId, 10);
@@ -2435,6 +2589,9 @@ router.get('/subjects/:id', adminAuth, async (req, res) => {
     if (!subject) {
       return res.status(404).json({ error: 'Предмет не найден' });
     }
+    if (!canAccessScope(req.scope, { programType: subject.programType, universityId: subject.universityId })) {
+      return denyScope(res);
+    }
     res.json(serializeSubjectCourses(subject.toJSON()));
   } catch (error) {
     console.error('Ошибка получения предмета:', error);
@@ -2444,7 +2601,7 @@ router.get('/subjects/:id', adminAuth, async (req, res) => {
 
 router.get('/subjects', adminAuth, async (req, res) => {
   try {
-    const where = {};
+    let where = {};
     if (req.query.universityId) {
       where.universityId = req.query.universityId;
     }
@@ -2453,6 +2610,7 @@ router.get('/subjects', adminAuth, async (req, res) => {
     } else if (req.query.programType === 'university' || req.query.program === 'university') {
       where.programType = 'university';
     }
+    where = mergeWhere(where, scopeProgramUniversityWhere(req.scope));
 
     const facultyId = parseInt(req.query.facultyId, 10);
     const courseFilter = parseInt(req.query.course, 10);
@@ -2573,6 +2731,10 @@ router.post('/subjects', adminAuth, [
       }
     }
 
+    if (!canAccessScope(req.scope, { programType, universityId })) {
+      return denyScope(res);
+    }
+
     const existing = await Subject.findOne({
       where: {
         programType,
@@ -2632,6 +2794,9 @@ router.put('/subjects/:id', adminAuth, [
     const subject = await Subject.findByPk(req.params.id);
     if (!subject) {
       return res.status(404).json({ error: 'Предмет не найден' });
+    }
+    if (!canAccessScope(req.scope, { programType: subject.programType, universityId: subject.universityId })) {
+      return denyScope(res);
     }
 
     const { name, description, universityId, programType: rawProgram } = req.body;
@@ -2732,10 +2897,8 @@ router.put('/subjects/:id', adminAuth, [
 // Удалить предмет
 router.delete('/subjects/:id', adminAuth, async (req, res) => {
   try {
-    const subject = await Subject.findByPk(req.params.id);
-    if (!subject) {
-      return res.status(404).json({ error: 'Предмет не найден' });
-    }
+    const subject = await assertSubjectScope(req, res, req.params.id);
+    if (!subject) return;
 
     await SubjectFaculty.destroy({ where: { subjectId: subject.id } });
     await SubjectCourse.destroy({ where: { subjectId: subject.id } });
@@ -2764,6 +2927,9 @@ router.get('/tests/:id', adminAuth, async (req, res) => {
     if (!test) {
       return res.status(404).json({ error: 'Тест не найден' });
     }
+    if (!canAccessScope(req.scope, { programType: test.programType, universityId: test.universityId })) {
+      return denyScope(res);
+    }
     res.json(test);
   } catch (error) {
     console.error('Ошибка получения теста:', error);
@@ -2775,7 +2941,7 @@ router.get('/tests', adminAuth, async (req, res) => {
   try {
     const subjectId = req.query.subjectId;
     const universityId = req.query.universityId;
-    const where = {};
+    let where = {};
     if (subjectId) {
       where.subjectId = subjectId;
     }
@@ -2787,6 +2953,7 @@ router.get('/tests', adminAuth, async (req, res) => {
     } else if (req.query.programType === 'university' || req.query.program === 'university') {
       where.programType = 'university';
     }
+    where = mergeWhere(where, scopeProgramUniversityWhere(req.scope));
 
     if (req.query.compact === '1') {
       const tests = await Test.findAll({
@@ -2836,6 +3003,9 @@ router.post('/tests', adminAuth, [
     const subject = await Subject.findByPk(subjectId);
     if (!subject) {
       return res.status(400).json({ error: 'Предмет не найден' });
+    }
+    if (!canAccessScope(req.scope, { programType: subject.programType, universityId: subject.universityId })) {
+      return denyScope(res);
     }
     if (!subject.universityId && subject.programType !== 'usmle') {
       return res.status(400).json({ error: 'У предмета не указан университет' });
@@ -2889,6 +3059,9 @@ router.put('/tests/:id', adminAuth, [
     if (!test) {
       return res.status(404).json({ error: 'Тест не найден' });
     }
+    if (!canAccessScope(req.scope, { programType: test.programType, universityId: test.universityId })) {
+      return denyScope(res);
+    }
 
     const { name, description, subjectId, universityId, isFree, hasExplanations } = req.body;
     test.name = name;
@@ -2932,10 +3105,8 @@ router.put('/tests/:id', adminAuth, [
 // Удалить тест
 router.delete('/tests/:id', adminAuth, async (req, res) => {
   try {
-    const test = await Test.findByPk(req.params.id);
-    if (!test) {
-      return res.status(404).json({ error: 'Тест не найден' });
-    }
+    const test = await assertTestScope(req, res, req.params.id);
+    if (!test) return;
 
     await test.destroy();
     res.json({ message: 'Тест удален' });
@@ -2981,11 +3152,13 @@ router.get('/questions/suggestions', adminAuth, async (req, res) => {
 
 router.get('/questions/:id', adminAuth, async (req, res) => {
   try {
+    const meta = await assertQuestionScope(req, res, req.params.id);
+    if (!meta) return;
     const question = await Question.findByPk(req.params.id, {
       include: [{
         model: Test,
         as: 'Test',
-        attributes: ['id', 'name', 'subjectId', 'hasExplanations', 'programType']
+        attributes: ['id', 'name', 'subjectId', 'hasExplanations', 'programType', 'universityId']
       }, {
         model: Answer,
         as: 'Answers'
@@ -3013,6 +3186,8 @@ router.get('/questions', adminAuth, async (req, res) => {
     if (!testId) {
       return res.json([]);
     }
+    const test = await assertTestScope(req, res, testId);
+    if (!test) return;
 
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 300, 1), 500);
     const where = { testId };
@@ -3059,6 +3234,9 @@ router.post('/questions', adminAuth, [
     const { text, testId, answers, explanation, setTestWithExplanations, tagIds } = req.body;
     const withExplanations = setTestWithExplanations === true || setTestWithExplanations === 'true';
 
+    const scopedTest = await assertTestScope(req, res, testId);
+    if (!scopedTest) return;
+
     // Проверяем, что есть хотя бы один правильный ответ
     const hasCorrectAnswer = answers.some(a => a.isCorrect);
     if (!hasCorrectAnswer) {
@@ -3104,9 +3282,7 @@ router.post('/questions', adminAuth, [
     });
 
     await logQuestionAudit({
-      actorType: 'admin',
-      actorId: req.admin.id,
-      actorUsername: req.admin.username,
+      ...getAuditActor(req),
       action: 'create',
       question: questionWithAnswers,
       test: questionWithAnswers?.Test,
@@ -3140,6 +3316,8 @@ router.put('/questions/:id', adminAuth, [
     if (!question) {
       return res.status(404).json({ error: 'Вопрос не найден' });
     }
+    const scopeOk = await assertQuestionScope(req, res, question.id);
+    if (!scopeOk) return;
 
     const beforeSnapshot = snapshotFromQuestion(question, question.Answers);
     beforeSnapshot.questionId = question.id;
@@ -3233,9 +3411,7 @@ router.put('/questions/:id', adminAuth, [
     });
 
     await logQuestionAudit({
-      actorType: 'admin',
-      actorId: req.admin.id,
-      actorUsername: req.admin.username,
+      ...getAuditActor(req),
       action: 'update',
       question: questionWithAnswers,
       test: questionWithAnswers?.Test,
@@ -3274,14 +3450,14 @@ router.delete('/questions/:id', adminAuth, async (req, res) => {
     if (!question) {
       return res.status(404).json({ error: 'Вопрос не найден' });
     }
+    const scopeOk = await assertQuestionScope(req, res, question.id);
+    if (!scopeOk) return;
 
     const beforeSnapshot = snapshotFromQuestion(question, question.Answers);
     beforeSnapshot.questionId = question.id;
 
     await logQuestionAudit({
-      actorType: 'admin',
-      actorId: req.admin.id,
-      actorUsername: req.admin.username,
+      ...getAuditActor(req),
       action: 'delete',
       question,
       test: question.Test,
@@ -3312,7 +3488,7 @@ router.delete('/questions/:id', adminAuth, async (req, res) => {
 });
 
 // Управление новостями
-router.get('/news', adminAuth, async (req, res) => {
+router.get('/news', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const news = await News.findAll({
       order: [['createdAt', 'DESC']]
@@ -3324,7 +3500,7 @@ router.get('/news', adminAuth, async (req, res) => {
   }
 });
 
-router.post('/news', adminAuth, [
+router.post('/news', adminAuth, requireFullAdmin, [
   body('title').trim().notEmpty().withMessage('Заголовок обязателен'),
   body('content').trim().notEmpty().withMessage('Текст новости обязателен'),
   body('category').optional().isString().trim(),
@@ -3363,7 +3539,7 @@ router.post('/news', adminAuth, [
   }
 });
 
-router.put('/news/:id', adminAuth, [
+router.put('/news/:id', adminAuth, requireFullAdmin, [
   body('title').trim().notEmpty().withMessage('Заголовок обязателен'),
   body('content').trim().notEmpty().withMessage('Текст новости обязателен'),
   body('category').optional().isString().trim(),
@@ -3406,7 +3582,7 @@ router.put('/news/:id', adminAuth, [
   }
 });
 
-router.delete('/news/:id', adminAuth, async (req, res) => {
+router.delete('/news/:id', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const news = await News.findByPk(req.params.id);
     if (!news) {
@@ -3895,7 +4071,7 @@ router.delete('/answers/:id', adminAuth, async (req, res) => {
 });
 
 // Управление сообщениями обратной связи
-router.get('/contact-messages', adminAuth, async (req, res) => {
+router.get('/contact-messages', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
@@ -4002,7 +4178,7 @@ router.delete('/contact-messages/:id', adminAuth, async (req, res) => {
 });
 
 // Статистика сообщений для дашборда
-router.get('/dashboard/contact-stats', adminAuth, async (req, res) => {
+router.get('/dashboard/contact-stats', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const totalMessages = await ContactMessage.count();
     const newMessages = await ContactMessage.count({ where: { status: 'new' } });
@@ -4084,7 +4260,7 @@ router.put('/settings/docs', adminAuth, [
 });
 
 // Промокоды
-router.get('/promo-codes', adminAuth, async (req, res) => {
+router.get('/promo-codes', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const promoCodes = await PromoCode.findAll({
       order: [['createdAt', 'DESC']]
@@ -4096,7 +4272,7 @@ router.get('/promo-codes', adminAuth, async (req, res) => {
   }
 });
 
-router.post('/promo-codes', adminAuth, [
+router.post('/promo-codes', adminAuth, requireFullAdmin, [
   body('code').trim().isLength({ min: 3, max: 64 }).withMessage('Код должен быть от 3 до 64 символов'),
   body('discountPercent').isInt({ min: 1, max: 100 }).withMessage('Скидка должна быть от 1 до 100%'),
   body('usageLimit').optional({ values: 'null' }).isInt({ min: 1 }).withMessage('Лимит использований должен быть больше 0'),
@@ -4137,7 +4313,7 @@ router.post('/promo-codes', adminAuth, [
   }
 });
 
-router.put('/promo-codes/:id', adminAuth, [
+router.put('/promo-codes/:id', adminAuth, requireFullAdmin, [
   body('code').optional().trim().isLength({ min: 3, max: 64 }).withMessage('Код должен быть от 3 до 64 символов'),
   body('discountPercent').optional().isInt({ min: 1, max: 100 }).withMessage('Скидка должна быть от 1 до 100%'),
   body('usageLimit').optional({ values: 'null' }).isInt({ min: 1 }).withMessage('Лимит использований должен быть больше 0'),
@@ -4186,7 +4362,7 @@ router.put('/promo-codes/:id', adminAuth, [
   }
 });
 
-router.delete('/promo-codes/:id', adminAuth, async (req, res) => {
+router.delete('/promo-codes/:id', adminAuth, requireFullAdmin, async (req, res) => {
   try {
     const promoCode = await PromoCode.findByPk(req.params.id);
     if (!promoCode) {

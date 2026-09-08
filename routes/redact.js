@@ -57,6 +57,12 @@ router.post('/login', [
       return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
     }
 
+    const { normalizePermissions, hasAnyPermission, serializeEditor } = require('../utils/editorScope');
+    const permissions = normalizePermissions(editor.permissions);
+    if (!hasAnyPermission(permissions)) {
+      return res.status(403).json({ error: 'У редактора нет выданных прав. Обратитесь к администратору.' });
+    }
+
     if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'your_jwt_secret_key_here') {
       return res.status(500).json({ error: 'Ошибка конфигурации сервера' });
     }
@@ -66,11 +72,8 @@ router.post('/login', [
     res.json({
       message: 'Вход выполнен успешно',
       token,
-      editor: {
-        id: editor.id,
-        username: editor.username,
-        displayName: editor.displayName
-      }
+      actorType: 'editor',
+      editor: serializeEditor(editor)
     });
   } catch (error) {
     console.error('Ошибка входа редактора:', error);
@@ -79,12 +82,10 @@ router.post('/login', [
 });
 
 router.get('/me', editorAuth, async (req, res) => {
+  const { serializeEditor } = require('../utils/editorScope');
   res.json({
-    editor: {
-      id: req.editor.id,
-      username: req.editor.username,
-      displayName: req.editor.displayName
-    }
+    actorType: 'editor',
+    editor: serializeEditor(req.editor)
   });
 });
 

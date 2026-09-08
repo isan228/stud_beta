@@ -25,6 +25,15 @@ const Editor = sequelize.define('Editor', {
     type: DataTypes.BOOLEAN,
     defaultValue: true
   },
+  /**
+   * Права редактора:
+   * { usmle: boolean, universityIds: number[] }
+   */
+  permissions: {
+    type: DataTypes.JSONB,
+    allowNull: true,
+    defaultValue: { usmle: false, universityIds: [] }
+  },
   createdAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW

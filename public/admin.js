@@ -4,6 +4,8 @@ const ADMIN_API_URL = '/api/admin';
 // Состояние админки
 let currentAdmin = null;
 let currentAdminToken = null;
+let currentActorType = 'admin'; // 'admin' | 'editor'
+let currentScope = { full: true, usmle: true, universityIds: [] };
 let currentChatUserId = null;
 let adminChatUsers = [];
 let adminChatsPollInterval = null;
@@ -145,10 +147,99 @@ function updateAdminUserCard() {
     const nameEl = document.getElementById('adminUserName');
     const roleEl = document.getElementById('adminUserRole');
     const avatarEl = document.getElementById('adminUserAvatar');
-    const name = currentAdmin?.username || currentAdmin?.name || 'Администратор';
+    const name = currentAdmin?.displayName || currentAdmin?.username || currentAdmin?.name || 'Администратор';
     if (nameEl) nameEl.textContent = name;
-    if (roleEl) roleEl.textContent = currentAdmin?.role || 'Полный доступ';
+    if (roleEl) {
+        if (currentActorType === 'editor') {
+            const parts = [];
+            if (currentScope?.usmle) parts.push('USMLE');
+            if ((currentScope?.universityIds || []).length) parts.push(`${currentScope.universityIds.length} универ.`);
+            roleEl.textContent = parts.length ? `Редактор · ${parts.join(', ')}` : 'Редактор';
+        } else {
+            roleEl.textContent = currentAdmin?.role || 'Полный доступ';
+        }
+    }
     if (avatarEl) avatarEl.textContent = adminInitials(name);
+}
+
+function applyActorUiRestrictions() {
+    const isEditor = currentActorType === 'editor';
+    document.body.classList.toggle('admin-is-editor', isEditor);
+
+    const fullAdminOnlyTabs = new Set([
+        'users', 'subscriptions', 'promo', 'editors', 'news', 'messages', 'chats'
+    ]);
+    document.querySelectorAll('.admin-tab[data-tab]').forEach((btn) => {
+        const tab = btn.getAttribute('data-tab');
+        let show = true;
+        if (isEditor && fullAdminOnlyTabs.has(tab)) show = false;
+        if (isEditor && tab === 'usmle' && !currentScope?.usmle) show = false;
+        if (isEditor && tab === 'uniFlashcards' && !currentScope?.usmle && !(currentScope?.universityIds || []).length) {
+            // карточки универов могут быть — оставим если есть универы
+            show = (currentScope?.universityIds || []).length > 0;
+        }
+        btn.style.display = show ? '' : 'none';
+    });
+
+    document.querySelectorAll('.admin-nav-group').forEach((group) => {
+        const visible = [...group.querySelectorAll('.admin-tab')].some((b) => b.style.display !== 'none');
+        group.style.display = visible ? '' : 'none';
+    });
+
+    const jumpUsers = document.querySelector('[data-tab-jump="users"]');
+    if (jumpUsers) jumpUsers.style.display = isEditor ? 'none' : '';
+
+    const addUniversityBtn = document.getElementById('addUniversityBtn');
+    if (addUniversityBtn) addUniversityBtn.style.display = isEditor ? 'none' : '';
+
+    // Если активный таб скрыт — перейти на dashboard / subjects
+    const activeTabBtn = document.querySelector('.admin-tab.active');
+    if (activeTabBtn && activeTabBtn.style.display === 'none') {
+        const fallback = document.querySelector('.admin-tab[data-tab="subjects"]:not([style*="display: none"])')
+            || document.querySelector('.admin-tab[data-tab="dashboard"]')
+            || document.querySelector('.admin-tab[data-tab]:not([style*="display: none"])');
+        if (fallback) switchTab(fallback.getAttribute('data-tab'));
+    }
+}
+
+function collectEditorPermissionsFromForm() {
+    const usmle = !!document.getElementById('editorPermUsmle')?.checked;
+    const universityIds = [...document.querySelectorAll('#editorPermUniversities input[type="checkbox"]:checked')]
+        .map((el) => parseInt(el.value, 10))
+        .filter((id) => Number.isFinite(id) && id > 0);
+    return { usmle, universityIds };
+}
+
+async function fillEditorUniversityCheckboxes(selectedIds = []) {
+    const box = document.getElementById('editorPermUniversities');
+    if (!box) return;
+    const selected = new Set((selectedIds || []).map(Number));
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/universities?compact=1`, { headers: adminAuthHeaders() });
+        if (!response.ok) throw new Error();
+        const universities = await response.json();
+        if (!universities.length) {
+            box.innerHTML = '<span style="color:var(--text-muted);font-size:0.85rem;">Нет университетов</span>';
+            return;
+        }
+        box.innerHTML = universities.map((u) => `
+            <label style="display:flex;align-items:center;gap:0.45rem;cursor:pointer;font-size:0.92rem;">
+                <input type="checkbox" value="${u.id}" ${selected.has(Number(u.id)) ? 'checked' : ''}>
+                <span>${escapeAdminHtml(u.shortName || u.name)}${u.shortName && u.name ? ` <span style="color:var(--text-muted)">— ${escapeAdminHtml(u.name)}</span>` : ''}</span>
+            </label>
+        `).join('');
+    } catch (e) {
+        box.innerHTML = '<span style="color:var(--danger-color);font-size:0.85rem;">Не удалось загрузить университеты</span>';
+    }
+}
+
+function formatEditorPermissionsLabel(permissions) {
+    const p = permissions || {};
+    const parts = [];
+    if (p.usmle) parts.push('USMLE');
+    const n = Array.isArray(p.universityIds) ? p.universityIds.length : 0;
+    if (n) parts.push(`${n} универ.`);
+    return parts.length ? parts.join(' · ') : 'нет прав';
 }
 
 function setAdminSidebarOpen(open) {
@@ -215,7 +306,12 @@ async function fetchAdmin() {
         if (response.ok) {
             const data = await response.json();
             currentAdmin = data.admin;
+            currentActorType = data.actorType === 'editor' ? 'editor' : 'admin';
+            currentScope = data.scope || (currentActorType === 'admin'
+                ? { full: true, usmle: true, universityIds: [] }
+                : { full: false, usmle: !!data.admin?.permissions?.usmle, universityIds: data.admin?.permissions?.universityIds || [] });
             showAdminDashboard();
+            applyActorUiRestrictions();
             loadDashboard();
         } else {
             showAdminLogin();
@@ -277,7 +373,16 @@ async function handleAdminLogin(e) {
         if (response.ok) {
             currentAdminToken = result.token;
             currentAdmin = result.admin;
+            currentActorType = result.actorType === 'editor' ? 'editor' : 'admin';
+            currentScope = result.actorType === 'editor'
+                ? { full: false, usmle: !!result.admin?.permissions?.usmle, universityIds: result.admin?.permissions?.universityIds || [] }
+                : { full: true, usmle: true, universityIds: [] };
             localStorage.setItem('adminToken', currentAdminToken);
+            if (currentActorType === 'editor') {
+                localStorage.setItem('editorToken', currentAdminToken);
+            } else {
+                localStorage.removeItem('editorToken');
+            }
             
             // Используем функцию из app.js или alert
             if (typeof showNotification === 'function') {
@@ -287,6 +392,7 @@ async function handleAdminLogin(e) {
             }
             
             showAdminDashboard();
+            applyActorUiRestrictions();
             loadDashboard();
         } else {
             const errorMsg = result.error || result.message || 'Ошибка входа';
@@ -314,7 +420,11 @@ async function handleAdminLogin(e) {
 function adminLogout() {
     currentAdmin = null;
     currentAdminToken = null;
+    currentActorType = 'admin';
+    currentScope = { full: true, usmle: true, universityIds: [] };
     localStorage.removeItem('adminToken');
+    localStorage.removeItem('editorToken');
+    document.body.classList.remove('admin-is-editor');
     showAdminLogin();
 }
 
@@ -324,8 +434,12 @@ async function loadDashboard() {
         const headers = adminAuthHeaders();
         const [statsResponse, contactStatsResponse, messagesResponse] = await Promise.all([
             fetch(`${ADMIN_API_URL}/dashboard/stats`, { headers }),
-            fetch(`${ADMIN_API_URL}/dashboard/contact-stats`, { headers }),
-            fetch(`${ADMIN_API_URL}/contact-messages?page=1&limit=5`, { headers })
+            currentActorType === 'admin'
+                ? fetch(`${ADMIN_API_URL}/dashboard/contact-stats`, { headers })
+                : Promise.resolve({ ok: false }),
+            currentActorType === 'admin'
+                ? fetch(`${ADMIN_API_URL}/contact-messages?page=1&limit=5`, { headers })
+                : Promise.resolve({ ok: false })
         ]);
 
         if (!statsResponse.ok) {
@@ -3251,11 +3365,11 @@ function setupAdminEventListeners() {
 
     const addEditorBtn = document.getElementById('addEditorBtn');
     if (addEditorBtn) {
-        addEditorBtn.addEventListener('click', () => {
+        addEditorBtn.addEventListener('click', async () => {
             document.getElementById('editorId').value = '';
             document.getElementById('editorForm').reset();
             document.getElementById('editorIsActive').checked = true;
-            openEditorModal(false);
+            await openEditorModal(false, { usmle: false, universityIds: [] });
         });
     }
     const editorForm = document.getElementById('editorForm');
@@ -6348,11 +6462,12 @@ async function loadEditors() {
                     <strong>${escapeAdminHtml(ed.username)}</strong>
                     ${ed.displayName ? `<span style="color: var(--text-muted); margin-left: 0.5rem;">(${escapeAdminHtml(ed.displayName)})</span>` : ''}
                     <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0.35rem 0 0;">
-                        ${ed.isActive ? 'Активен' : 'Отключён'} • создан ${new Date(ed.createdAt).toLocaleDateString('ru-RU')}
+                        ${ed.isActive ? 'Активен' : 'Отключён'} · права: ${escapeAdminHtml(formatEditorPermissionsLabel(ed.permissions))}
+                        · создан ${new Date(ed.createdAt).toLocaleDateString('ru-RU')}
                     </p>
                 </div>
                 <div style="display: flex; gap: 0.5rem;">
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="editEditorAccount(${ed.id})">Изменить</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="editEditorAccount(${ed.id})">Права / изменить</button>
                     <button type="button" class="btn btn-danger btn-sm" onclick="deleteEditorAccount(${ed.id})">Удалить</button>
                 </div>
             </div>
@@ -6363,7 +6478,7 @@ async function loadEditors() {
     }
 }
 
-function openEditorModal(isEdit = false) {
+async function openEditorModal(isEdit = false, permissions = null) {
     document.getElementById('editorModalTitle').textContent = isEdit ? 'Редактировать аккаунт' : 'Добавить редактора';
     document.getElementById('editorUsername').disabled = isEdit;
     document.getElementById('editorActiveGroup').style.display = isEdit ? 'block' : 'none';
@@ -6371,6 +6486,10 @@ function openEditorModal(isEdit = false) {
     document.getElementById('editorPasswordHint').textContent = isEdit
         ? '(оставьте пустым, чтобы не менять)'
         : '(мин. 6 символов)';
+    const perms = permissions || { usmle: false, universityIds: [] };
+    const usmleEl = document.getElementById('editorPermUsmle');
+    if (usmleEl) usmleEl.checked = !!perms.usmle;
+    await fillEditorUniversityCheckboxes(perms.universityIds || []);
     document.getElementById('editorModal').style.display = 'block';
 }
 
@@ -6389,7 +6508,7 @@ window.editEditorAccount = async function(editorId) {
         document.getElementById('editorDisplayName').value = ed.displayName || '';
         document.getElementById('editorPassword').value = '';
         document.getElementById('editorIsActive').checked = ed.isActive !== false;
-        openEditorModal(true);
+        await openEditorModal(true, ed.permissions || { usmle: false, universityIds: [] });
     } catch (error) {
         showNotification('Ошибка загрузки редактора', 'error');
     }
@@ -6421,10 +6540,16 @@ async function saveEditorAccount(e) {
     const displayName = document.getElementById('editorDisplayName').value.trim();
     const password = document.getElementById('editorPassword').value;
     const isActive = document.getElementById('editorIsActive').checked;
+    const permissions = collectEditorPermissionsFromForm();
+
+    if (!permissions.usmle && !permissions.universityIds.length) {
+        showNotification('Выберите USMLE и/или хотя бы один университет', 'error');
+        return;
+    }
 
     try {
         if (id) {
-            const body = { displayName: displayName || null, isActive };
+            const body = { displayName: displayName || null, isActive, permissions };
             if (password) body.password = password;
             const response = await fetch(`${ADMIN_API_URL}/editors/${id}`, {
                 method: 'PUT',
@@ -6445,7 +6570,7 @@ async function saveEditorAccount(e) {
             const response = await fetch(`${ADMIN_API_URL}/editors`, {
                 method: 'POST',
                 headers: { ...adminAuthHeaders(), 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password, displayName: displayName || null })
+                body: JSON.stringify({ username, password, displayName: displayName || null, permissions })
             });
             if (!response.ok) {
                 const data = await response.json();

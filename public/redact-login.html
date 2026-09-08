@@ -94,8 +94,8 @@
             }
         }
 
-        if (localStorage.getItem('editorToken')) {
-            window.location.href = '/redact';
+        if (localStorage.getItem('editorToken') || localStorage.getItem('adminToken')) {
+            window.location.href = '/admin';
         }
 
         document.getElementById('editorLoginForm').addEventListener('submit', async function (e) {
@@ -122,7 +122,8 @@
                     return;
                 }
                 localStorage.setItem('editorToken', data.token);
-                window.location.href = '/redact';
+                localStorage.setItem('adminToken', data.token);
+                window.location.href = '/admin';
             } catch (err) {
                 console.error(err);
                 showLoginError('Не удалось подключиться к серверу');
