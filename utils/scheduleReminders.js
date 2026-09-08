@@ -7,7 +7,11 @@ const {
   Setting,
   University
 } = require('../models');
-const { formatDateISO } = require('./kgmaSchedule');
+const {
+  formatDateISO,
+  getWeekStart,
+  fetchKgmaWeekSchedule
+} = require('./kgmaSchedule');
 const { KGMA } = require('./ensureUniversities');
 
 const SETTING_PREFIX = 'schedule_reminder:';
@@ -55,7 +59,7 @@ function formatLessonLine(entry) {
   const time = entry.timeStart && entry.timeEnd
     ? `${entry.timeStart}–${entry.timeEnd}`
     : (entry.lessonNumber ? `пара ${entry.lessonNumber}` : '—');
-  const type = LESSON_TYPE_RU[entry.lessonType];
+  const type = LESSON_TYPE_RU[entry.lessonType] || entry.lessonTypeLabel || '';
   const typePart = type ? ` (${type})` : '';
   const room = entry.room ? `, ауд. ${entry.room}` : '';
   return `• ${time} — ${entry.subjectName}${typePart}${room}`;
@@ -63,7 +67,29 @@ function formatLessonLine(entry) {
 
 function buildReminderMessage(lessons, tomorrowStr) {
   const lines = lessons.map(formatLessonLine).join('\n');
-  return `Завтра (${tomorrowStr}) у вас:\n${lines}\n\nУспейте подготовиться!`;
+  return `Завтра (${tomorrowStr}) у вас такие пары:\n${lines}\n\nУспейте подготовиться!`;
+}
+
+async function findTomorrowLessonsFromKgma(kgmaGroupId) {
+  const tomorrow = getTomorrowDate();
+  const tomorrowStr = formatDateISO(tomorrow);
+  try {
+    const week = await fetchKgmaWeekSchedule(String(kgmaGroupId), getWeekStart(tomorrow));
+    const day = (week.days || []).find((d) => d.date === tomorrowStr);
+    const lessons = (day?.lessons || []).map((les) => ({
+      timeStart: les.timeStart,
+      timeEnd: les.timeEnd,
+      lessonNumber: les.lessonNumber,
+      subjectName: les.subjectName,
+      lessonType: les.lessonType,
+      lessonTypeLabel: les.lessonTypeLabel,
+      room: les.room
+    }));
+    return { tomorrowStr, lessons };
+  } catch (error) {
+    console.warn('[Schedule reminders] KGMA fallback failed:', error.message);
+    return { tomorrowStr, lessons: [] };
+  }
 }
 
 async function findTomorrowLessonsForUser(user) {
@@ -98,7 +124,11 @@ async function findTomorrowLessonsForUser(user) {
     order: [['timeStart', 'ASC'], ['lessonNumber', 'ASC']]
   });
 
-  return { tomorrowStr, lessons };
+  if (lessons.length || !user.kgmaGroupId) {
+    return { tomorrowStr, lessons };
+  }
+
+  return findTomorrowLessonsFromKgma(user.kgmaGroupId);
 }
 
 async function sendScheduleReminderToUser(user, lessons, tomorrowStr, options = {}) {
@@ -107,7 +137,7 @@ async function sendScheduleReminderToUser(user, lessons, tomorrowStr, options = 
   if (!force && await wasReminderSent(user.id, tomorrowStr)) return false;
 
   const broadcast = await BroadcastMessage.create({
-    title: 'Завтра в расписании',
+    title: 'Завтра у вас пары',
     message: buildReminderMessage(lessons, tomorrowStr),
     adminId: null,
     recipientCount: 1
@@ -152,12 +182,13 @@ async function runScheduleReminders(options = {}) {
       where: {
         universityId: kgmaUni.id,
         status: 'approved',
+        scheduleRemindersEnabled: { [Op.ne]: false },
         [Op.or]: [
           { kgmaGroupId: { [Op.ne]: null } },
           { groupName: { [Op.ne]: null } }
         ]
       },
-      attributes: ['id', 'username', 'kgmaGroupId', 'groupName', 'facultyId', 'course', 'universityId']
+      attributes: ['id', 'username', 'kgmaGroupId', 'groupName', 'facultyId', 'course', 'universityId', 'scheduleRemindersEnabled']
     });
 
     let sent = 0;
@@ -195,7 +226,7 @@ async function runScheduleReminders(options = {}) {
   }
 }
 
-function msUntilNextDailyAt(hour = 20, minute = 0) {
+function msUntilNextDailyAt(hour = 17, minute = 0) {
   const now = new Date();
   const target = new Date(now);
   target.setHours(hour, minute, 0, 0);
@@ -213,13 +244,13 @@ function startScheduleReminderScheduler() {
     return;
   }
 
-  const hour = parseInt(process.env.SCHEDULE_REMINDER_HOUR || '20', 10);
+  const hour = parseInt(process.env.SCHEDULE_REMINDER_HOUR || '17', 10);
   const minute = parseInt(process.env.SCHEDULE_REMINDER_MINUTE || '0', 10);
 
   const scheduleNext = () => {
     const ms = msUntilNextDailyAt(hour, minute);
     const next = new Date(Date.now() + ms);
-    console.log(`[Schedule reminders] следующий запуск: ${next.toLocaleString('ru-RU')}`);
+    console.log(`[Schedule reminders] следующий запуск: ${next.toLocaleString('ru-RU')} (${hour}:${String(minute).padStart(2, '0')})`);
 
     setTimeout(async () => {
       try {

@@ -158,6 +158,125 @@ router.get('/kgma/current-week-start', (req, res) => {
   res.json({ weekStart: formatDateISO(start) });
 });
 
+/** Текущие настройки расписания / напоминаний пользователя */
+router.get('/my-prefs', auth, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, {
+      attributes: [
+        'id', 'universityId', 'facultyId', 'course', 'groupName',
+        'kgmaGroupId', 'scheduleRemindersEnabled'
+      ],
+      include: [{
+        model: University,
+        as: 'University',
+        attributes: ['id', 'shortName'],
+        required: false
+      }, {
+        model: Faculty,
+        as: 'Faculty',
+        attributes: ['id', 'name', 'shortName'],
+        required: false
+      }]
+    });
+
+    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+
+    const isKgma = user.University?.shortName === KGMA.shortName;
+    let kgmaFacultyId = null;
+    if (isKgma && user.Faculty) {
+      const meta = await getKgmaMetaCached();
+      const match = meta.faculty.find((f) => f.shortName === user.Faculty.shortName)
+        || meta.faculty.find((f) => f.name === user.Faculty.name);
+      kgmaFacultyId = match ? match.id : null;
+    }
+
+    res.json({
+      isKgma,
+      facultyId: user.facultyId,
+      kgmaFacultyId,
+      course: user.course,
+      groupName: user.groupName,
+      kgmaGroupId: user.kgmaGroupId,
+      remindersEnabled: user.scheduleRemindersEnabled !== false,
+      reminderTime: '17:00',
+      reminderNote: 'Если включено — каждый день около 17:00 придёт уведомление о парах на завтра'
+    });
+  } catch (error) {
+    console.error('Ошибка my-prefs:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+/**
+ * Сохранить группу с страницы /schedule + включить напоминания на 17:00
+ * body: { kgmaFacultyId, course, kgmaGroupId, groupName, remindersEnabled }
+ */
+router.put('/my-prefs', auth, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+
+    const kgmaUni = await University.findOne({ where: { shortName: KGMA.shortName } });
+    if (!kgmaUni) {
+      return res.status(400).json({ error: 'Университет КГМА не настроен' });
+    }
+    if (user.universityId && user.universityId !== kgmaUni.id) {
+      return res.status(400).json({ error: 'Напоминания по расписанию доступны для студентов КГМА' });
+    }
+    if (!user.universityId) {
+      user.universityId = kgmaUni.id;
+    }
+
+    const kgmaFacultyId = String(req.body.kgmaFacultyId || '').trim();
+    const course = parseInt(req.body.course, 10);
+    const kgmaGroupId = String(req.body.kgmaGroupId || '').trim();
+    const groupName = String(req.body.groupName || '').trim();
+    const remindersEnabled = req.body.remindersEnabled !== false && req.body.remindersEnabled !== 'false';
+
+    if (!kgmaFacultyId || !Number.isFinite(course) || course < 1 || course > 6 || !kgmaGroupId) {
+      return res.status(400).json({ error: 'Выберите факультет, курс и группу' });
+    }
+
+    const meta = await getKgmaMetaCached();
+    const kgmaFaculty = (meta.faculty || []).find((f) => String(f.id) === kgmaFacultyId);
+    if (!kgmaFaculty) {
+      return res.status(400).json({ error: 'Факультет не найден на kgma.kg' });
+    }
+
+    const groups = listKgmaGroups(meta, kgmaFacultyId, course);
+    const group = groups.find((g) => String(g.id) === kgmaGroupId);
+    if (!group) {
+      return res.status(400).json({ error: 'Группа не найдена для выбранного курса' });
+    }
+
+    const faculty = await module.exports.resolveFacultyForKgma(kgmaUni.id, kgmaFaculty);
+    user.facultyId = faculty.id;
+    user.course = course;
+    user.kgmaGroupId = kgmaGroupId;
+    user.groupName = groupName || group.name || null;
+    user.scheduleRemindersEnabled = remindersEnabled;
+    await user.save();
+
+    res.json({
+      ok: true,
+      message: remindersEnabled
+        ? 'Группа сохранена. Каждый день около 17:00 придёт уведомление о завтрашних парах.'
+        : 'Группа сохранена. Напоминания выключены.',
+      prefs: {
+        facultyId: user.facultyId,
+        kgmaFacultyId,
+        course: user.course,
+        kgmaGroupId: user.kgmaGroupId,
+        groupName: user.groupName,
+        remindersEnabled: user.scheduleRemindersEnabled
+      }
+    });
+  } catch (error) {
+    console.error('Ошибка сохранения my-prefs:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 router.get('/kgma/profile-groups', auth, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {

@@ -23,10 +23,14 @@
                 <a href="/usmle" class="nav-link">USMLE</a>
                 <a href="/rating" class="nav-link">Рейтинг</a>
                 <a href="/flashcards" class="nav-link">Карточки</a>
+                <a href="/favorites" class="nav-link" id="favoritesLink" style="display: none;">Избранное</a>
+                <a href="/subscriptions" class="nav-link" id="subscriptionsLink" style="display: none;">Подписки</a>
                 <a href="/profile" class="nav-link" id="profileLink" style="display: none;">Профиль</a>
+                <a href="/download" class="nav-link">Приложение</a>
                 <div class="nav-actions">
-                    <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему"><span class="theme-icon">🌙</span></button>
+                    <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему"><span class="theme-icon"></span></button>
                     <a href="/login" class="btn btn-primary" id="loginBtn">Войти</a>
+                    <a href="/register" class="btn btn-secondary" id="registerBtn">Регистрация</a>
                     <button class="btn btn-logout" id="logoutBtn" style="display: none;">Выход</button>
                 </div>
             </div>
@@ -34,42 +38,70 @@
     </nav>
 
     <main class="main-content schedule-page">
-        <div class="container">
-            <div class="page-header">
-                <h1>Расписание</h1>
-                <p class="schedule-source">Данные с официального сайта <a id="scheduleSourceLink" href="https://www.kgma.kg/ru/student/schedule" target="_blank" rel="noopener">КГМА (kgma.kg)</a></p>
+        <div class="container schedule-layout">
+            <header class="schedule-hero">
+                <div>
+                    <p class="schedule-kicker">КГМА</p>
+                    <h1>Расписание занятий</h1>
+                    <p class="schedule-hero-lead">
+                        Выберите группу и сохраните её — каждый день около <strong>17:00</strong>
+                        придёт уведомление о парах на завтра.
+                    </p>
+                </div>
+                <p class="schedule-source">
+                    Источник:
+                    <a id="scheduleSourceLink" href="https://www.kgma.kg/ru/student/schedule" target="_blank" rel="noopener">kgma.kg</a>
+                </p>
+            </header>
+
+            <div class="schedule-panel">
+                <div class="schedule-filters">
+                    <div class="form-group">
+                        <label for="scheduleFaculty">Факультет</label>
+                        <select id="scheduleFaculty" class="input"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="scheduleCourse">Курс</label>
+                        <select id="scheduleCourse" class="input"><option value="">Курс</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="scheduleGroup">Группа</label>
+                        <select id="scheduleGroup" class="input"><option value="">Группа</option></select>
+                    </div>
+                    <button type="button" class="btn btn-primary" id="scheduleShowBtn">Показать</button>
+                </div>
+
+                <div class="schedule-save-card" id="scheduleSaveCard">
+                    <label class="schedule-remind-toggle">
+                        <input type="checkbox" id="scheduleRemindersEnabled" checked>
+                        <span>
+                            <strong>Напоминать в 17:00</strong>
+                            <small>За день до пар: «Завтра у вас такие пары…» в колокольчике на сайте и в приложении</small>
+                        </span>
+                    </label>
+                    <button type="button" class="btn btn-secondary" id="scheduleSaveBtn">Сохранить мою группу</button>
+                    <p class="schedule-save-hint" id="scheduleSaveHint">Нужно войти в аккаунт, чтобы сохранить группу и получать напоминания.</p>
+                    <p class="schedule-save-status" id="scheduleSaveStatus" hidden></p>
+                </div>
+
+                <div class="schedule-week-nav">
+                    <div class="schedule-week-nav-btns">
+                        <button type="button" class="btn btn-secondary btn-sm" id="schedulePrevWeek">← Пред.</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="scheduleCurWeek">Текущая</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="scheduleNextWeek">След. →</button>
+                    </div>
+                    <input type="date" id="scheduleWeekStart" class="input schedule-week-date">
+                    <span class="schedule-week-label" id="scheduleWeekLabel"></span>
+                </div>
             </div>
 
-            <div class="schedule-filters">
-                <div class="form-group">
-                    <label for="scheduleFaculty">Факультет</label>
-                    <select id="scheduleFaculty" class="input"></select>
-                </div>
-                <div class="form-group">
-                    <label for="scheduleCourse">Курс</label>
-                    <select id="scheduleCourse" class="input"><option value="">Курс</option></select>
-                </div>
-                <div class="form-group">
-                    <label for="scheduleGroup">Группа</label>
-                    <select id="scheduleGroup" class="input"><option value="">Группа</option></select>
-                </div>
-                <button type="button" class="btn btn-primary" id="scheduleShowBtn">Показать</button>
-            </div>
-
-            <div class="schedule-week-nav">
-                <button type="button" class="btn btn-secondary btn-sm" id="schedulePrevWeek">← Пред. неделя</button>
-                <button type="button" class="btn btn-secondary btn-sm" id="scheduleCurWeek">Текущая</button>
-                <button type="button" class="btn btn-secondary btn-sm" id="scheduleNextWeek">След. неделя →</button>
-                <input type="date" id="scheduleWeekStart" class="input" style="max-width: 170px;">
-                <span class="schedule-week-label" id="scheduleWeekLabel"></span>
-            </div>
-
-            <div id="scheduleContent">
+            <div id="scheduleContent" class="schedule-content">
                 <p class="schedule-empty">Выберите факультет, курс и группу</p>
             </div>
         </div>
     </main>
 
+    <div id="notification" class="notification"></div>
     <script src="app.js"></script>
     <script src="schedule.js"></script>
 </body>

@@ -88,6 +88,12 @@ const User = sequelize.define('User', {
     allowNull: true,
     comment: 'ID группы на kgma.kg для расписания и напоминаний'
   },
+  scheduleRemindersEnabled: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: true,
+    comment: 'Напоминание о завтрашних парах (ежедневно ~17:00)'
+  },
   subscriptionEndDate: {
     type: DataTypes.DATE,
     allowNull: true,

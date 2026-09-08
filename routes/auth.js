@@ -13,7 +13,7 @@ const { isAdminLinkedUser } = require('../utils/adminUserAccess');
 const USER_PROFILE_ATTRIBUTES = [
   'id', 'username', 'email', 'createdAt', 'referralCode', 'coins',
   'subscriptionEndDate', 'usmleSubscriptionEndDate',
-  'universityId', 'facultyId', 'course', 'groupName', 'kgmaGroupId'
+  'universityId', 'facultyId', 'course', 'groupName', 'kgmaGroupId', 'scheduleRemindersEnabled'
 ];
 
 function userProfileIncludes() {
