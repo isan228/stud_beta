@@ -14,6 +14,10 @@ final accountAlertsProvider = FutureProvider.autoDispose<List<AccountAlert>>((re
 });
 
 Future<void> showAccountAlertsSheet(BuildContext context, WidgetRef ref) async {
+  try {
+    await ref.read(authServiceProvider).markAllAccountAlertsRead();
+  } catch (_) {}
+  if (!context.mounted) return;
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -102,7 +106,7 @@ class AccountAlertsIconButton extends ConsumerWidget {
     final alertsAsync = ref.watch(accountAlertsProvider);
 
     final count = alertsAsync.maybeWhen(
-      data: (alerts) => alerts.length,
+      data: (alerts) => alerts.where((a) => !a.isRead).length,
       orElse: () => 0,
     );
 

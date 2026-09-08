@@ -263,14 +263,14 @@ router.get('/account-alerts/device', require('../middleware/auth'), async (req, 
     const rows = await UserDeviceAlert.findAll({
       where: {
         userId: req.user.id,
-        isRead: false,
         [Op.or]: [
           { dismissedByUser: false },
           { dismissedByUser: null }
         ]
       },
-      attributes: ['id', 'ipAddress', 'userAgent', 'createdAt'],
-      order: [['createdAt', 'DESC']]
+      attributes: ['id', 'ipAddress', 'userAgent', 'createdAt', 'isRead'],
+      order: [['createdAt', 'DESC']],
+      limit: 30
     });
     res.json({ deviceAlerts: rows.map((r) => r.toJSON()) });
   } catch (error) {
@@ -292,6 +292,7 @@ router.put('/account-alerts/device/:id/dismiss', require('../middleware/auth'), 
       return res.status(404).json({ error: 'Уведомление не найдено' });
     }
     alert.dismissedByUser = true;
+    alert.isRead = true;
     await alert.save();
     res.json({ ok: true });
   } catch (error) {
@@ -300,7 +301,7 @@ router.put('/account-alerts/device/:id/dismiss', require('../middleware/auth'), 
   }
 });
 
-// Уведомления от администрации (колокольчик)
+// Уведомления от администрации / расписания (колокольчик)
 router.get('/account-alerts/broadcast', require('../middleware/auth'), async (req, res) => {
   try {
     const rows = await UserBroadcastNotification.findAll({
@@ -324,7 +325,8 @@ router.get('/account-alerts/broadcast', require('../middleware/auth'), async (re
         id: json.id,
         title: msg.title || 'Сообщение',
         message: msg.message || '',
-        createdAt: msg.createdAt || json.createdAt
+        createdAt: msg.createdAt || json.createdAt,
+        isRead: json.isRead === true
       };
     });
 
@@ -348,10 +350,44 @@ router.put('/account-alerts/broadcast/:id/dismiss', require('../middleware/auth'
       return res.status(404).json({ error: 'Уведомление не найдено' });
     }
     alert.dismissedByUser = true;
+    alert.isRead = true;
+    alert.readAt = alert.readAt || new Date();
     await alert.save();
     res.json({ ok: true });
   } catch (error) {
     console.error('Ошибка dismiss broadcast alert:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+/** Пометить все уведомления колокольчика прочитанными (бейдж гаснет) */
+router.put('/account-alerts/read-all', require('../middleware/auth'), async (req, res) => {
+  try {
+    const now = new Date();
+    const [broadcastUpdated] = await UserBroadcastNotification.update(
+      { isRead: true, readAt: now },
+      {
+        where: {
+          userId: req.user.id,
+          dismissedByUser: false
+        }
+      }
+    );
+    const [deviceUpdated] = await UserDeviceAlert.update(
+      { isRead: true },
+      {
+        where: {
+          userId: req.user.id,
+          [Op.or]: [
+            { dismissedByUser: false },
+            { dismissedByUser: null }
+          ]
+        }
+      }
+    );
+    res.json({ ok: true, broadcastUpdated, deviceUpdated });
+  } catch (error) {
+    console.error('Ошибка account-alerts/read-all:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

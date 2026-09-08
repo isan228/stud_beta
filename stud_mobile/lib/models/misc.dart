@@ -50,6 +50,7 @@ class AccountAlert {
     required this.message,
     this.createdAt,
     this.isDevice = false,
+    this.isRead = false,
   });
 
   final int id;
@@ -57,6 +58,7 @@ class AccountAlert {
   final String message;
   final String? createdAt;
   final bool isDevice;
+  final bool isRead;
 
   factory AccountAlert.device(Map<String, dynamic> json) => AccountAlert(
         id: json['id'] as int,
@@ -64,6 +66,7 @@ class AccountAlert {
         message: 'Вход с нового устройства (${json['ipAddress'] ?? 'неизвестно'})',
         createdAt: json['createdAt'] as String?,
         isDevice: true,
+        isRead: json['isRead'] == true,
       );
 
   factory AccountAlert.broadcast(Map<String, dynamic> json) => AccountAlert(
@@ -71,5 +74,6 @@ class AccountAlert {
         title: json['title'] as String? ?? 'Сообщение',
         message: json['message'] as String? ?? '',
         createdAt: json['createdAt'] as String?,
+        isRead: json['isRead'] == true,
       );
 }

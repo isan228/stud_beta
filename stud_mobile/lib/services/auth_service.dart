@@ -125,6 +125,10 @@ class AuthService {
     await _api.put('/auth/account-alerts/broadcast/$id/dismiss');
   }
 
+  Future<void> markAllAccountAlertsRead() async {
+    await _api.put('/auth/account-alerts/read-all');
+  }
+
   Future<UserModel> updateDirection({
     required int facultyId,
     required int course,

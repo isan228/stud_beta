@@ -562,6 +562,30 @@ html[data-theme="dark"] .navbar {
     line-height: 1.35;
 }
 
+.subscription-alert-item.is-unread {
+    box-shadow: inset 3px 0 0 var(--primary-color);
+}
+
+.subscription-alert-item.is-read {
+    opacity: 0.78;
+}
+
+.subscription-alert-link {
+    display: inline-flex;
+    margin-top: 0.65rem;
+    text-decoration: none;
+}
+
+.user-chat-fab-dock .subscription-alert-toggle.has-unread,
+.subscription-alert-toggle.has-unread {
+    color: #dc2626;
+}
+
+.user-chat-fab-dock .subscription-alert-toggle.has-unread .user-chat-badge,
+.subscription-alert-toggle.has-unread .user-chat-badge {
+    display: flex;
+}
+
 .subscription-alert-item.admin-broadcast-alert {
     border-color: rgba(37, 99, 235, 0.35);
     background: rgba(37, 99, 235, 0.06);

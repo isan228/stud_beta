@@ -19,12 +19,22 @@ const UserBroadcastNotification = sequelize.define('UserBroadcastNotification', 
     type: DataTypes.BOOLEAN,
     defaultValue: false,
     allowNull: false
+  },
+  isRead: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    allowNull: false
+  },
+  readAt: {
+    type: DataTypes.DATE,
+    allowNull: true
   }
 }, {
   tableName: 'UserBroadcastNotifications',
   indexes: [
     { fields: ['userId'] },
     { fields: ['userId', 'dismissedByUser'] },
+    { fields: ['userId', 'isRead'] },
     { fields: ['broadcastMessageId'] },
     { fields: ['createdAt'] }
   ]

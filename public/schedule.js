@@ -208,9 +208,15 @@ async function saveMySchedulePrefs() {
             window.currentUser.course = Number(course);
             window.currentUser.scheduleRemindersEnabled = remindersEnabled;
         }
+        try { localStorage.removeItem('alertSeen:schedule-setup'); } catch (_) {}
         setSaveStatus(data.message || 'Сохранено');
         if (typeof window.showNotification === 'function') {
             window.showNotification(data.message || 'Сохранено', 'success');
+        }
+        if (typeof window.ensureSubscriptionAlertVisibility === 'function') {
+            window.ensureSubscriptionAlertVisibility();
+        } else if (typeof ensureSubscriptionAlertVisibility === 'function') {
+            ensureSubscriptionAlertVisibility();
         }
     } catch (error) {
         setSaveStatus(error.message || 'Не удалось сохранить', true);

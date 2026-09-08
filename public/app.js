@@ -364,28 +364,73 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const msPerDay = 24 * 60 * 60 * 1000;
         const daysLeft = Math.ceil((endDate.getTime() - now.getTime()) / msPerDay);
 
+        let alerts = [];
         if (daysLeft < 0) {
-            return [{
+            alerts = [{
                 level: 'danger',
+                kind: 'subscription',
+                key: 'sub-expired',
                 title: 'Подписка закончилась',
-                text: 'Ваша подписка уже истекла. Продлите подписку, чтобы сохранить полный доступ к тестам.'
+                text: 'Ваша подписка уже истекла. Продлите подписку, чтобы сохранить полный доступ к тестам.',
+                link: '/subscriptions',
+                linkLabel: 'К подпискам'
             }];
-        }
-        if (daysLeft === 0) {
-            return [{
+        } else if (daysLeft === 0) {
+            alerts = [{
                 level: 'warning',
+                kind: 'subscription',
+                key: 'sub-today',
                 title: 'Подписка заканчивается сегодня',
-                text: 'Сегодня последний день действия подписки. Рекомендуем продлить ее заранее.'
+                text: 'Сегодня последний день действия подписки. Рекомендуем продлить ее заранее.',
+                link: '/subscriptions',
+                linkLabel: 'Продлить'
             }];
-        }
-        if (daysLeft <= 7) {
-            return [{
+        } else if (daysLeft <= 7) {
+            alerts = [{
                 level: 'warning',
+                kind: 'subscription',
+                key: `sub-soon-${daysLeft}`,
                 title: 'Подписка скоро закончится',
-                text: `До окончания подписки осталось ${daysLeft} дн. Продлите ее, чтобы не потерять доступ.`
+                text: `До окончания подписки осталось ${daysLeft} дн. Продлите ее, чтобы не потерять доступ.`,
+                link: '/subscriptions',
+                linkLabel: 'Продлить'
             }];
         }
-        return [];
+        return alerts;
+    }
+
+    function buildScheduleSetupAlert() {
+        if (!currentUser) return [];
+        if (currentUser.kgmaGroupId || currentUser.groupName) return [];
+        const shortName = currentUser.University?.shortName || '';
+        if (shortName !== 'КГМА') return [];
+        return [{
+            level: 'info',
+            kind: 'schedule-setup',
+            key: 'schedule-setup',
+            title: 'Сохраните своё расписание',
+            text: 'Выберите группу на странице расписания — и каждый день около 17:00 придёт напоминание о завтрашних парах.',
+            link: '/schedule',
+            linkLabel: 'Открыть расписание'
+        }];
+    }
+
+    function getLocalAlertSeenKey(key) {
+        return `alertSeen:${key}`;
+    }
+
+    function isLocalAlertSeen(key) {
+        try {
+            return localStorage.getItem(getLocalAlertSeenKey(key)) === '1';
+        } catch {
+            return false;
+        }
+    }
+
+    function markLocalAlertSeen(key) {
+        try {
+            localStorage.setItem(getLocalAlertSeenKey(key), '1');
+        } catch (_) {}
     }
 
     function shortenUserAgent(ua) {
@@ -427,6 +472,23 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             pendingBroadcastAlerts = [];
         }
         ensureSubscriptionAlertVisibility();
+    }
+
+    async function markAllAccountAlertsRead() {
+        if (!currentToken) return;
+        try {
+            await fetch(`${API_URL}/auth/account-alerts/read-all`, {
+                method: 'PUT',
+                headers: { Authorization: `Bearer ${currentToken}` }
+            });
+            pendingBroadcastAlerts = (pendingBroadcastAlerts || []).map((a) => ({ ...a, isRead: true }));
+            pendingDeviceAlerts = (pendingDeviceAlerts || []).map((a) => ({ ...a, isRead: true }));
+            [...buildSubscriptionAlerts(), ...buildScheduleSetupAlert()].forEach((a) => {
+                if (a.key) markLocalAlertSeen(a.key);
+            });
+        } catch (e) {
+            console.error('markAllAccountAlertsRead', e);
+        }
     }
 
     async function dismissBroadcastAlert(alertId) {
@@ -481,7 +543,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         panel.style.bottom = `${bottomOffset}px`;
     }
 
-    function openSubscriptionAlertPanel() {
+    async function openSubscriptionAlertPanel() {
         const panel = document.getElementById('subscriptionAlertPanel');
         if (!panel) return;
 
@@ -495,6 +557,16 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         panel.style.display = 'flex';
         panel.setAttribute('aria-hidden', 'false');
         isSubscriptionAlertsOpen = true;
+
+        await markAllAccountAlertsRead();
+        ensureSubscriptionAlertVisibility();
+    }
+
+    function countUnreadAlerts(subAlerts, scheduleAlerts, deviceAlerts, broadcastAlerts) {
+        const localUnread = [...subAlerts, ...scheduleAlerts].filter((a) => !isLocalAlertSeen(a.key)).length;
+        const deviceUnread = (deviceAlerts || []).filter((a) => a.isRead !== true).length;
+        const broadcastUnread = (broadcastAlerts || []).filter((a) => a.isRead !== true).length;
+        return localUnread + deviceUnread + broadcastUnread;
     }
 
     function ensureSubscriptionAlertVisibility() {
@@ -502,9 +574,11 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         let alertPanel = document.getElementById('subscriptionAlertPanel');
         const fabDock = document.getElementById('userChatFabDock');
         const subAlerts = buildSubscriptionAlerts();
+        const scheduleAlerts = buildScheduleSetupAlert();
         const deviceAlerts = pendingDeviceAlerts || [];
         const broadcastAlerts = pendingBroadcastAlerts || [];
-        const totalCount = subAlerts.length + deviceAlerts.length + broadcastAlerts.length;
+        const totalCount = subAlerts.length + scheduleAlerts.length + deviceAlerts.length + broadcastAlerts.length;
+        const unreadCount = countUnreadAlerts(subAlerts, scheduleAlerts, deviceAlerts, broadcastAlerts);
 
         if (!fabDock) return;
 
@@ -515,7 +589,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             bellButton.id = 'subscriptionAlertToggle';
             bellButton.className = 'user-chat-toggle subscription-alert-toggle';
             bellButton.type = 'button';
-            bellButton.setAttribute('aria-label', 'Уведомления: подписка и безопасность');
+            bellButton.setAttribute('aria-label', 'Уведомления');
             bellButton.setAttribute('title', 'Уведомления');
             bellButton.innerHTML = `${bellSvg}<span id="subscriptionAlertBadge" class="user-chat-badge" style="display:none;">0</span>`;
             fabDock.insertBefore(bellButton, fabDock.firstChild);
@@ -552,7 +626,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 if (isSubscriptionAlertsOpen) {
                     closeSubscriptionAlertPanel();
                 } else {
-                    openSubscriptionAlertPanel();
+                    await openSubscriptionAlertPanel();
                 }
             });
 
@@ -593,27 +667,43 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
         if (!currentUser || totalCount === 0) {
             bellButton.style.display = 'none';
+            bellButton.classList.remove('has-unread');
             closeSubscriptionAlertPanel();
             return;
         }
 
         bellButton.style.display = 'flex';
+        bellButton.classList.toggle('has-unread', unreadCount > 0);
         if (badge) {
-            badge.textContent = String(totalCount);
-            badge.style.display = 'flex';
+            if (unreadCount > 0) {
+                badge.textContent = String(unreadCount);
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+            }
         }
         if (list) {
-            const subHtml = subAlerts.map(alert => `
-                <div class="subscription-alert-item ${alert.level}">
-                    <h4>${alert.title}</h4>
-                    <p>${alert.text}</p>
-                </div>
-            `).join('');
+            const renderLocal = (alerts) => alerts.map((alert) => {
+                const unreadClass = isLocalAlertSeen(alert.key) ? ' is-read' : ' is-unread';
+                const link = alert.link
+                    ? `<a href="${escapeHtmlStr(alert.link)}" class="btn btn-primary btn-sm subscription-alert-link">${escapeHtmlStr(alert.linkLabel || 'Открыть')}</a>`
+                    : '';
+                return `
+                <div class="subscription-alert-item ${alert.level}${unreadClass}">
+                    <h4>${escapeHtmlStr(alert.title)}</h4>
+                    <p>${escapeHtmlStr(alert.text)}</p>
+                    ${link}
+                </div>`;
+            }).join('');
+
+            const subHtml = renderLocal(subAlerts);
+            const scheduleHtml = renderLocal(scheduleAlerts);
             const devHtml = deviceAlerts.map((a) => {
                 const when = a.createdAt ? new Date(a.createdAt).toLocaleString('ru-RU') : '';
                 const ip = a.ipAddress || '—';
+                const unreadClass = a.isRead === true ? ' is-read' : ' is-unread';
                 return `
-                <div class="subscription-alert-item info device-login-alert" data-device-alert-id="${a.id}">
+                <div class="subscription-alert-item info device-login-alert${unreadClass}" data-device-alert-id="${a.id}">
                     <h4>Вход с нового устройства</h4>
                     <p class="device-login-meta">${when} · IP: ${escapeHtmlStr(ip)}</p>
                     <p class="device-login-ua">${escapeHtmlStr(shortenUserAgent(a.userAgent))}</p>
@@ -625,15 +715,16 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 const when = a.createdAt ? new Date(a.createdAt).toLocaleString('ru-RU') : '';
                 const title = escapeHtmlStr(a.title || 'Сообщение от администрации');
                 const text = escapeHtmlStr(a.message || '').replace(/\n/g, '<br>');
+                const unreadClass = a.isRead === true ? ' is-read' : ' is-unread';
                 return `
-                <div class="subscription-alert-item info admin-broadcast-alert" data-broadcast-alert-id="${a.id}">
+                <div class="subscription-alert-item info admin-broadcast-alert${unreadClass}" data-broadcast-alert-id="${a.id}">
                     <h4>${title}</h4>
                     ${when ? `<p class="device-login-meta">${when}</p>` : ''}
                     <p class="admin-broadcast-text">${text}</p>
                     <button type="button" class="btn btn-secondary btn-sm broadcast-alert-dismiss" data-dismiss-id="${a.id}">Скрыть</button>
                 </div>`;
             }).join('');
-            list.innerHTML = broadcastHtml + subHtml + devHtml;
+            list.innerHTML = scheduleHtml + broadcastHtml + subHtml + devHtml;
             list.querySelectorAll('.broadcast-alert-dismiss').forEach((btn) => {
                 btn.addEventListener('click', async (ev) => {
                     ev.preventDefault();
@@ -4617,6 +4708,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     window.loadSubscriptionsPage = loadSubscriptionsPage;
     window.toggleTestCatalogFavorite = toggleTestCatalogFavorite;
     window.toggleSubjectCatalogFavorite = toggleSubjectCatalogFavorite;
+    window.ensureSubscriptionAlertVisibility = ensureSubscriptionAlertVisibility;
 
     // Экспорт переменных состояния для доступа из inline скриптов
     Object.defineProperty(window, 'currentUser', {
