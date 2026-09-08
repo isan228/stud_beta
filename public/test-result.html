@@ -223,11 +223,13 @@
                         </div>
                         <div style="margin: 0 0 0.75rem; color: var(--text-color); line-height: 1.45;">${questionBodyHtml}</div>
                         ${renderImageGalleryHtml(question.imageUrls || question.imageUrl, 'Иллюстрация к вопросу')}
-                        <div class="question-explanation-box" style="margin-top: 0;">
+                        ${typeof window.renderQuestionExplanationHtml === 'function'
+                            ? window.renderQuestionExplanationHtml(question.explanation, question.explanationImageUrls || question.explanationImageUrl)
+                            : `<div class="question-explanation-box" style="margin-top: 0;">
                             <div class="question-explanation-label">Объяснение</div>
                             ${question.explanation ? `<div class="question-explanation-text">${escHtml(question.explanation).replace(/\n/g, '<br>')}</div>` : ''}
                             ${renderImageGalleryHtml(question.explanationImageUrls || question.explanationImageUrl, 'Иллюстрация к объяснению', 'question-explanation-image-wrap')}
-                        </div>
+                        </div>`}
                     </div>
                 `;
             }).join('');

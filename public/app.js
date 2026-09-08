@@ -2316,6 +2316,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const selectors = [
             '.question-explanation-text',
             '.question-explanation-body',
+            '.usmle-explanation-body',
+            '.usmle-edu-objective-text',
+            '.usmle-choice-block',
             '[data-medical-linkify="explanation"]'
         ];
         for (const sel of selectors) {
@@ -2357,20 +2360,165 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         `).join('');
     }
 
+    function formatUsmleExplanationHtml(rawText) {
+        let text = String(rawText || '').trim();
+        if (!text) return '';
+
+        let objective = '';
+        const objMatch = text.match(/(?:^|\n)\s*(Educational\s+objective|Образовательная\s+цель)\s*:\s*([\s\S]*)$/i);
+        if (objMatch) {
+            objective = String(objMatch[2] || '').trim();
+            text = text.slice(0, objMatch.index).trim();
+        }
+
+        const formatInline = (chunk) => {
+            let html = escapeHtmlStr(String(chunk || ''));
+            html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/==([^=]+)==/g, '<mark class="usmle-highlight">$1</mark>');
+            return html.replace(/\n/g, '<br>');
+        };
+
+        const pieces = text.split(/(?=\((?:Choice|Вариант)\s*[A-ZА-Я]\))/i);
+        const introParts = [];
+        const choiceParts = [];
+        pieces.forEach((piece) => {
+            const trimmed = String(piece || '').trim();
+            if (!trimmed) return;
+            if (/^\((?:Choice|Вариант)\s*[A-ZА-Я]\)/i.test(trimmed)) choiceParts.push(trimmed);
+            else introParts.push(trimmed);
+        });
+
+        let bodyHtml = '';
+        if (introParts.length) {
+            bodyHtml += `<div class="question-explanation-text usmle-explanation-body">${formatInline(introParts.join('\n\n'))}</div>`;
+        }
+        if (choiceParts.length) {
+            bodyHtml += `<div class="usmle-choice-explanations">${choiceParts.map((part) => {
+                const m = part.match(/^\((Choice|Вариант)\s*([A-ZА-Я])\)\s*([\s\S]*)$/i);
+                if (!m) {
+                    return `<p class="usmle-choice-block">${formatInline(part)}</p>`;
+                }
+                const label = `(${m[1]} ${String(m[2] || '').toUpperCase()})`;
+                const rest = String(m[3] || '').trim();
+                return `<p class="usmle-choice-block"><strong class="usmle-choice-label">${escapeHtmlStr(label)}</strong> ${formatInline(rest)}</p>`;
+            }).join('')}</div>`;
+        }
+
+        const objectiveHtml = objective
+            ? `<div class="usmle-edu-objective"><div class="usmle-edu-objective-label">Educational objective:</div><div class="usmle-edu-objective-text question-explanation-text">${formatInline(objective)}</div></div>`
+            : '';
+
+        return bodyHtml + objectiveHtml;
+    }
+
     function renderQuestionExplanationHtml(explanation, explanationImageUrl) {
         const text = String(explanation || '').trim();
         const imgHtml = renderImageGalleryHtml(explanationImageUrl, 'Иллюстрация к объяснению', 'question-explanation-image-wrap');
         if (!text && !imgHtml) return '';
+
+        const isUsmle = getProgramType() === 'usmle';
         const textHtml = text
-            ? `<div class="question-explanation-text">${escapeHtmlStr(text).replace(/\n/g, '<br>')}</div>`
+            ? (isUsmle
+                ? formatUsmleExplanationHtml(text)
+                : `<div class="question-explanation-text">${escapeHtmlStr(text).replace(/\n/g, '<br>')}</div>`)
             : '';
+
         return `
-            <div class="question-explanation-box" role="note">
-                <div class="question-explanation-label">Объяснение</div>
+            <div class="question-explanation-box${isUsmle ? ' usmle-explanation-box' : ''}" role="note">
+                <div class="question-explanation-label">${isUsmle ? 'Explanation' : 'Объяснение'}</div>
                 ${textHtml}
                 ${imgHtml}
             </div>
         `;
+    }
+
+    function getUsmleNavLinkFlags(questions) {
+        const flags = (questions || []).map(() => ({ linked: false, start: false, mid: false, end: false }));
+        const getKey = usmleLinked().getLinkedClusterKey;
+        if (!getKey) return flags;
+
+        let i = 0;
+        while (i < questions.length) {
+            const key = getKey(questions[i] && questions[i].text);
+            if (!key) {
+                i += 1;
+                continue;
+            }
+            let j = i + 1;
+            while (j < questions.length && getKey(questions[j] && questions[j].text) === key) j += 1;
+            if (j - i >= 2) {
+                for (let k = i; k < j; k += 1) {
+                    flags[k].linked = true;
+                    flags[k].start = k === i;
+                    flags[k].end = k === j - 1;
+                    flags[k].mid = k > i && k < j - 1;
+                }
+            }
+            i = j;
+        }
+        return flags;
+    }
+
+    function renderUsmleQuestionNav() {
+        const nav = document.getElementById('usmleQuestionNav');
+        const list = document.getElementById('usmleQuestionNavList');
+        const layout = document.getElementById('testSessionLayout');
+        if (!nav || !list) return;
+
+        const isUsmle = getProgramType() === 'usmle';
+        document.body.classList.toggle('usmle-test-session', isUsmle);
+        if (layout) layout.classList.toggle('has-usmle-qnav', isUsmle);
+
+        if (!isUsmle || !currentQuestions || !currentQuestions.length) {
+            nav.hidden = true;
+            list.innerHTML = '';
+            return;
+        }
+
+        nav.hidden = false;
+        const flags = getUsmleNavLinkFlags(currentQuestions);
+        list.innerHTML = currentQuestions.map((q, index) => {
+            const f = flags[index] || {};
+            const answered = currentAnswers[q.id] != null;
+            const locked = !!(instantFeedbackMode && instantFeedbackLockedQuestions[q.id]);
+            const active = index === currentQuestionIndex;
+            const classes = [
+                'usmle-qnav-item',
+                active ? 'is-active' : '',
+                answered ? 'is-answered' : '',
+                locked ? 'is-reviewed' : '',
+                f.linked ? 'is-linked' : '',
+                f.start ? 'is-linked-start' : '',
+                f.mid ? 'is-linked-mid' : '',
+                f.end ? 'is-linked-end' : ''
+            ].filter(Boolean).join(' ');
+
+            return `
+                <li class="${classes}">
+                    <button type="button" class="usmle-qnav-btn" data-q-index="${index}" aria-current="${active ? 'true' : 'false'}" title="Вопрос ${index + 1}">
+                        <span class="usmle-qnav-rail" aria-hidden="true">
+                            <span class="usmle-qnav-dot"></span>
+                        </span>
+                        <span class="usmle-qnav-num">${index + 1}</span>
+                    </button>
+                </li>
+            `;
+        }).join('');
+
+        list.querySelectorAll('.usmle-qnav-btn').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const idx = parseInt(btn.getAttribute('data-q-index'), 10);
+                if (Number.isFinite(idx)) goToQuestion(idx);
+            });
+        });
+    }
+
+    function goToQuestion(index) {
+        if (!currentQuestions || !currentQuestions.length) return;
+        const next = Math.max(0, Math.min(currentQuestions.length - 1, Number(index)));
+        if (next === currentQuestionIndex) return;
+        currentQuestionIndex = next;
+        showQuestion();
     }
 
     function refreshQuestionExplanationSlot(question) {
@@ -2425,9 +2573,11 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             return;
         }
 
+        const isUsmleSession = getProgramType() === 'usmle';
         progressFillEl.style.width = `${progress}%`;
-        progressTextEl.textContent =
-            `Вопрос ${currentQuestionIndex + 1} из ${currentQuestions.length}`;
+        progressTextEl.textContent = isUsmleSession
+            ? `Item ${currentQuestionIndex + 1} of ${currentQuestions.length}`
+            : `Вопрос ${currentQuestionIndex + 1} из ${currentQuestions.length}`;
 
         updateUsmleQuestionMeta(question);
 
@@ -2451,6 +2601,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
 
         const questionImageHtml = renderImageGalleryHtml(question.imageUrls || question.imageUrl, 'Иллюстрация к вопросу');
+        const answerLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
         content.innerHTML = `
         <div class="question-item">
@@ -2459,8 +2610,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             })}
             ${questionImageHtml}
             <div class="answers-list">
-                ${question.Answers.map(answer => `
+                ${question.Answers.map((answer, answerIndex) => `
                     <div class="answer-item" data-answer-id="${answer.id}" onclick="selectAnswer(${answer.id})">
+                        ${isUsmleSession ? `<span class="answer-option-letter" aria-hidden="true">${answerLetters[answerIndex] || (answerIndex + 1)}</span>` : ''}
                         <span class="answer-option-text">${answer.text}</span>
                         ${renderImageGalleryHtml(answer.imageUrls || answer.imageUrl, 'Иллюстрация к ответу', 'answer-option-image-wrap')}
                     </div>
@@ -2470,6 +2622,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         </div>
     `;
 
+        renderUsmleQuestionNav();
         applyMedicalLinkify();
 
         const errorQuestionIdEl = document.getElementById('errorQuestionId');
@@ -2563,6 +2716,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 }
             } catch (e) { /* ignore */ }
         }
+        renderUsmleQuestionNav();
     }
 
     function nextQuestion() {
@@ -4942,10 +5096,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                             </div>
                         ` : ''}
                         ${(question.explanation || question.explanationImageUrl) ? `
-                            <div style="margin-top: 1rem; padding: 1rem; background: rgba(37, 99, 235, 0.08); border-radius: var(--radius); border-left: 4px solid var(--primary-color);">
-                                <div class="test-analysis-label" style="color: var(--primary-color);">Объяснение</div>
-                                ${question.explanation ? `<div class="question-explanation-text" style="color: var(--text-secondary); line-height: 1.55; margin-top: 0.35rem;">${escapeHtmlStr(question.explanation).replace(/\n/g, '<br>')}</div>` : ''}
-                                ${question.explanationImageUrl ? `<figure class="question-image-wrap question-explanation-image-wrap" style="margin-top: 0.5rem;"><img src="${String(question.explanationImageUrl).replace(/"/g, '')}" alt="Иллюстрация к объяснению" class="question-image" loading="lazy"></figure>` : ''}
+                            <div style="margin-top: 1rem;">
+                                ${renderQuestionExplanationHtml(question.explanation, question.explanationImageUrl)}
                             </div>
                         ` : ''}
                     </div>
@@ -4980,6 +5132,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     // Экспорт функции для использования в HTML
     window.showTestAnalysis = showTestAnalysis;
+    window.renderQuestionExplanationHtml = renderQuestionExplanationHtml;
+    window.goToQuestion = goToQuestion;
 
     Object.defineProperty(window, 'currentQuestions', {
         get: () => currentQuestions,

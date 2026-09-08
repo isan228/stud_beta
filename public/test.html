@@ -29,7 +29,7 @@
     </nav>
 
     <main class="main-content">
-        <div class="container">
+        <div class="container test-session-container">
             <div class="test-header">
                 <div class="test-progress">
                     <div class="progress-bar">
@@ -55,11 +55,19 @@
                     <span class="usmle-meta-chip usmle-meta-time" id="usmleMetaQuestionTime" title="Время на этот вопрос">⏱ <span id="usmleMetaQuestionTimeValue">0:00</span></span>
                 </div>
             </div>
-            <div id="testContent" class="test-content"></div>
-            <div class="test-actions">
-                <button class="btn btn-secondary" id="prevQuestion" style="display: none;">Назад</button>
-                <button class="btn btn-primary" id="nextQuestion">Далее</button>
-                <button class="btn btn-success" id="finishTest" style="display: none;">Завершить тест</button>
+            <div class="test-session-layout" id="testSessionLayout">
+                <aside class="usmle-qnav" id="usmleQuestionNav" hidden aria-label="Навигация по вопросам">
+                    <div class="usmle-qnav-title">Items</div>
+                    <ol class="usmle-qnav-list" id="usmleQuestionNavList"></ol>
+                </aside>
+                <div class="test-session-main">
+                    <div id="testContent" class="test-content"></div>
+                    <div class="test-actions">
+                        <button class="btn btn-secondary" id="prevQuestion" style="display: none;">Назад</button>
+                        <button class="btn btn-primary" id="nextQuestion">Далее</button>
+                        <button class="btn btn-success" id="finishTest" style="display: none;">Завершить тест</button>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
