@@ -55,43 +55,69 @@
             </header>
 
             <div class="schedule-panel">
-                <div class="schedule-filters">
-                    <div class="form-group">
-                        <label for="scheduleFaculty">Факультет</label>
-                        <select id="scheduleFaculty" class="input"></select>
+                <div class="schedule-panel-section">
+                    <div class="schedule-panel-section-head">
+                        <h2>Выбор группы</h2>
+                        <p>Факультет → курс → группа</p>
                     </div>
-                    <div class="form-group">
-                        <label for="scheduleCourse">Курс</label>
-                        <select id="scheduleCourse" class="input"><option value="">Курс</option></select>
+                    <div class="schedule-filters">
+                        <div class="form-group schedule-field">
+                            <label for="scheduleFaculty">Факультет</label>
+                            <div class="schedule-select-wrap">
+                                <select id="scheduleFaculty" class="input schedule-select"></select>
+                            </div>
+                        </div>
+                        <div class="form-group schedule-field">
+                            <label for="scheduleCourse">Курс</label>
+                            <div class="schedule-select-wrap">
+                                <select id="scheduleCourse" class="input schedule-select"><option value="">Курс</option></select>
+                            </div>
+                        </div>
+                        <div class="form-group schedule-field">
+                            <label for="scheduleGroup">Группа</label>
+                            <div class="schedule-select-wrap">
+                                <select id="scheduleGroup" class="input schedule-select"><option value="">Группа</option></select>
+                            </div>
+                        </div>
+                        <div class="schedule-filters-action">
+                            <button type="button" class="btn btn-primary" id="scheduleShowBtn">Показать</button>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="scheduleGroup">Группа</label>
-                        <select id="scheduleGroup" class="input"><option value="">Группа</option></select>
-                    </div>
-                    <button type="button" class="btn btn-primary" id="scheduleShowBtn">Показать</button>
                 </div>
 
                 <div class="schedule-save-card" id="scheduleSaveCard">
-                    <label class="schedule-remind-toggle">
-                        <input type="checkbox" id="scheduleRemindersEnabled" checked>
-                        <span>
-                            <strong>Напоминать в 17:00</strong>
-                            <small>За день до пар: «Завтра у вас такие пары…» в колокольчике на сайте и в приложении</small>
-                        </span>
-                    </label>
-                    <button type="button" class="btn btn-secondary" id="scheduleSaveBtn">Сохранить мою группу</button>
+                    <div class="schedule-save-card-top">
+                        <label class="schedule-remind-toggle">
+                            <input type="checkbox" id="scheduleRemindersEnabled" checked>
+                            <span class="schedule-remind-box" aria-hidden="true"></span>
+                            <span class="schedule-remind-copy">
+                                <strong>Напоминать в 17:00</strong>
+                                <small>За день до пар: «Завтра у вас такие пары…» в колокольчике на сайте и в приложении</small>
+                            </span>
+                        </label>
+                        <button type="button" class="btn btn-primary" id="scheduleSaveBtn">Сохранить мою группу</button>
+                    </div>
                     <p class="schedule-save-hint" id="scheduleSaveHint">Нужно войти в аккаунт, чтобы сохранить группу и получать напоминания.</p>
                     <p class="schedule-save-status" id="scheduleSaveStatus" hidden></p>
                 </div>
 
-                <div class="schedule-week-nav">
-                    <div class="schedule-week-nav-btns">
-                        <button type="button" class="btn btn-secondary btn-sm" id="schedulePrevWeek">← Пред.</button>
-                        <button type="button" class="btn btn-secondary btn-sm" id="scheduleCurWeek">Текущая</button>
-                        <button type="button" class="btn btn-secondary btn-sm" id="scheduleNextWeek">След. →</button>
+                <div class="schedule-panel-section schedule-panel-section-week">
+                    <div class="schedule-panel-section-head">
+                        <h2>Неделя</h2>
+                        <p>Листайте или выберите дату</p>
                     </div>
-                    <input type="date" id="scheduleWeekStart" class="input schedule-week-date">
-                    <span class="schedule-week-label" id="scheduleWeekLabel"></span>
+                    <div class="schedule-week-nav">
+                        <div class="schedule-week-nav-btns" role="group" aria-label="Навигация по неделям">
+                            <button type="button" class="schedule-week-btn" id="schedulePrevWeek">← Пред.</button>
+                            <button type="button" class="schedule-week-btn is-current" id="scheduleCurWeek">Текущая</button>
+                            <button type="button" class="schedule-week-btn" id="scheduleNextWeek">След. →</button>
+                        </div>
+                        <div class="schedule-week-date-wrap">
+                            <label for="scheduleWeekStart" class="visually-hidden">Дата недели</label>
+                            <input type="date" id="scheduleWeekStart" class="input schedule-week-date">
+                        </div>
+                        <span class="schedule-week-label" id="scheduleWeekLabel"></span>
+                    </div>
                 </div>
             </div>
 
