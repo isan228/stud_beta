@@ -223,6 +223,7 @@ Login → /usmle (нужна USMLE-подписка)
 3. **Вопросы** — CRUD + загрузки:
    - TXT с объяснениями и тегами
    - TXT связанные вопросы (GroupID)
+   - TXT связанные+одиночные (смешанный файл)
 4. **Flashcards** — фильтры test/tag/step; кнопки:
    - + Flashcard
    - TXT flashcards
@@ -269,6 +270,15 @@ A1.. / Correct / E / Subject / System
 ```
 
 Один `GroupID` = одна vignette-группа. При выборке в custom-test порядок внутри группы сохраняется.
+
+### 7.2.1 Смешанный TXT (связанные + одиночные)
+`POST /api/admin/upload-txt-mixed`
+
+Тот же формат полей, что у одиночных и связанных, в одном файле:
+- есть `GroupID` → связанный вопрос;
+- нет `GroupID` → обычный одиночный вопрос.
+
+Обязательны `E` и `Subject`/`System`/`Tags`.
 
 ### 7.3 Flashcards
 `POST /api/admin/upload-txt-flashcards`  

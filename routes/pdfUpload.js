@@ -4,7 +4,7 @@ const multer = require('multer');
 const adminAuth = require('../middleware/adminAuth');
 const { Op } = require('sequelize');
 const { Question, Answer, Test, QuestionTag, QuestionTagMap, Flashcard, FlashcardTagMap, FlashcardTopic, Subject, University } = require('../models');
-const { parseLinkedQuestionsFromText } = require('../utils/usmleLinkedQuestions');
+const { parseLinkedQuestionsFromText, parseMixedUsmleQuestionsFromText } = require('../utils/usmleLinkedQuestions');
 const { parseFlashcardsFromText } = require('../utils/parseFlashcardsTxt');
 const { extractTxtAnswers, mapAnswersWithCorrect, isValidCorrectIndex, extractQuotedField, normalizeTxt } = require('../utils/txtQuestionAnswers');
 const { normalizeTagName, slugifyTag, resolveCanonicalTagsByNames } = require('../utils/usmleTagNormalize');
@@ -570,6 +570,75 @@ async function handleLinkedTxtUpload(req, res) {
   });
 }
 
+async function handleMixedTxtUpload(req, res) {
+  if (!req.file) {
+    res.status(400).json({ error: 'TXT файл не загружен' });
+    return;
+  }
+
+  const { testId } = req.body;
+  if (!testId) {
+    res.status(400).json({ error: 'ID теста обязателен' });
+    return;
+  }
+
+  const test = await Test.findByPk(testId);
+  if (!test) {
+    res.status(404).json({ error: 'Тест не найден' });
+    return;
+  }
+
+  if (test.programType !== 'usmle') {
+    res.status(400).json({ error: 'Смешанная загрузка доступна только для тестов USMLE' });
+    return;
+  }
+
+  const { syncTestHasExplanations } = require('../utils/syncTestExplanations');
+  await syncTestHasExplanations(test.id, true);
+
+  const text = normalizeTxt(req.file.buffer.toString('utf8'));
+  if (!text || text.trim().length === 0) {
+    res.status(400).json({
+      error: 'TXT файл пуст',
+      message: 'Убедитесь, что файл содержит текст.'
+    });
+    return;
+  }
+
+  const questions = parseMixedUsmleQuestionsFromText(text);
+  const stats = questions._parseStats || {};
+
+  if (questions.length === 0) {
+    let hint = 'Нужны поля ID, Q, A1–A30, Correct, E, Subject/System/Tags. Для связанных — ещё GroupID.';
+    if (stats.idBlocks === 0) {
+      hint = 'В файле не найдено ни одного "ID":"...". Проверьте кавычки.';
+    } else if (stats.missingQ > 0 && stats.accepted === 0) {
+      hint = `Найдено блоков ID: ${stats.idBlocks}, но нет поля "Q".`;
+    } else if (stats.missingAnswers > 0 && stats.accepted === 0) {
+      hint = `Найдено блоков ID: ${stats.idBlocks}, но мало ответов A1/A2… (нужно ≥ 2).`;
+    } else if (stats.missingCorrect > 0 && stats.accepted === 0) {
+      hint = `Найдено блоков ID: ${stats.idBlocks}, но нет/неверный "Correct".`;
+    } else if (stats.missingExplanation > 0 && stats.accepted === 0) {
+      hint = `Найдено вопросов без поля "E" (объяснение): ${stats.missingExplanation}.`;
+    } else if (stats.missingTags > 0 && stats.accepted === 0) {
+      hint = `Найдено вопросов без темы/тегов (Subject/System/Tags): ${stats.missingTags}.`;
+    }
+    res.status(400).json({ error: `Не удалось найти вопросы в TXT. ${hint}`, stats });
+    return;
+  }
+
+  const createdQuestions = await saveParsedQuestions(testId, questions, {
+    perQuestionTags: true
+  });
+
+  res.json({
+    message: `Успешно загружено ${createdQuestions.length} вопросов (связанных: ${stats.linked || 0}, одиночных: ${stats.singles || 0})`,
+    linkedCount: stats.linked || 0,
+    singlesCount: stats.singles || 0,
+    questions: createdQuestions
+  });
+}
+
 router.post('/upload-pdf', adminAuth, upload.single('pdf'), async (req, res) => {
   try {
     await handleTxtUpload(req, res, { requireExplanation: false, parseTags: false });
@@ -622,6 +691,15 @@ router.post('/upload-txt-linked', adminAuth, upload.single('pdf'), async (req, r
     await handleLinkedTxtUpload(req, res);
   } catch (error) {
     console.error('Ошибка загрузки связанных USMLE вопросов:', error);
+    res.status(500).json({ error: error.message || 'Ошибка обработки TXT файла' });
+  }
+});
+
+router.post('/upload-txt-mixed', adminAuth, upload.single('pdf'), async (req, res) => {
+  try {
+    await handleMixedTxtUpload(req, res);
+  } catch (error) {
+    console.error('Ошибка смешанной загрузки USMLE вопросов:', error);
     res.status(500).json({ error: error.message || 'Ошибка обработки TXT файла' });
   }
 });

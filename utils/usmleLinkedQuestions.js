@@ -1,4 +1,11 @@
-const { extractTxtAnswers, mapAnswersWithCorrect, isValidCorrectIndex, extractQuotedField, normalizeTxt } = require('./txtQuestionAnswers');
+const {
+  extractTxtAnswers,
+  mapAnswersWithCorrect,
+  isValidCorrectIndex,
+  extractQuotedField,
+  extractLastQuotedField,
+  normalizeTxt
+} = require('./txtQuestionAnswers');
 const { normalizeTagName } = require('./usmleTagNormalize');
 
 const GROUP_MARKER = '<<<USMLE_GROUP>>>';
@@ -138,6 +145,24 @@ function extractField(block, field) {
 }
 
 /**
+ * GroupID стоит перед "ID" → в хвосте предыдущего split-блока (последнее вхождение).
+ * Также допускаем GroupID сразу после ID, но до Q.
+ */
+function resolveGroupIdForBlock(blocks, blockIndex) {
+  const preamble = blocks[blockIndex - 1] || '';
+  const fromPreamble =
+    extractLastQuotedField(preamble, 'GroupID') || extractLastQuotedField(preamble, 'Group');
+  if (fromPreamble) return String(fromPreamble).trim() || null;
+
+  const block = blocks[blockIndex] || '';
+  const qIdx = block.search(/"Q"\s*:/i);
+  const beforeQ = qIdx === -1 ? block : block.slice(0, qIdx);
+  const inline =
+    extractQuotedField(beforeQ, 'GroupID') || extractQuotedField(beforeQ, 'Group');
+  return inline ? String(inline).trim() || null : null;
+}
+
+/**
  * USMLE: связанные вопросы (несколько Q с одним GroupID).
  *
  * "GroupID":"1";
@@ -150,61 +175,81 @@ function extractField(block, field) {
  * "Q":"Второй вопрос?";
  *
  * Поле V больше не используется (игнорируется, если есть в файле).
+ *
+ * options.allowSingles — вопросы без GroupID тоже принимаются (одиночные).
  */
 function parseLinkedQuestionsFromText(text, options = {}) {
   const {
     requireExplanation = true,
     requireTags = true,
-    parseTags = true
+    parseTags = true,
+    allowSingles = false
   } = options;
 
   const questions = [];
+  const stats = {
+    idBlocks: 0,
+    linked: 0,
+    singles: 0,
+    skippedNoGroup: 0,
+    missingQ: 0,
+    missingAnswers: 0,
+    missingCorrect: 0,
+    missingExplanation: 0,
+    missingTags: 0,
+    accepted: 0
+  };
   const prepared = normalizeTxt(text);
   const blocks = prepared.split(/"ID"\s*:\s*"/i);
 
   for (let i = 1; i < blocks.length; i++) {
     const block = blocks[i];
+    stats.idBlocks++;
 
     try {
       const idMatch = block.match(/^([^"]+)"/);
       if (!idMatch) continue;
 
-      let groupId = extractField(block, 'GroupID') || extractField(block, 'Group');
-      if (!groupId && i === 1) {
-        groupId = extractField(blocks[0], 'GroupID') || extractField(blocks[0], 'Group');
-      }
-      if (!groupId && i > 1) {
-        groupId = extractField(blocks[i - 1], 'GroupID') || extractField(blocks[i - 1], 'Group');
-      }
+      const groupId = resolveGroupIdForBlock(blocks, i);
       const questionText = extractField(block, 'Q');
-      if (!questionText) continue;
+      if (!questionText) {
+        stats.missingQ++;
+        continue;
+      }
 
-      if (!groupId) {
+      if (!groupId && !allowSingles) {
+        stats.skippedNoGroup++;
         console.warn(`Связанный вопрос ID ${idMatch[1]}: нет GroupID`);
         continue;
       }
 
-      const finalText = formatLinkedQuestionText(questionText, groupId);
+      const finalText = groupId
+        ? formatLinkedQuestionText(questionText, groupId)
+        : String(questionText).trim();
       const answers = extractTxtAnswers(block);
 
       if (answers.length < 2) {
+        stats.missingAnswers++;
         console.warn(`Связанный вопрос ID ${idMatch[1]}: недостаточно ответов`);
         continue;
       }
 
       const correctRaw = extractField(block, 'Correct');
       if (!correctRaw) {
+        stats.missingCorrect++;
         console.warn(`Связанный вопрос ID ${idMatch[1]}: нет Correct`);
         continue;
       }
 
       if (!isValidCorrectIndex(answers, correctRaw)) {
+        stats.missingCorrect++;
         console.warn(`Связанный вопрос ID ${idMatch[1]}: неверный Correct`);
         continue;
       }
 
       const explanation = extractField(block, 'E');
       if (requireExplanation && !explanation) {
+        stats.missingExplanation++;
         console.warn(`Связанный вопрос ID ${idMatch[1]}: нет E`);
         continue;
       }
@@ -216,25 +261,44 @@ function parseLinkedQuestionsFromText(text, options = {}) {
       const tagNames = parseTagNames(rawTagStr);
 
       if (requireTags && !tagNames.length) {
+        stats.missingTags++;
         console.warn(`Связанный вопрос ID ${idMatch[1]}: нет Tags/Subject/System`);
         continue;
       }
 
       questions.push({
         sourceId: idMatch[1],
-        linkedGroupId: String(groupId),
+        linkedGroupId: groupId ? String(groupId) : null,
         text: finalText,
         explanation: explanation || null,
         tagNames: parseTags || requireTags ? tagNames : [],
         answers: mapAnswersWithCorrect(answers, correctRaw)
       });
+      stats.accepted++;
+      if (groupId) stats.linked++;
+      else stats.singles++;
     } catch (error) {
       console.error(`Ошибка парсинга связанного блока ${i}:`, error);
     }
   }
 
-  console.log(`Распарсено связанных USMLE вопросов: ${questions.length}`);
+  console.log(
+    `Распарсено USMLE вопросов: ${questions.length}` +
+    ` (связанных: ${stats.linked}, одиночных: ${stats.singles})`
+  );
+  questions._parseStats = stats;
   return questions;
+}
+
+/** Смешанный TXT: связанные (с GroupID) + одиночные (без GroupID) в одном файле. */
+function parseMixedUsmleQuestionsFromText(text, options = {}) {
+  return parseLinkedQuestionsFromText(text, {
+    requireExplanation: true,
+    requireTags: true,
+    parseTags: true,
+    ...options,
+    allowSingles: true
+  });
 }
 
 module.exports = {
@@ -244,6 +308,8 @@ module.exports = {
   formatLinkedQuestionText,
   parseLinkedQuestionText,
   parseLinkedQuestionsFromText,
+  parseMixedUsmleQuestionsFromText,
+  resolveGroupIdForBlock,
   getLinkedClusterKey,
   clusterQuestionsInTxtOrder,
   pickQuestionsKeepingLinkedOrder

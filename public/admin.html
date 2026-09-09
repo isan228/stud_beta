@@ -928,6 +928,7 @@
                                     <button type="button" class="btn btn-primary" id="addUsmleQuestionBtn">+ Вопрос</button>
                                     <button type="button" class="btn btn-secondary" id="uploadUsmleTxtExplainedBtn">📘 TXT с объяснениями и тегами</button>
                                     <button type="button" class="btn btn-secondary" id="uploadUsmleTxtLinkedBtn">🔗 TXT связанные вопросы</button>
+                                    <button type="button" class="btn btn-secondary" id="uploadUsmleTxtMixedBtn">🔗📘 TXT связанные+одиночные</button>
                                 </div>
                             </div>
                             <div id="usmleQuestionsList" class="admin-list">
@@ -1421,6 +1422,72 @@
                         <div id="txtLinkedUploadProgressBar" style="background: linear-gradient(90deg, var(--primary-color), var(--primary-light)); height: 100%; border-radius: var(--radius); width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75rem; font-weight: 600;"></div>
                     </div>
                     <p id="txtLinkedUploadStatus" style="margin-top: 0.5rem; color: var(--text-secondary); font-size: 0.9rem; text-align: center;">Обработка...</p>
+                </div>
+                <button type="submit" class="btn btn-primary">Загрузить</button>
+                <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="txtMixedUploadModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 640px;">
+            <span class="modal-close">&times;</span>
+            <h2>🔗📘 USMLE: связанные + одиночные</h2>
+            <form id="txtMixedUploadForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="txtMixedTestId">Тест USMLE</label>
+                    <select id="txtMixedTestId" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="txtMixedFile">TXT файл</label>
+                    <input type="file" id="txtMixedFile" accept=".txt" required>
+                    <div style="background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius); margin-top: 0.5rem;">
+                        <p style="margin: 0 0 0.5rem 0; font-weight: 600; color: var(--text-primary);">Один TXT: связанные и одиночные вместе</p>
+                        <pre style="margin: 0; font-size: 0.875rem; white-space: pre-wrap; word-wrap: break-word; color: var(--text-secondary); font-family: 'Courier New', monospace;">"GroupID":"1";
+"ID":"101";
+"Q":"Связанный вопрос 1?";
+"A1":"Ответ 1";
+"A2":"Ответ 2";
+"A3":"Ответ 3";
+"A4":"Ответ 4";
+"Correct":"2";
+"E":"Объяснение";
+"Subject":"Pathology";
+"System":"Cardiovascular";
+
+"GroupID":"1";
+"ID":"102";
+"Q":"Связанный вопрос 2?";
+"A1":"Ответ 1";
+"A2":"Ответ 2";
+"A3":"Ответ 3";
+"A4":"Ответ 4";
+"Correct":"1";
+"E":"Объяснение";
+"Subject":"Pathology";
+"System":"Cardiovascular";
+
+"ID":"201";
+"Q":"Одиночный вопрос без GroupID?";
+"A1":"Ответ 1";
+"A2":"Ответ 2";
+"A3":"Ответ 3";
+"A4":"Ответ 4";
+"Correct":"3";
+"E":"Объяснение";
+"Subject":"Pathology";
+"System":"Cardiovascular";</pre>
+                        <p style="margin: 0.75rem 0 0; font-size: 0.85rem; color: var(--text-muted);">
+                            Есть <strong>GroupID</strong> — связанные (одна связка = один GroupID). Нет GroupID — обычный одиночный вопрос.
+                            Обязательны <strong>E</strong> и <strong>Subject/System/Tags</strong>. Вариантов до <strong>A30</strong>.
+                        </p>
+                    </div>
+                </div>
+                <div id="txtMixedUploadProgress" style="display: none; margin: 1rem 0;">
+                    <div style="background: var(--bg-secondary); border-radius: var(--radius); padding: 0.25rem; height: 24px;">
+                        <div id="txtMixedUploadProgressBar" style="background: linear-gradient(90deg, var(--primary-color), var(--primary-light)); height: 100%; border-radius: var(--radius); width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75rem; font-weight: 600;"></div>
+                    </div>
+                    <p id="txtMixedUploadStatus" style="margin-top: 0.5rem; color: var(--text-secondary); font-size: 0.9rem; text-align: center;">Обработка...</p>
                 </div>
                 <button type="submit" class="btn btn-primary">Загрузить</button>
                 <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>

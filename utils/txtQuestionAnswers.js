@@ -25,6 +25,17 @@ function extractQuotedField(block, field) {
   return match ? unescapeTxtValue(match[1]) : null;
 }
 
+/** Последнее вхождение поля (GroupID перед следующим ID лежит в хвосте предыдущего блока). */
+function extractLastQuotedField(block, field) {
+  const re = new RegExp(`"${field}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, 'gi');
+  let match;
+  let last = null;
+  while ((match = re.exec(String(block || ''))) !== null) {
+    last = unescapeTxtValue(match[1]);
+  }
+  return last;
+}
+
 /**
  * Собирает варианты A1, A2, … без жёсткого лимита в 5.
  * Correct — номер поля (1 = A1, 6 = A6).
@@ -57,6 +68,7 @@ module.exports = {
   MAX_TXT_ANSWERS,
   normalizeTxt,
   extractQuotedField,
+  extractLastQuotedField,
   extractTxtAnswers,
   mapAnswersWithCorrect,
   isValidCorrectIndex
