@@ -1614,9 +1614,20 @@ router.get('/tests/:testId/progress', async (req, res) => {
       return res.status(400).json({ error: 'Некорректный тест' });
     }
 
-    const testExists = await Test.findByPk(testId, { attributes: ['id'] });
+    const testExists = await Test.findByPk(testId, {
+      attributes: ['id', 'programType', 'isFree', 'universityId']
+    });
     if (!testExists) {
       return res.status(404).json({ error: 'Тест не найден' });
+    }
+
+    const uniAccess = await assertUserCanAccessTest(testExists, req);
+    if (!uniAccess.ok) {
+      return res.status(uniAccess.status).json({ error: uniAccess.error });
+    }
+    const paid = await assertPaidAccess(testExists, req);
+    if (!paid.ok) {
+      return res.status(paid.status).json({ error: paid.error });
     }
 
     let userId = tryGetUserIdFromRequest(req);
@@ -1665,6 +1676,17 @@ router.get('/tests/:testId', async (req, res) => {
     const access = await assertUserCanAccessTest(test, req);
     if (!access.ok) {
       return res.status(access.status).json({ error: access.error });
+    }
+    const paid = await assertPaidAccess(test, req);
+    if (!paid.ok) {
+      return res.status(paid.status).json({
+        error: paid.error,
+        code: test.programType === 'usmle' ? 'USMLE_SUBSCRIPTION_REQUIRED' : 'SUBSCRIPTION_REQUIRED',
+        id: test.id,
+        name: test.name,
+        isFree: !!test.isFree,
+        programType: test.programType || 'university'
+      });
     }
 
     // Преобразуем в JSON и убеждаемся, что isCorrect присутствует

@@ -23,6 +23,49 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
     }
 
+    /** Парсинг даты: YYYY-MM-DD — как локальный календарный день (без UTC-сдвига). */
+    function parseCalendarDate(value) {
+        if (value == null || value === '') return null;
+        if (typeof value === 'string') {
+            const trimmed = value.trim();
+            const dateOnly = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (dateOnly) {
+                const local = new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]));
+                return Number.isNaN(local.getTime()) ? null : local;
+            }
+        }
+        const d = new Date(value);
+        return Number.isNaN(d.getTime()) ? null : d;
+    }
+
+    function formatDateRu(value, options = {}) {
+        const d = parseCalendarDate(value);
+        if (!d) return '—';
+        const datePart = d.toLocaleDateString('ru-RU', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+        if (!options.withTime) return datePart;
+        const timePart = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        return `${datePart} в ${timePart}`;
+    }
+
+    /** Целые календарные дни до даты окончания (локальная полуночь). */
+    function calendarDaysLeft(endValue) {
+        const end = parseCalendarDate(endValue);
+        if (!end) return null;
+        const now = new Date();
+        const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+        return Math.round((startEnd - startToday) / (24 * 60 * 60 * 1000));
+    }
+
+    function subscriptionsUrl(programHint) {
+        const program = programHint === 'usmle' || getProgramType() === 'usmle' ? 'usmle' : 'university';
+        return program === 'usmle' ? '/subscriptions?program=usmle' : '/subscriptions';
+    }
+
     /** Короткая подсказка при сбое fetch (часто iPhone / Safari / DNS / SSL). */
     function clientNetworkFailureMessage() {
         const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -368,46 +411,48 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     }
 
     function buildSubscriptionAlerts() {
-        if (!currentUser || !currentUser.subscriptionEndDate) return [];
-        const endDate = new Date(currentUser.subscriptionEndDate);
-        if (Number.isNaN(endDate.getTime())) return [];
-
-        const now = new Date();
-        const msPerDay = 24 * 60 * 60 * 1000;
-        const daysLeft = Math.ceil((endDate.getTime() - now.getTime()) / msPerDay);
-
-        let alerts = [];
-        if (daysLeft < 0) {
-            alerts = [{
-                level: 'danger',
-                kind: 'subscription',
-                key: 'sub-expired',
-                title: 'Подписка закончилась',
-                text: 'Ваша подписка уже истекла. Продлите подписку, чтобы сохранить полный доступ к тестам.',
-                link: '/subscriptions',
-                linkLabel: 'К подпискам'
-            }];
-        } else if (daysLeft === 0) {
-            alerts = [{
-                level: 'warning',
-                kind: 'subscription',
-                key: 'sub-today',
-                title: 'Подписка заканчивается сегодня',
-                text: 'Сегодня последний день действия подписки. Рекомендуем продлить ее заранее.',
-                link: '/subscriptions',
-                linkLabel: 'Продлить'
-            }];
-        } else if (daysLeft <= 7) {
-            alerts = [{
-                level: 'warning',
-                kind: 'subscription',
-                key: `sub-soon-${daysLeft}`,
-                title: 'Подписка скоро закончится',
-                text: `До окончания подписки осталось ${daysLeft} дн. Продлите ее, чтобы не потерять доступ.`,
-                link: '/subscriptions',
-                linkLabel: 'Продлить'
-            }];
-        }
+        if (!currentUser) return [];
+        const alerts = [];
+        const pushSubAlert = (endDateRaw, kind, titlePrefix, link) => {
+            if (!endDateRaw) return;
+            const endDate = parseCalendarDate(endDateRaw);
+            if (!endDate) return;
+            const daysLeft = calendarDaysLeft(endDateRaw);
+            if (daysLeft == null) return;
+            if (daysLeft < 0) {
+                alerts.push({
+                    level: 'danger',
+                    kind,
+                    key: `${kind}-expired`,
+                    title: `${titlePrefix} закончилась`,
+                    text: `Ваша ${titlePrefix.toLowerCase()} уже истекла. Продлите подписку, чтобы сохранить доступ.`,
+                    link,
+                    linkLabel: 'К подпискам'
+                });
+            } else if (daysLeft === 0) {
+                alerts.push({
+                    level: 'warning',
+                    kind,
+                    key: `${kind}-today`,
+                    title: `${titlePrefix} заканчивается сегодня`,
+                    text: 'Сегодня последний день действия подписки. Рекомендуем продлить ее заранее.',
+                    link,
+                    linkLabel: 'Продлить'
+                });
+            } else if (daysLeft <= 7) {
+                alerts.push({
+                    level: 'warning',
+                    kind,
+                    key: `${kind}-soon-${daysLeft}`,
+                    title: `${titlePrefix} скоро закончится`,
+                    text: `До окончания подписки осталось ${daysLeft} дн. Продлите ее, чтобы не потерять доступ.`,
+                    link,
+                    linkLabel: 'Продлить'
+                });
+            }
+        };
+        pushSubAlert(currentUser.subscriptionEndDate, 'subscription', 'Подписка', '/subscriptions');
+        pushSubAlert(currentUser.usmleSubscriptionEndDate, 'usmle', 'Подписка USMLE', '/subscriptions?program=usmle');
         return alerts;
     }
 
@@ -1770,7 +1815,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             window.location.href = `/test-settings?id=${test.id}&name=${testName}&questions=${qCount}`;
             return;
         }
-        showSubscriptionRequiredModal();
+        showSubscriptionRequiredModal(test.programType || getProgramType());
     }
 
     let selectedUsmleTagIds = [];
@@ -1961,20 +2006,45 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         if (!Number.isFinite(total)) total = 0;
 
         try {
-            const testResponse = await fetch(`${API_URL}/tests/tests/${currentTestId}`);
-            if (testResponse.ok) {
-                const test = await testResponse.json();
-                if (!canAccessTest(test)) {
-                    showSubscriptionRequiredModal();
+            const headers = {};
+            if (currentToken) headers['Authorization'] = `Bearer ${currentToken}`;
+            const cached = subjectTestsCache.find((t) => Number(t.id) === Number(currentTestId));
+            let test = cached || null;
+            if (!test || test.isFree == null || !test.programType) {
+                const testResponse = await fetch(`${API_URL}/tests/tests/${currentTestId}`, { headers });
+                if (testResponse.status === 401 || testResponse.status === 403) {
+                    let programHint = getProgramType();
+                    try {
+                        const errBody = await testResponse.json();
+                        if (errBody.programType === 'usmle' || errBody.code === 'USMLE_SUBSCRIPTION_REQUIRED'
+                            || String(errBody.error || '').toLowerCase().includes('usmle')) {
+                            programHint = 'usmle';
+                        }
+                    } catch (_) { /* ignore */ }
+                    showSubscriptionRequiredModal(programHint);
                     setTimeout(() => {
                         if (document.referrer && document.referrer.includes(window.location.origin)) {
                             history.back();
                         } else {
-                            window.location.href = '/tests';
+                            window.location.href = programHint === 'usmle' ? '/usmle' : '/tests';
                         }
                     }, 300);
                     return;
                 }
+                if (testResponse.ok) {
+                    test = await testResponse.json();
+                }
+            }
+            if (test && !canAccessTest(test)) {
+                showSubscriptionRequiredModal(test.programType || getProgramType());
+                setTimeout(() => {
+                    if (document.referrer && document.referrer.includes(window.location.origin)) {
+                        history.back();
+                    } else {
+                        window.location.href = (test.programType || getProgramType()) === 'usmle' ? '/usmle' : '/tests';
+                    }
+                }, 300);
+                return;
             }
         } catch (e) {
             console.error('Ошибка проверки доступа к тесту:', e);
@@ -2049,20 +2119,34 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     }
 
     async function startTest() {
-        // Проверяем, является ли тест бесплатным
-        let isFreeTest = false;
+        let testMeta = subjectTestsCache.find((t) => Number(t.id) === Number(currentTestId)) || null;
         try {
-            const testResponse = await fetch(`${API_URL}/tests/tests/${currentTestId}`);
-            if (testResponse.ok) {
-                const test = await testResponse.json();
-                isFreeTest = test.isFree || false;
+            if (!testMeta) {
+                const headers = {};
+                if (currentToken) headers['Authorization'] = `Bearer ${currentToken}`;
+                const testResponse = await fetch(`${API_URL}/tests/tests/${currentTestId}`, { headers });
+                if (testResponse.status === 401 || testResponse.status === 403) {
+                    let programHint = getProgramType();
+                    try {
+                        const errBody = await testResponse.json();
+                        if (errBody.programType === 'usmle' || errBody.code === 'USMLE_SUBSCRIPTION_REQUIRED'
+                            || String(errBody.error || '').toLowerCase().includes('usmle')) {
+                            programHint = 'usmle';
+                        }
+                    } catch (_) { /* ignore */ }
+                    showSubscriptionRequiredModal(programHint);
+                    return;
+                }
+                if (testResponse.ok) {
+                    testMeta = await testResponse.json();
+                }
             }
         } catch (error) {
             console.error('Ошибка проверки теста:', error);
         }
 
-        if (!isFreeTest && !hasActiveSubscription()) {
-            showSubscriptionRequiredModal();
+        if (!testMeta || !canAccessTest(testMeta)) {
+            showSubscriptionRequiredModal(testMeta?.programType || getProgramType());
             return;
         }
 
@@ -2116,6 +2200,12 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 try {
                     const errBody = await response.json();
                     if (errBody.error) errMsg = errBody.error;
+                    if (response.status === 401 || response.status === 403) {
+                        showSubscriptionRequiredModal(
+                            String(errMsg).toLowerCase().includes('usmle') ? 'usmle' : getProgramType()
+                        );
+                        return;
+                    }
                 } catch (e) { /* ignore */ }
                 throw new Error(errMsg);
             }
@@ -2147,7 +2237,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 timer: useTimer ? timerMinutes * 60 : null,
                 instantFeedbackMode: instantMode,
                 instantFeedbackLockedQuestions,
-                programType: getProgramType()
+                programType: testMeta.programType || getProgramType()
             }));
 
             // Переходим на страницу теста
@@ -3876,27 +3966,21 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 }
                 if (heroCoinsBadge) heroCoinsBadge.textContent = `${user.coins || 0} монет`;
                 if (heroSubBadge) {
-                    const end = user.subscriptionEndDate ? new Date(user.subscriptionEndDate) : null;
-                    const active = end && !Number.isNaN(end.getTime()) && end > new Date();
-                    heroSubBadge.textContent = active ? 'Подписка активна' : 'Нет подписки';
-                    heroSubBadge.classList.toggle('is-ok', !!active);
-                    heroSubBadge.classList.toggle('is-warn', !active);
+                    const uniActive = hasActiveSubscription();
+                    const usmleActive = hasActiveUsmleSubscription();
+                    if (uniActive && usmleActive) heroSubBadge.textContent = 'Университет + USMLE';
+                    else if (uniActive) heroSubBadge.textContent = 'Подписка активна';
+                    else if (usmleActive) heroSubBadge.textContent = 'USMLE активен';
+                    else heroSubBadge.textContent = 'Нет подписки';
+                    heroSubBadge.classList.toggle('is-ok', uniActive || usmleActive);
+                    heroSubBadge.classList.toggle('is-warn', !(uniActive || usmleActive));
                 }
 
                 // Направление: факультет + курс
                 await fillProfileDirectionForm(user);
                 await loadMyScheduleProfile(user);
                 if (createdAtEl && user.createdAt) {
-                    const createdAt = new Date(user.createdAt);
-                    if (!isNaN(createdAt.getTime())) {
-                        createdAtEl.textContent = createdAt.toLocaleDateString('ru-RU', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                        });
-                    } else {
-                        createdAtEl.textContent = '-';
-                    }
+                    createdAtEl.textContent = formatDateRu(user.createdAt);
                 }
 
                 // Обновляем баланс монеток
@@ -3905,82 +3989,44 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                     coinsEl.textContent = user.coins || 0;
                 }
 
-                // Обновляем дату окончания подписки
+                // Обновляем дату окончания подписки (университет + USMLE)
                 const subscriptionEndEl = document.getElementById('userSubscriptionEnd');
-                console.log('🔍 Subscription debug:', {
-                    elementFound: !!subscriptionEndEl,
-                    subscriptionEndDate: user.subscriptionEndDate,
-                    subscriptionEndDateType: typeof user.subscriptionEndDate,
-                    subscriptionEndDateValue: user.subscriptionEndDate,
-                    userKeys: Object.keys(user),
-                    fullUserData: user
-                });
+                const usmleEndEl = document.getElementById('userUsmleSubscriptionEnd');
 
-                if (subscriptionEndEl) {
-                    // Проверяем subscriptionEndDate - может быть null, undefined, или строкой/датой
-                    const subscriptionDate = user.subscriptionEndDate;
-
-                    if (subscriptionDate !== null && subscriptionDate !== undefined && subscriptionDate !== '') {
-                        try {
-                            const endDate = new Date(subscriptionDate);
-                            const now = new Date();
-
-                            // Проверяем валидность даты
-                            if (isNaN(endDate.getTime())) {
-                                console.error('❌ Invalid subscriptionEndDate:', subscriptionDate, 'Type:', typeof subscriptionDate);
-                                subscriptionEndEl.textContent = 'Ошибка формата даты';
-                                subscriptionEndEl.style.color = 'var(--danger-color)';
-                            } else {
-                                const isActive = endDate > now;
-
-                                // Форматируем дату с временем
-                                const formattedDate = endDate.toLocaleDateString('ru-RU', {
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric'
-                                });
-                                const formattedTime = endDate.toLocaleTimeString('ru-RU', {
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                });
-
-                                subscriptionEndEl.textContent = `${formattedDate} в ${formattedTime}`;
-
-                                // Добавляем стиль в зависимости от статуса
-                                if (isActive) {
-                                    subscriptionEndEl.style.color = 'var(--success-color)';
-                                    // Показываем сколько дней осталось
-                                    const daysLeft = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
-                                    if (daysLeft <= 7) {
-                                        subscriptionEndEl.textContent += ` (осталось ${daysLeft} ${daysLeft === 1 ? 'день' : daysLeft < 5 ? 'дня' : 'дней'})`;
-                                        subscriptionEndEl.style.color = 'var(--warning-color, #f59e0b)';
-                                    }
-                                    console.log('✅ Subscription is active, ends:', formattedDate, 'Days left:', daysLeft);
-                                } else {
-                                    subscriptionEndEl.style.color = 'var(--danger-color)';
-                                    subscriptionEndEl.textContent += ' (истекла)';
-                                    console.log('⚠️ Subscription expired on:', formattedDate);
-                                }
-                            }
-                        } catch (error) {
-                            console.error('❌ Error parsing subscriptionEndDate:', error, 'Value:', subscriptionDate);
-                            subscriptionEndEl.textContent = 'Ошибка обработки даты';
-                            subscriptionEndEl.style.color = 'var(--danger-color)';
-                        }
+                const renderSubEnd = (el, endRaw, emptyLabel) => {
+                    if (!el) return;
+                    if (endRaw == null || endRaw === '') {
+                        el.textContent = emptyLabel;
+                        el.style.color = 'var(--text-secondary)';
+                        return;
+                    }
+                    const endDate = parseCalendarDate(endRaw);
+                    if (!endDate) {
+                        el.textContent = 'Ошибка формата даты';
+                        el.style.color = 'var(--danger-color)';
+                        return;
+                    }
+                    const isActive = endDate > new Date();
+                    const daysLeft = calendarDaysLeft(endRaw);
+                    let text = formatDateRu(endRaw, { withTime: true });
+                    if (isActive && daysLeft != null && daysLeft <= 7) {
+                        const n = daysLeft;
+                        text += ` (осталось ${n} ${n === 1 ? 'день' : n < 5 ? 'дня' : 'дней'})`;
+                        el.style.color = 'var(--warning-color, #f59e0b)';
+                    } else if (isActive) {
+                        el.style.color = 'var(--success-color)';
                     } else {
-                        console.log('ℹ️ No subscriptionEndDate for user (null/undefined/empty)');
-                        subscriptionEndEl.textContent = 'Нет активной подписки';
-                        subscriptionEndEl.style.color = 'var(--text-secondary)';
+                        text += ' (истекла)';
+                        el.style.color = 'var(--danger-color)';
                     }
+                    el.textContent = text;
+                };
 
-                    // Показываем кнопку продления
-                    const renewBtn = document.getElementById('renewSubscriptionBtn');
-                    if (renewBtn) {
-                        renewBtn.style.display = 'inline-block';
-                    }
-                } else {
-                    console.error('❌ Element userSubscriptionEnd not found in DOM');
-                }
+                renderSubEnd(subscriptionEndEl, user.subscriptionEndDate, 'Нет активной подписки');
+                renderSubEnd(usmleEndEl, user.usmleSubscriptionEndDate, 'Нет подписки USMLE');
+
+                const renewBtn = document.getElementById('renewSubscriptionBtn');
+                if (renewBtn) renewBtn.style.display = 'inline-block';
 
                 // Обновляем реферальную ссылку
                 const referralLinkEl = document.getElementById('referralLink');
@@ -4257,10 +4303,11 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }, 50);
     }
 
-    function showSubscriptionRequiredModal() {
+    function showSubscriptionRequiredModal(programHint) {
+        const program = programHint === 'usmle' || getProgramType() === 'usmle' ? 'usmle' : 'university';
         const modal = document.getElementById('registerModal');
         if (!modal) {
-            window.location.href = currentUser ? '/subscriptions' : '/register';
+            window.location.href = currentUser ? subscriptionsUrl(program) : '/register';
             return;
         }
 
@@ -4270,14 +4317,14 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const secondaryBtn = document.getElementById('subscriptionModalSecondaryBtn');
 
         if (titleEl) {
-            titleEl.textContent = getProgramType() === 'usmle'
+            titleEl.textContent = program === 'usmle'
                 ? 'Нужна подписка USMLE'
                 : 'Подписка требуется';
         }
         if (textEl) {
-            if (getProgramType() === 'usmle') {
+            if (program === 'usmle') {
                 textEl.textContent = currentUser
-                    ? 'USMLE — отдельная подписка. Оформите её во вкладке «Подписки», чтобы открыть платные тесты USMLE.'
+                    ? 'USMLE — отдельная подписка. Оформите её во вкладке «Подписки», чтобы открыть раздел USMLE.'
                     : 'Зарегистрируйтесь, затем оформите отдельную подписку USMLE.';
             } else {
                 textEl.textContent = currentUser
@@ -4286,7 +4333,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             }
         }
         if (primaryBtn) {
-            primaryBtn.href = currentUser ? '/subscriptions' : '/register';
+            primaryBtn.href = currentUser ? subscriptionsUrl(program) : '/register';
             primaryBtn.textContent = currentUser ? 'К подпискам' : 'Зарегистрироваться';
         }
         if (secondaryBtn) {
@@ -4658,18 +4705,23 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const totalEl = document.getElementById(program === 'usmle' ? 'usmleTotalPrice' : 'totalPrice')
             || document.getElementById('totalPrice');
         if (!totalEl) return;
-        let price = selectedPlan.price;
-        const promoInput = document.getElementById(program === 'usmle' ? 'usmleSubsPromoCode' : 'subsPromoCode');
-        const promoHint = document.getElementById('subsPromoHint');
-        const discountPercent = Number(document.getElementById('subsPromoDiscount')?.value || 0);
+        let price = Number(selectedPlan.price) || 0;
+        const discountPercent = Number(document.getElementById(program === 'usmle' ? 'usmleSubsPromoDiscount' : 'subsPromoDiscount')?.value
+            || document.getElementById('subsPromoDiscount')?.value || 0);
+        const promoHint = document.getElementById(program === 'usmle' ? 'usmleSubsPromoHint' : 'subsPromoHint')
+            || document.getElementById('subsPromoHint');
         if (discountPercent > 0 && discountPercent <= 100) {
-            price = Math.max(0.01, price - (price * discountPercent) / 100);
+            price = Math.max(0, parseFloat((price - (price * discountPercent) / 100).toFixed(2)));
         }
+        const userCoins = (currentUser && (currentUser.coins !== undefined)) ? currentUser.coins : 0;
         const coinsToUse = Math.min(
-            parseInt(coinsToUseInput?.value, 10) || 0,
+            Math.max(0, parseInt(coinsToUseInput?.value, 10) || 0),
             Math.floor(price),
-            (currentUser && (currentUser.coins !== undefined)) ? currentUser.coins : 0
+            userCoins
         );
+        if (coinsToUseInput) {
+            coinsToUseInput.max = Math.min(Math.floor(price), userCoins);
+        }
         const toPay = Math.max(0, Math.round((price - coinsToUse) * 100) / 100);
         totalEl.textContent = toPay + ' сом';
         if (promoHint && discountPercent > 0) {
@@ -4776,7 +4828,17 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
             const data = await response.json();
 
-            if (response.ok && data.success && data.paymentUrl) {
+            if (response.ok && data.success && (data.paymentUrl || data.paidWithCoins)) {
+                if (data.paidWithCoins && !data.paymentUrl) {
+                    showNotification(
+                        data.coinsUsed > 0
+                            ? `Подписка оформлена. Списано ${data.coinsUsed} монет.`
+                            : (data.message || 'Подписка оформлена'),
+                        'success'
+                    );
+                    window.location.href = '/payment/success';
+                    return;
+                }
                 window.location.href = data.paymentUrl;
             } else {
                 console.error('Payment creation failed:', data);
@@ -4828,7 +4890,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             if (!response.ok) throw new Error('Не удалось загрузить историю');
             const data = await response.json();
 
-            const end = data.subscriptionEndDate ? new Date(data.subscriptionEndDate) : null;
+            const end = data.subscriptionEndDate ? parseCalendarDate(data.subscriptionEndDate) : null;
             const active = !!data.subscriptionActive;
             statusBox.classList.toggle('active', active);
             statusBox.classList.toggle('inactive', !active);
@@ -4836,15 +4898,15 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             const statusPill = document.getElementById('subsStatusPill');
             const statusIcon = document.getElementById('subsStatusIcon');
             if (active && end) {
-                const daysLeft = Math.max(0, Math.ceil((end - new Date()) / (1000 * 60 * 60 * 24)));
-                statusText.innerHTML = `Университет: подписка <strong>активна</strong> до <strong>${end.toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' })}</strong> (осталось ${daysLeft} дн.).`;
+                const daysLeft = Math.max(0, calendarDaysLeft(data.subscriptionEndDate) ?? 0);
+                statusText.innerHTML = `Университет: подписка <strong>активна</strong> до <strong>${formatDateRu(data.subscriptionEndDate)}</strong> (осталось ${daysLeft} дн.).`;
                 if (statusPill) {
                     statusPill.textContent = 'Активна';
                     statusPill.className = 'subs-pill on';
                 }
                 if (statusIcon) statusIcon.textContent = '✓';
             } else if (end) {
-                statusText.innerHTML = `Университет: подписка <strong>истекла</strong> ${end.toLocaleDateString('ru-RU')}.`;
+                statusText.innerHTML = `Университет: подписка <strong>истекла</strong> ${formatDateRu(data.subscriptionEndDate)}.`;
                 if (statusPill) {
                     statusPill.textContent = 'Истекла';
                     statusPill.className = 'subs-pill off';
@@ -4862,7 +4924,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             const usmleBox = document.getElementById('usmleSubsStatus');
             const usmleText = document.getElementById('usmleSubsStatusText');
             const usmlePill = document.getElementById('usmleSubsStatusPill');
-            const usmleEnd = data.usmleSubscriptionEndDate ? new Date(data.usmleSubscriptionEndDate) : null;
+            const usmleEnd = data.usmleSubscriptionEndDate ? parseCalendarDate(data.usmleSubscriptionEndDate) : null;
             const usmleActive = !!data.usmleSubscriptionActive;
             if (usmleBox) {
                 usmleBox.classList.toggle('active', usmleActive);
@@ -4870,10 +4932,10 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             }
             if (usmleText) {
                 if (usmleActive && usmleEnd) {
-                    const daysLeft = Math.max(0, Math.ceil((usmleEnd - new Date()) / (1000 * 60 * 60 * 24)));
-                    usmleText.innerHTML = `USMLE: подписка <strong>активна</strong> до <strong>${usmleEnd.toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' })}</strong> (осталось ${daysLeft} дн.).`;
+                    const daysLeft = Math.max(0, calendarDaysLeft(data.usmleSubscriptionEndDate) ?? 0);
+                    usmleText.innerHTML = `USMLE: подписка <strong>активна</strong> до <strong>${formatDateRu(data.usmleSubscriptionEndDate)}</strong> (осталось ${daysLeft} дн.).`;
                 } else if (usmleEnd) {
-                    usmleText.innerHTML = `USMLE: подписка <strong>истекла</strong> ${usmleEnd.toLocaleDateString('ru-RU')}.`;
+                    usmleText.innerHTML = `USMLE: подписка <strong>истекла</strong> ${formatDateRu(data.usmleSubscriptionEndDate)}.`;
                 } else {
                     usmleText.innerHTML = 'USMLE: отдельная подписка. Купите тариф ниже, чтобы открыть программу.';
                 }

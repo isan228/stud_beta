@@ -281,10 +281,15 @@
         function updatePaymentAmountDisplay() {
             const amount = parseFloat(amountInput.value) || 0;
             const promoDiscount = parseFloat(((amount * appliedPromoDiscountPercent) / 100).toFixed(2));
-            const amountAfterPromo = Math.max(0.01, amount - promoDiscount);
-            const coinsToUse = Math.min(parseInt(paymentCoinsToUse?.value, 10) || 0, userCoinsForPayment, Math.floor(amountAfterPromo - 0.01));
-            const toPay = Math.max(0.01, amountAfterPromo - coinsToUse);
+            const amountAfterPromo = Math.max(0, parseFloat((amount - promoDiscount).toFixed(2)));
+            const coinsToUse = Math.min(
+                Math.max(0, parseInt(paymentCoinsToUse?.value, 10) || 0),
+                userCoinsForPayment,
+                Math.floor(amountAfterPromo)
+            );
+            const toPay = Math.max(0, parseFloat((amountAfterPromo - coinsToUse).toFixed(2)));
             if (amountDisplayValue) amountDisplayValue.textContent = toPay.toFixed(2);
+            if (paymentCoinsToUse) paymentCoinsToUse.max = Math.min(userCoinsForPayment, Math.floor(amountAfterPromo));
         }
 
         amountInput.addEventListener('input', function () {
@@ -394,10 +399,11 @@
             const description = document.getElementById('description').value;
             const paymentType = document.getElementById('paymentType').value;
             const subscriptionType = subscriptionTypeInput ? subscriptionTypeInput.value : '1';
+            const amountAfterPromo = Math.max(0, parseFloat((amount - parseFloat(((amount * appliedPromoDiscountPercent) / 100).toFixed(2))).toFixed(2)));
             const coinsToUse = Math.min(
                 parseInt(paymentCoinsToUse?.value, 10) || 0,
                 userCoinsForPayment,
-                Math.max(0, Math.floor((Math.max(0.01, amount - parseFloat(((amount * appliedPromoDiscountPercent) / 100).toFixed(2)))) - 0.01))
+                Math.floor(amountAfterPromo)
             );
 
             if (amount <= 0) {
@@ -432,13 +438,21 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    if (data.success && data.paymentUrl) {
-                        showMessage('Платеж создан! Перенаправление на страницу оплаты...', 'success');
+                    if (data.success && (data.paymentUrl || data.paidWithCoins)) {
+                        if (data.paidWithCoins) {
+                            showMessage(
+                                data.coinsUsed > 0
+                                    ? `Оплачено монетами (${data.coinsUsed}). Подписка активирована.`
+                                    : (data.message || 'Подписка активирована'),
+                                'success'
+                            );
+                        } else {
+                            showMessage('Платеж создан! Перенаправление на страницу оплаты...', 'success');
+                        }
 
-                        // Редирект на страницу оплаты Finik
                         setTimeout(() => {
-                            window.location.href = data.paymentUrl;
-                        }, 1500);
+                            window.location.href = data.paymentUrl || '/payment/success';
+                        }, 1200);
                     } else {
                         showMessage(data.message || 'Платеж создан, но URL не получен', 'info');
                         console.log('Payment created:', data);

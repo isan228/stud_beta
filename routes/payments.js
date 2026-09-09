@@ -32,6 +32,42 @@ async function resolvePromoCode(rawCode) {
   return { promo, error: null };
 }
 
+/** Продлить university / USMLE подписку на N месяцев от сейчас или от текущей даты окончания. */
+async function extendUserSubscription(user, { paymentType, months }) {
+  const subscriptionMonths = Math.max(1, parseInt(months, 10) || 1);
+  const now = new Date();
+  if (paymentType === 'usmle_subscription') {
+    let usmleEnd = new Date(now);
+    if (user.usmleSubscriptionEndDate && new Date(user.usmleSubscriptionEndDate) > now) {
+      usmleEnd = new Date(user.usmleSubscriptionEndDate);
+    }
+    usmleEnd.setMonth(usmleEnd.getMonth() + subscriptionMonths);
+    user.usmleSubscriptionEndDate = usmleEnd;
+  } else {
+    let subscriptionEndDate = new Date(now);
+    if (user.subscriptionEndDate && new Date(user.subscriptionEndDate) > now) {
+      subscriptionEndDate = new Date(user.subscriptionEndDate);
+    }
+    subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + subscriptionMonths);
+    user.subscriptionEndDate = subscriptionEndDate;
+  }
+  await user.save();
+  return user;
+}
+
+function computeCoinsDiscount(rawAmount, promoDiscountAmount, requestedCoins, userCoins) {
+  const amountAfterPromo = Math.max(0, parseFloat((Number(rawAmount) - Number(promoDiscountAmount || 0)).toFixed(2)));
+  const maxCoinsByBalance = Math.max(0, Math.floor(Number(userCoins) || 0));
+  const maxCoinsByAmount = Math.max(0, Math.floor(amountAfterPromo));
+  const coinsToUse = Math.min(
+    Math.max(0, Math.floor(Number(requestedCoins) || 0)),
+    maxCoinsByBalance,
+    maxCoinsByAmount
+  );
+  const amountToCharge = Math.max(0, parseFloat((amountAfterPromo - coinsToUse).toFixed(2)));
+  return { amountAfterPromo, coinsToUse, amountToCharge };
+}
+
 async function applyPromoUsageOnSuccess(transaction, payload = null) {
   const fields = transaction?.fields || {};
   if (fields.promoUsageApplied) {
@@ -464,32 +500,18 @@ router.post('/webhook', async (req, res) => {
               }
             } else if (user && paymentType === 'usmle_subscription') {
               const subscriptionMonths = parseInt(subscriptionType) || 1;
-              let usmleEnd = new Date();
-              if (user.usmleSubscriptionEndDate && new Date(user.usmleSubscriptionEndDate) > new Date()) {
-                usmleEnd = new Date(user.usmleSubscriptionEndDate);
-                usmleEnd.setMonth(usmleEnd.getMonth() + subscriptionMonths);
-              } else {
-                usmleEnd.setMonth(usmleEnd.getMonth() + subscriptionMonths);
-              }
-              user.usmleSubscriptionEndDate = usmleEnd;
-              await user.save();
-              console.log(`✅ USMLE subscription updated for user ${user.id}: ${usmleEnd.toISOString()} (+${subscriptionMonths} months)`);
+              await extendUserSubscription(user, {
+                paymentType: 'usmle_subscription',
+                months: subscriptionMonths
+              });
+              console.log(`✅ USMLE subscription updated for user ${user.id} (+${subscriptionMonths} months)`);
             } else if (user && (paymentType === 'subscription' || paymentType === 'registration')) {
               const subscriptionMonths = parseInt(subscriptionType) || 1;
-              let subscriptionEndDate = new Date();
-
-              // Если у пользователя уже есть активная подписка, продлеваем её
-              if (user.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date()) {
-                subscriptionEndDate = new Date(user.subscriptionEndDate);
-                subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + subscriptionMonths);
-              } else {
-                // Иначе начинаем с текущей даты
-                subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + subscriptionMonths);
-              }
-
-              user.subscriptionEndDate = subscriptionEndDate;
-              await user.save();
-              console.log(`✅ Subscription updated for user ${user.id}: ${subscriptionEndDate.toISOString()} (+${subscriptionMonths} months)`);
+              await extendUserSubscription(user, {
+                paymentType: 'subscription',
+                months: subscriptionMonths
+              });
+              console.log(`✅ Subscription updated for user ${user.id} (+${subscriptionMonths} months)`);
             }
 
             // Списываем монетки, использованные как скидка (курс 1:1)
@@ -878,12 +900,62 @@ router.post('/mobile-prepare', auth, [
       promoDiscountAmount = parseFloat(((rawAmount * promo.discountPercent) / 100).toFixed(2));
     }
 
-    const amountAfterPromo = Math.max(0.01, rawAmount - promoDiscountAmount);
+    const amountAfterPromo = Math.max(0, parseFloat((rawAmount - promoDiscountAmount).toFixed(2)));
     const requestedCoins = Math.floor(parseInt(req.body.coinsToUse, 10) || 0);
-    const maxCoinsByBalance = user.coins || 0;
-    const maxCoinsByAmount = Math.max(0, Math.floor(amountAfterPromo - 0.01));
-    const coinsToUse = Math.min(requestedCoins, maxCoinsByBalance, maxCoinsByAmount);
-    const amountToCharge = Math.max(0.01, amountAfterPromo - coinsToUse);
+    const { coinsToUse, amountToCharge } = computeCoinsDiscount(
+      rawAmount,
+      promoDiscountAmount,
+      requestedCoins,
+      user.coins || 0
+    );
+
+    if (amountToCharge < 0.01) {
+      if (coinsToUse <= 0 && amountAfterPromo > 0) {
+        return res.status(400).json({ error: 'Недостаточно монет для оплаты' });
+      }
+      const crypto = require('crypto');
+      const paymentId = `coins_${crypto.randomUUID()}`;
+      const transaction = await Transaction.create({
+        userId: user.id,
+        finikTransactionId: paymentId,
+        amount: 0,
+        status: 'SUCCEEDED',
+        fields: {
+          paymentType: effectivePaymentType,
+          programType,
+          subscriptionType,
+          universityId: user.universityId != null ? String(user.universityId) : '',
+          source: 'mobile_sdk',
+          paidWithCoins: true,
+          originalAmount: rawAmount,
+          coinsToUse,
+          promoCodeId: promoCodeData?.id || null,
+          promoCode: promoCodeData?.code || null,
+          promoDiscountPercent: promoCodeData?.discountPercent || 0,
+          promoDiscountAmount,
+          subscriptionAlreadyApplied: true
+        }
+      });
+      await extendUserSubscription(user, { paymentType: effectivePaymentType, months });
+      if (coinsToUse > 0) {
+        user.coins = Math.max(0, (user.coins || 0) - coinsToUse);
+        await user.save();
+      }
+      if (promoCodeData) {
+        try { await applyPromoUsageOnSuccess(transaction); } catch (_) {}
+      }
+      return res.json({
+        success: true,
+        paidWithCoins: true,
+        transactionId: transaction.id,
+        requestId: paymentId,
+        amount: 0,
+        originalAmount: rawAmount,
+        coinsUsed: coinsToUse,
+        promoCode: promoCodeData?.code || null,
+        promoDiscountPercent: promoCodeData?.discountPercent || 0
+      });
+    }
 
     const crypto = require('crypto');
     const requestId = crypto.randomUUID();
@@ -1088,17 +1160,78 @@ router.post('/create', [
       promoDiscountAmount = parseFloat(((rawAmount * promo.discountPercent) / 100).toFixed(2));
     }
 
-    const amountAfterPromo = Math.max(0.01, rawAmount - promoDiscountAmount);
+    const amountAfterPromo = Math.max(0, parseFloat((rawAmount - promoDiscountAmount).toFixed(2)));
 
-    // Монетки как скидка: курс 1 к 1 (1 монетка = 1 сом)
-    let coinsToUse = 0;
-    if (userId && user) {
-      const requestedCoins = Math.floor(parseInt(req.body.coinsToUse, 10) || 0);
-      const maxCoinsByBalance = user.coins || 0;
-      const maxCoinsByAmount = Math.max(0, Math.floor(amountAfterPromo - 0.01)); // чтобы к оплате осталось >= 0.01
-      coinsToUse = Math.min(requestedCoins, maxCoinsByBalance, maxCoinsByAmount);
+    // Монетки как скидка: курс 1 к 1 (1 монетка = 1 сом). Можно покрыть всю сумму.
+    const requestedCoins = Math.floor(parseInt(req.body.coinsToUse, 10) || 0);
+    const { coinsToUse, amountToCharge } = computeCoinsDiscount(
+      rawAmount,
+      promoDiscountAmount,
+      requestedCoins,
+      user.coins || 0
+    );
+
+    // Полная оплата монетами — без Finik
+    if (amountToCharge < 0.01) {
+      if (coinsToUse <= 0 && amountAfterPromo > 0) {
+        return res.status(400).json({ error: 'Недостаточно монет для оплаты' });
+      }
+      const crypto = require('crypto');
+      const paymentId = `coins_${crypto.randomUUID()}`;
+      const transaction = await Transaction.create({
+        userId: user.id,
+        finikTransactionId: paymentId,
+        amount: 0,
+        status: 'SUCCEEDED',
+        fields: {
+          paymentType: effectivePaymentType,
+          programType,
+          subscriptionType: subscriptionType,
+          universityId: user.universityId,
+          description: description || `Оплата монетами: ${effectivePaymentType}`,
+          paidWithCoins: true,
+          originalAmount: rawAmount,
+          coinsToUse,
+          promoCodeId: promoCodeData?.id || null,
+          promoCode: promoCodeData?.code || null,
+          promoDiscountPercent: promoCodeData?.discountPercent || 0,
+          promoDiscountAmount,
+          subscriptionAlreadyApplied: true
+        }
+      });
+
+      await extendUserSubscription(user, {
+        paymentType: effectivePaymentType,
+        months
+      });
+      if (coinsToUse > 0) {
+        user.coins = Math.max(0, (user.coins || 0) - coinsToUse);
+        await user.save();
+      }
+      if (promoCodeData) {
+        try {
+          await applyPromoUsageOnSuccess(transaction);
+        } catch (e) {
+          console.warn('promo usage (coins payment):', e.message);
+        }
+      }
+
+      const redirectBase = process.env.FINIK_REDIRECT_URL || `${req.protocol}://${req.get('host')}/payment/success`;
+      return res.json({
+        success: true,
+        message: 'Подписка оформлена за монеты',
+        paidWithCoins: true,
+        paymentId,
+        paymentUrl: redirectBase,
+        transactionId: transaction.id,
+        amount: 0,
+        coinsUsed: coinsToUse,
+        originalAmount: rawAmount,
+        promoCode: promoCodeData?.code || null,
+        promoDiscountPercent: promoCodeData?.discountPercent || 0,
+        promoDiscountAmount
+      });
     }
-    const amountToCharge = Math.max(0.01, amountAfterPromo - coinsToUse);
 
     // Чистый redirect без query: Finik дописывает ?paymentId=… и ломает URL, если уже есть параметры (?…?…)
     const redirectUrlClean = new URL(redirectUrl);
