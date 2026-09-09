@@ -2251,6 +2251,10 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     function getMedicalVideoEmbedHtml(videoUrl) {
         const url = String(videoUrl || '').trim();
         if (!url) return '';
+        // Загруженные с устройства файлы и прямые video URL
+        if (url.startsWith('/uploads/') || /\.(mp4|webm|ogg|mov|m4v)(\?|$)/i.test(url)) {
+            return `<video class="image-lightbox-video-file" src="${escapeHtmlStr(url)}" controls playsinline preload="metadata"></video>`;
+        }
         let yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([A-Za-z0-9_-]{6,})/i);
         if (yt) {
             const id = yt[1];
@@ -2259,9 +2263,6 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         let vimeo = url.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
         if (vimeo) {
             return `<div class="image-lightbox-video-wrap"><iframe class="image-lightbox-video" src="https://player.vimeo.com/video/${vimeo[1]}" title="Video" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe></div>`;
-        }
-        if (/\.(mp4|webm|ogg)(\?|$)/i.test(url)) {
-            return `<video class="image-lightbox-video-file" src="${escapeHtmlStr(url)}" controls playsinline></video>`;
         }
         return `<p class="image-lightbox-video-fallback"><a href="${escapeHtmlStr(url)}" target="_blank" rel="noopener noreferrer">Открыть видео</a></p>`;
     }

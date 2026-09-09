@@ -8290,6 +8290,7 @@ window.deletePromoCode = deletePromoCode;
 let medicalImages = [];
 let editingMedicalImageId = null;
 let pendingMedicalImageFile = null;
+let pendingMedicalVideoFile = null;
 
 async function loadMedicalImages() {
     try {
@@ -8331,13 +8332,17 @@ function renderMedicalImagesList() {
 function openAddMedicalImageModal() {
     editingMedicalImageId = null;
     pendingMedicalImageFile = null;
+    pendingMedicalVideoFile = null;
     document.getElementById('medicalImageModalTitle').textContent = 'Добавить в глоссарий';
     document.getElementById('medicalImageFile').value = '';
-    document.getElementById('medicalImageVideoUrl').value = '';
+    const videoInput = document.getElementById('medicalVideoFile');
+    if (videoInput) videoInput.value = '';
     document.getElementById('medicalImageTitle').value = '';
     document.getElementById('medicalImageKeywords').value = '';
     document.getElementById('medicalImageDescription').value = '';
     document.getElementById('medicalImagePreviewWrap').innerHTML = '';
+    const videoPrev = document.getElementById('medicalVideoPreviewWrap');
+    if (videoPrev) videoPrev.innerHTML = '';
     document.getElementById('medicalImageModal').style.display = 'flex';
 }
 
@@ -8346,15 +8351,24 @@ function openEditMedicalImageModal(id) {
     if (!img) return;
     editingMedicalImageId = id;
     pendingMedicalImageFile = null;
+    pendingMedicalVideoFile = null;
     document.getElementById('medicalImageModalTitle').textContent = 'Редактировать запись';
     document.getElementById('medicalImageFile').value = '';
-    document.getElementById('medicalImageVideoUrl').value = img.videoUrl || '';
+    const videoInput = document.getElementById('medicalVideoFile');
+    if (videoInput) videoInput.value = '';
     document.getElementById('medicalImageTitle').value = img.title || '';
     document.getElementById('medicalImageKeywords').value = (img.keywords || []).join(', ');
     document.getElementById('medicalImageDescription').value = img.description || '';
     document.getElementById('medicalImagePreviewWrap').innerHTML = img.imageUrl
         ? `<img src="${img.imageUrl}" alt="" style="max-height:120px; border-radius:6px; margin-bottom:0.4rem; display:block;">`
-        : (img.videoUrl ? `<p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 0.4rem;">Только видео · превью-фото нет</p>` : '');
+        : '';
+    const videoPrev = document.getElementById('medicalVideoPreviewWrap');
+    if (videoPrev) {
+        videoPrev.innerHTML = img.videoUrl
+            ? `<video src="${img.videoUrl}" controls style="max-width:100%;max-height:160px;border-radius:6px;display:block;"></video>
+               <p style="font-size:0.8rem;color:var(--text-muted);margin:0.35rem 0 0;">Текущее видео. Выберите новый файл, чтобы заменить.</p>`
+            : '';
+    }
     document.getElementById('medicalImageModal').style.display = 'flex';
 }
 
@@ -8362,6 +8376,7 @@ function closeMedicalImageModal() {
     document.getElementById('medicalImageModal').style.display = 'none';
     editingMedicalImageId = null;
     pendingMedicalImageFile = null;
+    pendingMedicalVideoFile = null;
 }
 
 function viewMedicalImage(id) {
@@ -8371,18 +8386,8 @@ function viewMedicalImage(id) {
     const media = document.getElementById('medicalImageViewMedia');
     let html = '';
     if (img.videoUrl) {
-        const v = String(img.videoUrl);
-        const yt = v.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([A-Za-z0-9_-]{6,})/i);
-        const vim = v.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
-        if (yt) {
-            html += `<div style="position:relative;padding-top:56.25%;border-radius:8px;overflow:hidden;background:#000;"><iframe src="https://www.youtube.com/embed/${yt[1]}?rel=0" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allowfullscreen></iframe></div>`;
-        } else if (vim) {
-            html += `<div style="position:relative;padding-top:56.25%;border-radius:8px;overflow:hidden;background:#000;"><iframe src="https://player.vimeo.com/video/${vim[1]}" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allowfullscreen></iframe></div>`;
-        } else if (/\.(mp4|webm|ogg)(\?|$)/i.test(v)) {
-            html += `<video src="${v.replace(/"/g, '&quot;')}" controls style="max-width:100%;max-height:70vh;border-radius:8px;"></video>`;
-        } else {
-            html += `<p><a href="${v.replace(/"/g, '&quot;')}" target="_blank" rel="noopener">Открыть видео</a></p>`;
-        }
+        const v = String(img.videoUrl).replace(/"/g, '&quot;');
+        html += `<video src="${v}" controls playsinline style="max-width:100%;max-height:70vh;border-radius:8px;background:#000;"></video>`;
     }
     if (img.imageUrl) {
         html += `<img src="${img.imageUrl}" alt="" style="max-width:100%; max-height:70vh; border-radius:8px; ${img.videoUrl ? 'margin-top:0.75rem;' : ''}">`;
@@ -8396,33 +8401,31 @@ async function saveMedicalImage() {
     const title = document.getElementById('medicalImageTitle').value.trim();
     const kwRaw = document.getElementById('medicalImageKeywords').value.trim();
     const description = document.getElementById('medicalImageDescription').value.trim();
-    const videoUrl = document.getElementById('medicalImageVideoUrl').value.trim();
     const fileInput = document.getElementById('medicalImageFile');
+    const videoInput = document.getElementById('medicalVideoFile');
     const file = fileInput.files[0] || pendingMedicalImageFile;
+    const videoFile = (videoInput && videoInput.files[0]) || pendingMedicalVideoFile;
     const existing = editingMedicalImageId
         ? medicalImages.find((m) => m.id === editingMedicalImageId)
         : null;
 
-    if (!editingMedicalImageId && !file && !videoUrl) {
-        showNotification('Добавьте фото или ссылку на видео', 'error'); return;
+    if (!editingMedicalImageId && !file && !videoFile) {
+        showNotification('Загрузите фото или видео с устройства', 'error'); return;
     }
-    if (editingMedicalImageId && !file && !videoUrl && !(existing && existing.imageUrl)) {
-        showNotification('Нужно фото или ссылка на видео', 'error'); return;
+    if (editingMedicalImageId && !file && !videoFile && !(existing && (existing.imageUrl || existing.videoUrl))) {
+        showNotification('Нужно фото или видео', 'error'); return;
     }
     if (!kwRaw) {
         showNotification('Введите хотя бы одно ключевое слово', 'error'); return;
-    }
-    if (videoUrl && !/^https?:\/\//i.test(videoUrl)) {
-        showNotification('Ссылка на видео должна начинаться с http:// или https://', 'error'); return;
     }
 
     const keywords = kwRaw.split(',').map(s => s.trim()).filter(Boolean);
     const formData = new FormData();
     if (file) formData.append('image', file);
+    if (videoFile) formData.append('video', videoFile);
     formData.append('title', title);
     formData.append('description', description);
     formData.append('keywords', JSON.stringify(keywords));
-    formData.append('videoUrl', videoUrl);
 
     const btn = document.getElementById('saveMedicalImageBtn');
     btn.disabled = true;
@@ -8436,7 +8439,7 @@ async function saveMedicalImage() {
         const resp = await fetch(url, { method, headers: adminAuthHeaders(), body: formData });
         if (!resp.ok) {
             const data = await resp.json().catch(() => ({}));
-            throw new Error(data.error || await resp.text());
+            throw new Error(data.error || 'Ошибка сохранения');
         }
         showNotification(editingMedicalImageId ? 'Обновлено' : 'Добавлено', 'success');
         closeMedicalImageModal();
@@ -8475,6 +8478,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     `<img src="${e.target.result}" alt="" style="max-height:120px; border-radius:6px; margin-bottom:0.4rem; display:block;">`;
             };
             reader.readAsDataURL(file);
+        });
+    }
+
+    const videoInput = document.getElementById('medicalVideoFile');
+    if (videoInput) {
+        videoInput.addEventListener('change', () => {
+            const file = videoInput.files[0];
+            if (!file) return;
+            pendingMedicalVideoFile = file;
+            const wrap = document.getElementById('medicalVideoPreviewWrap');
+            if (!wrap) return;
+            const url = URL.createObjectURL(file);
+            wrap.innerHTML =
+                `<video src="${url}" controls style="max-width:100%;max-height:160px;border-radius:6px;display:block;"></video>
+                 <p style="font-size:0.8rem;color:var(--text-muted);margin:0.35rem 0 0;">${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} МБ)</p>`;
         });
     }
 

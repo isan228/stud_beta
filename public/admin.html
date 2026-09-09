@@ -893,7 +893,7 @@
                                 <details>
                                     <summary class="admin-subs-uni-label admin-subs-collapse-summary">🖼️ Медицинский глоссарий</summary>
                                     <div class="admin-subs-collapse-body">
-                                        <p class="admin-subs-hint" style="margin-top:0;">Фото и/или ссылка на видео + ключевые слова. Ссылки появляются <strong>только в тексте объяснения USMLE</strong>.</p>
+                                        <p class="admin-subs-hint" style="margin-top:0;">Фото и/или видео с устройства + ключевые слова. Ссылки появляются <strong>только в тексте объяснения USMLE</strong>.</p>
                                         <button type="button" class="btn btn-primary btn-sm" id="addMedicalImageBtn" style="width:100%; margin-top:0.5rem;">+ Добавить в глоссарий</button>
                                         <div id="medicalImagesList" style="margin-top:0.75rem; display:flex; flex-direction:column; gap:0.5rem;"></div>
                                     </div>
@@ -2094,14 +2094,16 @@
             <div class="modal-body">
                 <div style="margin-bottom:1rem;">
                     <label style="display:block; margin-bottom:0.4rem; font-weight:600;">Фото (необязательно, если есть видео)</label>
-                    <input type="file" id="medicalImageFile" accept="image/*" style="display:none;">
+                    <input type="file" id="medicalImageFile" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;">
                     <div id="medicalImagePreviewWrap" style="margin-bottom:0.5rem;"></div>
                     <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('medicalImageFile').click()">Выбрать фото</button>
                 </div>
                 <div style="margin-bottom:1rem;">
-                    <label style="display:block; margin-bottom:0.4rem; font-weight:600;">Ссылка на видео (необязательно)</label>
-                    <input type="url" id="medicalImageVideoUrl" placeholder="https://youtube.com/watch?v=... или https://.../file.mp4" style="width:100%; padding:0.5rem; box-sizing:border-box;">
-                    <p style="margin:0.35rem 0 0; font-size:0.82rem; color:var(--text-muted);">YouTube, Vimeo или прямая ссылка на mp4/webm.</p>
+                    <label style="display:block; margin-bottom:0.4rem; font-weight:600;">Видео с устройства (необязательно, если есть фото)</label>
+                    <input type="file" id="medicalVideoFile" accept="video/mp4,video/webm,video/ogg,video/quicktime,.mp4,.webm,.ogg,.mov,.m4v" style="display:none;">
+                    <div id="medicalVideoPreviewWrap" style="margin-bottom:0.5rem;"></div>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('medicalVideoFile').click()">Выбрать видео</button>
+                    <p style="margin:0.35rem 0 0; font-size:0.82rem; color:var(--text-muted);">MP4, WEBM, MOV — файл загружается с телефона/компьютера.</p>
                 </div>
                 <div style="margin-bottom:1rem;">
                     <label style="display:block; margin-bottom:0.4rem; font-weight:600;">Название (необязательно)</label>

@@ -8,15 +8,24 @@ const { IMAGE_UPLOAD_MAX_BYTES } = require('../utils/uploadLimits');
 const router = express.Router();
 
 const MEDICAL_IMAGES_DIR = path.join(__dirname, '../public/uploads/medical-images');
-if (!fs.existsSync(MEDICAL_IMAGES_DIR)) {
-  fs.mkdirSync(MEDICAL_IMAGES_DIR, { recursive: true });
+const MEDICAL_VIDEOS_DIR = path.join(__dirname, '../public/uploads/medical-videos');
+for (const dir of [MEDICAL_IMAGES_DIR, MEDICAL_VIDEOS_DIR]) {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
+const ALLOWED_IMAGE = /\.(jpe?g|png|gif|webp)$/i;
+const ALLOWED_VIDEO = /\.(mp4|webm|ogg|mov|m4v)$/i;
+
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, MEDICAL_IMAGES_DIR),
+  destination: (req, file, cb) => {
+    if (file.fieldname === 'video') cb(null, MEDICAL_VIDEOS_DIR);
+    else cb(null, MEDICAL_IMAGES_DIR);
+  },
   filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
-    cb(null, `medimg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`);
+    const ext = path.extname(file.originalname).toLowerCase()
+      || (file.fieldname === 'video' ? '.mp4' : '.jpg');
+    const prefix = file.fieldname === 'video' ? 'medvid' : 'medimg';
+    cb(null, `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`);
   }
 });
 
@@ -24,10 +33,24 @@ const upload = multer({
   storage,
   limits: { fileSize: IMAGE_UPLOAD_MAX_BYTES },
   fileFilter: (_req, file, cb) => {
-    if (/^image\/(jpeg|png|gif|webp)$/i.test(file.mimetype)) cb(null, true);
-    else cb(new Error('Только изображения'));
+    const name = file.originalname || '';
+    if (file.fieldname === 'video') {
+      if (/^video\//i.test(file.mimetype) || ALLOWED_VIDEO.test(name)) cb(null, true);
+      else cb(new Error('Видео: MP4, WEBM, OGG, MOV'));
+      return;
+    }
+    if (/^image\/(jpeg|png|gif|webp)$/i.test(file.mimetype) || ALLOWED_IMAGE.test(name)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Фото: JPG, PNG, GIF, WEBP'));
+    }
   }
 });
+
+const uploadFields = upload.fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'video', maxCount: 1 }
+]);
 
 function serializeMedical(img) {
   return {
@@ -50,25 +73,19 @@ function parseKeywords(raw) {
   return String(raw).split(',').map((s) => s.trim()).filter(Boolean);
 }
 
-function normalizeVideoUrl(raw) {
-  const url = String(raw || '').trim();
-  if (!url) return null;
-  if (!/^https?:\/\//i.test(url)) {
-    throw new Error('Ссылка на видео должна начинаться с http:// или https://');
-  }
-  if (url.length > 1024) throw new Error('Ссылка на видео слишком длинная');
-  return url;
-}
-
-function unlinkLocalImage(imageUrl) {
-  if (!imageUrl || !String(imageUrl).startsWith('/uploads/')) return;
-  const filePath = path.join(__dirname, '../public', imageUrl);
+function unlinkUpload(relUrl) {
+  if (!relUrl || !String(relUrl).startsWith('/uploads/')) return;
+  const filePath = path.join(__dirname, '../public', relUrl);
   if (fs.existsSync(filePath)) {
     try { fs.unlinkSync(filePath); } catch (_) { /* ignore */ }
   }
 }
 
-// GET /api/medical-images — список
+function getUploaded(req, field) {
+  return req.files?.[field]?.[0] || null;
+}
+
+// GET /api/medical-images
 router.get('/', async (req, res) => {
   try {
     const images = await MedicalImage.findAll({ order: [['createdAt', 'DESC']] });
@@ -78,7 +95,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/medical-images/keywords — слова для linkify
+// GET /api/medical-images/keywords
 router.get('/keywords', async (req, res) => {
   try {
     const images = await MedicalImage.findAll({
@@ -105,24 +122,27 @@ router.get('/keywords', async (req, res) => {
   }
 });
 
-// POST /api/medical-images — фото и/или ссылка на видео
-router.post('/', upload.single('image'), async (req, res) => {
+// POST — фото и/или видео с устройства
+router.post('/', (req, res, next) => {
+  uploadFields(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message || 'Ошибка загрузки файла' });
+    next();
+  });
+}, async (req, res) => {
   try {
-    let videoUrl = null;
-    try {
-      videoUrl = normalizeVideoUrl(req.body.videoUrl);
-    } catch (e) {
-      return res.status(400).json({ error: e.message });
-    }
+    const imageFile = getUploaded(req, 'image');
+    const videoFile = getUploaded(req, 'video');
+    const imageUrl = imageFile ? `/uploads/medical-images/${imageFile.filename}` : null;
+    const videoUrl = videoFile ? `/uploads/medical-videos/${videoFile.filename}` : null;
 
-    const imageUrl = req.file ? `/uploads/medical-images/${req.file.filename}` : null;
     if (!imageUrl && !videoUrl) {
-      return res.status(400).json({ error: 'Нужно фото или ссылка на видео' });
+      return res.status(400).json({ error: 'Загрузите фото или видео с устройства' });
     }
 
     const kwArray = parseKeywords(req.body.keywords);
     if (!kwArray.length) {
-      if (req.file) unlinkLocalImage(imageUrl);
+      unlinkUpload(imageUrl);
+      unlinkUpload(videoUrl);
       return res.status(400).json({ error: 'Укажите хотя бы одно ключевое слово' });
     }
 
@@ -139,27 +159,36 @@ router.post('/', upload.single('image'), async (req, res) => {
   }
 });
 
-// PUT /api/medical-images/:id
-router.put('/:id', upload.single('image'), async (req, res) => {
+// PUT
+router.put('/:id', (req, res, next) => {
+  uploadFields(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message || 'Ошибка загрузки файла' });
+    next();
+  });
+}, async (req, res) => {
   try {
     const img = await MedicalImage.findByPk(req.params.id);
     if (!img) return res.status(404).json({ error: 'Не найдено' });
 
-    if (req.file) {
-      unlinkLocalImage(img.imageUrl);
-      img.imageUrl = `/uploads/medical-images/${req.file.filename}`;
+    const imageFile = getUploaded(req, 'image');
+    const videoFile = getUploaded(req, 'video');
+
+    if (imageFile) {
+      unlinkUpload(img.imageUrl);
+      img.imageUrl = `/uploads/medical-images/${imageFile.filename}`;
+    }
+    if (videoFile) {
+      unlinkUpload(img.videoUrl);
+      img.videoUrl = `/uploads/medical-videos/${videoFile.filename}`;
     }
 
-    if (req.body.videoUrl !== undefined) {
-      try {
-        img.videoUrl = normalizeVideoUrl(req.body.videoUrl);
-      } catch (e) {
-        return res.status(400).json({ error: e.message });
-      }
-    }
     if (req.body.clearImage === '1' || req.body.clearImage === 'true') {
-      unlinkLocalImage(img.imageUrl);
+      unlinkUpload(img.imageUrl);
       img.imageUrl = null;
+    }
+    if (req.body.clearVideo === '1' || req.body.clearVideo === 'true') {
+      unlinkUpload(img.videoUrl);
+      img.videoUrl = null;
     }
 
     if (req.body.title !== undefined) img.title = req.body.title || null;
@@ -173,7 +202,7 @@ router.put('/:id', upload.single('image'), async (req, res) => {
     }
 
     if (!img.imageUrl && !img.videoUrl) {
-      return res.status(400).json({ error: 'Нужно фото или ссылка на видео' });
+      return res.status(400).json({ error: 'Нужно фото или видео' });
     }
 
     await img.save();
@@ -183,13 +212,14 @@ router.put('/:id', upload.single('image'), async (req, res) => {
   }
 });
 
-// DELETE /api/medical-images/:id
+// DELETE
 router.delete('/:id', async (req, res) => {
   try {
     const img = await MedicalImage.findByPk(req.params.id);
     if (!img) return res.status(404).json({ error: 'Не найдено' });
 
-    unlinkLocalImage(img.imageUrl);
+    unlinkUpload(img.imageUrl);
+    unlinkUpload(img.videoUrl);
     await img.destroy();
     res.json({ ok: true });
   } catch (err) {
