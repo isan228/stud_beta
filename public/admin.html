@@ -134,11 +134,15 @@
                             </button>
                             <button type="button" class="admin-tab" data-tab="usmle" data-usmle-section="tests" data-title="USMLE · Тесты">
                                 <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M9 8h6M9 12h6M9 16h4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg></span>
-                                <span class="admin-tab-label">Тесты / SA</span>
+                                <span class="admin-tab-label">Тесты</span>
+                            </button>
+                            <button type="button" class="admin-tab" data-tab="usmle" data-usmle-section="selfAssessment" data-title="USMLE · Self-Assessment">
+                                <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M8 9h8M8 12h8M8 15h5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg></span>
+                                <span class="admin-tab-label">Self-Assessment</span>
                             </button>
                             <button type="button" class="admin-tab" data-tab="usmle" data-usmle-section="questions" data-title="USMLE · Вопросы">
                                 <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.25" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.4 2.3c-.7.35-1.15.9-1.15 1.7V14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><circle cx="12" cy="17" r="1" fill="currentColor"/></svg></span>
-                                <span class="admin-tab-label">Вопросы / Blocks</span>
+                                <span class="admin-tab-label">Вопросы</span>
                             </button>
                             <button type="button" class="admin-tab" data-tab="usmle" data-usmle-section="flashcards" data-title="USMLE · Flashcards">
                                 <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="14" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M8 4h10a2 2 0 0 1 2 2v10" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg></span>
@@ -920,7 +924,7 @@
 
                     <div class="usmle-admin-section" data-usmle-panel="tests" style="display:none;">
                         <div class="admin-section-header" style="margin-bottom:1rem;">
-                            <h3 style="margin:0;">Тесты USMLE / Self-Assessment</h3>
+                            <h3 style="margin:0;">Тесты USMLE</h3>
                             <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
                                 <select id="usmleTestsSubjectFilter" class="form-group input" style="min-width:12rem;">
                                     <option value="">Все предметы</option>
@@ -928,33 +932,32 @@
                                 <button type="button" class="btn btn-primary" id="addUsmleTestBtn">+ Тест</button>
                             </div>
                         </div>
-                        <p class="page-description" style="margin:0 0 1rem;">Self-Assessment помечается бейджем · 4 блока × 40 · 60 мин. Кнопка «Блоки →» открывает раздел вопросов.</p>
+                        <p class="page-description" style="margin:0 0 1rem;">Обычные банки вопросов. Self-Assessment — в отдельном разделе слева.</p>
                         <div id="usmleTestsList" class="admin-list"></div>
                     </div>
 
-                    <div class="usmle-admin-section" data-usmle-panel="questions" style="display:none;">
+                    <div class="usmle-admin-section" data-usmle-panel="selfAssessment" style="display:none;">
                         <div class="admin-section-header" style="margin-bottom:1rem;">
-                            <h3 style="margin:0;">Вопросы / Blocks</h3>
+                            <h3 style="margin:0;">Self-Assessment</h3>
                             <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
-                                <select id="usmleQuestionsTestFilter" class="form-group input" style="min-width:14rem;">
-                                    <option value="">Выберите тест</option>
+                                <select id="usmleSaTestFilter" class="form-group input" style="min-width:16rem;">
+                                    <option value="">Выберите форму</option>
                                 </select>
-                                <button type="button" class="btn btn-primary" id="addUsmleQuestionBtn">+ Вопрос</button>
-                                <button type="button" class="btn btn-secondary" id="uploadUsmleTxtExplainedBtn">📘 TXT с объяснениями и тегами</button>
-                                <button type="button" class="btn btn-secondary" id="uploadUsmleTxtLinkedBtn">🔗 TXT связанные</button>
-                                <button type="button" class="btn btn-secondary" id="uploadUsmleTxtMixedBtn">🔗📘 TXT связанные+одиночные</button>
+                                <button type="button" class="btn btn-secondary btn-sm" id="usmleSaBlocksRefreshBtn">Обновить блоки</button>
                             </div>
                         </div>
+                        <p class="page-description" style="margin:0 0 1rem;">4 блока × 40 вопросов, таймер Standard (60 min). Выберите форму SA, затем редактируйте блоки.</p>
+
+                        <div id="usmleSaTestsList" class="admin-list" style="margin-bottom:1.25rem;"></div>
 
                         <div id="usmleSaBlocksPanel" style="display:none; margin-bottom:1.25rem;">
                             <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:1rem; flex-wrap:wrap; margin-bottom:0.75rem;">
                                 <div>
-                                    <h4 style="margin:0;">Self-Assessment — Blocks</h4>
+                                    <h4 style="margin:0;">Blocks</h4>
                                     <p style="margin:0.35rem 0 0; color:var(--text-muted); font-size:0.88rem;">
-                                        4 блока × 40 вопросов, таймер <strong>Standard (60 min)</strong>.
+                                        Block ID · Questions · Time Allotted · Status
                                     </p>
                                 </div>
-                                <button type="button" class="btn btn-secondary btn-sm" id="usmleSaBlocksRefreshBtn">Обновить блоки</button>
                             </div>
                             <div style="overflow-x:auto; border:1px solid var(--border-light); border-radius:var(--radius); background:var(--card-bg);">
                                 <table style="width:100%; border-collapse:collapse; font-size:0.92rem;">
@@ -978,6 +981,25 @@
                                 <h4 style="margin:0;" id="usmleSaBlockQuestionsTitle">Block</h4>
                                 <button type="button" class="btn btn-primary btn-sm" id="usmleSaAddQuestionBtn">+ Вопрос в блок</button>
                                 <button type="button" class="btn btn-secondary btn-sm" id="usmleSaUploadBlockBtn">📄 TXT в этот блок</button>
+                            </div>
+                        </div>
+
+                        <div id="usmleSaQuestionsList" class="admin-list">
+                            <p style="color: var(--text-muted); text-align: center; padding: 1.5rem;">Выберите Self-Assessment форму выше</p>
+                        </div>
+                    </div>
+
+                    <div class="usmle-admin-section" data-usmle-panel="questions" style="display:none;">
+                        <div class="admin-section-header" style="margin-bottom:1rem;">
+                            <h3 style="margin:0;">Вопросы USMLE</h3>
+                            <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+                                <select id="usmleQuestionsTestFilter" class="form-group input" style="min-width:14rem;">
+                                    <option value="">Выберите тест</option>
+                                </select>
+                                <button type="button" class="btn btn-primary" id="addUsmleQuestionBtn">+ Вопрос</button>
+                                <button type="button" class="btn btn-secondary" id="uploadUsmleTxtExplainedBtn">📘 TXT с объяснениями и тегами</button>
+                                <button type="button" class="btn btn-secondary" id="uploadUsmleTxtLinkedBtn">🔗 TXT связанные</button>
+                                <button type="button" class="btn btn-secondary" id="uploadUsmleTxtMixedBtn">🔗📘 TXT связанные+одиночные</button>
                             </div>
                         </div>
 

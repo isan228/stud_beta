@@ -184,7 +184,7 @@ function applyActorUiRestrictions() {
             else if (usmleSection === 'overview') show = false;
             else if (usmleSection === 'flashcards') show = !!ua?.flashcards;
             else if (usmleSection === 'glossary') show = !!ua?.medicalImages;
-            else if (['subjects', 'tests', 'questions', 'tags'].includes(usmleSection)) show = hasSubjects;
+            else if (['subjects', 'tests', 'selfAssessment', 'questions', 'tags'].includes(usmleSection)) show = hasSubjects;
         }
         if (isEditor && tab === 'uniFlashcards') {
             const uniIds = currentScope?.universityIds || [];
@@ -1859,7 +1859,12 @@ async function deleteQuestion(questionId) {
             showNotification('Вопрос удален', 'success');
             loadQuestions();
             if (document.getElementById('usmleTab')?.classList.contains('active')) {
-                loadUsmleTestsAdmin().then(() => loadUsmleQuestionsAdmin());
+                loadUsmleTestsAdmin().then(() => {
+                    if (currentUsmleSection === 'selfAssessment') return loadUsmleSelfAssessmentAdmin();
+                    if (currentUsmleSection === 'questions' || currentUsmleSection === 'tests') {
+                        return loadUsmleQuestionsAdmin();
+                    }
+                });
             }
         } else {
             const result = await response.json();
@@ -3201,7 +3206,12 @@ async function saveQuestion(e) {
             if (typeof resetQuestionExplanationForm === 'function') resetQuestionExplanationForm();
             loadQuestions();
             if (document.getElementById('usmleTab')?.classList.contains('active')) {
-                loadUsmleTestsAdmin().then(() => loadUsmleQuestionsAdmin());
+                loadUsmleTestsAdmin().then(() => {
+                    if (currentUsmleSection === 'selfAssessment') return loadUsmleSelfAssessmentAdmin();
+                    if (currentUsmleSection === 'questions' || currentUsmleSection === 'tests') {
+                        return loadUsmleQuestionsAdmin();
+                    }
+                });
             }
         } else {
             const result = await response.json();
@@ -3593,27 +3603,33 @@ function setupAdminEventListeners() {
     const usmleQuestionsTestFilter = document.getElementById('usmleQuestionsTestFilter');
     if (usmleQuestionsTestFilter) {
         usmleQuestionsTestFilter.addEventListener('change', () => {
-            usmleSaActiveBlockIndex = null;
             loadUsmleQuestionsAdmin();
+        });
+    }
+    const usmleSaTestFilter = document.getElementById('usmleSaTestFilter');
+    if (usmleSaTestFilter) {
+        usmleSaTestFilter.addEventListener('change', () => {
+            usmleSaActiveBlockIndex = null;
+            loadUsmleSelfAssessmentAdmin();
         });
     }
     const usmleSaBlocksRefreshBtn = document.getElementById('usmleSaBlocksRefreshBtn');
     if (usmleSaBlocksRefreshBtn) {
         usmleSaBlocksRefreshBtn.addEventListener('click', () => {
             usmleSaActiveBlockIndex = null;
-            loadUsmleQuestionsAdmin();
+            loadUsmleSelfAssessmentAdmin();
         });
     }
     const usmleSaBackToBlocksBtn = document.getElementById('usmleSaBackToBlocksBtn');
     if (usmleSaBackToBlocksBtn) {
         usmleSaBackToBlocksBtn.addEventListener('click', () => {
             usmleSaActiveBlockIndex = null;
-            loadUsmleQuestionsAdmin();
+            loadUsmleSelfAssessmentAdmin();
         });
     }
     const usmleSaAddQuestionBtn = document.getElementById('usmleSaAddQuestionBtn');
     if (usmleSaAddQuestionBtn) {
-        usmleSaAddQuestionBtn.addEventListener('click', () => openAddUsmleQuestionModal());
+        usmleSaAddQuestionBtn.addEventListener('click', () => openAddUsmleQuestionModal({ fromSelfAssessment: true }));
     }
     const usmleSaUploadBlockBtn = document.getElementById('usmleSaUploadBlockBtn');
     if (usmleSaUploadBlockBtn) {
@@ -4506,39 +4522,60 @@ async function focusUsmleSubjectTests(subjectId) {
     document.getElementById('usmleTestsList')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-async function focusUsmleTestQuestions(testId) {
+function isUsmleSelfAssessmentTest(test) {
+    if (!test) return false;
+    return test.testKind === 'self_assessment' || /self[-\s]?assessment/i.test(String(test.name || ''));
+}
+
+function getSelectedUsmleSaTestId() {
+    return document.getElementById('usmleSaTestFilter')?.value || '';
+}
+
+async function focusUsmleTestQuestions(testId, opts = {}) {
+    const asSa = !!opts.selfAssessment;
+    if (asSa) {
+        activateUsmleSection('selfAssessment');
+        await loadUsmleTestsAdmin();
+        const filter = document.getElementById('usmleSaTestFilter');
+        if (filter) filter.value = String(testId);
+        usmleSaActiveBlockIndex = null;
+        await loadUsmleSelfAssessmentAdmin();
+        document.getElementById('usmleSaBlocksPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+    }
     activateUsmleSection('questions');
     await loadUsmleTestsAdmin();
     const filter = document.getElementById('usmleQuestionsTestFilter');
     if (filter) filter.value = String(testId);
-    if (typeof usmleSaActiveBlockIndex !== 'undefined') usmleSaActiveBlockIndex = null;
     await loadUsmleQuestionsAdmin();
     document.getElementById('usmleQuestionsList')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 async function loadUsmleTestsAdmin() {
     const list = document.getElementById('usmleTestsList');
-    if (!list) return;
+    const saList = document.getElementById('usmleSaTestsList');
     try {
         const subjectId = document.getElementById('usmleTestsSubjectFilter')?.value || '';
         const params = new URLSearchParams({ programType: 'usmle' });
-        if (subjectId) params.set('subjectId', subjectId);
         const response = await fetch(`${ADMIN_API_URL}/tests?${params}`, {
             headers: { 'Authorization': `Bearer ${currentAdminToken}` }
         });
         if (!response.ok) throw new Error('fail');
         const tests = await response.json();
+        const matchesSubject = (t) => !subjectId
+            || String(t.subjectId || t.Subject?.id || '') === String(subjectId);
+        const standardTests = tests.filter((t) => !isUsmleSelfAssessmentTest(t) && matchesSubject(t));
+        const saTests = tests.filter((t) => isUsmleSelfAssessmentTest(t));
 
         const questionsFilter = document.getElementById('usmleQuestionsTestFilter');
         if (questionsFilter) {
             const current = questionsFilter.value;
             questionsFilter.innerHTML = '<option value="">Выберите тест</option>' +
-                tests.map(t => {
+                standardTests.map(t => {
                     const subj = t.Subject?.name ? ` — ${t.Subject.name}` : '';
-                    const isSa = t.testKind === 'self_assessment' || /self[-\s]?assessment/i.test(String(t.name || ''));
-                    return `<option value="${t.id}" data-test-kind="${isSa ? 'self_assessment' : 'standard'}" data-self-assessment="${isSa ? '1' : '0'}">${escapeAdminHtml(t.name)}${escapeAdminHtml(subj)}${isSa ? ' (SA)' : ''}</option>`;
+                    return `<option value="${t.id}" data-test-kind="standard" data-self-assessment="0">${escapeAdminHtml(t.name)}${escapeAdminHtml(subj)}</option>`;
                 }).join('');
-            if (current && tests.some(t => String(t.id) === String(current))) {
+            if (current && standardTests.some(t => String(t.id) === String(current))) {
                 questionsFilter.value = current;
             } else if (current) {
                 questionsFilter.value = '';
@@ -4549,45 +4586,93 @@ async function loadUsmleTestsAdmin() {
             }
         }
 
-        if (!tests.length) {
-            list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1.5rem;">Пока нет тестов USMLE — добавьте тест к предмету</p>';
-            return;
+        const saFilter = document.getElementById('usmleSaTestFilter');
+        if (saFilter) {
+            const currentSa = saFilter.value;
+            saFilter.innerHTML = '<option value="">Выберите форму</option>' +
+                saTests.map(t => {
+                    const subj = t.Subject?.name ? ` — ${t.Subject.name}` : '';
+                    return `<option value="${t.id}" data-test-kind="self_assessment" data-self-assessment="1">${escapeAdminHtml(t.name)}${escapeAdminHtml(subj)}</option>`;
+                }).join('');
+            if (currentSa && saTests.some(t => String(t.id) === String(currentSa))) {
+                saFilter.value = currentSa;
+            } else if (currentSa) {
+                saFilter.value = '';
+            }
         }
-        list.innerHTML = tests.map(test => {
-            const isSa = test.testKind === 'self_assessment' || /self[-\s]?assessment/i.test(String(test.name || ''));
-            const saBadge = isSa
-                ? '<span style="background:#1d4ed8;color:white;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.75rem;margin-left:0.5rem;">Self-Assessment · 4×40 · 60 мин</span>'
-                : '<span style="background:#0f766e;color:white;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.75rem;margin-left:0.5rem;">USMLE</span>';
-            return `
+
+        if (list) {
+            if (!standardTests.length) {
+                list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1.5rem;">Пока нет обычных тестов USMLE — добавьте тест к предмету</p>';
+            } else {
+                list.innerHTML = standardTests.map(test => `
             <div class="admin-list-item">
                 <div style="flex: 1;">
-                    <h4>${escapeAdminHtml(test.name)} ${saBadge}</h4>
+                    <h4>${escapeAdminHtml(test.name)} <span style="background:#0f766e;color:white;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.75rem;margin-left:0.5rem;">USMLE</span></h4>
                     ${test.description ? `<p style="color: var(--text-muted); margin: 0.5rem 0;">${escapeAdminHtml(test.description)}</p>` : ''}
                     <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
                         Предмет: ${escapeAdminHtml(test.Subject?.name || '—')} | Вопросов: ${test.questionCount ?? 0}
                     </p>
                 </div>
                 <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                    <button class="btn btn-secondary btn-sm" onclick="focusUsmleTestQuestions(${test.id})">${isSa ? 'Блоки →' : 'Вопросы →'}</button>
+                    <button class="btn btn-secondary btn-sm" onclick="focusUsmleTestQuestions(${test.id})">Вопросы →</button>
                     <button class="btn btn-primary btn-sm" onclick="editTest(${test.id})">Редактировать</button>
                     <button class="btn btn-danger btn-sm" onclick="deleteTest(${test.id})">Удалить</button>
                 </div>
             </div>
-        `;
-        }).join('');
+        `).join('');
+            }
+        }
+
+        if (saList) {
+            if (!saTests.length) {
+                saList.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1.5rem;">Нет Self-Assessment форм. Создайте тест с типом Self-Assessment или дождитесь авто-сида.</p>';
+            } else {
+                saList.innerHTML = saTests.map(test => `
+            <div class="admin-list-item">
+                <div style="flex: 1;">
+                    <h4>${escapeAdminHtml(test.name)} <span style="background:#1d4ed8;color:white;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.75rem;margin-left:0.5rem;">Self-Assessment · 4×40 · 60 мин</span></h4>
+                    ${test.description ? `<p style="color: var(--text-muted); margin: 0.5rem 0;">${escapeAdminHtml(test.description)}</p>` : ''}
+                    <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
+                        Предмет: ${escapeAdminHtml(test.Subject?.name || '—')} | Вопросов: ${test.questionCount ?? 0}
+                    </p>
+                </div>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button class="btn btn-secondary btn-sm" onclick="focusUsmleTestQuestions(${test.id}, { selfAssessment: true })">Блоки →</button>
+                    <button class="btn btn-primary btn-sm" onclick="editTest(${test.id})">Редактировать</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteTest(${test.id})">Удалить</button>
+                </div>
+            </div>
+        `).join('');
+            }
+        }
     } catch (e) {
-        list.innerHTML = '<p style="color: var(--danger-color);">Ошибка загрузки тестов USMLE</p>';
+        if (list) list.innerHTML = '<p style="color: var(--danger-color);">Ошибка загрузки тестов USMLE</p>';
+        if (saList) saList.innerHTML = '<p style="color: var(--danger-color);">Ошибка загрузки Self-Assessment</p>';
     }
 }
 
 let usmleSaActiveBlockIndex = null;
 
-function isSelectedUsmleTestSelfAssessment() {
-    const sel = document.getElementById('usmleQuestionsTestFilter');
-    const opt = sel?.selectedOptions?.[0];
-    if (!opt || !opt.value) return false;
-    return opt.dataset.selfAssessment === '1' || opt.dataset.testKind === 'self_assessment'
-        || /self[-\s]?assessment/i.test(opt.textContent || '');
+async function loadUsmleSelfAssessmentAdmin() {
+    const list = document.getElementById('usmleSaQuestionsList');
+    const blocksPanel = document.getElementById('usmleSaBlocksPanel');
+    const blockQPanel = document.getElementById('usmleSaBlockQuestionsPanel');
+    const testId = getSelectedUsmleSaTestId();
+    if (!testId) {
+        usmleSaActiveBlockIndex = null;
+        if (blocksPanel) blocksPanel.style.display = 'none';
+        if (blockQPanel) blockQPanel.style.display = 'none';
+        if (list) {
+            list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1.5rem;">Выберите Self-Assessment форму выше</p>';
+        }
+        return;
+    }
+    if (usmleSaActiveBlockIndex) {
+        await loadUsmleSaBlockQuestions(testId, usmleSaActiveBlockIndex);
+    } else {
+        await loadUsmleSaBlocksAdmin(testId);
+    }
 }
 
 function renderUsmleQuestionAdminItem(question) {
@@ -4619,30 +4704,12 @@ function renderUsmleQuestionAdminItem(question) {
 
 async function loadUsmleQuestionsAdmin() {
     const list = document.getElementById('usmleQuestionsList');
-    const blocksPanel = document.getElementById('usmleSaBlocksPanel');
-    const blockQPanel = document.getElementById('usmleSaBlockQuestionsPanel');
     if (!list) return;
     const testId = document.getElementById('usmleQuestionsTestFilter')?.value || '';
     if (!testId) {
-        usmleSaActiveBlockIndex = null;
-        if (blocksPanel) blocksPanel.style.display = 'none';
-        if (blockQPanel) blockQPanel.style.display = 'none';
         list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1.5rem;">Выберите тест, чтобы увидеть вопросы</p>';
         return;
     }
-
-    if (isSelectedUsmleTestSelfAssessment()) {
-        if (usmleSaActiveBlockIndex) {
-            await loadUsmleSaBlockQuestions(testId, usmleSaActiveBlockIndex);
-        } else {
-            await loadUsmleSaBlocksAdmin(testId);
-        }
-        return;
-    }
-
-    usmleSaActiveBlockIndex = null;
-    if (blocksPanel) blocksPanel.style.display = 'none';
-    if (blockQPanel) blockQPanel.style.display = 'none';
 
     try {
         const response = await fetch(`${ADMIN_API_URL}/questions?testId=${encodeURIComponent(testId)}`, {
@@ -4661,7 +4728,7 @@ async function loadUsmleQuestionsAdmin() {
 }
 
 async function loadUsmleSaBlocksAdmin(testId) {
-    const list = document.getElementById('usmleQuestionsList');
+    const list = document.getElementById('usmleSaQuestionsList');
     const blocksPanel = document.getElementById('usmleSaBlocksPanel');
     const blockQPanel = document.getElementById('usmleSaBlockQuestionsPanel');
     const body = document.getElementById('usmleSaBlocksBody');
@@ -4704,7 +4771,7 @@ async function loadUsmleSaBlocksAdmin(testId) {
 }
 
 async function loadUsmleSaBlockQuestions(testId, blockIndex) {
-    const list = document.getElementById('usmleQuestionsList');
+    const list = document.getElementById('usmleSaQuestionsList');
     const blocksPanel = document.getElementById('usmleSaBlocksPanel');
     const blockQPanel = document.getElementById('usmleSaBlockQuestionsPanel');
     const title = document.getElementById('usmleSaBlockQuestionsTitle');
@@ -4736,15 +4803,15 @@ async function loadUsmleSaBlockQuestions(testId, blockIndex) {
 }
 
 function openUsmleSaBlock(blockIndex) {
-    const testId = document.getElementById('usmleQuestionsTestFilter')?.value;
+    const testId = getSelectedUsmleSaTestId();
     if (!testId) return;
     loadUsmleSaBlockQuestions(testId, blockIndex);
 }
 
 function openUsmleSaBlockUpload(blockIndex) {
-    const testId = document.getElementById('usmleQuestionsTestFilter')?.value;
+    const testId = getSelectedUsmleSaTestId();
     if (!testId) {
-        showNotification('Выберите Self-Assessment тест', 'error');
+        showNotification('Выберите Self-Assessment форму', 'error');
         return;
     }
     const idx = blockIndex || usmleSaActiveBlockIndex;
@@ -4765,7 +4832,7 @@ function openUsmleSaBlockUpload(blockIndex) {
 }
 
 async function clearUsmleSaBlock(blockIndex) {
-    const testId = document.getElementById('usmleQuestionsTestFilter')?.value;
+    const testId = getSelectedUsmleSaTestId();
     if (!testId) return;
     if (!confirm(`Удалить все вопросы Block #${blockIndex}?`)) return;
     try {
@@ -4853,8 +4920,11 @@ function syncQuestionSaBlockField() {
     }
 }
 
-async function openAddUsmleQuestionModal() {
-    const presetTestId = document.getElementById('usmleQuestionsTestFilter')?.value || '';
+async function openAddUsmleQuestionModal(opts = {}) {
+    const fromSa = !!opts.fromSelfAssessment || currentUsmleSection === 'selfAssessment';
+    const presetTestId = fromSa
+        ? (getSelectedUsmleSaTestId() || '')
+        : (document.getElementById('usmleQuestionsTestFilter')?.value || '');
     try {
         const response = await fetch(`${ADMIN_API_URL}/tests?programType=usmle&compact=1`, {
             headers: adminAuthHeaders()
@@ -4865,7 +4935,7 @@ async function openAddUsmleQuestionModal() {
         if (select) {
             select.innerHTML = '<option value="">Выберите тест</option>' +
                 tests.map(t => {
-                    const isSa = t.testKind === 'self_assessment' || /self[-\s]?assessment/i.test(String(t.name || ''));
+                    const isSa = isUsmleSelfAssessmentTest(t);
                     return `<option value="${t.id}" data-self-assessment="${isSa ? '1' : '0'}">${escapeAdminHtml(t.name)}</option>`;
                 }).join('');
             if (presetTestId) {
@@ -4890,7 +4960,7 @@ async function openAddUsmleQuestionModal() {
     const saBlock = document.getElementById('questionSaBlockIndex');
     if (saBlock) saBlock.value = usmleSaActiveBlockIndex ? String(usmleSaActiveBlockIndex) : '';
     syncQuestionSaBlockField();
-    document.getElementById('questionModalTitle').textContent = 'Добавить вопрос USMLE';
+    document.getElementById('questionModalTitle').textContent = fromSa ? 'Добавить вопрос в блок SA' : 'Добавить вопрос USMLE';
     await fillQuestionTagsSelect([]);
     document.getElementById('questionModal').style.display = 'block';
 }
@@ -5094,7 +5164,10 @@ function refreshQuestionsAfterUpload() {
             }
             usmleFilter.value = String(lastQuestionUploadTestId);
         }
-        loadUsmleTestsAdmin().then(() => loadUsmleQuestionsAdmin());
+        loadUsmleTestsAdmin().then(() => {
+            if (currentUsmleSection === 'selfAssessment') return loadUsmleSelfAssessmentAdmin();
+            return loadUsmleQuestionsAdmin();
+        });
     }
     adminQuestionUploadSource = 'questions';
 }
@@ -5111,6 +5184,10 @@ async function loadUsmleAdminPanel(section) {
         case 'tests':
             await loadUsmleSubjectsAdmin();
             await loadUsmleTestsAdmin();
+            break;
+        case 'selfAssessment':
+            await loadUsmleTestsAdmin();
+            await loadUsmleSelfAssessmentAdmin();
             break;
         case 'questions':
             await loadUsmleTestsAdmin();
@@ -7573,8 +7650,9 @@ function setupAuditEventListeners() {
 const USMLE_SECTION_META = {
     overview: { title: 'USMLE · Обзор и тарифы', desc: 'Статистика подписок и цены USMLE.' },
     subjects: { title: 'USMLE · Предметы', desc: 'Предметы программы USMLE по Step.' },
-    tests: { title: 'USMLE · Тесты / Self-Assessment', desc: 'Банки вопросов и Self-Assessment формы.' },
-    questions: { title: 'USMLE · Вопросы / Blocks', desc: 'Обычные вопросы и блоки Self-Assessment (4×40, 60 мин).' },
+    tests: { title: 'USMLE · Тесты', desc: 'Обычные банки вопросов USMLE.' },
+    selfAssessment: { title: 'USMLE · Self-Assessment', desc: 'Формы SA: 4 блока × 40 вопросов, таймер 60 мин.' },
+    questions: { title: 'USMLE · Вопросы', desc: 'Вопросы обычных банков USMLE.' },
     flashcards: { title: 'USMLE · Flashcards', desc: 'Карточки Step 1–3.' },
     tags: { title: 'USMLE · Теги', desc: 'Каталог Subject / System.' },
     glossary: { title: 'USMLE · Глоссарий', desc: 'Медицинские изображения и видео для объяснений.' }
