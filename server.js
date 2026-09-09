@@ -291,6 +291,12 @@ sequelize.authenticate()
     } catch (e) {
       console.warn('ensureUsmleTagsSeeded:', e.message);
     }
+    try {
+      const { ensureUsmleSelfAssessment } = require('./utils/ensureUsmleSelfAssessment');
+      await ensureUsmleSelfAssessment();
+    } catch (e) {
+      console.warn('ensureUsmleSelfAssessment:', e.message);
+    }
     // После sync (если таблица только создана) — индекс тарифов
     try {
       const { prepareSubscriptionPlansSchema } = require('./utils/prepareSubscriptionPlansSchema');

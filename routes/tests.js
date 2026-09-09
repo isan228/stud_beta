@@ -498,6 +498,13 @@ router.get('/faculties', async (req, res) => {
  */
 router.get('/usmle/dashboard', async (req, res) => {
   try {
+    try {
+      const { ensureUsmleSelfAssessment } = require('../utils/ensureUsmleSelfAssessment');
+      await ensureUsmleSelfAssessment();
+    } catch (e) {
+      console.warn('ensureUsmleSelfAssessment (dashboard):', e.message);
+    }
+
     const userId = tryGetUserIdFromRequest(req);
 
     let subjects;
@@ -608,6 +615,16 @@ router.get('/usmle/dashboard', async (req, res) => {
       };
       if (grouped[step]) grouped[step].push(item);
       else grouped.step1.push(item);
+    }
+
+    // Self-Assessment всегда сверху в Step 1
+    for (const step of Object.keys(grouped)) {
+      grouped[step].sort((a, b) => {
+        const aSa = a.isSelfAssessment ? 0 : 1;
+        const bSa = b.isSelfAssessment ? 0 : 1;
+        if (aSa !== bSa) return aSa - bSa;
+        return String(a.name || '').localeCompare(String(b.name || ''), 'en');
+      });
     }
 
     res.json(grouped);
