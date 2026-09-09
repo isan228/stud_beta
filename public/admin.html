@@ -946,7 +946,7 @@
                                 <button type="button" class="btn btn-secondary btn-sm" id="usmleSaBlocksRefreshBtn">Обновить блоки</button>
                             </div>
                         </div>
-                        <p class="page-description" style="margin:0 0 1rem;">4 блока × 40 вопросов, таймер Standard (60 min). Выберите форму SA, затем редактируйте блоки.</p>
+                        <p class="page-description" style="margin:0 0 1rem;">4 блока × 40 вопросов, таймер Standard (60 min). У каждого вопроса обязательны <strong>Subject</strong> и <strong>System</strong>.</p>
 
                         <div id="usmleSaTestsList" class="admin-list" style="margin-bottom:1.25rem;"></div>
 
@@ -1613,9 +1613,9 @@
 "Correct":"1";
 "E":"Объяснение";
 "Subject":"Pathology";
-"System":"Cardiovascular";</pre>
+"System":"Cardiovascular System";</pre>
                         <p style="margin: 0.75rem 0 0; font-size: 0.85rem; color: var(--text-muted);">
-                            Можно связанные (с <strong>GroupID</strong>) и одиночные вместе. Максимум <strong>40</strong> вопросов. Таймер блока — <strong>60 мин</strong>.
+                            Обязательны <strong>Subject</strong> и <strong>System</strong>. Можно связанные (с <strong>GroupID</strong>) и одиночные вместе. Максимум <strong>40</strong> вопросов. Таймер блока — <strong>60 мин</strong>.
                         </p>
                     </div>
                 </div>
@@ -1910,10 +1910,23 @@
                         <option value="4">Block - #4 (40 вопросов, 60 мин)</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label for="questionTagIds">Теги USMLE (если тест USMLE)</label>
-                    <select id="questionTagIds" multiple size="5" style="width:100%; min-height: 7rem;"></select>
-                    <p style="margin: 0.35rem 0 0; font-size: 0.8rem; color: var(--text-muted);">Удерживайте Ctrl/Cmd, чтобы выбрать несколько. Теги используются для фильтра тестов у пользователей с подпиской USMLE.</p>
+                <div class="form-group" id="questionUsmleTagsGroup">
+                    <label>Subject / System (USMLE)</label>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+                        <div>
+                            <label for="questionSubjectTagId" style="font-size:0.85rem; color:var(--text-muted);">Subject</label>
+                            <select id="questionSubjectTagId" style="width:100%;">
+                                <option value="">— Subject —</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="questionSystemTagId" style="font-size:0.85rem; color:var(--text-muted);">System</label>
+                            <select id="questionSystemTagId" style="width:100%;">
+                                <option value="">— System —</option>
+                            </select>
+                        </div>
+                    </div>
+                    <p style="margin: 0.35rem 0 0; font-size: 0.8rem; color: var(--text-muted);">Для Self-Assessment и банков USMLE нужны оба тега — Subject и System.</p>
                 </div>
                 <div class="form-group">
                     <label>Ответы</label>

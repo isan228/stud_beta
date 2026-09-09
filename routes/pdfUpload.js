@@ -14,7 +14,7 @@ const {
 } = require('../utils/usmleSelfAssessment');
 const { parseFlashcardsFromText } = require('../utils/parseFlashcardsTxt');
 const { extractTxtAnswers, mapAnswersWithCorrect, isValidCorrectIndex, extractQuotedField, normalizeTxt } = require('../utils/txtQuestionAnswers');
-const { normalizeTagName, slugifyTag, resolveCanonicalTagsByNames } = require('../utils/usmleTagNormalize');
+const { normalizeTagName, slugifyTag, resolveCanonicalTagsByNames, hasRequiredSubjectAndSystem } = require('../utils/usmleTagNormalize');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -509,7 +509,7 @@ async function handleTxtUpload(req, res, parseOptions) {
     } else if (stats.missingExplanation > 0 && stats.accepted === 0) {
       hint = `Найдено вопросов без поля "E" (объяснение): ${stats.missingExplanation}.`;
     } else if (stats.missingTags > 0 && stats.accepted === 0) {
-      hint = `Найдено вопросов без темы/тегов (Subject/System/Tags): ${stats.missingTags}.`;
+      hint = `Найдено вопросов без Subject и System: ${stats.missingTags}. Нужны оба поля.`;
     }
     res.status(400).json({ error: `Не удалось найти вопросы в TXT. ${hint}`, stats });
     return;
@@ -633,7 +633,7 @@ async function handleMixedTxtUpload(req, res) {
     } else if (stats.missingExplanation > 0 && stats.accepted === 0) {
       hint = `Найдено вопросов без поля "E" (объяснение): ${stats.missingExplanation}.`;
     } else if (stats.missingTags > 0 && stats.accepted === 0) {
-      hint = `Найдено вопросов без темы/тегов (Subject/System/Tags): ${stats.missingTags}.`;
+      hint = `Найдено вопросов без Subject и System: ${stats.missingTags}. Нужны оба поля.`;
     }
     res.status(400).json({ error: `Не удалось найти вопросы в TXT. ${hint}`, stats });
     return;
@@ -761,7 +761,7 @@ async function handleSaBlockTxtUpload(req, res) {
   const parsed = parseMixedUsmleQuestionsFromText(text);
   if (!parsed.length) {
     res.status(400).json({
-      error: 'Не удалось найти вопросы в TXT. Нужны ID, Q, A1–A30, Correct, E, Subject/System/Tags (для связанных — GroupID).'
+      error: 'Не удалось найти вопросы в TXT. Нужны ID, Q, A1–A30, Correct, E, Subject и System (для связанных — GroupID).'
     });
     return;
   }
@@ -883,9 +883,9 @@ function parseQuestionsFromText(text, options = {}) {
       ].filter(Boolean).join(',');
 
       const tagNames = parseTagNames(rawTagStr);
-      if (requireTags && !tagNames.length) {
+      if (requireTags && !hasRequiredSubjectAndSystem(tagNames)) {
         stats.missingTags++;
-        console.warn(`Вопрос ID ${externalId}: нет поля Tags/Subject/System`);
+        console.warn(`Вопрос ID ${externalId}: нужны и Subject, и System`);
         continue;
       }
 

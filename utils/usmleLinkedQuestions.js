@@ -6,7 +6,7 @@ const {
   extractLastQuotedField,
   normalizeTxt
 } = require('./txtQuestionAnswers');
-const { normalizeTagName } = require('./usmleTagNormalize');
+const { normalizeTagName, hasRequiredSubjectAndSystem } = require('./usmleTagNormalize');
 
 const GROUP_MARKER = '<<<USMLE_GROUP>>>';
 const VIGNETTE_MARKER = '<<<USMLE_VIGNETTE>>>';
@@ -260,9 +260,9 @@ function parseLinkedQuestionsFromText(text, options = {}) {
       const rawTagStr = [tagsMatch, subjectMatch, systemMatch].filter(Boolean).join(',');
       const tagNames = parseTagNames(rawTagStr);
 
-      if (requireTags && !tagNames.length) {
+      if (requireTags && !hasRequiredSubjectAndSystem(tagNames)) {
         stats.missingTags++;
-        console.warn(`Связанный вопрос ID ${idMatch[1]}: нет Tags/Subject/System`);
+        console.warn(`Связанный вопрос ID ${idMatch[1]}: нужны и Subject, и System`);
         continue;
       }
 

@@ -12,6 +12,9 @@ const CANONICAL_BY_LOWER = new Map(
   ALL_FIXED_USMLE_TAGS.map((n) => [n.toLowerCase(), n])
 );
 
+const SUBJECT_SET = new Set(USMLE_SUBJECTS.map((n) => n.toLowerCase()));
+const SYSTEM_SET = new Set(USMLE_SYSTEMS.map((n) => n.toLowerCase()));
+
 function normalizeAliasKey(name) {
   return String(name || '')
     .trim()
@@ -33,6 +36,39 @@ function slugifyTag(name) {
 
 function isCanonicalUsmleTag(name) {
   return CANONICAL_BY_LOWER.has(String(name || '').trim().toLowerCase());
+}
+
+function isUsmleSubjectTagName(name) {
+  const canon = normalizeTagName(name) || String(name || '').trim();
+  return SUBJECT_SET.has(canon.toLowerCase());
+}
+
+function isUsmleSystemTagName(name) {
+  const canon = normalizeTagName(name) || String(name || '').trim();
+  return SYSTEM_SET.has(canon.toLowerCase());
+}
+
+function splitUsmleTagNames(tagNames) {
+  const subjects = [];
+  const systems = [];
+  const other = [];
+  for (const raw of tagNames || []) {
+    const canon = normalizeTagName(raw) || String(raw || '').trim();
+    if (!canon) continue;
+    if (SUBJECT_SET.has(canon.toLowerCase())) subjects.push(canon);
+    else if (SYSTEM_SET.has(canon.toLowerCase())) systems.push(canon);
+    else other.push(canon);
+  }
+  return {
+    subjects: [...new Set(subjects)],
+    systems: [...new Set(systems)],
+    other: [...new Set(other)]
+  };
+}
+
+function hasRequiredSubjectAndSystem(tagNames) {
+  const { subjects, systems } = splitUsmleTagNames(tagNames);
+  return subjects.length > 0 && systems.length > 0;
 }
 
 /**
@@ -194,6 +230,10 @@ module.exports = {
   normalizeTagName,
   slugifyTag,
   isCanonicalUsmleTag,
+  isUsmleSubjectTagName,
+  isUsmleSystemTagName,
+  splitUsmleTagNames,
+  hasRequiredSubjectAndSystem,
   mergeMatchingUsmleTags,
   ensureCanonicalTag,
   resolveCanonicalTagsByNames,

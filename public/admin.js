@@ -2872,7 +2872,8 @@ async function populateQuestionTestSelect(selectedTestId) {
     select.innerHTML = '<option value="">Выберите тест</option>' +
         tests.map(t => {
             const isSa = t.testKind === 'self_assessment' || /self[-\s]?assessment/i.test(String(t.name || ''));
-            return `<option value="${t.id}" data-self-assessment="${isSa ? '1' : '0'}">${t.name}</option>`;
+            const programType = t.programType === 'usmle' || isSa ? 'usmle' : 'university';
+            return `<option value="${t.id}" data-program-type="${programType}" data-self-assessment="${isSa ? '1' : '0'}">${t.name}</option>`;
         }).join('');
 
     if (selectedTestId != null && selectedTestId !== '') {
@@ -2898,10 +2899,38 @@ async function applyQuestionExplanationForTestId(testId) {
     }
 }
 
+const USMLE_SUBJECT_TAG_NAMES = new Set([
+    'anatomy', 'behavioral science', 'histology', 'physiology', 'pharmacology',
+    'embryology', 'genetics', 'biostatistics', 'immunology', 'microbiology',
+    'pathology', 'pathophysiology', 'biochemistry'
+]);
+
+function splitAdminUsmleTags(tags) {
+    const subjects = [];
+    const systems = [];
+    for (const t of tags || []) {
+        const name = String(t?.name || t || '').trim();
+        if (!name) continue;
+        if (USMLE_SUBJECT_TAG_NAMES.has(name.toLowerCase())) subjects.push(t);
+        else systems.push(t);
+    }
+    return { subjects, systems };
+}
+
+function collectQuestionTagIdsFromForm() {
+    const ids = [];
+    const subjectId = parseInt(document.getElementById('questionSubjectTagId')?.value, 10);
+    const systemId = parseInt(document.getElementById('questionSystemTagId')?.value, 10);
+    if (Number.isFinite(subjectId) && subjectId > 0) ids.push(subjectId);
+    if (Number.isFinite(systemId) && systemId > 0) ids.push(systemId);
+    return ids;
+}
+
 // Редактирование вопроса
 async function fillQuestionTagsSelect(selectedIds = []) {
-    const select = document.getElementById('questionTagIds');
-    if (!select) return;
+    const subjectSelect = document.getElementById('questionSubjectTagId');
+    const systemSelect = document.getElementById('questionSystemTagId');
+    if (!subjectSelect && !systemSelect) return;
     try {
         const response = await fetch(`${ADMIN_API_URL}/question-tags`, {
             headers: adminAuthHeaders()
@@ -2909,12 +2938,27 @@ async function fillQuestionTagsSelect(selectedIds = []) {
         if (!response.ok) throw new Error('tags');
         const tags = await response.json();
         const selected = new Set((selectedIds || []).map(Number));
-        select.innerHTML = (tags || []).map((t) =>
-            `<option value="${t.id}" ${selected.has(t.id) ? 'selected' : ''}>${t.name}</option>`
-        ).join('');
+        const { subjects, systems } = splitAdminUsmleTags(tags || []);
+        if (subjectSelect) {
+            const selectedSubject = subjects.find((t) => selected.has(Number(t.id)));
+            subjectSelect.innerHTML = '<option value="">— Subject —</option>' +
+                subjects.map((t) =>
+                    `<option value="${t.id}" ${selectedSubject && Number(selectedSubject.id) === Number(t.id) ? 'selected' : ''}>${escapeAdminHtml(t.name)}</option>`
+                ).join('');
+            if (selectedSubject) subjectSelect.value = String(selectedSubject.id);
+        }
+        if (systemSelect) {
+            const selectedSystem = systems.find((t) => selected.has(Number(t.id)));
+            systemSelect.innerHTML = '<option value="">— System —</option>' +
+                systems.map((t) =>
+                    `<option value="${t.id}" ${selectedSystem && Number(selectedSystem.id) === Number(t.id) ? 'selected' : ''}>${escapeAdminHtml(t.name)}</option>`
+                ).join('');
+            if (selectedSystem) systemSelect.value = String(selectedSystem.id);
+        }
     } catch (e) {
         console.error('fillQuestionTagsSelect', e);
-        select.innerHTML = '';
+        if (subjectSelect) subjectSelect.innerHTML = '<option value="">— Subject —</option>';
+        if (systemSelect) systemSelect.innerHTML = '<option value="">— System —</option>';
     }
 }
 
@@ -3158,6 +3202,19 @@ async function saveQuestion(e) {
         return;
     }
 
+    const tagIds = collectQuestionTagIdsFromForm();
+    const testOpt = document.getElementById('questionTestId')?.selectedOptions?.[0];
+    const needsSubjectSystem = testOpt?.dataset?.selfAssessment === '1'
+        || testOpt?.dataset?.programType === 'usmle'
+        || currentUsmleSection === 'selfAssessment'
+        || currentUsmleSection === 'questions';
+    const subjectTagId = document.getElementById('questionSubjectTagId')?.value;
+    const systemTagId = document.getElementById('questionSystemTagId')?.value;
+    if (needsSubjectSystem && (!subjectTagId || !systemTagId)) {
+        showNotification('Для USMLE / Self-Assessment укажите Subject и System', 'error');
+        return;
+    }
+
     try {
         const url = id ? `${ADMIN_API_URL}/questions/${id}` : `${ADMIN_API_URL}/questions`;
         const method = id ? 'PUT' : 'POST';
@@ -3173,7 +3230,7 @@ async function saveQuestion(e) {
                 answers,
                 explanation: withExplanations && explanation ? explanation : null,
                 setTestWithExplanations: withExplanations,
-                tagIds: Array.from(document.getElementById('questionTagIds')?.selectedOptions || []).map((o) => parseInt(o.value, 10)),
+                tagIds,
                 saBlockIndex: document.getElementById('questionSaBlockIndex')?.value || null
             })
         });
@@ -4678,9 +4735,13 @@ async function loadUsmleSelfAssessmentAdmin() {
 function renderUsmleQuestionAdminItem(question) {
     const correctAnswer = question.Answers?.find(a => a.isCorrect);
     const tags = Array.isArray(question.Tags) ? question.Tags : (question.QuestionTags || []);
-    const tagLabel = tags.length
-        ? tags.map(t => escapeAdminHtml(t.name)).join(', ')
-        : 'без тегов';
+    const { subjects, systems } = splitAdminUsmleTags(tags);
+    const subjectLabel = subjects.length
+        ? subjects.map((t) => escapeAdminHtml(t.name || t)).join(', ')
+        : '—';
+    const systemLabel = systems.length
+        ? systems.map((t) => escapeAdminHtml(t.name || t)).join(', ')
+        : '—';
     const blockLabel = question.saBlockIndex
         ? ` | Block #${question.saBlockIndex}`
         : '';
@@ -4689,9 +4750,10 @@ function renderUsmleQuestionAdminItem(question) {
             <div style="flex: 1;">
                 <h4>${escapeAdminHtml(question.text)}</h4>
                 <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
+                    <span style="display:inline-block;margin-right:0.75rem;"><strong>Subject:</strong> ${subjectLabel}</span>
+                    <span style="display:inline-block;margin-right:0.75rem;"><strong>System:</strong> ${systemLabel}</span>
                     Ответов: ${question.Answers?.length || 0}
-                    ${correctAnswer ? ` | Правильный: ${escapeAdminHtml(correctAnswer.text)}` : ''}
-                    | Теги: ${tagLabel}${blockLabel}
+                    ${correctAnswer ? ` | Правильный: ${escapeAdminHtml(correctAnswer.text)}` : ''}${blockLabel}
                 </p>
             </div>
             <div style="display: flex; gap: 0.5rem;">
@@ -4936,7 +4998,8 @@ async function openAddUsmleQuestionModal(opts = {}) {
             select.innerHTML = '<option value="">Выберите тест</option>' +
                 tests.map(t => {
                     const isSa = isUsmleSelfAssessmentTest(t);
-                    return `<option value="${t.id}" data-self-assessment="${isSa ? '1' : '0'}">${escapeAdminHtml(t.name)}</option>`;
+                    const programType = t.programType === 'usmle' || isSa ? 'usmle' : 'university';
+                    return `<option value="${t.id}" data-program-type="${programType}" data-self-assessment="${isSa ? '1' : '0'}">${escapeAdminHtml(t.name)}</option>`;
                 }).join('');
             if (presetTestId) {
                 select.value = String(presetTestId);
