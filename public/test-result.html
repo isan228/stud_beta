@@ -410,9 +410,15 @@
             const timeSpentMinutes = resultData.timeSpent ? Math.floor(resultData.timeSpent / 60) : 0;
             const timeSpentSeconds = resultData.timeSpent ? resultData.timeSpent % 60 : 0;
             
-            // ── USMLE: статистика по тегам ──
-            const isUsmle = !!(resultData.isCustomUsmle || resultData.programType === 'usmle');
+            // ── USMLE: статистика по Subject / System (не для Self-Assessment) ──
+            const isSelfAssessment = !!resultData.selfAssessment;
+            const isUsmle = !isSelfAssessment && !!(resultData.isCustomUsmle || resultData.programType === 'usmle');
             const questionTimes = resultData.questionTimes || {};
+            const USMLE_SUBJECT_NAMES = new Set([
+                'anatomy', 'behavioral science', 'histology', 'physiology', 'pharmacology',
+                'embryology', 'genetics', 'biostatistics', 'immunology', 'microbiology',
+                'pathology', 'pathophysiology', 'biochemistry'
+            ]);
 
             function fmtSec(s) {
                 if (!s) return '—';
@@ -421,30 +427,61 @@
                 return m > 0 ? `${m}м ${sec}с` : `${sec}с`;
             }
 
-            function buildTagStats(questions, results) {
-                const tagMap = {}; // tagName -> { correct, total }
-                for (const q of questions) {
-                    const res = results[q.id];
-                    if (!res) continue;
-                    const tags = (q.Tags || []).map(t => t.name || t);
-                    if (!tags.length) tags.push('Без тега');
-                    for (const tag of tags) {
-                        if (!tagMap[tag]) tagMap[tag] = { correct: 0, total: 0 };
-                        tagMap[tag].total++;
-                        if (res.correct) tagMap[tag].correct++;
-                    }
-                }
-                return Object.entries(tagMap)
-                    .sort((a, b) => b[1].total - a[1].total);
+            function splitTagKind(name) {
+                const n = String(name || '').trim();
+                if (!n) return 'other';
+                return USMLE_SUBJECT_NAMES.has(n.toLowerCase()) ? 'subject' : 'system';
             }
 
-            const tagStats = isUsmle ? buildTagStats(resultData.questions, resultData.results) : [];
+            function buildGroupedTagStats(questions, results) {
+                const subjects = {};
+                const systems = {};
+                for (const q of questions || []) {
+                    const res = results[q.id] || results[String(q.id)];
+                    if (!res) continue;
+                    const tags = (q.Tags || q.tags || []).map((t) => t.name || t).filter(Boolean);
+                    if (!tags.length) {
+                        if (!systems['Без System']) systems['Без System'] = { correct: 0, total: 0 };
+                        systems['Без System'].total++;
+                        if (res.correct) systems['Без System'].correct++;
+                        if (!subjects['Без Subject']) subjects['Без Subject'] = { correct: 0, total: 0 };
+                        subjects['Без Subject'].total++;
+                        if (res.correct) subjects['Без Subject'].correct++;
+                        continue;
+                    }
+                    let hasSubject = false;
+                    let hasSystem = false;
+                    for (const tag of tags) {
+                        const kind = splitTagKind(tag);
+                        const map = kind === 'subject' ? subjects : systems;
+                        if (kind === 'subject') hasSubject = true;
+                        else hasSystem = true;
+                        if (!map[tag]) map[tag] = { correct: 0, total: 0 };
+                        map[tag].total++;
+                        if (res.correct) map[tag].correct++;
+                    }
+                    if (!hasSubject) {
+                        if (!subjects['Без Subject']) subjects['Без Subject'] = { correct: 0, total: 0 };
+                        subjects['Без Subject'].total++;
+                        if (res.correct) subjects['Без Subject'].correct++;
+                    }
+                    if (!hasSystem) {
+                        if (!systems['Без System']) systems['Без System'] = { correct: 0, total: 0 };
+                        systems['Без System'].total++;
+                        if (res.correct) systems['Без System'].correct++;
+                    }
+                }
+                const toEntries = (map) => Object.entries(map).sort((a, b) => b[1].total - a[1].total);
+                return { subjects: toEntries(subjects), systems: toEntries(systems) };
+            }
 
-            const tagStatsHtml = isUsmle && tagStats.length ? `
-                <div style="margin-bottom: 2rem; padding: 1.5rem; background: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--border-light);">
-                    <h3 style="margin: 0 0 1rem; color: var(--text-color);">Статистика по темам</h3>
+            function renderStatGroup(title, entries) {
+                if (!entries.length) return '';
+                return `
+                <div style="margin-bottom: 1.5rem; padding: 1.5rem; background: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--border-light);">
+                    <h3 style="margin: 0 0 1rem; color: var(--text-color);">${title}</h3>
                     <div style="display: flex; flex-direction: column; gap: 0.6rem;">
-                        ${tagStats.map(([tag, stat]) => {
+                        ${entries.map(([tag, stat]) => {
                             const pct = Math.round((stat.correct / stat.total) * 100);
                             const color = pct >= 80 ? 'var(--success-color)' : pct >= 60 ? 'var(--primary-color)' : 'var(--danger-color)';
                             return `<div>
@@ -458,8 +495,13 @@
                             </div>`;
                         }).join('')}
                     </div>
-                </div>
-            ` : '';
+                </div>`;
+            }
+
+            const grouped = isUsmle ? buildGroupedTagStats(resultData.questions, resultData.results) : { subjects: [], systems: [] };
+            const tagStatsHtml = isUsmle
+                ? (renderStatGroup('Subjects', grouped.subjects) + renderStatGroup('Systems', grouped.systems))
+                : '';
 
             content.innerHTML = `
                 <div style="margin-bottom: 2rem; padding: 1.5rem; background: linear-gradient(135deg, var(--card-bg) 0%, var(--bg-secondary) 100%); border-radius: var(--radius-lg); border: 1px solid var(--border-light);">

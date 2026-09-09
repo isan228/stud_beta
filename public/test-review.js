@@ -82,6 +82,8 @@
             subjectName: raw.subjectName || raw.Test?.Subject?.name || '',
             programType: raw.programType || (raw.isCustomUsmle ? 'usmle' : 'university'),
             isCustomUsmle: !!raw.isCustomUsmle,
+            selfAssessment: !!raw.selfAssessment,
+            selfAssessmentBlockIndex: raw.selfAssessmentBlockIndex || null,
             questionTimes: raw.questionTimes || {}
         };
     }
@@ -112,6 +114,26 @@
     function letterForAnswer(question, answerId) {
         const idx = (question.Answers || []).findIndex((a) => a.id === answerId);
         return idx >= 0 ? (LETTERS[idx] || String(idx + 1)) : '—';
+    }
+
+    function splitReviewTags(tags) {
+        const SUBJECTS = new Set([
+            'anatomy', 'behavioral science', 'histology', 'physiology', 'pharmacology',
+            'embryology', 'genetics', 'biostatistics', 'immunology', 'microbiology',
+            'pathology', 'pathophysiology', 'biochemistry'
+        ]);
+        const subjects = [];
+        const systems = [];
+        for (const t of tags || []) {
+            const name = String(t?.name || t || '').trim();
+            if (!name) continue;
+            if (SUBJECTS.has(name.toLowerCase())) subjects.push(name);
+            else systems.push(name);
+        }
+        return {
+            subjects: [...new Set(subjects)],
+            systems: [...new Set(systems)]
+        };
     }
 
     function renderNav() {
@@ -195,6 +217,17 @@
             })
             : `<div class="question-text">${esc(question.text)}</div>`;
 
+        const isUsmleReview = !!(reviewData.isCustomUsmle || reviewData.programType === 'usmle') && !reviewData.selfAssessment;
+        const { subjects, systems } = splitReviewTags(question.Tags || question.tags || []);
+        const metaHtml = isUsmleReview ? `
+            <div class="usmle-question-meta" style="margin:0 0 1rem;">
+                <div class="usmle-meta-row">
+                    <span class="usmle-meta-chip usmle-meta-subject"><span class="usmle-meta-label">Subject</span> <span class="usmle-meta-value">${esc(subjects.join(', ') || '—')}</span></span>
+                    <span class="usmle-meta-chip usmle-meta-system"><span class="usmle-meta-label">System</span> <span class="usmle-meta-value">${esc(systems.join(', ') || '—')}</span></span>
+                </div>
+            </div>
+        ` : '';
+
         const answersHtml = (question.Answers || []).map((answer, ai) => {
             const letter = LETTERS[ai] || String(ai + 1);
             const ok = isAnswerCorrectFlag(answer.isCorrect) || (correctAnswer && answer.id === correctAnswer.id);
@@ -212,6 +245,7 @@
         }).join('');
 
         left.innerHTML = `
+            ${metaHtml}
             <div class="uworld-review-stem">
                 ${bodyHtml}
                 ${renderImages(question.imageUrls || question.imageUrl, 'Иллюстрация к вопросу')}
@@ -244,8 +278,7 @@
 
         if (explBody) {
             explBody.innerHTML = explanationHtml;
-            const isUsmle = !!(reviewData.isCustomUsmle || reviewData.programType === 'usmle');
-            if (isUsmle && typeof window.applyMedicalLinkify === 'function') {
+            if (isUsmleReview && typeof window.applyMedicalLinkify === 'function') {
                 window.applyMedicalLinkify(explBody);
             }
         }

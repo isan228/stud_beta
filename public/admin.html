@@ -946,7 +946,7 @@
                                 <button type="button" class="btn btn-secondary btn-sm" id="usmleSaBlocksRefreshBtn">Обновить блоки</button>
                             </div>
                         </div>
-                        <p class="page-description" style="margin:0 0 1rem;">4 блока × 40 вопросов, таймер Standard (60 min). У каждого вопроса обязательны <strong>Subject</strong> и <strong>System</strong>.</p>
+                        <p class="page-description" style="margin:0 0 1rem;">4 блока × 40 вопросов, таймер Standard (60 min). У вопросов SA только текст, ответы и объяснение — без Subject/System.</p>
 
                         <div id="usmleSaTestsList" class="admin-list" style="margin-bottom:1.25rem;"></div>
 
@@ -1605,17 +1605,15 @@
                     <label for="txtSaBlockFile">TXT файл (до 40 вопросов)</label>
                     <input type="file" id="txtSaBlockFile" accept=".txt" required>
                     <div style="background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius); margin-top: 0.5rem;">
-                        <p style="margin: 0 0 0.5rem 0; font-weight: 600;">Формат как у USMLE TXT:</p>
+                        <p style="margin: 0 0 0.5rem 0; font-weight: 600;">Формат Self-Assessment (вопрос + ответы + объяснение):</p>
                         <pre style="margin: 0; font-size: 0.85rem; white-space: pre-wrap; color: var(--text-secondary); font-family: 'Courier New', monospace;">"ID":"1";
 "Q":"Вопрос?";
 "A1":"...";
 "A2":"...";
 "Correct":"1";
-"E":"Объяснение";
-"Subject":"Pathology";
-"System":"Cardiovascular System";</pre>
+"E":"Объяснение";</pre>
                         <p style="margin: 0.75rem 0 0; font-size: 0.85rem; color: var(--text-muted);">
-                            Обязательны <strong>Subject</strong> и <strong>System</strong>. Можно связанные (с <strong>GroupID</strong>) и одиночные вместе. Максимум <strong>40</strong> вопросов. Таймер блока — <strong>60 мин</strong>.
+                            Без Subject/System — только вопрос, ответы и объяснение. Можно связанные (с <strong>GroupID</strong>) и одиночные. Максимум <strong>40</strong> вопросов. Таймер блока — <strong>60 мин</strong>.
                         </p>
                     </div>
                 </div>
@@ -1926,7 +1924,7 @@
                             </select>
                         </div>
                     </div>
-                    <p style="margin: 0.35rem 0 0; font-size: 0.8rem; color: var(--text-muted);">Для Self-Assessment и банков USMLE нужны оба тега — Subject и System.</p>
+                    <p style="margin: 0.35rem 0 0; font-size: 0.8rem; color: var(--text-muted);">Для обычных банков USMLE нужны оба тега. В Self-Assessment Subject/System не используются.</p>
                 </div>
                 <div class="form-group">
                     <label>Ответы</label>

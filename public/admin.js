@@ -3202,16 +3202,18 @@ async function saveQuestion(e) {
         return;
     }
 
-    const tagIds = collectQuestionTagIdsFromForm();
     const testOpt = document.getElementById('questionTestId')?.selectedOptions?.[0];
-    const needsSubjectSystem = testOpt?.dataset?.selfAssessment === '1'
-        || testOpt?.dataset?.programType === 'usmle'
-        || currentUsmleSection === 'selfAssessment'
-        || currentUsmleSection === 'questions';
+    const isSaQuestion = testOpt?.dataset?.selfAssessment === '1'
+        || currentUsmleSection === 'selfAssessment';
+    const tagIds = isSaQuestion ? [] : collectQuestionTagIdsFromForm();
+    const needsSubjectSystem = !isSaQuestion && (
+        testOpt?.dataset?.programType === 'usmle'
+        || currentUsmleSection === 'questions'
+    );
     const subjectTagId = document.getElementById('questionSubjectTagId')?.value;
     const systemTagId = document.getElementById('questionSystemTagId')?.value;
     if (needsSubjectSystem && (!subjectTagId || !systemTagId)) {
-        showNotification('Для USMLE / Self-Assessment укажите Subject и System', 'error');
+        showNotification('Для USMLE укажите Subject и System', 'error');
         return;
     }
 
@@ -4732,10 +4734,11 @@ async function loadUsmleSelfAssessmentAdmin() {
     }
 }
 
-function renderUsmleQuestionAdminItem(question) {
+function renderUsmleQuestionAdminItem(question, opts = {}) {
     const correctAnswer = question.Answers?.find(a => a.isCorrect);
     const tags = Array.isArray(question.Tags) ? question.Tags : (question.QuestionTags || []);
     const { subjects, systems } = splitAdminUsmleTags(tags);
+    const forSa = !!opts.selfAssessment || currentUsmleSection === 'selfAssessment';
     const subjectLabel = subjects.length
         ? subjects.map((t) => escapeAdminHtml(t.name || t)).join(', ')
         : '—';
@@ -4745,13 +4748,16 @@ function renderUsmleQuestionAdminItem(question) {
     const blockLabel = question.saBlockIndex
         ? ` | Block #${question.saBlockIndex}`
         : '';
+    const tagsLine = forSa
+        ? ''
+        : `<span style="display:inline-block;margin-right:0.75rem;"><strong>Subject:</strong> ${subjectLabel}</span>
+                    <span style="display:inline-block;margin-right:0.75rem;"><strong>System:</strong> ${systemLabel}</span>`;
     return `
         <div class="admin-list-item">
             <div style="flex: 1;">
                 <h4>${escapeAdminHtml(question.text)}</h4>
                 <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
-                    <span style="display:inline-block;margin-right:0.75rem;"><strong>Subject:</strong> ${subjectLabel}</span>
-                    <span style="display:inline-block;margin-right:0.75rem;"><strong>System:</strong> ${systemLabel}</span>
+                    ${tagsLine}
                     Ответов: ${question.Answers?.length || 0}
                     ${correctAnswer ? ` | Правильный: ${escapeAdminHtml(correctAnswer.text)}` : ''}${blockLabel}
                 </p>
@@ -4856,7 +4862,7 @@ async function loadUsmleSaBlockQuestions(testId, blockIndex) {
             return;
         }
         list.innerHTML = questions.map((q, i) => {
-            const item = renderUsmleQuestionAdminItem(q);
+            const item = renderUsmleQuestionAdminItem(q, { selfAssessment: true });
             return item.replace('<h4>', `<h4><span style="color:var(--text-muted);font-weight:600;margin-right:0.35rem;">#${i + 1}</span>`);
         }).join('');
     } catch (e) {
@@ -4971,14 +4977,27 @@ async function handleTxtSaBlockUpload(e) {
 
 function syncQuestionSaBlockField() {
     const group = document.getElementById('questionSaBlockGroup');
+    const tagsGroup = document.getElementById('questionUsmleTagsGroup');
     const select = document.getElementById('questionTestId');
     const opt = select?.selectedOptions?.[0];
     const isSa = opt?.dataset?.selfAssessment === '1'
         || /self[-\s]?assessment/i.test(opt?.textContent || '');
     if (group) group.style.display = isSa ? '' : 'none';
+    // Self-Assessment: только Q / ответы / объяснение — без Subject/System
+    if (tagsGroup) {
+        const isUsmle = opt?.dataset?.programType === 'usmle' || isSa
+            || currentUsmleSection === 'questions'
+            || currentUsmleSection === 'selfAssessment';
+        tagsGroup.style.display = (isUsmle && !isSa) ? '' : 'none';
+    }
     if (!isSa) {
         const saBlock = document.getElementById('questionSaBlockIndex');
         if (saBlock && !usmleSaActiveBlockIndex) saBlock.value = '';
+    } else {
+        const subj = document.getElementById('questionSubjectTagId');
+        const sys = document.getElementById('questionSystemTagId');
+        if (subj) subj.value = '';
+        if (sys) sys.value = '';
     }
 }
 

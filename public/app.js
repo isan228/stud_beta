@@ -108,11 +108,23 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
     }
 
+    function isSelfAssessmentSession() {
+        try {
+            const raw = sessionStorage.getItem('testData');
+            if (!raw) return false;
+            const data = JSON.parse(raw);
+            return !!data.selfAssessment;
+        } catch (_) {
+            return false;
+        }
+    }
+
     function updateUsmleQuestionMeta(question) {
         const box = document.getElementById('usmleQuestionMeta');
         if (!box) return;
 
-        if (!isUsmleTestSession() || !question) {
+        // Self-Assessment: только вопрос / ответ / объяснение — без Subject/System
+        if (!isUsmleTestSession() || !question || isSelfAssessmentSession()) {
             box.hidden = true;
             stopUsmleQuestionLiveTimer();
             return;
@@ -3067,6 +3079,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                                     explanation: fullQ.explanation || q.explanation || null,
                                     explanationImageUrl: fullQ.explanationImageUrl || q.explanationImageUrl || null,
                                     imageUrl: fullQ.imageUrl || q.imageUrl || null,
+                                    Tags: (fullQ.Tags && fullQ.Tags.length) ? fullQ.Tags : (q.Tags || q.tags || []),
                                     Answers: answersWithCorrect
                                 };
                             }
@@ -3245,7 +3258,30 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 timeSpent,
                 questionTimes,
                 isCustomUsmle: !!(sessionStorage.getItem('testData') && JSON.parse(sessionStorage.getItem('testData') || '{}').isCustomUsmle),
-                programType: currentProgramType || null,
+                programType: currentProgramType || (() => {
+                    try {
+                        const td = JSON.parse(sessionStorage.getItem('testData') || '{}');
+                        return td.programType || null;
+                    } catch (_) { return null; }
+                })(),
+                selfAssessment: (() => {
+                    try {
+                        const td = JSON.parse(sessionStorage.getItem('testData') || '{}');
+                        return !!td.selfAssessment;
+                    } catch (_) { return false; }
+                })(),
+                selfAssessmentBlockIndex: (() => {
+                    try {
+                        const td = JSON.parse(sessionStorage.getItem('testData') || '{}');
+                        return td.selfAssessmentBlockIndex || null;
+                    } catch (_) { return null; }
+                })(),
+                testName: (() => {
+                    try {
+                        const td = JSON.parse(sessionStorage.getItem('testData') || '{}');
+                        return td.testName || null;
+                    } catch (_) { return null; }
+                })(),
                 testId: currentTestId || window.currentTestId || null,
                 instantFeedbackMode: !!instantFeedbackMode
             }));

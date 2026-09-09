@@ -1652,7 +1652,7 @@ router.get('/tests/:testId', async (req, res) => {
           model: Answer,
           as: 'Answers'
           // Убираем явное указание attributes - Sequelize должен вернуть все поля
-        }],
+        }, tagsInclude()],
         separate: true,
         order: [['createdAt', 'ASC'], ['id', 'ASC']]
       }, universityInclude()]

@@ -758,10 +758,14 @@ async function handleSaBlockTxtUpload(req, res) {
     return;
   }
 
-  const parsed = parseMixedUsmleQuestionsFromText(text);
+  // Self-Assessment: только Q / ответы / объяснение — Subject/System не обязательны
+  const parsed = parseMixedUsmleQuestionsFromText(text, {
+    requireTags: false,
+    parseTags: false
+  });
   if (!parsed.length) {
     res.status(400).json({
-      error: 'Не удалось найти вопросы в TXT. Нужны ID, Q, A1–A30, Correct, E, Subject и System (для связанных — GroupID).'
+      error: 'Не удалось найти вопросы в TXT. Нужны ID, Q, A1–A30, Correct, E (для связанных — GroupID).'
     });
     return;
   }
@@ -792,7 +796,7 @@ async function handleSaBlockTxtUpload(req, res) {
   }
 
   const createdQuestions = await saveParsedQuestions(testId, parsed, {
-    perQuestionTags: true,
+    perQuestionTags: false,
     saBlockIndex: blockIndex
   });
 
