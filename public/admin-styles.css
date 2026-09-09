@@ -163,6 +163,21 @@ body.admin-app-mode .main-content {
     color: #64748b;
 }
 
+#adminNavGroupUsmle .admin-tab {
+    padding: 0.5rem 0.7rem 0.5rem 0.95rem;
+    font-size: 0.84rem;
+}
+
+#adminNavGroupUsmle .admin-tab .admin-tab-icon {
+    width: 1.05rem;
+    height: 1.05rem;
+    opacity: 0.88;
+}
+
+#adminNavGroupUsmle .admin-tab.active {
+    background: rgba(37, 99, 235, 0.34);
+}
+
 .admin-tab {
     width: 100%;
     display: flex;

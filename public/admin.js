@@ -19,6 +19,7 @@ const adminListCache = {
 let analyticsPeriod = '30d';
 let analyticsView = 'all';
 let analyticsDataCache = null;
+let currentUsmleSection = 'overview';
 
 function invalidateAdminListCache() {
     adminListCache.subjectsCompact = { data: null, at: 0 };
@@ -172,14 +173,18 @@ function applyActorUiRestrictions() {
     ]);
     document.querySelectorAll('.admin-tab[data-tab]').forEach((btn) => {
         const tab = btn.getAttribute('data-tab');
+        const usmleSection = btn.getAttribute('data-usmle-section');
         let show = true;
         if (isEditor && fullAdminOnlyTabs.has(tab)) show = false;
         if (isEditor && tab === 'usmle') {
             const ua = currentScope?.usmleAccess;
-            const hasUsmleContent = !!ua?.enabled && (
-                ua.allSubjects || (ua.subjectIds || []).length > 0 || ua.flashcards || ua.medicalImages
-            );
+            const hasSubjects = !!(ua?.allSubjects || (ua?.subjectIds || []).length > 0);
+            const hasUsmleContent = !!ua?.enabled && (hasSubjects || ua.flashcards || ua.medicalImages);
             if (!hasUsmleContent) show = false;
+            else if (usmleSection === 'overview') show = false;
+            else if (usmleSection === 'flashcards') show = !!ua?.flashcards;
+            else if (usmleSection === 'glossary') show = !!ua?.medicalImages;
+            else if (['subjects', 'tests', 'questions', 'tags'].includes(usmleSection)) show = hasSubjects;
         }
         if (isEditor && tab === 'uniFlashcards') {
             const uniIds = currentScope?.universityIds || [];
@@ -211,8 +216,7 @@ function applyActorUiRestrictions() {
 
     const usmleStatsCard = document.getElementById('usmleStatsCard');
     if (usmleStatsCard) usmleStatsCard.style.display = isEditor ? 'none' : '';
-    const usmlePlansBox = document.getElementById('usmleAdminPlansBox');
-    const usmlePlansCard = usmlePlansBox?.closest('.admin-subs-uni-card');
+    const usmlePlansCard = document.getElementById('usmleAdminPlansCard');
     if (usmlePlansCard) usmlePlansCard.style.display = isEditor ? 'none' : '';
 
     // Если активный таб скрыт — перейти на доступный раздел (для редактора — предметы)
@@ -221,7 +225,9 @@ function applyActorUiRestrictions() {
         const fallback = document.querySelector('.admin-tab[data-tab="subjects"]:not([style*="display: none"])')
             || document.querySelector('.admin-tab[data-tab="tests"]:not([style*="display: none"])')
             || document.querySelector('.admin-tab[data-tab]:not([style*="display: none"])');
-        if (fallback) switchTab(fallback.getAttribute('data-tab'));
+        if (fallback) {
+            switchTab(fallback.getAttribute('data-tab'), fallback.getAttribute('data-usmle-section') || undefined);
+        }
     }
 }
 
@@ -587,7 +593,9 @@ function openDefaultAdminTab() {
         const fallback = document.querySelector('.admin-tab[data-tab="subjects"]:not([style*="display: none"])')
             || document.querySelector('.admin-tab[data-tab="tests"]:not([style*="display: none"])')
             || document.querySelector('.admin-tab[data-tab]:not([style*="display: none"])');
-        if (fallback) switchTab(fallback.getAttribute('data-tab'));
+        if (fallback) {
+            switchTab(fallback.getAttribute('data-tab'), fallback.getAttribute('data-usmle-section') || undefined);
+        }
         return;
     }
     switchTab('dashboard');
@@ -3341,7 +3349,8 @@ function setupAdminEventListeners() {
     document.querySelectorAll('.admin-tab').forEach(tab => {
         tab.addEventListener('click', () => {
             const tabName = tab.getAttribute('data-tab');
-            switchTab(tabName);
+            const usmleSection = tab.getAttribute('data-usmle-section') || undefined;
+            switchTab(tabName, usmleSection);
         });
     });
     setupAdminSidebarUi();
@@ -4480,18 +4489,30 @@ async function loadUsmleSubjectsAdmin() {
     }
 }
 
-function focusUsmleSubjectTests(subjectId) {
+function activateUsmleSection(section) {
+    document.querySelectorAll('.admin-tab').forEach((tab) => tab.classList.remove('active'));
+    document.querySelectorAll('.admin-tab-content').forEach((content) => content.classList.remove('active'));
+    document.getElementById('usmleTab')?.classList.add('active');
+    switchUsmleSection(section);
+    setAdminSidebarOpen(false);
+}
+
+async function focusUsmleSubjectTests(subjectId) {
+    activateUsmleSection('tests');
+    await loadUsmleSubjectsAdmin();
     const filter = document.getElementById('usmleTestsSubjectFilter');
     if (filter) filter.value = String(subjectId);
-    loadUsmleTestsAdmin();
+    await loadUsmleTestsAdmin();
     document.getElementById('usmleTestsList')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function focusUsmleTestQuestions(testId) {
+async function focusUsmleTestQuestions(testId) {
+    activateUsmleSection('questions');
+    await loadUsmleTestsAdmin();
     const filter = document.getElementById('usmleQuestionsTestFilter');
     if (filter) filter.value = String(testId);
     if (typeof usmleSaActiveBlockIndex !== 'undefined') usmleSaActiveBlockIndex = null;
-    loadUsmleQuestionsAdmin();
+    await loadUsmleQuestionsAdmin();
     document.getElementById('usmleQuestionsList')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -5078,18 +5099,46 @@ function refreshQuestionsAfterUpload() {
     adminQuestionUploadSource = 'questions';
 }
 
-async function loadUsmleAdminPanel() {
-    await Promise.all([
-        loadUsmleStatsAdmin(),
-        loadUsmlePlansAdmin(),
-        loadAdminQuestionTags(),
-        loadUsmleSubjectsAdmin(),
-        loadMedicalImages()
-    ]);
-    await loadUsmleTestsAdmin();
-    await loadUsmleQuestionsAdmin();
-    await loadUsmleFlashcardsAdmin();
-    await fillUsmleFlashcardFilters();
+async function loadUsmleAdminPanel(section) {
+    const s = section || currentUsmleSection || 'overview';
+    switch (s) {
+        case 'overview':
+            await Promise.all([loadUsmleStatsAdmin(), loadUsmlePlansAdmin()]);
+            break;
+        case 'subjects':
+            await loadUsmleSubjectsAdmin();
+            break;
+        case 'tests':
+            await loadUsmleSubjectsAdmin();
+            await loadUsmleTestsAdmin();
+            break;
+        case 'questions':
+            await loadUsmleTestsAdmin();
+            await loadUsmleQuestionsAdmin();
+            break;
+        case 'flashcards':
+            await fillUsmleFlashcardFilters();
+            await loadUsmleFlashcardsAdmin();
+            break;
+        case 'tags':
+            await loadAdminQuestionTags();
+            break;
+        case 'glossary':
+            await loadMedicalImages();
+            break;
+        default:
+            await Promise.all([
+                loadUsmleStatsAdmin(),
+                loadUsmlePlansAdmin(),
+                loadAdminQuestionTags(),
+                loadUsmleSubjectsAdmin(),
+                loadMedicalImages()
+            ]);
+            await loadUsmleTestsAdmin();
+            await loadUsmleQuestionsAdmin();
+            await loadUsmleFlashcardsAdmin();
+            await fillUsmleFlashcardFilters();
+    }
 }
 
 async function saveUsmlePlansAdmin() {
@@ -7521,21 +7570,55 @@ function setupAuditEventListeners() {
 }
 
 // Переключение табов
-function switchTab(tabName) {
-    const tabBtn = document.querySelector(`.admin-tab[data-tab="${tabName}"]`);
+const USMLE_SECTION_META = {
+    overview: { title: 'USMLE · Обзор и тарифы', desc: 'Статистика подписок и цены USMLE.' },
+    subjects: { title: 'USMLE · Предметы', desc: 'Предметы программы USMLE по Step.' },
+    tests: { title: 'USMLE · Тесты / Self-Assessment', desc: 'Банки вопросов и Self-Assessment формы.' },
+    questions: { title: 'USMLE · Вопросы / Blocks', desc: 'Обычные вопросы и блоки Self-Assessment (4×40, 60 мин).' },
+    flashcards: { title: 'USMLE · Flashcards', desc: 'Карточки Step 1–3.' },
+    tags: { title: 'USMLE · Теги', desc: 'Каталог Subject / System.' },
+    glossary: { title: 'USMLE · Глоссарий', desc: 'Медицинские изображения и видео для объяснений.' }
+};
+
+function switchUsmleSection(section) {
+    const next = USMLE_SECTION_META[section] ? section : 'overview';
+    currentUsmleSection = next;
+    document.querySelectorAll('.usmle-admin-section').forEach((panel) => {
+        panel.style.display = panel.getAttribute('data-usmle-panel') === next ? '' : 'none';
+    });
+    document.querySelectorAll('.admin-tab[data-tab="usmle"]').forEach((btn) => {
+        btn.classList.toggle('active', btn.getAttribute('data-usmle-section') === next);
+    });
+    const meta = USMLE_SECTION_META[next];
+    const titleEl = document.getElementById('usmleSectionPageTitle');
+    const descEl = document.getElementById('usmleSectionPageDesc');
+    const pageTitle = document.getElementById('adminPageTitle');
+    if (titleEl) titleEl.textContent = meta.title.replace(/^USMLE · /, '');
+    if (descEl) descEl.textContent = meta.desc;
+    if (pageTitle) pageTitle.textContent = meta.title;
+}
+
+function switchTab(tabName, usmleSection) {
+    const resolvedUsmleSection = tabName === 'usmle'
+        ? (usmleSection || currentUsmleSection || 'overview')
+        : null;
+    const tabBtn = resolvedUsmleSection
+        ? document.querySelector(`.admin-tab[data-tab="usmle"][data-usmle-section="${resolvedUsmleSection}"]`)
+        : document.querySelector(`.admin-tab[data-tab="${tabName}"]`);
     const tabContent = document.getElementById(`${tabName}Tab`);
-    if (!tabBtn || !tabContent) return;
+    if (!tabContent) return;
+    if (!tabBtn && tabName !== 'usmle') return;
 
     // Убираем активный класс со всех табов и контента
     document.querySelectorAll('.admin-tab').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.admin-tab-content').forEach(content => content.classList.remove('active'));
 
     // Активируем выбранный таб
-    tabBtn.classList.add('active');
+    if (tabBtn) tabBtn.classList.add('active');
     tabContent.classList.add('active');
 
     const titleEl = document.getElementById('adminPageTitle');
-    if (titleEl) {
+    if (titleEl && tabBtn) {
         titleEl.textContent = tabBtn.getAttribute('data-title') || tabBtn.textContent.trim() || 'Админ-панель';
     }
     setAdminSidebarOpen(false);
@@ -7607,9 +7690,12 @@ function switchTab(tabName) {
         case 'subscriptions':
             loadSubscriptionPlansAdmin();
             break;
-        case 'usmle':
-            loadUsmleAdminPanel();
+        case 'usmle': {
+            const section = resolvedUsmleSection || 'overview';
+            switchUsmleSection(section);
+            loadUsmleAdminPanel(section);
             break;
+        }
         case 'analytics':
             loadAdminAnalytics();
             break;
