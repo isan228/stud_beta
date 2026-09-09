@@ -946,7 +946,7 @@
                                 <button type="button" class="btn btn-secondary btn-sm" id="usmleSaBlocksRefreshBtn">Обновить блоки</button>
                             </div>
                         </div>
-                        <p class="page-description" style="margin:0 0 1rem;">4 блока × 40 вопросов, таймер Standard (60 min). У вопросов SA только текст, ответы и объяснение — без Subject/System.</p>
+                        <p class="page-description" style="margin:0 0 1rem;">4 блока. В каждый можно загрузить сколько угодно вопросов; студенту на попытку выдаётся <strong>40 случайных</strong>, таймер Standard (60 min). У вопросов SA только текст, ответы и объяснение — без Subject/System.</p>
 
                         <div id="usmleSaTestsList" class="admin-list" style="margin-bottom:1.25rem;"></div>
 
@@ -964,7 +964,7 @@
                                     <thead>
                                         <tr style="background:var(--bg-secondary); text-align:left;">
                                             <th style="padding:0.75rem 1rem;">Block ID</th>
-                                            <th style="padding:0.75rem 1rem;">Questions</th>
+                                            <th style="padding:0.75rem 1rem;">Пул / попытка</th>
                                             <th style="padding:0.75rem 1rem;">Time Allotted</th>
                                             <th style="padding:0.75rem 1rem;">Status</th>
                                             <th style="padding:0.75rem 1rem;">Actions</th>
@@ -1347,7 +1347,7 @@
                 <div class="form-group checkbox-group" id="testSelfAssessmentGroup" style="display:none;">
                     <label>
                         <input type="checkbox" id="testIsSelfAssessment">
-                        <span>Self-Assessment (4 блока × 40 вопросов, таймер 60 мин)</span>
+                        <span>Self-Assessment (4 блока, пул без лимита → 40 случайных на попытку, 60 мин)</span>
                     </label>
                 </div>
                 <button type="submit" class="btn btn-primary">Сохранить</button>
@@ -1602,7 +1602,7 @@
                 <input type="hidden" id="txtSaBlockTestId">
                 <input type="hidden" id="txtSaBlockIndex">
                 <div class="form-group">
-                    <label for="txtSaBlockFile">TXT файл (до 40 вопросов)</label>
+                    <label for="txtSaBlockFile">TXT файл (без лимита по числу вопросов)</label>
                     <input type="file" id="txtSaBlockFile" accept=".txt" required>
                     <div style="background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius); margin-top: 0.5rem;">
                         <p style="margin: 0 0 0.5rem 0; font-weight: 600;">Формат Self-Assessment (вопрос + ответы + объяснение):</p>
@@ -1613,7 +1613,7 @@
 "Correct":"1";
 "E":"Объяснение";</pre>
                         <p style="margin: 0.75rem 0 0; font-size: 0.85rem; color: var(--text-muted);">
-                            Без Subject/System — только вопрос, ответы и объяснение. Можно связанные (с <strong>GroupID</strong>) и одиночные. Максимум <strong>40</strong> вопросов. Таймер блока — <strong>60 мин</strong>.
+                            Без Subject/System — только вопрос, ответы и объяснение. Можно связанные (с <strong>GroupID</strong>) и одиночные. В пул блока можно загрузить сколько угодно вопросов; на попытке студенту выдаётся <strong>40 случайных</strong>. Таймер блока — <strong>60 мин</strong>.
                         </p>
                     </div>
                 </div>
@@ -1902,10 +1902,10 @@
                     <label for="questionSaBlockIndex">Self-Assessment блок</label>
                     <select id="questionSaBlockIndex">
                         <option value="">Без блока</option>
-                        <option value="1">Block - #1 (40 вопросов, 60 мин)</option>
-                        <option value="2">Block - #2 (40 вопросов, 60 мин)</option>
-                        <option value="3">Block - #3 (40 вопросов, 60 мин)</option>
-                        <option value="4">Block - #4 (40 вопросов, 60 мин)</option>
+                        <option value="1">Block - #1 (пул → 40 на попытку, 60 мин)</option>
+                        <option value="2">Block - #2 (пул → 40 на попытку, 60 мин)</option>
+                        <option value="3">Block - #3 (пул → 40 на попытку, 60 мин)</option>
+                        <option value="4">Block - #4 (пул → 40 на попытку, 60 мин)</option>
                     </select>
                 </div>
                 <div class="form-group" id="questionUsmleTagsGroup">

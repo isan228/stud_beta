@@ -10,7 +10,8 @@ const {
   SA_QUESTIONS_PER_BLOCK,
   SA_TIMER_MINUTES,
   isSelfAssessmentTest,
-  loadSaBlockQuestionRows
+  loadSaBlockQuestionRows,
+  countQuestionsInSaBlock
 } = require('../utils/usmleSelfAssessment');
 const { parseFlashcardsFromText } = require('../utils/parseFlashcardsTxt');
 const { extractTxtAnswers, mapAnswersWithCorrect, isValidCorrectIndex, extractQuotedField, normalizeTxt } = require('../utils/txtQuestionAnswers');
@@ -717,7 +718,8 @@ router.post('/upload-txt-mixed', adminAuth, upload.single('pdf'), async (req, re
 });
 
 /**
- * Self-Assessment: TXT в конкретный блок (1–4), до 40 вопросов, таймер 60 мин на стороне теста.
+ * Self-Assessment: TXT в конкретный блок (1–4).
+ * В блок можно загрузить сколько угодно вопросов; на попытке студенту выдаётся случайные 40.
  * Body: testId, blockIndex, replace=1|0
  */
 async function handleSaBlockTxtUpload(req, res) {
@@ -770,13 +772,6 @@ async function handleSaBlockTxtUpload(req, res) {
     return;
   }
 
-  if (parsed.length > SA_QUESTIONS_PER_BLOCK) {
-    res.status(400).json({
-      error: `В блоке максимум ${SA_QUESTIONS_PER_BLOCK} вопросов, в файле ${parsed.length}. Сократите файл.`
-    });
-    return;
-  }
-
   if (replace) {
     const existing = await loadSaBlockQuestionRows(Question, testId, blockIndex, ['id', 'saBlockIndex']);
     const ids = existing.map((q) => q.id);
@@ -785,14 +780,6 @@ async function handleSaBlockTxtUpload(req, res) {
       await QuestionTagMap.destroy({ where: { questionId: { [Op.in]: ids } } });
       await Question.destroy({ where: { id: { [Op.in]: ids } } });
     }
-  } else {
-    const currentCount = await Question.count({ where: { testId, saBlockIndex: blockIndex } }).catch(() => 0);
-    if (currentCount + parsed.length > SA_QUESTIONS_PER_BLOCK) {
-      res.status(400).json({
-        error: `В блоке #${blockIndex} уже ${currentCount} вопросов. Можно добавить ещё ${Math.max(0, SA_QUESTIONS_PER_BLOCK - currentCount)}, либо включите «Заменить блок».`
-      });
-      return;
-    }
   }
 
   const createdQuestions = await saveParsedQuestions(testId, parsed, {
@@ -800,9 +787,13 @@ async function handleSaBlockTxtUpload(req, res) {
     saBlockIndex: blockIndex
   });
 
+  const poolCount = await countQuestionsInSaBlock(Question, testId, blockIndex);
+
   res.json({
-    message: `Block #${blockIndex}: загружено ${createdQuestions.length} вопросов (лимит ${SA_QUESTIONS_PER_BLOCK}, таймер ${SA_TIMER_MINUTES} мин)`,
+    message: `Block #${blockIndex}: загружено ${createdQuestions.length} вопросов (в пуле блока ${poolCount}; на попытку — ${SA_QUESTIONS_PER_BLOCK} случайных, таймер ${SA_TIMER_MINUTES} мин)`,
     blockIndex,
+    poolCount,
+    questionsPerAttempt: SA_QUESTIONS_PER_BLOCK,
     questionsPerBlock: SA_QUESTIONS_PER_BLOCK,
     timerMinutes: SA_TIMER_MINUTES,
     questions: createdQuestions

@@ -127,7 +127,7 @@
         }
         blocksPayload = await res.json();
         if (hint) {
-            hint.textContent = `${blocksPayload.testName || bank.name}: ${blocksPayload.blockCount} блока × ${blocksPayload.questionsPerBlock} вопросов, таймер ${blocksPayload.timerMinutes} мин. Загружено вопросов: ${blocksPayload.totalQuestions} / ${blocksPayload.expectedTotal}.`;
+            hint.textContent = `${blocksPayload.testName || bank.name}: ${blocksPayload.blockCount} блока × ${blocksPayload.questionsPerBlock} случайных вопросов из пула, таймер ${blocksPayload.timerMinutes} мин. В банке загружено: ${blocksPayload.totalQuestions} (мин. ${blocksPayload.expectedTotal} — по ${blocksPayload.questionsPerBlock} на блок).`;
         }
 
         const U = window.UsmleApp;
@@ -221,7 +221,7 @@
         }, async (content, bank) => {
             currentBank = bank;
             content.innerHTML = `
-                <p class="sa-hint" id="saBlocksHint">Self-Assessment: 4 блока по 40 вопросов, на каждый блок — 60 минут.</p>
+                <p class="sa-hint" id="saBlocksHint">Self-Assessment: 4 блока, на каждый — 40 случайных вопросов из пула блока, 60 минут.</p>
                 <div class="sa-blocks-wrap">
                     <table class="sa-blocks-table">
                         <thead>

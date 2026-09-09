@@ -4816,12 +4816,14 @@ async function loadUsmleSaBlocksAdmin(testId) {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || 'Ошибка');
         body.innerHTML = (data.blocks || []).map((b) => {
+            const pool = b.poolCount ?? b.questionCount ?? 0;
+            const perAttempt = b.questionsPerAttempt || b.questionsPerBlock || 40;
             const status = b.ready
-                ? '<span style="color:#16a34a;font-weight:700;">Ready</span>'
-                : `<span style="color:var(--text-muted);">${b.questionCount}/${b.questionsPerBlock}</span>`;
+                ? `<span style="color:#16a34a;font-weight:700;">Ready · пул ${pool}</span>`
+                : `<span style="color:var(--text-muted);">Пул ${pool} / мин. ${perAttempt}</span>`;
             return `<tr style="border-top:1px solid var(--border-light);">
                 <td style="padding:0.85rem 1rem;"><strong>${escapeAdminHtml(b.blockId)}</strong></td>
-                <td style="padding:0.85rem 1rem;">${b.questionCount} / ${b.questionsPerBlock}</td>
+                <td style="padding:0.85rem 1rem;">Пул ${pool} → ${perAttempt} на попытку</td>
                 <td style="padding:0.85rem 1rem;">${escapeAdminHtml(b.timeAllowedLabel)}</td>
                 <td style="padding:0.85rem 1rem;">${status}</td>
                 <td style="padding:0.85rem 1rem;">
@@ -4846,13 +4848,13 @@ async function loadUsmleSaBlockQuestions(testId, blockIndex) {
     usmleSaActiveBlockIndex = blockIndex;
     if (blocksPanel) blocksPanel.style.display = 'none';
     if (blockQPanel) blockQPanel.style.display = '';
-    if (title) title.textContent = `Block - #${blockIndex} · до 40 вопросов · 60 мин`;
+    if (title) title.textContent = `Block - #${blockIndex} · пул без лимита · на попытку 40 · 60 мин`;
     if (!list) return;
 
     list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1rem;">Загрузка…</p>';
     try {
         const response = await fetch(
-            `${ADMIN_API_URL}/questions?testId=${encodeURIComponent(testId)}&blockIndex=${blockIndex}&limit=50`,
+            `${ADMIN_API_URL}/questions?testId=${encodeURIComponent(testId)}&blockIndex=${blockIndex}&limit=5000`,
             { headers: { Authorization: `Bearer ${currentAdminToken}` } }
         );
         if (!response.ok) throw new Error('fail');

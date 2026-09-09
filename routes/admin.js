@@ -3255,13 +3255,13 @@ router.get('/questions', adminAuth, async (req, res) => {
     const test = await assertTestScope(req, res, testId);
     if (!test) return;
 
-    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 300, 1), 500);
     const where = { testId };
     if (search) {
       where.text = { [Op.iLike]: `%${search}%` };
     }
     const blockIndex = parseInt(req.query.blockIndex, 10);
     const useBlock = Number.isFinite(blockIndex) && blockIndex >= 1 && blockIndex <= 4;
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 300, 1), useBlock ? 5000 : 500);
 
     let questions;
     if (useBlock) {
@@ -3348,7 +3348,9 @@ router.get('/tests/:id/self-assessment/blocks', adminAuth, async (req, res) => {
         blockIndex: i,
         blockId: `Block - #${i}`,
         questionCount: count,
+        poolCount: count,
         questionsPerBlock: SA_QUESTIONS_PER_BLOCK,
+        questionsPerAttempt: SA_QUESTIONS_PER_BLOCK,
         remaining: Math.max(0, SA_QUESTIONS_PER_BLOCK - count),
         ready: count >= SA_QUESTIONS_PER_BLOCK,
         timeAllowedMinutes: SA_TIMER_MINUTES,
@@ -3361,6 +3363,7 @@ router.get('/tests/:id/self-assessment/blocks', adminAuth, async (req, res) => {
       testName: test.name,
       blockCount: SA_BLOCK_COUNT,
       questionsPerBlock: SA_QUESTIONS_PER_BLOCK,
+      questionsPerAttempt: SA_QUESTIONS_PER_BLOCK,
       timerMinutes: SA_TIMER_MINUTES,
       blocks
     });
