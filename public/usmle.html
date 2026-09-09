@@ -130,14 +130,23 @@
     }
 
     function openBank(test) {
+        const isSa = !!(test.isSelfAssessment || test.testKind === 'self_assessment'
+            || /self[-\s]?assessment/i.test(String(test.name || '')));
         if (window.UsmleApp) {
             window.UsmleApp.setSelectedBank({
                 id: test.id,
                 name: test.name || '',
-                step: activeStep
+                step: activeStep,
+                testKind: isSa ? 'self_assessment' : (test.testKind || 'standard'),
+                isSelfAssessment: isSa
             });
         }
         const name = encodeURIComponent(test.name || '');
+        const kind = isSa ? 'self_assessment' : encodeURIComponent(test.testKind || 'standard');
+        if (isSa) {
+            window.location.href = `/usmle-self-assessment?testId=${test.id}&name=${name}&step=${activeStep}&testKind=${kind}`;
+            return;
+        }
         window.location.href = `/usmle-home?testId=${test.id}&name=${name}&step=${activeStep}`;
     }
 
@@ -156,24 +165,40 @@
         grid.innerHTML = banks.map((t, i) => {
             const pct = Number(t.percentage) || 0;
             const active = i === 0 ? ' active-bank' : '';
-            return `<div class="usmle-bank-card${active}" role="button" tabindex="0"
-                data-test-id="${t.id}" data-test-name="${escHtml(t.name)}"
-                onclick="openBankFromCard(this)" onkeydown="if(event.key==='Enter')this.click()">
-                <div class="usmle-bank-top">
-                    <h3 class="usmle-bank-name">${escHtml(t.name)}</h3>
-                    <span class="usmle-bank-pct">${pct.toFixed(1)}% использовано</span>
-                </div>
-                <div class="usmle-bank-stats">
+            const isSa = !!(t.isSelfAssessment || t.testKind === 'self_assessment');
+            const badge = isSa ? '<span class="usmle-bank-pct" style="color:var(--primary-color);">Self-Assessment</span>' : `<span class="usmle-bank-pct">${pct.toFixed(1)}% использовано</span>`;
+            const stats = isSa
+                ? `<div class="usmle-bank-stats">
+                    <div class="usmle-bank-stat"><span>Блоков</span><strong>4</strong></div>
+                    <div class="usmle-bank-stat"><span>Вопросов / блок</span><strong>40</strong></div>
+                    <div class="usmle-bank-stat"><span>Таймер</span><strong>60 мин</strong></div>
+                </div>`
+                : `<div class="usmle-bank-stats">
                     <div class="usmle-bank-stat"><span>Всего вопросов</span><strong>${t.totalQuestions}</strong></div>
                     <div class="usmle-bank-stat"><span>Использовано</span><strong>${t.usedQuestions}</strong></div>
                     <div class="usmle-bank-stat"><span>Верно</span><strong>${t.correctCount}</strong></div>
+                </div>`;
+            return `<div class="usmle-bank-card${active}" role="button" tabindex="0"
+                data-test-id="${t.id}" data-test-name="${escHtml(t.name)}"
+                data-test-kind="${escHtml(t.testKind || 'standard')}"
+                data-self-assessment="${isSa ? '1' : '0'}"
+                onclick="openBankFromCard(this)" onkeydown="if(event.key==='Enter')this.click()">
+                <div class="usmle-bank-top">
+                    <h3 class="usmle-bank-name">${escHtml(t.name)}</h3>
+                    ${badge}
                 </div>
+                ${stats}
             </div>`;
         }).join('');
     }
 
     function openBankFromCard(el) {
-        openBank({ id: Number(el.dataset.testId), name: el.dataset.testName || '' });
+        openBank({
+            id: Number(el.dataset.testId),
+            name: el.dataset.testName || '',
+            testKind: el.dataset.testKind || 'standard',
+            isSelfAssessment: el.dataset.selfAssessment === '1'
+        });
     }
 
     async function loadDashboard() {

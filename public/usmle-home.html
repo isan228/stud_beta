@@ -23,8 +23,12 @@
             if (!res.ok) throw new Error();
             const s = await res.json();
             const U = window.UsmleApp;
-            const createHref = `/usmle-test-builder?${U.bankQuery(bank)}`;
+            const isSa = U.isSelfAssessmentBank(bank);
+            const createHref = isSa
+                ? `/usmle-self-assessment?${U.bankQuery(bank)}`
+                : `/usmle-test-builder?${U.bankQuery(bank)}`;
             const historyHref = `/usmle-history?${U.bankQuery(bank)}`;
+            const createLabel = isSa ? 'Открыть Blocks' : 'Создать тест';
 
             box.innerHTML = `
                 <div class="usmle-stat-card usmle-stats-span-12" style="padding:0.85rem 1.1rem;">
@@ -61,7 +65,7 @@
                 <div class="usmle-stat-card usmle-stats-span-3">
                     <h3>Быстрые действия</h3>
                     <div style="display:flex; flex-direction:column; gap:0.5rem; margin-top:0.5rem;">
-                        <a href="${createHref}" class="btn btn-primary btn-block">Создать тест</a>
+                        <a href="${createHref}" class="btn btn-primary btn-block">${createLabel}</a>
                         <a href="${historyHref}" class="btn btn-secondary btn-block">История тестов</a>
                         <a href="/usmle" class="btn btn-secondary btn-block">Сменить банк</a>
                     </div>

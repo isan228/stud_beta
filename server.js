@@ -152,6 +152,7 @@ const pages = {
   '/subscriptions': 'subscriptions.html',
   '/usmle-test-builder': 'usmle-test-builder.html',
   '/usmle-flashcards': 'usmle-flashcards.html',
+  '/usmle-self-assessment': 'usmle-self-assessment.html',
   '/flashcards': 'flashcards.html',
   '/schedule': 'schedule.html',
   '/mobile': 'mobile.html'

@@ -280,6 +280,16 @@ A1.. / Correct / E / Subject / System
 
 Обязательны `E` и `Subject`/`System`/`Tags`.
 
+### 7.2.2 Self-Assessment (Step 1)
+Тест с `testKind=self_assessment` (чекбокс в админке) или названием «Self-Assessment…».
+
+- На `/usmle` открывается страница Blocks: `/usmle-self-assessment`
+- 4 блока × 40 вопросов (порядок по `createdAt`/`id`: 1–40, 41–80, …)
+- Старт блока: `POST /api/tests/usmle/self-assessment/start` → таймер **60 мин**
+- Статусы блоков: `GET /api/tests/usmle/self-assessment/blocks?testId=`
+
+Нужно загрузить **160** вопросов в этот тест.
+
 ### 7.3 Flashcards
 `POST /api/admin/upload-txt-flashcards`  
 body: `testId?`, `stepGroup`, file field name **`pdf`** (историческое имя)

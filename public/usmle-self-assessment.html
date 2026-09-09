@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" href="/img/icon.svg" type="image/svg+xml">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#2563eb">
+    <title>USMLE — Self-Assessment Blocks</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="usmle-app.css">
+    <style>
+        .sa-blocks-wrap { overflow-x: auto; }
+        .sa-blocks-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--card-bg);
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .sa-blocks-table th,
+        .sa-blocks-table td {
+            padding: 0.95rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-light);
+            font-size: 0.92rem;
+        }
+        .sa-blocks-table th {
+            background: color-mix(in srgb, var(--primary-color) 8%, var(--card-bg));
+            color: var(--text-secondary);
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .sa-blocks-table tr:last-child td { border-bottom: none; }
+        .sa-blocks-table td strong { color: var(--text-color); }
+        .sa-actions { display: flex; gap: 0.4rem; align-items: center; }
+        .sa-action-btn {
+            width: 2.1rem; height: 2.1rem; border-radius: 999px;
+            border: 1px solid color-mix(in srgb, var(--primary-color) 35%, var(--border-light));
+            background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+            color: var(--primary-color); display: inline-flex; align-items: center; justify-content: center;
+            cursor: pointer;
+        }
+        .sa-action-btn:hover { background: var(--primary-color); color: #fff; }
+        .sa-action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+        .sa-action-btn svg { width: 1.05rem; height: 1.05rem; }
+        .sa-hint {
+            margin: 0 0 1rem;
+            color: var(--text-secondary);
+            font-size: 0.92rem;
+        }
+        .sa-badge {
+            display: inline-block;
+            padding: 0.2rem 0.55rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            background: color-mix(in srgb, var(--success-color, #16a34a) 15%, transparent);
+            color: var(--success-color, #16a34a);
+        }
+        .sa-badge.muted {
+            background: var(--bg-secondary);
+            color: var(--text-muted);
+        }
+        @media (max-width: 720px) {
+            .sa-blocks-table, .sa-blocks-table thead, .sa-blocks-table tbody,
+            .sa-blocks-table th, .sa-blocks-table td, .sa-blocks-table tr { display: block; }
+            .sa-blocks-table thead { display: none; }
+            .sa-blocks-table tr {
+                border-bottom: 1px solid var(--border-light);
+                padding: 0.75rem 0;
+            }
+            .sa-blocks-table td {
+                border: none;
+                padding: 0.35rem 1rem;
+                display: flex;
+                justify-content: space-between;
+                gap: 1rem;
+            }
+            .sa-blocks-table td::before {
+                content: attr(data-label);
+                color: var(--text-muted);
+                font-weight: 600;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="usmleAppMount"></div>
+<div id="notification" class="notification"></div>
+<script src="app.js"></script>
+<script src="usmle-app.js"></script>
+<script>
+    let currentBank = null;
+    let blocksPayload = null;
+
+    function fmtDate(iso) {
+        if (!iso) return '—';
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return '—';
+        return d.toLocaleString('en-US', {
+            month: 'short', day: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit', hour12: false
+        });
+    }
+
+    function playIcon() {
+        return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.5v11l9-5.5-9-5.5Z" fill="currentColor"/></svg>`;
+    }
+
+    async function loadBlocks(bank) {
+        const box = document.getElementById('saBlocksBody');
+        const hint = document.getElementById('saBlocksHint');
+        if (!box) return;
+        box.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-muted);">Загрузка…</td></tr>`;
+
+        const token = localStorage.getItem('token');
+        const res = await fetch(`/api/tests/usmle/self-assessment/blocks?testId=${bank.id}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Не удалось загрузить блоки');
+        }
+        blocksPayload = await res.json();
+        if (hint) {
+            hint.textContent = `${blocksPayload.testName || bank.name}: ${blocksPayload.blockCount} блока × ${blocksPayload.questionsPerBlock} вопросов, таймер ${blocksPayload.timerMinutes} мин. Загружено вопросов: ${blocksPayload.totalQuestions} / ${blocksPayload.expectedTotal}.`;
+        }
+
+        const U = window.UsmleApp;
+        box.innerHTML = (blocksPayload.blocks || []).map((b) => {
+            const complete = b.status === 'complete';
+            const statusHtml = complete
+                ? `<span class="sa-badge">Complete</span>`
+                : `<span class="sa-badge muted">${U.escHtml(b.timeRemainingLabel || '—')}</span>`;
+            const startDisabled = complete || !b.ready ? 'disabled' : '';
+            const reviewDisabled = complete && b.resultId ? '' : 'disabled';
+            return `<tr>
+                <td data-label="Block ID"><strong>${U.escHtml(b.blockId)}</strong></td>
+                <td data-label="Date">${fmtDate(b.completedAt)}</td>
+                <td data-label="Time Allowed">${U.escHtml(b.timeAllowedLabel)}</td>
+                <td data-label="Time Remaining">${statusHtml}</td>
+                <td data-label="Actions">
+                    <div class="sa-actions">
+                        <button type="button" class="sa-action-btn" title="Начать блок" ${startDisabled}
+                            onclick="startBlock(${b.blockIndex})">${playIcon()}</button>
+                        <button type="button" class="sa-action-btn" title="Разбор" ${reviewDisabled}
+                            onclick="openBlockReview(${b.resultId || 0})">${U.ICONS.review}</button>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
+    async function startBlock(blockIndex) {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            if (typeof showNotification === 'function') showNotification('Войдите в аккаунт', 'error');
+            return;
+        }
+        if (!currentBank) return;
+
+        try {
+            if (typeof showNotification === 'function') showNotification(`Запуск Block - #${blockIndex}…`, 'info');
+            const res = await fetch('/api/tests/usmle/self-assessment/start', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    testId: currentBank.id,
+                    blockIndex,
+                    randomizeAnswers: true
+                })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Не удалось начать блок');
+            if (!data.questions?.length) throw new Error('В блоке нет вопросов');
+
+            sessionStorage.setItem('testData', JSON.stringify({
+                testId: currentBank.id,
+                questions: data.questions,
+                answers: {},
+                questionIndex: 0,
+                startTime: Date.now(),
+                timer: data.timerSeconds || 3600,
+                instantFeedbackMode: false,
+                instantFeedbackLockedQuestions: {},
+                isCustomUsmle: true,
+                programType: 'usmle',
+                selfAssessment: true,
+                selfAssessmentBlockIndex: blockIndex,
+                testName: data.testName || currentBank.name
+            }));
+            try { sessionStorage.setItem('programType', 'usmle'); } catch (_) {}
+            window.location.href = '/test';
+        } catch (err) {
+            if (typeof showNotification === 'function') {
+                showNotification(err.message || 'Ошибка запуска', 'error');
+            }
+        }
+    }
+
+    function openBlockReview(resultId) {
+        if (!resultId) return;
+        window.location.href = `/test-review?resultId=${encodeURIComponent(resultId)}`;
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        if (typeof window.initTheme === 'function') window.initTheme();
+        if (typeof window.setProgramType === 'function') window.setProgramType('usmle');
+        if (typeof window.loadUser === 'function') await window.loadUser();
+
+        currentBank = window.UsmleApp.mountUsmlePage({
+            activeNav: 'blocks',
+            pageTitle: 'Blocks'
+        }, async (content, bank) => {
+            currentBank = bank;
+            content.innerHTML = `
+                <p class="sa-hint" id="saBlocksHint">Self-Assessment: 4 блока по 40 вопросов, на каждый блок — 60 минут.</p>
+                <div class="sa-blocks-wrap">
+                    <table class="sa-blocks-table">
+                        <thead>
+                            <tr>
+                                <th>Block ID</th>
+                                <th>Date</th>
+                                <th>Time Allowed</th>
+                                <th>Time Remaining</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="saBlocksBody"></tbody>
+                    </table>
+                </div>`;
+            try {
+                await loadBlocks(bank);
+            } catch (err) {
+                const box = document.getElementById('saBlocksBody');
+                if (box) {
+                    box.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--danger-color);padding:2rem;">${window.UsmleApp.escHtml(err.message || 'Ошибка')}</td></tr>`;
+                }
+            }
+        });
+    });
+</script>
+</body>
+</html>

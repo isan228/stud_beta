@@ -3122,6 +3122,20 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             // Сохранение результата (только если есть testId)
             if (currentTestId && currentUser) {
                 try {
+                    let answersPayload = currentAnswers;
+                    try {
+                        const td = JSON.parse(sessionStorage.getItem('testData') || '{}');
+                        if (td.selfAssessment && td.selfAssessmentBlockIndex) {
+                            answersPayload = {
+                                ...(currentAnswers && typeof currentAnswers === 'object' ? currentAnswers : {}),
+                                __meta: {
+                                    kind: 'self_assessment',
+                                    blockIndex: Number(td.selfAssessmentBlockIndex)
+                                }
+                            };
+                        }
+                    } catch (_) {}
+
                     await fetch(`${API_URL}/stats/test-result`, {
                         method: 'POST',
                         headers: {
@@ -3133,7 +3147,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                             score: result.score,
                             totalQuestions: result.total,
                             timeSpent,
-                            answers: currentAnswers,
+                            answers: answersPayload,
                             questions: fullQuestions, // Сохраняем вопросы с правильными ответами
                             results: result.results // Сохраняем результаты проверки
                         })

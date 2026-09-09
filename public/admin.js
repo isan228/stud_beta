@@ -2774,6 +2774,12 @@ function syncTestFormProgramFromSubject() {
     const uniSelect = document.getElementById('testUniversityId');
     const uniGroup = document.getElementById('testUniversityGroup');
     const hint = document.getElementById('testUniversityHint');
+    const saGroup = document.getElementById('testSelfAssessmentGroup');
+    if (saGroup) saGroup.style.display = isUsmle ? '' : 'none';
+    if (!isUsmle) {
+        const saCb = document.getElementById('testIsSelfAssessment');
+        if (saCb) saCb.checked = false;
+    }
     if (uniSelect) {
         uniSelect.required = !isUsmle;
         if (isUsmle) {
@@ -2831,6 +2837,11 @@ async function editTest(testId) {
             document.getElementById('testIsFree').checked = test.isFree || false;
             const testHasExplEl = document.getElementById('testHasExplanations');
             if (testHasExplEl) testHasExplEl.checked = !!test.hasExplanations;
+            const saCb = document.getElementById('testIsSelfAssessment');
+            if (saCb) {
+                saCb.checked = test.testKind === 'self_assessment'
+                    || /self[-\s]?assessment/i.test(String(test.name || ''));
+            }
             document.getElementById('testModalTitle').textContent = 'Редактировать тест';
             document.getElementById('testModal').style.display = 'block';
         }
@@ -3042,6 +3053,7 @@ async function saveTest(e) {
     const universityId = universityRaw ? parseInt(universityRaw, 10) : null;
     const isFree = document.getElementById('testIsFree').checked;
     const hasExplanations = document.getElementById('testHasExplanations')?.checked || false;
+    const isSelfAssessment = isUsmle && !!(document.getElementById('testIsSelfAssessment')?.checked);
 
     if (!subjectId) {
         showNotification('Выберите предмет', 'error');
@@ -3068,7 +3080,8 @@ async function saveTest(e) {
                 subjectId,
                 universityId: isUsmle ? null : universityId,
                 isFree,
-                hasExplanations
+                hasExplanations,
+                testKind: isSelfAssessment ? 'self_assessment' : 'standard'
             })
         });
 

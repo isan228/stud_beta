@@ -37,6 +37,12 @@ const Test = sequelize.define('Test', {
     defaultValue: 'university',
     comment: 'university | usmle'
   },
+  testKind: {
+    type: DataTypes.STRING(40),
+    allowNull: false,
+    defaultValue: 'standard',
+    comment: 'standard | self_assessment'
+  },
   isFree: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,

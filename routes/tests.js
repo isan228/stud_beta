@@ -6,6 +6,15 @@ const { buildHighlightHtml, buildFrontHtml } = require('../utils/flashcardHighli
 const { Op } = require('sequelize');
 const { parseImageUrls, firstImageUrl } = require('../utils/mediaField');
 const { pickQuestionsKeepingLinkedOrder } = require('../utils/usmleLinkedQuestions');
+const {
+  SA_BLOCK_COUNT,
+  SA_QUESTIONS_PER_BLOCK,
+  SA_TIMER_SECONDS,
+  SA_TIMER_MINUTES,
+  isSelfAssessmentTest,
+  extractBlockMeta,
+  blockSliceBounds
+} = require('../utils/usmleSelfAssessment');
 const { ALLOWED_COURSES } = require('../utils/ensureFaculties');
 const requireUsmleSubscription = require('../middleware/requireUsmleSubscription');
 const { userHasUniversityAccess, userHasUsmleAccess } = require('../utils/adminUserAccess');
@@ -522,17 +531,33 @@ router.get('/usmle/dashboard', async (req, res) => {
       subjectStep.set(s.id, resolveStep(s));
     }
 
-    const tests = await Test.findAll({
-      where: { programType: 'usmle' },
-      attributes: ['id', 'name', 'description', 'subjectId', 'isFree'],
-      include: [{
-        model: Question,
-        as: 'Questions',
-        attributes: ['id'],
-        required: false
-      }],
-      order: [['name', 'ASC']]
-    });
+    let tests;
+    try {
+      tests = await Test.findAll({
+        where: { programType: 'usmle' },
+        attributes: ['id', 'name', 'description', 'subjectId', 'isFree', 'testKind'],
+        include: [{
+          model: Question,
+          as: 'Questions',
+          attributes: ['id'],
+          required: false
+        }],
+        order: [['name', 'ASC']]
+      });
+    } catch (colErr) {
+      console.warn('usmle/dashboard: testKind unavailable, fallback:', colErr.message);
+      tests = await Test.findAll({
+        where: { programType: 'usmle' },
+        attributes: ['id', 'name', 'description', 'subjectId', 'isFree'],
+        include: [{
+          model: Question,
+          as: 'Questions',
+          attributes: ['id'],
+          required: false
+        }],
+        order: [['name', 'ASC']]
+      });
+    }
 
     const lastOutcome = new Map();
     if (userId && tests.length) {
@@ -574,6 +599,8 @@ router.get('/usmle/dashboard', async (req, res) => {
         subjectId: t.subjectId,
         stepGroup: step,
         isFree: !!t.isFree,
+        testKind: isSelfAssessmentTest(t) ? 'self_assessment' : (t.testKind || 'standard'),
+        isSelfAssessment: isSelfAssessmentTest(t),
         totalQuestions: total,
         usedQuestions: used,
         correctCount: correct,
@@ -1050,6 +1077,207 @@ router.post('/usmle/custom-test/questions', async (req, res) => {
       error: 'Ошибка сервера',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
+  }
+});
+
+function formatSaQuestionPayload(q, test, { wantRandom = false, includeExplanations = false } = {}) {
+  const qj = q.toJSON ? q.toJSON() : q;
+  let answers = [...(qj.Answers || [])];
+  if (wantRandom) {
+    for (let i = answers.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [answers[i], answers[j]] = [answers[j], answers[i]];
+    }
+  }
+  return {
+    id: qj.id,
+    text: qj.text,
+    testId: qj.testId,
+    testName: test.name,
+    imageUrl: firstImageUrl(qj.imageUrl),
+    imageUrls: parseImageUrls(qj.imageUrl),
+    Tags: (qj.Tags || []).map((t) => ({ id: t.id, name: t.name, slug: t.slug })),
+    ...(includeExplanations ? {
+      explanation: qj.explanation || null,
+      explanationImageUrl: firstImageUrl(qj.explanationImageUrl),
+      explanationImageUrls: parseImageUrls(qj.explanationImageUrl)
+    } : {}),
+    Answers: answers.map((a) => ({
+      id: a.id,
+      text: a.text,
+      ...(firstImageUrl(a.imageUrl) ? {
+        imageUrl: firstImageUrl(a.imageUrl),
+        imageUrls: parseImageUrls(a.imageUrl)
+      } : {}),
+      isCorrect: Boolean(a.isCorrect)
+    }))
+  };
+}
+
+/**
+ * GET /usmle/self-assessment/blocks?testId=
+ * 4 блока × 40 вопросов, статус по последней попытке каждого блока.
+ */
+router.get('/usmle/self-assessment/blocks', async (req, res) => {
+  try {
+    const userId = tryGetUserIdFromRequest(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Требуется авторизация' });
+    }
+
+    const testId = parseInt(req.query.testId, 10);
+    if (!Number.isFinite(testId) || testId <= 0) {
+      return res.status(400).json({ error: 'testId обязателен' });
+    }
+
+    const test = await Test.findByPk(testId, {
+      attributes: ['id', 'name', 'programType', 'testKind']
+    });
+    if (!test || test.programType !== 'usmle' || !isSelfAssessmentTest(test)) {
+      return res.status(404).json({ error: 'Self-Assessment тест не найден' });
+    }
+
+    const totalQuestions = await Question.count({ where: { testId } });
+    const expectedTotal = SA_BLOCK_COUNT * SA_QUESTIONS_PER_BLOCK;
+
+    const latestByBlock = new Map();
+    const rows = await TestResult.findAll({
+      where: { userId, testId },
+      attributes: ['id', 'score', 'totalQuestions', 'timeSpent', 'answers', 'createdAt'],
+      order: [['createdAt', 'ASC']]
+    });
+    for (const row of rows) {
+      const meta = extractBlockMeta(row.answers);
+      if (!meta) continue;
+      latestByBlock.set(meta.blockIndex, row);
+    }
+
+    const blocks = [];
+    for (let i = 1; i <= SA_BLOCK_COUNT; i++) {
+      const { start, end } = blockSliceBounds(i);
+      const available = Math.max(0, Math.min(SA_QUESTIONS_PER_BLOCK, totalQuestions - start));
+      const row = latestByBlock.get(i) || null;
+      const complete = Boolean(row);
+      blocks.push({
+        blockIndex: i,
+        blockId: `Block - #${i}`,
+        questionCount: SA_QUESTIONS_PER_BLOCK,
+        availableQuestions: available,
+        ready: available >= SA_QUESTIONS_PER_BLOCK,
+        timeAllowedMinutes: SA_TIMER_MINUTES,
+        timeAllowedLabel: `Standard (${SA_TIMER_MINUTES} min)`,
+        status: complete ? 'complete' : 'not_started',
+        timeRemainingLabel: complete ? 'Complete' : '—',
+        completedAt: row ? row.createdAt : null,
+        resultId: row ? row.id : null,
+        score: row ? row.score : null,
+        totalQuestions: row ? row.totalQuestions : null,
+        timeSpent: row ? row.timeSpent : null
+      });
+    }
+
+    res.json({
+      testId: test.id,
+      testName: test.name,
+      testKind: 'self_assessment',
+      blockCount: SA_BLOCK_COUNT,
+      questionsPerBlock: SA_QUESTIONS_PER_BLOCK,
+      timerMinutes: SA_TIMER_MINUTES,
+      totalQuestions,
+      expectedTotal,
+      blocks
+    });
+  } catch (error) {
+    console.error('Ошибка USMLE self-assessment blocks:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+/**
+ * POST /usmle/self-assessment/start
+ * Body: { testId, blockIndex, randomizeAnswers? }
+ */
+router.post('/usmle/self-assessment/start', async (req, res) => {
+  try {
+    const userId = tryGetUserIdFromRequest(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Требуется авторизация' });
+    }
+
+    const user = await User.findByPk(userId, {
+      attributes: ['id', 'email', 'username', 'usmleSubscriptionEndDate']
+    });
+    if (!user) {
+      return res.status(401).json({ error: 'Пользователь не найден' });
+    }
+    if (!(await userHasUsmleAccess(user))) {
+      return res.status(403).json({
+        error: 'Требуется активная подписка USMLE',
+        code: 'USMLE_SUBSCRIPTION_REQUIRED'
+      });
+    }
+
+    const testId = parseInt(req.body?.testId, 10);
+    const blockIndex = parseInt(req.body?.blockIndex, 10);
+    const wantRandom = req.body?.randomizeAnswers !== false && req.body?.randomizeAnswers !== 'false';
+
+    if (!Number.isFinite(testId) || testId <= 0) {
+      return res.status(400).json({ error: 'testId обязателен' });
+    }
+    if (!Number.isFinite(blockIndex) || blockIndex < 1 || blockIndex > SA_BLOCK_COUNT) {
+      return res.status(400).json({ error: `blockIndex должен быть от 1 до ${SA_BLOCK_COUNT}` });
+    }
+
+    const test = await Test.findByPk(testId, {
+      attributes: ['id', 'name', 'programType', 'testKind']
+    });
+    if (!test || test.programType !== 'usmle' || !isSelfAssessmentTest(test)) {
+      return res.status(404).json({ error: 'Self-Assessment тест не найден' });
+    }
+
+    const allQuestions = await Question.findAll({
+      where: { testId },
+      attributes: ['id', 'text', 'createdAt'],
+      order: [['createdAt', 'ASC'], ['id', 'ASC']]
+    });
+
+    const { start, end } = blockSliceBounds(blockIndex);
+    const slice = allQuestions.slice(start, end);
+    if (slice.length < SA_QUESTIONS_PER_BLOCK) {
+      return res.status(400).json({
+        error: `В блоке #${blockIndex} недостаточно вопросов (нужно ${SA_QUESTIONS_PER_BLOCK}, есть ${slice.length}). Загрузите ${SA_BLOCK_COUNT * SA_QUESTIONS_PER_BLOCK} вопросов в тест.`,
+        available: slice.length,
+        required: SA_QUESTIONS_PER_BLOCK
+      });
+    }
+
+    // Внутри блока сохраняем связки; группы не перемешиваем между блоками.
+    const ordered = pickQuestionsKeepingLinkedOrder(slice, SA_QUESTIONS_PER_BLOCK, { shuffleGroups: false });
+    const ids = ordered.map((q) => q.id);
+
+    const questions = await Question.findAll({
+      where: { id: { [Op.in]: ids } },
+      include: [{ model: Answer, as: 'Answers' }, tagsInclude()]
+    });
+    const qMap = new Map(questions.map((q) => [q.id, q]));
+    const payload = ids.map((id) => {
+      const q = qMap.get(id);
+      return q ? formatSaQuestionPayload(q, test, { wantRandom, includeExplanations: false }) : null;
+    }).filter(Boolean);
+
+    res.json({
+      testId: test.id,
+      testName: test.name,
+      blockIndex,
+      blockId: `Block - #${blockIndex}`,
+      timerSeconds: SA_TIMER_SECONDS,
+      timerMinutes: SA_TIMER_MINUTES,
+      questionCount: payload.length,
+      questions: payload
+    });
+  } catch (error) {
+    console.error('Ошибка USMLE self-assessment start:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 

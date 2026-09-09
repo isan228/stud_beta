@@ -3041,7 +3041,7 @@ router.post('/tests', adminAuth, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, description, subjectId, universityId, isFree, hasExplanations } = req.body;
+    const { name, description, subjectId, universityId, isFree, hasExplanations, testKind } = req.body;
 
     const subject = await Subject.findByPk(subjectId);
     if (!subject) {
@@ -3076,12 +3076,18 @@ router.post('/tests', adminAuth, [
       }
     }
 
+    const resolvedKind = subject.programType === 'usmle'
+      && (testKind === 'self_assessment' || testKind === 'self-assessment')
+      ? 'self_assessment'
+      : 'standard';
+
     const test = await Test.create({
       name,
       description,
       subjectId: parseInt(subjectId, 10),
       universityId: subject.programType === 'usmle' ? null : subject.universityId,
       programType: subject.programType === 'usmle' ? 'usmle' : 'university',
+      testKind: resolvedKind,
       isFree: isFree === true || isFree === 'true',
       hasExplanations: hasExplanations === true || hasExplanations === 'true'
     });
@@ -3114,7 +3120,7 @@ router.put('/tests/:id', adminAuth, [
       return denyScope(res);
     }
 
-    const { name, description, subjectId, universityId, isFree, hasExplanations } = req.body;
+    const { name, description, subjectId, universityId, isFree, hasExplanations, testKind } = req.body;
     test.name = name;
     if (description !== undefined) test.description = description;
 
@@ -3143,6 +3149,15 @@ router.put('/tests/:id', adminAuth, [
     if (isFree !== undefined) test.isFree = isFree === true || isFree === 'true';
     if (hasExplanations !== undefined) {
       test.hasExplanations = hasExplanations === true || hasExplanations === 'true';
+    }
+    if (testKind !== undefined || subject.programType === 'usmle') {
+      if (subject.programType !== 'usmle') {
+        test.testKind = 'standard';
+      } else if (testKind === 'self_assessment' || testKind === 'self-assessment') {
+        test.testKind = 'self_assessment';
+      } else if (testKind === 'standard') {
+        test.testKind = 'standard';
+      }
     }
     await test.save();
 
