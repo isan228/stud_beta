@@ -2222,15 +2222,17 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         // Сортируем по длине убывая (длинные фразы первыми)
         const sorted = [...keywords].sort((a, b) => b.keyword.length - a.keyword.length);
         let result = html;
-        for (const { keyword, imageUrl, title, id } of sorted) {
+        for (const { keyword, imageUrl, videoUrl, title, id, mediaType } of sorted) {
             if (!keyword) continue;
             const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             // Только целые слова; не трогаем уже созданные <a>
             const re = new RegExp(`(?![^<]*>)(?<!</?a\\b[^>]*>)(?<![\\w])(${escaped})(?![\\w])`, 'gi');
             result = result.replace(re, (match) => {
                 const safeUrl = String(imageUrl || '').replace(/"/g, '&quot;');
+                const safeVideo = String(videoUrl || '').replace(/"/g, '&quot;');
                 const safeTitle = String(title || match).replace(/"/g, '&quot;');
-                return `<a href="#" class="medical-term-link" data-medical-id="${id}" data-img-url="${safeUrl}" data-img-title="${safeTitle}" onclick="openMedicalImagePopup(event,this)" title="${safeTitle}">${match}</a>`;
+                const safeType = String(mediaType || (videoUrl ? 'video' : 'image')).replace(/"/g, '&quot;');
+                return `<a href="#" class="medical-term-link" data-medical-id="${id}" data-img-url="${safeUrl}" data-video-url="${safeVideo}" data-media-type="${safeType}" data-img-title="${safeTitle}" onclick="openMedicalImagePopup(event,this)" title="${safeTitle}">${match}</a>`;
             });
         }
         return result;
@@ -2246,10 +2248,33 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         if (e.key === 'Escape') closeImageLightbox();
     }
 
-    function openImageLightbox(imgUrl, title = '') {
+    function getMedicalVideoEmbedHtml(videoUrl) {
+        const url = String(videoUrl || '').trim();
+        if (!url) return '';
+        let yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([A-Za-z0-9_-]{6,})/i);
+        if (yt) {
+            const id = yt[1];
+            return `<div class="image-lightbox-video-wrap"><iframe class="image-lightbox-video" src="https://www.youtube.com/embed/${id}?rel=0" title="Video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>`;
+        }
+        let vimeo = url.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
+        if (vimeo) {
+            return `<div class="image-lightbox-video-wrap"><iframe class="image-lightbox-video" src="https://player.vimeo.com/video/${vimeo[1]}" title="Video" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe></div>`;
+        }
+        if (/\.(mp4|webm|ogg)(\?|$)/i.test(url)) {
+            return `<video class="image-lightbox-video-file" src="${escapeHtmlStr(url)}" controls playsinline></video>`;
+        }
+        return `<p class="image-lightbox-video-fallback"><a href="${escapeHtmlStr(url)}" target="_blank" rel="noopener noreferrer">Открыть видео</a></p>`;
+    }
+
+    function openImageLightbox(imgUrl, title = '', videoUrl = '') {
         const url = String(imgUrl || '').trim();
-        if (!url) return;
+        const video = String(videoUrl || '').trim();
+        if (!url && !video) return;
         closeImageLightbox();
+
+        const mediaHtml = video
+            ? `${getMedicalVideoEmbedHtml(video)}${url ? `<img class="image-lightbox-img image-lightbox-img--secondary" src="${escapeHtmlStr(url)}" alt="${escapeHtmlStr(title || 'Изображение')}">` : ''}`
+            : `<img class="image-lightbox-img" src="${escapeHtmlStr(url)}" alt="${escapeHtmlStr(title || 'Изображение')}">`;
 
         const popup = document.createElement('div');
         popup.id = 'imageLightbox';
@@ -2260,7 +2285,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             <button type="button" class="image-lightbox-close" aria-label="Закрыть">&times;</button>
             <div class="image-lightbox-inner">
                 ${title ? `<h3 class="image-lightbox-title">${escapeHtmlStr(title)}</h3>` : ''}
-                <img class="image-lightbox-img" src="${escapeHtmlStr(url)}" alt="${escapeHtmlStr(title || 'Изображение')}">
+                ${mediaHtml}
             </div>
         `;
         popup.addEventListener('click', (ev) => {
@@ -2278,7 +2303,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     window.openMedicalImagePopup = function(e, el) {
         e.preventDefault();
         e.stopPropagation();
-        openImageLightbox(el.dataset.imgUrl, el.dataset.imgTitle || '');
+        openImageLightbox(el.dataset.imgUrl || '', el.dataset.imgTitle || '', el.dataset.videoUrl || '');
     };
 
     function isZoomableContentImage(img) {
@@ -2349,7 +2374,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 items.push({
                     id: a.dataset.medicalId || '',
                     title: a.dataset.imgTitle || a.textContent || '',
-                    url: a.dataset.imgUrl || ''
+                    url: a.dataset.imgUrl || '',
+                    videoUrl: a.dataset.videoUrl || '',
+                    mediaType: a.dataset.mediaType || ''
                 });
             });
             if (!items.length) return;
@@ -2363,14 +2390,16 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                             <a href="#" class="usmle-medical-library-link"
                                data-medical-id="${escapeHtmlStr(item.id)}"
                                data-img-url="${String(item.url || '').replace(/"/g, '&quot;')}"
+                               data-video-url="${String(item.videoUrl || '').replace(/"/g, '&quot;')}"
+                               data-media-type="${String(item.mediaType || '').replace(/"/g, '&quot;')}"
                                data-img-title="${String(item.title || '').replace(/"/g, '&quot;')}"
                                onclick="openMedicalImagePopup(event,this)">
                                 <svg class="usmle-medical-library-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                    <path d="M7 3h8l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.7"/>
-                                    <path d="M15 3v4h4" stroke="currentColor" stroke-width="1.7"/>
-                                    <path d="M9 12h6M9 16h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                                    ${item.videoUrl
+                                        ? '<path d="M8 5v14l11-7L8 5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>'
+                                        : '<path d="M7 3h8l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.7"/><path d="M15 3v4h4" stroke="currentColor" stroke-width="1.7"/><path d="M9 12h6M9 16h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>'}
                                 </svg>
-                                <span>${escapeHtmlStr(item.title)}</span>
+                                <span>${escapeHtmlStr(item.title)}${item.videoUrl ? ' · видео' : ''}</span>
                             </a>
                         </li>
                     `).join('')}

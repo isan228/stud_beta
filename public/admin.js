@@ -8306,17 +8306,20 @@ function renderMedicalImagesList() {
     const container = document.getElementById('medicalImagesList');
     if (!container) return;
     if (!medicalImages.length) {
-        container.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem; margin:0;">Нет изображений</p>';
+        container.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem; margin:0;">Пока пусто</p>';
         return;
     }
     container.innerHTML = medicalImages.map(img => {
         const kws = (img.keywords || []).slice(0, 3).join(', ');
         const more = img.keywords && img.keywords.length > 3 ? ` +${img.keywords.length - 3}` : '';
+        const thumb = img.imageUrl
+            ? `<img src="${img.imageUrl}" alt="" style="width:42px; height:42px; object-fit:cover; border-radius:6px; flex-shrink:0; cursor:pointer;" onclick="viewMedicalImage(${img.id})">`
+            : `<div onclick="viewMedicalImage(${img.id})" style="width:42px;height:42px;border-radius:6px;flex-shrink:0;background:var(--primary-color);color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;cursor:pointer;" title="Видео">▶</div>`;
+        const typeLabel = img.videoUrl ? (img.imageUrl ? 'фото+видео' : 'видео') : 'фото';
         return `<div style="display:flex; align-items:center; gap:0.6rem; background:var(--bg-secondary); border-radius:8px; padding:0.5rem 0.6rem;">
-            <img src="${img.imageUrl}" alt="" style="width:42px; height:42px; object-fit:cover; border-radius:6px; flex-shrink:0; cursor:pointer;"
-                onclick="viewMedicalImage(${img.id})">
+            ${thumb}
             <div style="flex:1; min-width:0;">
-                <div style="font-size:0.82rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${img.title || '—'}</div>
+                <div style="font-size:0.82rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${img.title || '—'} <span style="font-weight:500;color:var(--text-muted);">· ${typeLabel}</span></div>
                 <div style="font-size:0.75rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${kws}${more}</div>
             </div>
             <button class="btn btn-secondary btn-sm" onclick="openEditMedicalImageModal(${img.id})" style="padding:0.25rem 0.5rem; font-size:0.75rem;">✏️</button>
@@ -8328,8 +8331,9 @@ function renderMedicalImagesList() {
 function openAddMedicalImageModal() {
     editingMedicalImageId = null;
     pendingMedicalImageFile = null;
-    document.getElementById('medicalImageModalTitle').textContent = 'Добавить изображение';
+    document.getElementById('medicalImageModalTitle').textContent = 'Добавить в глоссарий';
     document.getElementById('medicalImageFile').value = '';
+    document.getElementById('medicalImageVideoUrl').value = '';
     document.getElementById('medicalImageTitle').value = '';
     document.getElementById('medicalImageKeywords').value = '';
     document.getElementById('medicalImageDescription').value = '';
@@ -8342,13 +8346,15 @@ function openEditMedicalImageModal(id) {
     if (!img) return;
     editingMedicalImageId = id;
     pendingMedicalImageFile = null;
-    document.getElementById('medicalImageModalTitle').textContent = 'Редактировать изображение';
+    document.getElementById('medicalImageModalTitle').textContent = 'Редактировать запись';
     document.getElementById('medicalImageFile').value = '';
+    document.getElementById('medicalImageVideoUrl').value = img.videoUrl || '';
     document.getElementById('medicalImageTitle').value = img.title || '';
     document.getElementById('medicalImageKeywords').value = (img.keywords || []).join(', ');
     document.getElementById('medicalImageDescription').value = img.description || '';
-    document.getElementById('medicalImagePreviewWrap').innerHTML =
-        `<img src="${img.imageUrl}" alt="" style="max-height:120px; border-radius:6px; margin-bottom:0.4rem; display:block;">`;
+    document.getElementById('medicalImagePreviewWrap').innerHTML = img.imageUrl
+        ? `<img src="${img.imageUrl}" alt="" style="max-height:120px; border-radius:6px; margin-bottom:0.4rem; display:block;">`
+        : (img.videoUrl ? `<p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 0.4rem;">Только видео · превью-фото нет</p>` : '');
     document.getElementById('medicalImageModal').style.display = 'flex';
 }
 
@@ -8361,9 +8367,27 @@ function closeMedicalImageModal() {
 function viewMedicalImage(id) {
     const img = medicalImages.find(m => m.id === id);
     if (!img) return;
-    document.getElementById('medicalImageViewTitle').textContent = img.title || 'Изображение';
-    document.getElementById('medicalImageViewImg').src = img.imageUrl;
-    document.getElementById('medicalImageViewImg').alt = img.title || '';
+    document.getElementById('medicalImageViewTitle').textContent = img.title || (img.videoUrl ? 'Видео' : 'Изображение');
+    const media = document.getElementById('medicalImageViewMedia');
+    let html = '';
+    if (img.videoUrl) {
+        const v = String(img.videoUrl);
+        const yt = v.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([A-Za-z0-9_-]{6,})/i);
+        const vim = v.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
+        if (yt) {
+            html += `<div style="position:relative;padding-top:56.25%;border-radius:8px;overflow:hidden;background:#000;"><iframe src="https://www.youtube.com/embed/${yt[1]}?rel=0" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allowfullscreen></iframe></div>`;
+        } else if (vim) {
+            html += `<div style="position:relative;padding-top:56.25%;border-radius:8px;overflow:hidden;background:#000;"><iframe src="https://player.vimeo.com/video/${vim[1]}" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allowfullscreen></iframe></div>`;
+        } else if (/\.(mp4|webm|ogg)(\?|$)/i.test(v)) {
+            html += `<video src="${v.replace(/"/g, '&quot;')}" controls style="max-width:100%;max-height:70vh;border-radius:8px;"></video>`;
+        } else {
+            html += `<p><a href="${v.replace(/"/g, '&quot;')}" target="_blank" rel="noopener">Открыть видео</a></p>`;
+        }
+    }
+    if (img.imageUrl) {
+        html += `<img src="${img.imageUrl}" alt="" style="max-width:100%; max-height:70vh; border-radius:8px; ${img.videoUrl ? 'margin-top:0.75rem;' : ''}">`;
+    }
+    media.innerHTML = html || '<p style="color:var(--text-muted);">Нет медиа</p>';
     document.getElementById('medicalImageViewDesc').textContent = img.description || '';
     document.getElementById('medicalImageViewModal').style.display = 'flex';
 }
@@ -8372,14 +8396,24 @@ async function saveMedicalImage() {
     const title = document.getElementById('medicalImageTitle').value.trim();
     const kwRaw = document.getElementById('medicalImageKeywords').value.trim();
     const description = document.getElementById('medicalImageDescription').value.trim();
+    const videoUrl = document.getElementById('medicalImageVideoUrl').value.trim();
     const fileInput = document.getElementById('medicalImageFile');
     const file = fileInput.files[0] || pendingMedicalImageFile;
+    const existing = editingMedicalImageId
+        ? medicalImages.find((m) => m.id === editingMedicalImageId)
+        : null;
 
-    if (!editingMedicalImageId && !file) {
-        showNotification('Выберите изображение', 'error'); return;
+    if (!editingMedicalImageId && !file && !videoUrl) {
+        showNotification('Добавьте фото или ссылку на видео', 'error'); return;
+    }
+    if (editingMedicalImageId && !file && !videoUrl && !(existing && existing.imageUrl)) {
+        showNotification('Нужно фото или ссылка на видео', 'error'); return;
     }
     if (!kwRaw) {
         showNotification('Введите хотя бы одно ключевое слово', 'error'); return;
+    }
+    if (videoUrl && !/^https?:\/\//i.test(videoUrl)) {
+        showNotification('Ссылка на видео должна начинаться с http:// или https://', 'error'); return;
     }
 
     const keywords = kwRaw.split(',').map(s => s.trim()).filter(Boolean);
@@ -8388,6 +8422,7 @@ async function saveMedicalImage() {
     formData.append('title', title);
     formData.append('description', description);
     formData.append('keywords', JSON.stringify(keywords));
+    formData.append('videoUrl', videoUrl);
 
     const btn = document.getElementById('saveMedicalImageBtn');
     btn.disabled = true;
@@ -8399,7 +8434,10 @@ async function saveMedicalImage() {
             : '/api/admin/medical-images';
         const method = editingMedicalImageId ? 'PUT' : 'POST';
         const resp = await fetch(url, { method, headers: adminAuthHeaders(), body: formData });
-        if (!resp.ok) throw new Error(await resp.text());
+        if (!resp.ok) {
+            const data = await resp.json().catch(() => ({}));
+            throw new Error(data.error || await resp.text());
+        }
         showNotification(editingMedicalImageId ? 'Обновлено' : 'Добавлено', 'success');
         closeMedicalImageModal();
         await loadMedicalImages();
@@ -8412,7 +8450,7 @@ async function saveMedicalImage() {
 }
 
 async function deleteMedicalImage(id) {
-    if (!confirm('Удалить изображение и все его ключевые слова?')) return;
+    if (!confirm('Удалить запись глоссария и все её ключевые слова?')) return;
     try {
         const resp = await fetch(`/api/admin/medical-images/${id}`, { method: 'DELETE', headers: adminAuthHeaders() });
         if (!resp.ok) throw new Error(await resp.text());

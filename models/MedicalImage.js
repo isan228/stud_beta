@@ -9,18 +9,23 @@ const MedicalImage = sequelize.define('MedicalImage', {
   },
   imageUrl: {
     type: DataTypes.STRING(512),
-    allowNull: false,
-    comment: 'Путь к изображению /uploads/medical-images/...'
+    allowNull: true,
+    comment: 'Путь к изображению /uploads/medical-images/... или null если только видео'
+  },
+  videoUrl: {
+    type: DataTypes.STRING(1024),
+    allowNull: true,
+    comment: 'Ссылка на видео (YouTube, Vimeo или прямой URL)'
   },
   title: {
     type: DataTypes.STRING(255),
     allowNull: true,
-    comment: 'Название/заголовок изображения'
+    comment: 'Название/заголовок'
   },
   description: {
     type: DataTypes.TEXT,
     allowNull: true,
-    comment: 'Описание изображения'
+    comment: 'Описание'
   },
   keywords: {
     type: DataTypes.TEXT,

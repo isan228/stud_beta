@@ -893,8 +893,8 @@
                                 <details>
                                     <summary class="admin-subs-uni-label admin-subs-collapse-summary">🖼️ Медицинский глоссарий</summary>
                                     <div class="admin-subs-collapse-body">
-                                        <p class="admin-subs-hint" style="margin-top:0;">Фото + ключевые слова. Ссылки появляются <strong>только в тексте объяснения USMLE</strong> (не в вопросе и не в вариантах ответа).</p>
-                                        <button type="button" class="btn btn-primary btn-sm" id="addMedicalImageBtn" style="width:100%; margin-top:0.5rem;">+ Добавить фото</button>
+                                        <p class="admin-subs-hint" style="margin-top:0;">Фото и/или ссылка на видео + ключевые слова. Ссылки появляются <strong>только в тексте объяснения USMLE</strong>.</p>
+                                        <button type="button" class="btn btn-primary btn-sm" id="addMedicalImageBtn" style="width:100%; margin-top:0.5rem;">+ Добавить в глоссарий</button>
                                         <div id="medicalImagesList" style="margin-top:0.75rem; display:flex; flex-direction:column; gap:0.5rem;"></div>
                                     </div>
                                 </details>
@@ -2093,10 +2093,15 @@
             </div>
             <div class="modal-body">
                 <div style="margin-bottom:1rem;">
-                    <label style="display:block; margin-bottom:0.4rem; font-weight:600;">Фото *</label>
+                    <label style="display:block; margin-bottom:0.4rem; font-weight:600;">Фото (необязательно, если есть видео)</label>
                     <input type="file" id="medicalImageFile" accept="image/*" style="display:none;">
                     <div id="medicalImagePreviewWrap" style="margin-bottom:0.5rem;"></div>
                     <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('medicalImageFile').click()">Выбрать фото</button>
+                </div>
+                <div style="margin-bottom:1rem;">
+                    <label style="display:block; margin-bottom:0.4rem; font-weight:600;">Ссылка на видео (необязательно)</label>
+                    <input type="url" id="medicalImageVideoUrl" placeholder="https://youtube.com/watch?v=... или https://.../file.mp4" style="width:100%; padding:0.5rem; box-sizing:border-box;">
+                    <p style="margin:0.35rem 0 0; font-size:0.82rem; color:var(--text-muted);">YouTube, Vimeo или прямая ссылка на mp4/webm.</p>
                 </div>
                 <div style="margin-bottom:1rem;">
                     <label style="display:block; margin-bottom:0.4rem; font-weight:600;">Название (необязательно)</label>
@@ -2104,12 +2109,12 @@
                 </div>
                 <div style="margin-bottom:1rem;">
                     <label style="display:block; margin-bottom:0.4rem; font-weight:600;">Ключевые слова *</label>
-                    <p style="margin:0 0 0.4rem; font-size:0.82rem; color:var(--text-muted);">Через запятую. Эти слова будут ссылками в тестах.</p>
+                    <p style="margin:0 0 0.4rem; font-size:0.82rem; color:var(--text-muted);">Через запятую. Эти слова будут ссылками в объяснениях.</p>
                     <input type="text" id="medicalImageKeywords" placeholder="myocardial infarction, STEMI, heart attack" style="width:100%; padding:0.5rem; box-sizing:border-box;">
                 </div>
                 <div style="margin-bottom:1rem;">
                     <label style="display:block; margin-bottom:0.4rem; font-weight:600;">Описание (необязательно)</label>
-                    <textarea id="medicalImageDescription" rows="3" placeholder="Краткое описание изображения" style="width:100%; padding:0.5rem; box-sizing:border-box; resize:vertical;"></textarea>
+                    <textarea id="medicalImageDescription" rows="3" placeholder="Краткое описание" style="width:100%; padding:0.5rem; box-sizing:border-box; resize:vertical;"></textarea>
                 </div>
             </div>
             <div class="modal-footer">
@@ -2127,7 +2132,7 @@
                 <button class="modal-close" onclick="document.getElementById('medicalImageViewModal').style.display='none'">×</button>
             </div>
             <div class="modal-body" style="padding:1rem;">
-                <img id="medicalImageViewImg" src="" alt="" style="max-width:100%; max-height:70vh; border-radius:8px;">
+                <div id="medicalImageViewMedia"></div>
                 <p id="medicalImageViewDesc" style="margin-top:0.75rem; color:var(--text-secondary); font-size:0.9rem;"></p>
             </div>
         </div>
