@@ -101,11 +101,11 @@ function makeImageDeleteHandler(getField) {
 }
 
 function imageFileFilter(req, file, cb) {
-  const extOk = /\.(jpe?g|png|gif|webp)$/i.test(file.originalname || '');
+  const extOk = /\.(jpe?g|jfif|png|gif|webp)$/i.test(file.originalname || '');
   if (isAllowedImageMime(file.mimetype) || extOk) {
     cb(null, true);
   } else {
-    cb(new Error('Разрешены только изображения JPG, PNG, GIF, WEBP'));
+    cb(new Error('Разрешены только изображения JPG, JFIF, PNG, GIF, WEBP'));
   }
 }
 

@@ -5384,7 +5384,7 @@ function applyFcImgFileToSide(side, file) {
     }
     const mime = String(file.type || '');
     const name = String(file.name || '');
-    const looksImage = mime.startsWith('image/') || /\.(jpe?g|png|gif|webp)$/i.test(name) || !mime;
+    const looksImage = mime.startsWith('image/') || /\.(jpe?g|jfif|png|gif|webp)$/i.test(name) || !mime;
     if (!looksImage) {
         showNotification('В буфере нет изображения', 'error');
         return false;
@@ -5402,12 +5402,14 @@ function applyFcImgFileToSide(side, file) {
 
     const rawExt = (mime.split('/')[1] || (name.includes('.') ? name.split('.').pop() : '') || 'png')
         .toLowerCase()
-        .replace('jpeg', 'jpg');
+        .replace('jpeg', 'jpg')
+        .replace('jfif', 'jpg')
+        .replace('pjpeg', 'jpg');
     const ext = ['jpg', 'png', 'gif', 'webp'].includes(rawExt) ? rawExt : 'png';
     const named = new File(
         [file],
         `screenshot-${key}-${Date.now()}.${ext}`,
-        { type: mime.startsWith('image/') ? mime : `image/${ext === 'jpg' ? 'jpeg' : ext}` }
+        { type: mime.startsWith('image/') ? (rawExt === 'jpg' ? 'image/jpeg' : mime) : `image/${ext === 'jpg' ? 'jpeg' : ext}` }
     );
 
     fcImgPendingFiles[key] = named;
@@ -6557,7 +6559,7 @@ function openUploadPreview(questions, options = {}) {
                     <div class="upload-preview-media-actions">
                         <label class="btn btn-secondary btn-sm upload-preview-file-btn">
                             📷 Фото объяснения
-                            <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" data-upload-kind="explanation" data-question-id="${q.id}" multiple hidden>
+                            <input type="file" accept="image/jpeg,image/jpg,image/jfif,image/png,image/gif,image/webp,.jfif,.jpg,.jpeg" data-upload-kind="explanation" data-question-id="${q.id}" multiple hidden>
                         </label>
                         <button type="button" class="btn btn-secondary btn-sm" data-remove-kind="explanation" data-question-id="${q.id}" ${normalizePreviewImageUrls(q.explanationImageUrls || q.explanationImageUrl).length ? '' : 'style="display:none"'}>Удалить все</button>
                     </div>
@@ -6577,7 +6579,7 @@ function openUploadPreview(questions, options = {}) {
                 <div class="upload-preview-media-actions">
                     <label class="btn btn-secondary btn-sm upload-preview-file-btn">
                         📷 Фото ответа
-                        <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" data-upload-kind="answer" data-answer-id="${a.id}" multiple hidden>
+                        <input type="file" accept="image/jpeg,image/jpg,image/jfif,image/png,image/gif,image/webp,.jfif,.jpg,.jpeg" data-upload-kind="answer" data-answer-id="${a.id}" multiple hidden>
                     </label>
                     <button type="button" class="btn btn-secondary btn-sm" data-remove-kind="answer" data-answer-id="${a.id}" ${normalizePreviewImageUrls(a.imageUrls || a.imageUrl).length ? '' : 'style="display:none"'}>Удалить все</button>
                 </div>
@@ -6612,7 +6614,7 @@ function openUploadPreview(questions, options = {}) {
                     <div class="upload-preview-media-actions">
                         <label class="btn btn-secondary btn-sm upload-preview-file-btn">
                             📷 Фото вопроса
-                            <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" data-upload-kind="question" data-question-id="${q.id}" multiple hidden>
+                            <input type="file" accept="image/jpeg,image/jpg,image/jfif,image/png,image/gif,image/webp,.jfif,.jpg,.jpeg" data-upload-kind="question" data-question-id="${q.id}" multiple hidden>
                         </label>
                         <button type="button" class="btn btn-secondary btn-sm" data-remove-kind="question" data-question-id="${q.id}" ${normalizePreviewImageUrls(q.imageUrls || q.imageUrl).length ? '' : 'style="display:none"'}>Удалить все</button>
                     </div>

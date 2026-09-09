@@ -2,22 +2,28 @@ const path = require('path');
 const fs = require('fs');
 
 const FLASHCARD_IMAGES_DIR = path.join(__dirname, '../public/uploads/flashcards');
-const ALLOWED_EXT = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp']);
+const ALLOWED_EXT = new Set(['.jpg', '.jpeg', '.jfif', '.png', '.gif', '.webp']);
+const JPEG_EXTS = new Set(['.jpg', '.jpeg', '.jfif']);
 
 if (!fs.existsSync(FLASHCARD_IMAGES_DIR)) {
   fs.mkdirSync(FLASHCARD_IMAGES_DIR, { recursive: true });
 }
 
 function isAllowedImageMime(mimetype) {
-  return /^image\/(jpeg|png|gif|webp)$/i.test(mimetype || '');
+  return /^image\/(jpeg|jpg|jfif|pjpeg|png|gif|webp)$/i.test(mimetype || '');
+}
+
+function isAllowedImageExt(originalname) {
+  return ALLOWED_EXT.has(path.extname(originalname || '').toLowerCase());
 }
 
 function safeImageExt(originalname, mimetype) {
   const ext = path.extname(originalname || '').toLowerCase();
-  if (ALLOWED_EXT.has(ext)) return ext === '.jpeg' ? '.jpg' : ext;
-  if (mimetype === 'image/png') return '.png';
-  if (mimetype === 'image/gif') return '.gif';
-  if (mimetype === 'image/webp') return '.webp';
+  if (JPEG_EXTS.has(ext)) return '.jpg';
+  if (ALLOWED_EXT.has(ext)) return ext;
+  if (/^image\/(png)$/i.test(mimetype || '')) return '.png';
+  if (/^image\/(gif)$/i.test(mimetype || '')) return '.gif';
+  if (/^image\/(webp)$/i.test(mimetype || '')) return '.webp';
   return '.jpg';
 }
 
@@ -53,6 +59,7 @@ function imageBasenameKey(name) {
 module.exports = {
   FLASHCARD_IMAGES_DIR,
   isAllowedImageMime,
+  isAllowedImageExt,
   safeImageExt,
   flashcardImageFilename,
   deleteFlashcardImageFile,

@@ -13,7 +13,7 @@ for (const dir of [MEDICAL_IMAGES_DIR, MEDICAL_VIDEOS_DIR]) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
-const ALLOWED_IMAGE = /\.(jpe?g|png|gif|webp)$/i;
+const ALLOWED_IMAGE = /\.(jpe?g|jfif|png|gif|webp)$/i;
 const ALLOWED_VIDEO = /\.(mp4|webm|ogg|mov|m4v)$/i;
 
 const storage = multer.diskStorage({
@@ -22,8 +22,9 @@ const storage = multer.diskStorage({
     else cb(null, MEDICAL_IMAGES_DIR);
   },
   filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase()
+    let ext = path.extname(file.originalname).toLowerCase()
       || (file.fieldname === 'video' ? '.mp4' : '.jpg');
+    if (ext === '.jpeg' || ext === '.jfif') ext = '.jpg';
     const prefix = file.fieldname === 'video' ? 'medvid' : 'medimg';
     cb(null, `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`);
   }
@@ -39,10 +40,10 @@ const upload = multer({
       else cb(new Error('Видео: MP4, WEBM, OGG, MOV'));
       return;
     }
-    if (/^image\/(jpeg|png|gif|webp)$/i.test(file.mimetype) || ALLOWED_IMAGE.test(name)) {
+    if (/^image\/(jpeg|jpg|jfif|pjpeg|png|gif|webp)$/i.test(file.mimetype) || ALLOWED_IMAGE.test(name)) {
       cb(null, true);
     } else {
-      cb(new Error('Фото: JPG, PNG, GIF, WEBP'));
+      cb(new Error('Фото: JPG, JFIF, PNG, GIF, WEBP'));
     }
   }
 });

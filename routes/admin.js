@@ -2512,12 +2512,12 @@ const flashcardImageUpload = multer({
   limits: { fileSize: IMAGE_UPLOAD_MAX_BYTES },
   fileFilter: (req, file, cb) => {
     const name = file.originalname || '';
-    const extOk = /\.(jpe?g|png|gif|webp)$/i.test(name);
+    const extOk = /\.(jpe?g|jfif|png|gif|webp)$/i.test(name);
     // Скриншоты из буфера часто без расширения в originalname
     if (isAllowedImageMime(file.mimetype) || extOk || /^image\//i.test(file.mimetype || '')) {
       cb(null, true);
     } else {
-      cb(new Error('Разрешены только JPG, PNG, GIF, WEBP'));
+      cb(new Error('Разрешены только JPG, JFIF, PNG, GIF, WEBP'));
     }
   }
 });
