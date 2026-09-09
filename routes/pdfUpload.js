@@ -5,6 +5,13 @@ const adminAuth = require('../middleware/adminAuth');
 const { Op } = require('sequelize');
 const { Question, Answer, Test, QuestionTag, QuestionTagMap, Flashcard, FlashcardTagMap, FlashcardTopic, Subject, University } = require('../models');
 const { parseLinkedQuestionsFromText, parseMixedUsmleQuestionsFromText } = require('../utils/usmleLinkedQuestions');
+const {
+  SA_BLOCK_COUNT,
+  SA_QUESTIONS_PER_BLOCK,
+  SA_TIMER_MINUTES,
+  isSelfAssessmentTest,
+  loadSaBlockQuestionRows
+} = require('../utils/usmleSelfAssessment');
 const { parseFlashcardsFromText } = require('../utils/parseFlashcardsTxt');
 const { extractTxtAnswers, mapAnswersWithCorrect, isValidCorrectIndex, extractQuotedField, normalizeTxt } = require('../utils/txtQuestionAnswers');
 const { normalizeTagName, slugifyTag, resolveCanonicalTagsByNames } = require('../utils/usmleTagNormalize');
@@ -397,14 +404,19 @@ async function handleFlashcardsTxtUpload(req, res) {
   });
 }
 
-async function saveParsedQuestions(testId, questions, { perQuestionTags = false } = {}) {
+async function saveParsedQuestions(testId, questions, { perQuestionTags = false, saBlockIndex = null } = {}) {
   const createdQuestions = [];
+  const blockIdx = saBlockIndex != null ? parseInt(saBlockIndex, 10) : null;
   for (const q of questions) {
-    const question = await Question.create({
+    const payload = {
       text: q.text,
       testId: parseInt(testId, 10),
       explanation: q.explanation || null
-    });
+    };
+    if (Number.isFinite(blockIdx) && blockIdx >= 1 && blockIdx <= 4) {
+      payload.saBlockIndex = blockIdx;
+    }
+    const question = await Question.create(payload);
 
     const createdAnswers = [];
     for (const answer of q.answers) {
@@ -700,6 +712,104 @@ router.post('/upload-txt-mixed', adminAuth, upload.single('pdf'), async (req, re
     await handleMixedTxtUpload(req, res);
   } catch (error) {
     console.error('Ошибка смешанной загрузки USMLE вопросов:', error);
+    res.status(500).json({ error: error.message || 'Ошибка обработки TXT файла' });
+  }
+});
+
+/**
+ * Self-Assessment: TXT в конкретный блок (1–4), до 40 вопросов, таймер 60 мин на стороне теста.
+ * Body: testId, blockIndex, replace=1|0
+ */
+async function handleSaBlockTxtUpload(req, res) {
+  if (!req.file) {
+    res.status(400).json({ error: 'TXT файл не загружен' });
+    return;
+  }
+
+  const testId = parseInt(req.body.testId, 10);
+  const blockIndex = parseInt(req.body.blockIndex, 10);
+  const replace = req.body.replace === true || req.body.replace === 'true' || req.body.replace === '1';
+
+  if (!Number.isFinite(testId) || testId <= 0) {
+    res.status(400).json({ error: 'ID теста обязателен' });
+    return;
+  }
+  if (!Number.isFinite(blockIndex) || blockIndex < 1 || blockIndex > SA_BLOCK_COUNT) {
+    res.status(400).json({ error: `blockIndex должен быть от 1 до ${SA_BLOCK_COUNT}` });
+    return;
+  }
+
+  const test = await Test.findByPk(testId);
+  if (!test) {
+    res.status(404).json({ error: 'Тест не найден' });
+    return;
+  }
+  if (test.programType !== 'usmle' || !isSelfAssessmentTest(test)) {
+    res.status(400).json({ error: 'Загрузка по блокам доступна только для Self-Assessment тестов USMLE' });
+    return;
+  }
+
+  const { syncTestHasExplanations } = require('../utils/syncTestExplanations');
+  await syncTestHasExplanations(test.id, true);
+
+  const text = normalizeTxt(req.file.buffer.toString('utf8'));
+  if (!text || text.trim().length === 0) {
+    res.status(400).json({ error: 'TXT файл пуст' });
+    return;
+  }
+
+  const parsed = parseMixedUsmleQuestionsFromText(text);
+  if (!parsed.length) {
+    res.status(400).json({
+      error: 'Не удалось найти вопросы в TXT. Нужны ID, Q, A1–A30, Correct, E, Subject/System/Tags (для связанных — GroupID).'
+    });
+    return;
+  }
+
+  if (parsed.length > SA_QUESTIONS_PER_BLOCK) {
+    res.status(400).json({
+      error: `В блоке максимум ${SA_QUESTIONS_PER_BLOCK} вопросов, в файле ${parsed.length}. Сократите файл.`
+    });
+    return;
+  }
+
+  if (replace) {
+    const existing = await loadSaBlockQuestionRows(Question, testId, blockIndex, ['id', 'saBlockIndex']);
+    const ids = existing.map((q) => q.id);
+    if (ids.length) {
+      await Answer.destroy({ where: { questionId: { [Op.in]: ids } } });
+      await QuestionTagMap.destroy({ where: { questionId: { [Op.in]: ids } } });
+      await Question.destroy({ where: { id: { [Op.in]: ids } } });
+    }
+  } else {
+    const currentCount = await Question.count({ where: { testId, saBlockIndex: blockIndex } }).catch(() => 0);
+    if (currentCount + parsed.length > SA_QUESTIONS_PER_BLOCK) {
+      res.status(400).json({
+        error: `В блоке #${blockIndex} уже ${currentCount} вопросов. Можно добавить ещё ${Math.max(0, SA_QUESTIONS_PER_BLOCK - currentCount)}, либо включите «Заменить блок».`
+      });
+      return;
+    }
+  }
+
+  const createdQuestions = await saveParsedQuestions(testId, parsed, {
+    perQuestionTags: true,
+    saBlockIndex: blockIndex
+  });
+
+  res.json({
+    message: `Block #${blockIndex}: загружено ${createdQuestions.length} вопросов (лимит ${SA_QUESTIONS_PER_BLOCK}, таймер ${SA_TIMER_MINUTES} мин)`,
+    blockIndex,
+    questionsPerBlock: SA_QUESTIONS_PER_BLOCK,
+    timerMinutes: SA_TIMER_MINUTES,
+    questions: createdQuestions
+  });
+}
+
+router.post('/upload-txt-sa-block', adminAuth, upload.single('pdf'), async (req, res) => {
+  try {
+    await handleSaBlockTxtUpload(req, res);
+  } catch (error) {
+    console.error('Ошибка загрузки SA блока:', error);
     res.status(500).json({ error: error.message || 'Ошибка обработки TXT файла' });
   }
 });

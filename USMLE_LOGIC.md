@@ -288,11 +288,17 @@ A1.. / Correct / E / Subject / System
 - Старт блока: `POST /api/tests/usmle/self-assessment/start` → таймер **60 мин**
 - Статусы блоков: `GET /api/tests/usmle/self-assessment/blocks?testId=`
 
-Нужно загрузить **160** вопросов в этот тест.
+Нужно загрузить **160** вопросов — **по 40 в каждый блок** через админку (таблица Blocks).
 
 Банк **Self-Assessment 1–3 - Step 1** создаётся автоматически при старте сервера / запросе dashboard и всегда виден на `/usmle` → Step 1.
 
 Страница `/usmle`: Step-переключатель, featured-карточки сверху, секция Question Banks с кольцами прогресса (как в референсе).
+
+Админка Self-Assessment:
+- выбрать SA-тест → таблица **Blocks** (4×40, Standard 60 min);
+- TXT / редактирование / очистка по блоку;
+- `POST /api/admin/upload-txt-sa-block` (`testId`, `blockIndex`, `replace`);
+- у вопроса поле `saBlockIndex` (1–4).
 
 ### 7.3 Flashcards
 `POST /api/admin/upload-txt-flashcards`  

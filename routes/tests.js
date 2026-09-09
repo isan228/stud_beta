@@ -13,7 +13,9 @@ const {
   SA_TIMER_MINUTES,
   isSelfAssessmentTest,
   extractBlockMeta,
-  blockSliceBounds
+  blockSliceBounds,
+  countQuestionsInSaBlock,
+  loadSaBlockQuestionRows
 } = require('../utils/usmleSelfAssessment');
 const { ALLOWED_COURSES } = require('../utils/ensureFaculties');
 const requireUsmleSubscription = require('../middleware/requireUsmleSubscription');
@@ -1177,8 +1179,7 @@ router.get('/usmle/self-assessment/blocks', async (req, res) => {
 
     const blocks = [];
     for (let i = 1; i <= SA_BLOCK_COUNT; i++) {
-      const { start, end } = blockSliceBounds(i);
-      const available = Math.max(0, Math.min(SA_QUESTIONS_PER_BLOCK, totalQuestions - start));
+      const available = await countQuestionsInSaBlock(Question, testId, i);
       const row = latestByBlock.get(i) || null;
       const complete = Boolean(row);
       blocks.push({
@@ -1258,24 +1259,17 @@ router.post('/usmle/self-assessment/start', async (req, res) => {
       return res.status(404).json({ error: 'Self-Assessment тест не найден' });
     }
 
-    const allQuestions = await Question.findAll({
-      where: { testId },
-      attributes: ['id', 'text', 'createdAt'],
-      order: [['createdAt', 'ASC'], ['id', 'ASC']]
-    });
-
-    const { start, end } = blockSliceBounds(blockIndex);
-    const slice = allQuestions.slice(start, end);
+    const slice = await loadSaBlockQuestionRows(Question, testId, blockIndex, ['id', 'text', 'createdAt', 'saBlockIndex']);
     if (slice.length < SA_QUESTIONS_PER_BLOCK) {
       return res.status(400).json({
-        error: `В блоке #${blockIndex} недостаточно вопросов (нужно ${SA_QUESTIONS_PER_BLOCK}, есть ${slice.length}). Загрузите ${SA_BLOCK_COUNT * SA_QUESTIONS_PER_BLOCK} вопросов в тест.`,
+        error: `В блоке #${blockIndex} недостаточно вопросов (нужно ${SA_QUESTIONS_PER_BLOCK}, есть ${slice.length}). Загрузите ${SA_QUESTIONS_PER_BLOCK} вопросов в этот блок в админке.`,
         available: slice.length,
         required: SA_QUESTIONS_PER_BLOCK
       });
     }
 
     // Внутри блока сохраняем связки; группы не перемешиваем между блоками.
-    const ordered = pickQuestionsKeepingLinkedOrder(slice, SA_QUESTIONS_PER_BLOCK, { shuffleGroups: false });
+    const ordered = pickQuestionsKeepingLinkedOrder(slice.slice(0, SA_QUESTIONS_PER_BLOCK), SA_QUESTIONS_PER_BLOCK, { shuffleGroups: false });
     const ids = ordered.map((q) => q.id);
 
     const questions = await Question.findAll({

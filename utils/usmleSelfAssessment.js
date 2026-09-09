@@ -42,6 +42,50 @@ function blockSliceBounds(blockIndex) {
   return { start, end: start + SA_QUESTIONS_PER_BLOCK, blockIndex: idx };
 }
 
+async function countQuestionsInSaBlock(QuestionModel, testId, blockIndex) {
+  const idx = parseInt(blockIndex, 10);
+  try {
+    const tagged = await QuestionModel.count({
+      where: { testId, saBlockIndex: idx }
+    });
+    if (tagged > 0) return tagged;
+  } catch (_) {}
+
+  const all = await QuestionModel.findAll({
+    where: { testId },
+    attributes: ['id'],
+    order: [['createdAt', 'ASC'], ['id', 'ASC']]
+  });
+  const { start, end } = blockSliceBounds(idx);
+  return all.slice(start, end).length;
+}
+
+async function loadSaBlockQuestionRows(QuestionModel, testId, blockIndex, attributes = ['id', 'text', 'createdAt', 'saBlockIndex']) {
+  const idx = parseInt(blockIndex, 10);
+  const findOpts = {
+    where: { testId, saBlockIndex: idx },
+    order: [['createdAt', 'ASC'], ['id', 'ASC']]
+  };
+  if (attributes) findOpts.attributes = attributes;
+
+  let tagged = [];
+  try {
+    tagged = await QuestionModel.findAll(findOpts);
+  } catch (_) {
+    tagged = [];
+  }
+  if (tagged.length) return tagged;
+
+  const allOpts = {
+    where: { testId },
+    order: [['createdAt', 'ASC'], ['id', 'ASC']]
+  };
+  if (attributes) allOpts.attributes = attributes;
+  const all = await QuestionModel.findAll(allOpts);
+  const { start, end } = blockSliceBounds(idx);
+  return all.slice(start, end);
+}
+
 module.exports = {
   SA_BLOCK_COUNT,
   SA_QUESTIONS_PER_BLOCK,
@@ -52,5 +96,7 @@ module.exports = {
   isSelfAssessmentTest,
   extractBlockMeta,
   withBlockMeta,
-  blockSliceBounds
+  blockSliceBounds,
+  countQuestionsInSaBlock,
+  loadSaBlockQuestionRows
 };

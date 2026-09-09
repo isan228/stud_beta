@@ -931,6 +931,42 @@
                                     <button type="button" class="btn btn-secondary" id="uploadUsmleTxtMixedBtn">🔗📘 TXT связанные+одиночные</button>
                                 </div>
                             </div>
+
+                            <div id="usmleSaBlocksPanel" style="display:none; margin-bottom:1.25rem;">
+                                <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:1rem; flex-wrap:wrap; margin-bottom:0.75rem;">
+                                    <div>
+                                        <h4 style="margin:0;">Self-Assessment — Blocks</h4>
+                                        <p style="margin:0.35rem 0 0; color:var(--text-muted); font-size:0.88rem;">
+                                            4 блока × 40 вопросов, таймер <strong>Standard (60 min)</strong>. Загрузка и редактирование по блокам.
+                                        </p>
+                                    </div>
+                                    <button type="button" class="btn btn-secondary btn-sm" id="usmleSaBlocksRefreshBtn">Обновить блоки</button>
+                                </div>
+                                <div style="overflow-x:auto; border:1px solid var(--border-light); border-radius:var(--radius); background:var(--card-bg);">
+                                    <table style="width:100%; border-collapse:collapse; font-size:0.92rem;">
+                                        <thead>
+                                            <tr style="background:var(--bg-secondary); text-align:left;">
+                                                <th style="padding:0.75rem 1rem;">Block ID</th>
+                                                <th style="padding:0.75rem 1rem;">Questions</th>
+                                                <th style="padding:0.75rem 1rem;">Time Allotted</th>
+                                                <th style="padding:0.75rem 1rem;">Status</th>
+                                                <th style="padding:0.75rem 1rem;">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="usmleSaBlocksBody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div id="usmleSaBlockQuestionsPanel" style="display:none; margin-bottom:1rem;">
+                                <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap; margin-bottom:0.75rem;">
+                                    <button type="button" class="btn btn-secondary btn-sm" id="usmleSaBackToBlocksBtn">← К блокам</button>
+                                    <h4 style="margin:0;" id="usmleSaBlockQuestionsTitle">Block</h4>
+                                    <button type="button" class="btn btn-primary btn-sm" id="usmleSaAddQuestionBtn">+ Вопрос в блок</button>
+                                    <button type="button" class="btn btn-secondary btn-sm" id="usmleSaUploadBlockBtn">📄 TXT в этот блок</button>
+                                </div>
+                            </div>
+
                             <div id="usmleQuestionsList" class="admin-list">
                                 <p style="color: var(--text-muted); text-align: center; padding: 1.5rem;">Выберите тест, чтобы увидеть вопросы</p>
                             </div>
@@ -1501,6 +1537,49 @@
         </div>
     </div>
 
+    <div id="txtSaBlockUploadModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 640px;">
+            <span class="modal-close">&times;</span>
+            <h2 id="txtSaBlockUploadTitle">📄 Self-Assessment: TXT в блок</h2>
+            <form id="txtSaBlockUploadForm" enctype="multipart/form-data">
+                <input type="hidden" id="txtSaBlockTestId">
+                <input type="hidden" id="txtSaBlockIndex">
+                <div class="form-group">
+                    <label for="txtSaBlockFile">TXT файл (до 40 вопросов)</label>
+                    <input type="file" id="txtSaBlockFile" accept=".txt" required>
+                    <div style="background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius); margin-top: 0.5rem;">
+                        <p style="margin: 0 0 0.5rem 0; font-weight: 600;">Формат как у USMLE TXT:</p>
+                        <pre style="margin: 0; font-size: 0.85rem; white-space: pre-wrap; color: var(--text-secondary); font-family: 'Courier New', monospace;">"ID":"1";
+"Q":"Вопрос?";
+"A1":"...";
+"A2":"...";
+"Correct":"1";
+"E":"Объяснение";
+"Subject":"Pathology";
+"System":"Cardiovascular";</pre>
+                        <p style="margin: 0.75rem 0 0; font-size: 0.85rem; color: var(--text-muted);">
+                            Можно связанные (с <strong>GroupID</strong>) и одиночные вместе. Максимум <strong>40</strong> вопросов. Таймер блока — <strong>60 мин</strong>.
+                        </p>
+                    </div>
+                </div>
+                <div class="form-group checkbox-group">
+                    <label>
+                        <input type="checkbox" id="txtSaBlockReplace" checked>
+                        <span>Заменить все вопросы этого блока</span>
+                    </label>
+                </div>
+                <div id="txtSaBlockUploadProgress" style="display: none; margin: 1rem 0;">
+                    <div style="background: var(--bg-secondary); border-radius: var(--radius); padding: 0.25rem; height: 24px;">
+                        <div id="txtSaBlockUploadProgressBar" style="background: linear-gradient(90deg, var(--primary-color), var(--primary-light)); height: 100%; border-radius: var(--radius); width: 0%; transition: width 0.3s;"></div>
+                    </div>
+                    <p id="txtSaBlockUploadStatus" style="margin-top: 0.5rem; color: var(--text-secondary); font-size: 0.9rem; text-align: center;">Обработка...</p>
+                </div>
+                <button type="submit" class="btn btn-primary">Загрузить в блок</button>
+                <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
+            </form>
+        </div>
+    </div>
+
     <div id="txtFlashcardsUploadModal" class="modal" style="display: none;">
         <div class="modal-content" style="max-width: 680px;">
             <span class="modal-close">&times;</span>
@@ -1763,6 +1842,16 @@
                 <div class="form-group">
                     <label for="questionTestId">Тест</label>
                     <select id="questionTestId" required></select>
+                </div>
+                <div class="form-group" id="questionSaBlockGroup" style="display:none;">
+                    <label for="questionSaBlockIndex">Self-Assessment блок</label>
+                    <select id="questionSaBlockIndex">
+                        <option value="">Без блока</option>
+                        <option value="1">Block - #1 (40 вопросов, 60 мин)</option>
+                        <option value="2">Block - #2 (40 вопросов, 60 мин)</option>
+                        <option value="3">Block - #3 (40 вопросов, 60 мин)</option>
+                        <option value="4">Block - #4 (40 вопросов, 60 мин)</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label for="questionTagIds">Теги USMLE (если тест USMLE)</label>

@@ -3001,7 +3001,7 @@ router.get('/tests', adminAuth, async (req, res) => {
     if (req.query.compact === '1') {
       const tests = await Test.findAll({
         where,
-        attributes: ['id', 'name', 'subjectId', 'universityId', 'hasExplanations', 'programType'],
+        attributes: ['id', 'name', 'subjectId', 'universityId', 'hasExplanations', 'programType', 'testKind'],
         order: [['name', 'ASC']]
       });
       return res.json(tests);
@@ -3260,25 +3260,150 @@ router.get('/questions', adminAuth, async (req, res) => {
     if (search) {
       where.text = { [Op.iLike]: `%${search}%` };
     }
+    const blockIndex = parseInt(req.query.blockIndex, 10);
+    const useBlock = Number.isFinite(blockIndex) && blockIndex >= 1 && blockIndex <= 4;
 
-    const questions = await Question.findAll({
-      where,
-      include: [{
-        model: Test,
-        as: 'Test',
-        attributes: ['id', 'name']
-      }, {
-        model: Answer,
-        as: 'Answers',
-        attributes: ['id', 'text', 'isCorrect', 'questionId']
-      }],
-      order: [['createdAt', 'DESC']],
-      limit
-    });
+    let questions;
+    if (useBlock) {
+      const { loadSaBlockQuestionRows } = require('../utils/usmleSelfAssessment');
+      const rows = await loadSaBlockQuestionRows(Question, testId, blockIndex, null);
+      const ids = rows.map((q) => q.id).slice(0, limit);
+      if (!ids.length) {
+        return res.json([]);
+      }
+      const full = await Question.findAll({
+        where: { id: { [Op.in]: ids } },
+        include: [{
+          model: Test,
+          as: 'Test',
+          attributes: ['id', 'name']
+        }, {
+          model: Answer,
+          as: 'Answers',
+          attributes: ['id', 'text', 'isCorrect', 'questionId']
+        }, {
+          model: QuestionTag,
+          as: 'Tags',
+          attributes: ['id', 'name', 'slug'],
+          through: { attributes: [] },
+          required: false
+        }]
+      });
+      const map = new Map(full.map((q) => [q.id, q]));
+      questions = ids.map((id) => map.get(id)).filter(Boolean);
+    } else {
+      questions = await Question.findAll({
+        where,
+        include: [{
+          model: Test,
+          as: 'Test',
+          attributes: ['id', 'name']
+        }, {
+          model: Answer,
+          as: 'Answers',
+          attributes: ['id', 'text', 'isCorrect', 'questionId']
+        }, {
+          model: QuestionTag,
+          as: 'Tags',
+          attributes: ['id', 'name', 'slug'],
+          through: { attributes: [] },
+          required: false
+        }],
+        order: [['createdAt', 'DESC']],
+        limit
+      });
+    }
 
     res.json(questions);
   } catch (error) {
     console.error('Ошибка получения вопросов:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+/**
+ * Self-Assessment: сводка по 4 блокам для админки
+ * GET /tests/:id/self-assessment/blocks
+ */
+router.get('/tests/:id/self-assessment/blocks', adminAuth, async (req, res) => {
+  try {
+    const {
+      SA_BLOCK_COUNT,
+      SA_QUESTIONS_PER_BLOCK,
+      SA_TIMER_MINUTES,
+      isSelfAssessmentTest,
+      countQuestionsInSaBlock
+    } = require('../utils/usmleSelfAssessment');
+
+    const test = await assertTestScope(req, res, req.params.id);
+    if (!test) return;
+    if (test.programType !== 'usmle' || !isSelfAssessmentTest(test)) {
+      return res.status(400).json({ error: 'Это не Self-Assessment тест' });
+    }
+
+    const blocks = [];
+    for (let i = 1; i <= SA_BLOCK_COUNT; i++) {
+      const count = await countQuestionsInSaBlock(Question, test.id, i);
+      blocks.push({
+        blockIndex: i,
+        blockId: `Block - #${i}`,
+        questionCount: count,
+        questionsPerBlock: SA_QUESTIONS_PER_BLOCK,
+        remaining: Math.max(0, SA_QUESTIONS_PER_BLOCK - count),
+        ready: count >= SA_QUESTIONS_PER_BLOCK,
+        timeAllowedMinutes: SA_TIMER_MINUTES,
+        timeAllowedLabel: `Standard (${SA_TIMER_MINUTES} min)`
+      });
+    }
+
+    res.json({
+      testId: test.id,
+      testName: test.name,
+      blockCount: SA_BLOCK_COUNT,
+      questionsPerBlock: SA_QUESTIONS_PER_BLOCK,
+      timerMinutes: SA_TIMER_MINUTES,
+      blocks
+    });
+  } catch (error) {
+    console.error('Ошибка SA blocks admin:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+/**
+ * Удалить все вопросы блока Self-Assessment
+ * DELETE /tests/:id/self-assessment/blocks/:blockIndex
+ */
+router.delete('/tests/:id/self-assessment/blocks/:blockIndex', adminAuth, async (req, res) => {
+  try {
+    const {
+      SA_BLOCK_COUNT,
+      isSelfAssessmentTest,
+      loadSaBlockQuestionRows
+    } = require('../utils/usmleSelfAssessment');
+
+    const test = await assertTestScope(req, res, req.params.id);
+    if (!test) return;
+    if (test.programType !== 'usmle' || !isSelfAssessmentTest(test)) {
+      return res.status(400).json({ error: 'Это не Self-Assessment тест' });
+    }
+
+    const blockIndex = parseInt(req.params.blockIndex, 10);
+    if (!Number.isFinite(blockIndex) || blockIndex < 1 || blockIndex > SA_BLOCK_COUNT) {
+      return res.status(400).json({ error: 'Неверный blockIndex' });
+    }
+
+    const rows = await loadSaBlockQuestionRows(Question, test.id, blockIndex, ['id']);
+    const ids = rows.map((q) => q.id);
+    if (ids.length) {
+      await Answer.destroy({ where: { questionId: { [Op.in]: ids } } });
+      await QuestionTagMap.destroy({ where: { questionId: { [Op.in]: ids } } });
+      await Question.destroy({ where: { id: { [Op.in]: ids } } });
+    }
+
+    res.json({ message: `Block #${blockIndex}: удалено ${ids.length} вопросов`, deleted: ids.length });
+  } catch (error) {
+    console.error('Ошибка удаления SA блока:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
@@ -3297,7 +3422,7 @@ router.post('/questions', adminAuth, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { text, testId, answers, explanation, setTestWithExplanations, tagIds } = req.body;
+    const { text, testId, answers, explanation, setTestWithExplanations, tagIds, saBlockIndex } = req.body;
     const withExplanations = setTestWithExplanations === true || setTestWithExplanations === 'true';
 
     const scopedTest = await assertTestScope(req, res, testId);
@@ -3309,13 +3434,19 @@ router.post('/questions', adminAuth, [
       return res.status(400).json({ error: 'Должен быть хотя бы один правильный ответ' });
     }
 
-    const question = await Question.create({
+    const blockIdx = parseInt(saBlockIndex, 10);
+    const questionPayload = {
       text,
       testId,
       explanation: withExplanations && explanation != null && String(explanation).trim()
         ? String(explanation).trim()
         : null
-    });
+    };
+    if (Number.isFinite(blockIdx) && blockIdx >= 1 && blockIdx <= 4) {
+      questionPayload.saBlockIndex = blockIdx;
+    }
+
+    const question = await Question.create(questionPayload);
 
     const { syncTestHasExplanations } = require('../utils/syncTestExplanations');
     await syncTestHasExplanations(testId, withExplanations);
@@ -3388,7 +3519,7 @@ router.put('/questions/:id', adminAuth, [
     const beforeSnapshot = snapshotFromQuestion(question, question.Answers);
     beforeSnapshot.questionId = question.id;
 
-    const { text, testId, answers, explanation, setTestWithExplanations, tagIds } = req.body;
+    const { text, testId, answers, explanation, setTestWithExplanations, tagIds, saBlockIndex } = req.body;
     const withExplanations = setTestWithExplanations === true || setTestWithExplanations === 'true';
     const { deleteQuestionImageFile } = require('../utils/questionImages');
     const { syncTestHasExplanations } = require('../utils/syncTestExplanations');
@@ -3412,6 +3543,10 @@ router.put('/questions/:id', adminAuth, [
     }
     if (testId !== undefined && testId !== null) {
       question.testId = testId;
+    }
+    if (saBlockIndex !== undefined) {
+      const blockIdx = parseInt(saBlockIndex, 10);
+      question.saBlockIndex = (Number.isFinite(blockIdx) && blockIdx >= 1 && blockIdx <= 4) ? blockIdx : null;
     }
     await question.save();
     await syncTestHasExplanations(testId ?? question.testId, withExplanations);

@@ -34,6 +34,11 @@ const Question = sequelize.define('Question', {
       key: 'id'
     }
   },
+  saBlockIndex: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    comment: 'Self-Assessment: номер блока 1–4 (по 40 вопросов, таймер 60 мин)'
+  },
   createdAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
