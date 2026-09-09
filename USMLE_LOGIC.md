@@ -290,7 +290,9 @@ A1.. / Correct / E / Subject / System
 
 Нужно загрузить **160** вопросов в этот тест.
 
-Банк **Self-Assessment 1 - Step 1** создаётся автоматически при старте сервера / запросе dashboard и всегда виден на `/usmle` → Step 1 (сверху списка).
+Банк **Self-Assessment 1–3 - Step 1** создаётся автоматически при старте сервера / запросе dashboard и всегда виден на `/usmle` → Step 1.
+
+Страница `/usmle`: Step-переключатель, featured-карточки сверху, секция Question Banks с кольцами прогресса (как в референсе).
 
 ### 7.3 Flashcards
 `POST /api/admin/upload-txt-flashcards`  

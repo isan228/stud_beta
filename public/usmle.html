@@ -9,53 +9,258 @@
     <link rel="apple-touch-icon" sizes="192x192" href="/img/icon-192.png">
     <link rel="manifest" href="/site.webmanifest">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-    <meta name="theme-color" content="#2563eb">
+    <meta name="theme-color" content="#1e40af">
     <title>USMLE — stud.kg</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="usmle-app.css">
     <style>
-        .step-switcher {
-            display: flex; gap: 0; background: var(--card-bg); border: 1px solid var(--border-light);
-            border-radius: 999px; padding: .3rem; width: fit-content; margin: 0 auto 1.75rem;
-            box-shadow: var(--shadow);
+        :root {
+            --hub-blue: #1d4ed8;
+            --hub-blue-deep: #1e3a8a;
+            --hub-blue-soft: #eff6ff;
+            --hub-card-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
         }
+        body.usmle-hub-page {
+            background: #f3f5f9;
+        }
+        body.usmle-hub-page[data-theme="dark"],
+        html[data-theme="dark"] body.usmle-hub-page {
+            background: var(--bg-color);
+        }
+        .usmle-hub {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 1.25rem 1.25rem 3rem;
+        }
+        .usmle-hub-step {
+            display: flex;
+            justify-content: center;
+            margin: 0.5rem 0 1.5rem;
+        }
+        .step-switcher {
+            display: flex;
+            gap: 0;
+            background: #e8edf5;
+            border-radius: 999px;
+            padding: 0.28rem;
+            box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.25);
+        }
+        html[data-theme="dark"] .step-switcher { background: var(--bg-secondary); }
         .step-btn {
-            padding: .55rem 1.6rem; border-radius: 999px; border: none; background: none;
-            color: var(--text-secondary); font-size: .9rem; font-weight: 600; cursor: pointer;
-            transition: all .2s; white-space: nowrap;
+            padding: 0.55rem 1.75rem;
+            border-radius: 999px;
+            border: none;
+            background: transparent;
+            color: #64748b;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all .18s;
         }
         .step-btn.active {
-            background: var(--primary-color); color: #fff;
-            box-shadow: 0 2px 10px rgba(37,99,235,.3);
+            background: var(--hub-blue);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(29, 78, 216, 0.35);
         }
-        .step-btn:hover:not(.active) { color: var(--primary-color); }
-        .usmle-bank-top { display:flex; justify-content:space-between; gap:.75rem; margin-bottom:.85rem; }
-        .usmle-bank-name { font-size:1.05rem; font-weight:800; margin:0; line-height:1.25; }
-        .usmle-bank-pct { font-size:.8rem; font-weight:700; opacity:.85; white-space:nowrap; }
-        .usmle-bank-stats { display:flex; flex-direction:column; gap:.28rem; margin-top:auto; font-size:.82rem; opacity:.92; }
-        .usmle-bank-stat { display:flex; justify-content:space-between; gap:.5rem; }
-        .usmle-bank-card:not(.active-bank) .usmle-bank-pct,
-        .usmle-bank-card:not(.active-bank) .usmle-bank-stats { color: var(--text-secondary); }
-        .usmle-bank-card:not(.active-bank) .usmle-bank-stat strong { color: var(--text-color); }
-        .usmle-empty { text-align:center; padding:3rem 1rem; color:var(--text-secondary); grid-column:1/-1; }
-        .usmle-skel { height:140px; border-radius:1rem; background:var(--border-light); animation:blink 1.3s ease-in-out infinite; }
-        @keyframes blink { 0%,100%{opacity:.5} 50%{opacity:.9} }
-        @media (max-width: 768px) {
+        .usmle-featured-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.75rem;
+        }
+        .usmle-feat-card {
+            border-radius: 1.1rem;
+            padding: 1.15rem 1.2rem 1.25rem;
+            min-height: 168px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            box-shadow: var(--hub-card-shadow);
+            transition: transform .15s, box-shadow .18s;
+            border: 1px solid transparent;
+            display: flex;
+            flex-direction: column;
+        }
+        .usmle-feat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+        }
+        .usmle-feat-card.tone-blue {
+            background: linear-gradient(145deg, #1e40af 0%, #2563eb 55%, #3b82f6 100%);
+            color: #fff;
+        }
+        .usmle-feat-card.tone-navy {
+            background: linear-gradient(145deg, #0f172a 0%, #1e3a8a 100%);
+            color: #fff;
+        }
+        .usmle-feat-card.tone-white {
+            background: #fff;
+            color: #0f172a;
+            border-color: #e2e8f0;
+        }
+        html[data-theme="dark"] .usmle-feat-card.tone-white {
+            background: var(--card-bg);
+            color: var(--text-color);
+            border-color: var(--border-light);
+        }
+        .usmle-feat-title {
+            margin: 0 0 0.85rem;
+            font-size: 1.2rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            padding-right: 3.5rem;
+        }
+        .usmle-feat-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            font-size: 0.86rem;
+            margin-top: auto;
+            opacity: 0.95;
+        }
+        .usmle-feat-stats div { display: flex; justify-content: space-between; gap: 0.5rem; }
+        .usmle-feat-stats strong { font-weight: 800; }
+        .usmle-feat-arc {
+            position: absolute;
+            top: 0.85rem;
+            right: 0.85rem;
+            width: 58px;
+            height: 58px;
+        }
+        .usmle-feat-arc svg { width: 58px; height: 58px; transform: rotate(-90deg); }
+        .usmle-feat-arc .track { fill: none; stroke: rgba(255,255,255,0.25); stroke-width: 5; }
+        .usmle-feat-card.tone-white .usmle-feat-arc .track { stroke: #e2e8f0; }
+        .usmle-feat-arc .bar { fill: none; stroke: #fff; stroke-width: 5; stroke-linecap: round; }
+        .usmle-feat-card.tone-white .usmle-feat-arc .bar { stroke: var(--hub-blue); }
+        .usmle-feat-arc .pct {
+            position: absolute; inset: 0; display: grid; place-items: center;
+            font-size: 0.62rem; font-weight: 800; transform: none;
+            text-align: center; line-height: 1.1; padding: 0 4px;
+        }
+        .usmle-feat-card.tone-white .usmle-feat-arc .pct { color: var(--hub-blue); }
+        .usmle-feat-promo {
+            display: flex; flex-direction: column; justify-content: space-between; height: 100%;
+        }
+        .usmle-feat-badge {
+            display: inline-block; font-size: 0.68rem; font-weight: 800;
+            letter-spacing: 0.04em; text-transform: uppercase;
+            background: rgba(255,255,255,0.18); padding: 0.25rem 0.55rem; border-radius: 999px;
+            width: fit-content; margin-bottom: 0.65rem;
+        }
+        .usmle-feat-promo p { margin: 0; font-size: 0.9rem; opacity: 0.9; max-width: 14rem; }
+        .usmle-feat-go {
+            margin-top: 1rem; width: 2.4rem; height: 2.4rem; border-radius: 999px;
+            border: 2px solid rgba(255,255,255,0.55); background: transparent; color: #fff;
+            display: inline-flex; align-items: center; justify-content: center; font-size: 1.1rem;
+        }
+
+        .usmle-qb-head {
+            display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
+            gap: 0.85rem; margin: 0 0 1rem;
+        }
+        .usmle-qb-head h2 {
+            margin: 0; font-size: 1.35rem; font-weight: 800; color: #0f172a;
+        }
+        html[data-theme="dark"] .usmle-qb-head h2 { color: var(--text-color); }
+        .usmle-qb-sub {
+            margin: 0.35rem 0 0; font-size: 0.9rem; color: #64748b;
+        }
+        .usmle-qb-sub strong { color: var(--hub-blue); }
+        .usmle-tg-actions { display: flex; flex-wrap: wrap; gap: 0.55rem; }
+        .usmle-tg-btn {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            background: var(--hub-blue); color: #fff !important; text-decoration: none;
+            border-radius: 0.65rem; padding: 0.55rem 0.9rem; font-size: 0.84rem; font-weight: 700;
+            box-shadow: 0 4px 12px rgba(29, 78, 216, 0.25);
+        }
+        .usmle-tg-btn:hover { filter: brightness(1.06); }
+        .usmle-tg-btn svg { width: 1rem; height: 1rem; }
+
+        .usmle-qb-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+        }
+        .usmle-qb-card {
+            background: #fff;
+            border: 1px solid #e8edf5;
+            border-radius: 1.05rem;
+            padding: 1.15rem 1.15rem 1.2rem;
+            box-shadow: var(--hub-card-shadow);
+            cursor: pointer;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 0.75rem;
+            align-items: center;
+            transition: transform .15s, box-shadow .18s;
+            min-height: 150px;
+        }
+        html[data-theme="dark"] .usmle-qb-card {
+            background: var(--card-bg);
+            border-color: var(--border-light);
+        }
+        .usmle-qb-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.1);
+            border-color: #bfdbfe;
+        }
+        .usmle-qb-name {
+            margin: 0 0 0.7rem;
+            font-size: 1.02rem;
+            font-weight: 800;
+            color: #0f172a;
+            line-height: 1.25;
+        }
+        html[data-theme="dark"] .usmle-qb-name { color: var(--text-color); }
+        .usmle-qb-stats {
+            display: flex; flex-direction: column; gap: 0.32rem;
+            font-size: 0.84rem; color: #64748b;
+        }
+        .usmle-qb-stats div { display: flex; justify-content: space-between; gap: 0.75rem; }
+        .usmle-qb-stats strong { color: #0f172a; font-weight: 800; }
+        html[data-theme="dark"] .usmle-qb-stats strong { color: var(--text-color); }
+        .usmle-ring {
+            width: 86px; height: 86px; position: relative; flex-shrink: 0;
+        }
+        .usmle-ring svg { width: 86px; height: 86px; transform: rotate(-90deg); }
+        .usmle-ring .track { fill: none; stroke: #e2e8f0; stroke-width: 7; }
+        .usmle-ring .bar { fill: none; stroke: var(--hub-blue); stroke-width: 7; stroke-linecap: round; }
+        .usmle-ring .label {
+            position: absolute; inset: 0; display: grid; place-items: center;
+            text-align: center; font-size: 0.72rem; font-weight: 800; color: var(--hub-blue);
+            line-height: 1.15; padding: 0 8px;
+        }
+
+        .usmle-empty {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 2.5rem 1rem;
+            color: #64748b;
+            background: #fff;
+            border-radius: 1rem;
+            border: 1px dashed #cbd5e1;
+        }
+        .usmle-skel {
+            height: 160px; border-radius: 1.1rem; background: #e2e8f0;
+            animation: blink 1.3s ease-in-out infinite;
+        }
+        @keyframes blink { 0%,100%{opacity:.55} 50%{opacity:.95} }
+
+        @media (max-width: 1100px) {
+            .usmle-featured-grid, .usmle-qb-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 640px) {
+            .usmle-hub { padding: 0.85rem 0.85rem 2.5rem; }
             .step-switcher { width: 100%; max-width: 420px; }
-            .step-btn { flex: 1; text-align: center; padding: .5rem .9rem; font-size: .85rem; }
-            .usmle-banks-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
-            .page-header h1 { font-size: 1.5rem; }
-        }
-        @media (max-width: 540px) {
-            .step-switcher { width: 100%; }
-            .step-btn { flex: 1; text-align: center; padding: .5rem .65rem; }
-            .usmle-banks-grid { grid-template-columns: 1fr; }
-            .usmle-bank-card { min-height: 120px; padding: 1rem; }
-            .main-content .container { padding-left: 0.85rem; padding-right: 0.85rem; }
+            .step-btn { flex: 1; padding: 0.5rem 0.75rem; font-size: 0.85rem; }
+            .usmle-featured-grid, .usmle-qb-grid { grid-template-columns: 1fr; }
+            .usmle-qb-head { align-items: stretch; }
+            .usmle-tg-actions { width: 100%; }
+            .usmle-tg-btn { flex: 1; justify-content: center; }
         }
     </style>
 </head>
-<body>
+<body class="usmle-hub-page">
 <nav class="navbar">
     <div class="container">
         <div class="nav-brand"><a href="/"><h1>stud.kg</h1></a></div>
@@ -80,31 +285,45 @@
     </div>
 </nav>
 
-<main class="main-content">
-    <div class="container">
-        <div class="page-header" style="margin-bottom:1.25rem; text-align:center;">
-            <h1 style="margin:0 0 .35rem;">USMLE</h1>
-            <p class="page-description" style="margin:0 auto; max-width:36rem;">
-                Сначала выберите Step и банк вопросов. После этого откроется статистика и меню по выбранному банку.
-            </p>
+<main class="main-content" style="padding-top:1rem;">
+    <div class="usmle-hub">
+        <div class="usmle-hub-step">
+            <div class="step-switcher" role="tablist" aria-label="Выбор Step">
+                <button class="step-btn active" data-step="step1" onclick="selectStep('step1')" role="tab">Step 1</button>
+                <button class="step-btn" data-step="step2" onclick="selectStep('step2')" role="tab">Step 2</button>
+                <button class="step-btn" data-step="step3" onclick="selectStep('step3')" role="tab">Step 3</button>
+            </div>
         </div>
-
-        <div class="step-switcher" role="tablist" aria-label="Выбор Step">
-            <button class="step-btn active" data-step="step1" onclick="selectStep('step1')" role="tab">Step 1</button>
-            <button class="step-btn" data-step="step2" onclick="selectStep('step2')" role="tab">Step 2</button>
-            <button class="step-btn" data-step="step3" onclick="selectStep('step3')" role="tab">Step 3</button>
-        </div>
-
-        <p style="font-size:1.15rem;font-weight:800;margin:0 0 .35rem;" id="stepTitle">Банки вопросов — Step 1</p>
-        <p style="font-size:.875rem;color:var(--text-muted);margin:0 0 1.25rem;">Нажмите на банк, чтобы открыть статистику и создать тест</p>
 
         <div id="usmleLoading">
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1rem;">
+            <div class="usmle-featured-grid">
                 <div class="usmle-skel"></div><div class="usmle-skel"></div>
                 <div class="usmle-skel"></div><div class="usmle-skel"></div>
             </div>
         </div>
-        <div class="usmle-banks-grid" id="usmleBanksGrid" style="display:none;"></div>
+
+        <div id="usmleHubContent" style="display:none;">
+            <div class="usmle-featured-grid" id="usmleFeaturedGrid"></div>
+
+            <div class="usmle-qb-head">
+                <div>
+                    <h2>Question Banks</h2>
+                    <p class="usmle-qb-sub" id="usmleSubLabel">You are currently on subscription <strong>USMLE</strong>.</p>
+                </div>
+                <div class="usmle-tg-actions">
+                    <a class="usmle-tg-btn" href="https://t.me/stud_kg" target="_blank" rel="noopener noreferrer">
+                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9.04 15.38 8.86 19c.3 0 .44-.13.6-.29l1.44-1.38 2.99 2.2c.55.3 1.08.14 1.25-.5l2.26-10.64c.2-.9-.33-1.25-.91-1.03L5.05 11.2c-.87.34-.86.82-.15 1.04l3.5 1.09 8.12-5.12c.38-.25.73-.11.44.14"/></svg>
+                        Join our group
+                    </a>
+                    <a class="usmle-tg-btn" href="https://t.me/stud_kg" target="_blank" rel="noopener noreferrer">
+                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9.04 15.38 8.86 19c.3 0 .44-.13.6-.29l1.44-1.38 2.99 2.2c.55.3 1.08.14 1.25-.5l2.26-10.64c.2-.9-.33-1.25-.91-1.03L5.05 11.2c-.87.34-.86.82-.15 1.04l3.5 1.09 8.12-5.12c.38-.25.73-.11.44.14"/></svg>
+                        Join our channel
+                    </a>
+                </div>
+            </div>
+
+            <div class="usmle-qb-grid" id="usmleBanksGrid"></div>
+        </div>
     </div>
 </main>
 
@@ -116,17 +335,18 @@
     let dashboardData = null;
     let activeStep = (window.UsmleApp && window.UsmleApp.getStoredStep()) || 'step1';
     const STEP_LABELS = { step1: 'Step 1', step2: 'Step 2', step3: 'Step 3' };
+    const R = 22;
+    const C = 2 * Math.PI * R;
+    const R2 = 36;
+    const C2 = 2 * Math.PI * R2;
 
     function selectStep(step) {
         activeStep = step;
         if (window.UsmleApp) window.UsmleApp.setStoredStep(step);
-        document.querySelectorAll('.step-btn').forEach(b => {
-            const on = b.dataset.step === step;
-            b.classList.toggle('active', on);
+        document.querySelectorAll('.step-btn').forEach((b) => {
+            b.classList.toggle('active', b.dataset.step === step);
         });
-        const title = document.getElementById('stepTitle');
-        if (title) title.textContent = `Банки вопросов — ${STEP_LABELS[step]}`;
-        renderCards();
+        renderHub();
     }
 
     function openBank(test) {
@@ -151,45 +371,103 @@
     }
 
     function escHtml(str) {
-        return String(str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        return String(str || '').replace(/[&<>"']/g, (c) => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
     }
 
-    function renderCards() {
+    function arcSvg(pct, compact) {
+        const p = Math.max(0, Math.min(100, Number(pct) || 0));
+        const r = compact ? R : R2;
+        const c = compact ? C : C2;
+        const offset = c - (p / 100) * c;
+        const cls = compact ? 'usmle-feat-arc' : 'usmle-ring';
+        return `<div class="${cls}">
+            <svg viewBox="0 0 ${r * 2 + 10} ${r * 2 + 10}">
+                <circle class="track" cx="${r + 5}" cy="${r + 5}" r="${r}"></circle>
+                <circle class="bar" cx="${r + 5}" cy="${r + 5}" r="${r}"
+                    stroke-dasharray="${c}" stroke-dashoffset="${offset}"></circle>
+            </svg>
+            <div class="${compact ? 'pct' : 'label'}">${p.toFixed(1)}%<br>Used</div>
+        </div>`;
+    }
+
+    function bankAttrs(t) {
+        const isSa = !!(t.isSelfAssessment || t.testKind === 'self_assessment');
+        return `data-test-id="${t.id}" data-test-name="${escHtml(t.name)}"
+            data-test-kind="${escHtml(t.testKind || 'standard')}"
+            data-self-assessment="${isSa ? '1' : '0'}"
+            onclick="openBankFromCard(this)" onkeydown="if(event.key==='Enter')this.click()"
+            role="button" tabindex="0"`;
+    }
+
+    function featuredCardHtml(t, tone) {
+        const pct = Number(t.percentage) || 0;
+        const banksCount = t.isSelfAssessment ? 4 : Math.max(1, Number(t.totalTests) || 1);
+        return `<div class="usmle-feat-card ${tone}" ${bankAttrs(t)}>
+            ${arcSvg(pct, true)}
+            <h3 class="usmle-feat-title">${escHtml(t.name)}</h3>
+            <div class="usmle-feat-stats">
+                <div><span>Total Questions</span><strong>${t.totalQuestions || 0}</strong></div>
+                <div><span>Used Questions</span><strong>${t.usedQuestions || 0}</strong></div>
+                <div><span>${t.isSelfAssessment ? 'Blocks' : 'Question Banks'}</span><strong>${banksCount}</strong></div>
+            </div>
+        </div>`;
+    }
+
+    function promoCardHtml() {
+        return `<a class="usmle-feat-card tone-navy" href="/usmle-flashcards" style="text-decoration:none;">
+            <div class="usmle-feat-promo">
+                <div>
+                    <span class="usmle-feat-badge">New experience</span>
+                    <h3 class="usmle-feat-title" style="padding-right:0;">Flashcards</h3>
+                    <p>Articles, qbank practice &amp; more inside stud.kg USMLE</p>
+                </div>
+                <span class="usmle-feat-go" aria-hidden="true">→</span>
+            </div>
+        </a>`;
+    }
+
+    function qbCardHtml(t) {
+        const pct = Number(t.percentage) || 0;
+        const totalTests = t.isSelfAssessment ? 4 : Math.max(Number(t.testsCompleted) || 0, Number(t.totalTests) || 0);
+        return `<div class="usmle-qb-card" ${bankAttrs(t)}>
+            <div>
+                <h3 class="usmle-qb-name">${escHtml(t.name)}</h3>
+                <div class="usmle-qb-stats">
+                    <div><span>Used Questions</span><strong>${t.usedQuestions || 0}</strong></div>
+                    <div><span>Total Questions</span><strong>${t.totalQuestions || 0}</strong></div>
+                    <div><span>Total Tests</span><strong>${totalTests}</strong></div>
+                </div>
+            </div>
+            ${arcSvg(pct, false)}
+        </div>`;
+    }
+
+    function renderHub() {
+        const featured = document.getElementById('usmleFeaturedGrid');
         const grid = document.getElementById('usmleBanksGrid');
-        if (!grid || !dashboardData) return;
+        if (!featured || !grid || !dashboardData) return;
+
         const banks = dashboardData[activeStep] || [];
+        const regular = banks.filter((t) => !t.isSelfAssessment && t.testKind !== 'self_assessment');
+        const tones = ['tone-blue', 'tone-white', 'tone-white', 'tone-blue'];
+
+        const featuredBanks = regular.slice(0, 3);
+        let featHtml = featuredBanks.map((t, i) => featuredCardHtml(t, tones[i] || 'tone-white')).join('');
+        featHtml += promoCardHtml();
+        if (!featuredBanks.length) {
+            // если обычных банков нет — покажем SA как featured
+            const saFeat = banks.filter((t) => t.isSelfAssessment).slice(0, 3);
+            featHtml = saFeat.map((t, i) => featuredCardHtml(t, tones[i] || 'tone-white')).join('') + promoCardHtml();
+        }
+        featured.innerHTML = featHtml;
+
         if (!banks.length) {
             grid.innerHTML = `<div class="usmle-empty"><p>Для ${STEP_LABELS[activeStep]} пока нет банков вопросов.</p></div>`;
             return;
         }
-        grid.innerHTML = banks.map((t, i) => {
-            const pct = Number(t.percentage) || 0;
-            const active = i === 0 ? ' active-bank' : '';
-            const isSa = !!(t.isSelfAssessment || t.testKind === 'self_assessment');
-            const badge = isSa ? '<span class="usmle-bank-pct" style="color:var(--primary-color);">Self-Assessment</span>' : `<span class="usmle-bank-pct">${pct.toFixed(1)}% использовано</span>`;
-            const stats = isSa
-                ? `<div class="usmle-bank-stats">
-                    <div class="usmle-bank-stat"><span>Блоков</span><strong>4</strong></div>
-                    <div class="usmle-bank-stat"><span>Вопросов / блок</span><strong>40</strong></div>
-                    <div class="usmle-bank-stat"><span>Таймер</span><strong>60 мин</strong></div>
-                </div>`
-                : `<div class="usmle-bank-stats">
-                    <div class="usmle-bank-stat"><span>Всего вопросов</span><strong>${t.totalQuestions}</strong></div>
-                    <div class="usmle-bank-stat"><span>Использовано</span><strong>${t.usedQuestions}</strong></div>
-                    <div class="usmle-bank-stat"><span>Верно</span><strong>${t.correctCount}</strong></div>
-                </div>`;
-            return `<div class="usmle-bank-card${active}" role="button" tabindex="0"
-                data-test-id="${t.id}" data-test-name="${escHtml(t.name)}"
-                data-test-kind="${escHtml(t.testKind || 'standard')}"
-                data-self-assessment="${isSa ? '1' : '0'}"
-                onclick="openBankFromCard(this)" onkeydown="if(event.key==='Enter')this.click()">
-                <div class="usmle-bank-top">
-                    <h3 class="usmle-bank-name">${escHtml(t.name)}</h3>
-                    ${badge}
-                </div>
-                ${stats}
-            </div>`;
-        }).join('');
+        grid.innerHTML = banks.map(qbCardHtml).join('');
     }
 
     function openBankFromCard(el) {
@@ -201,6 +479,17 @@
         });
     }
 
+    function updateSubLabel() {
+        const el = document.getElementById('usmleSubLabel');
+        if (!el) return;
+        const u = window.currentUser;
+        const active = window.UsmleApp && window.UsmleApp.hasActiveUsmleSubscription
+            ? window.UsmleApp.hasActiveUsmleSubscription()
+            : false;
+        const label = u?.isAdminAccount ? 'Admin' : (active ? 'Unlimited' : 'Inactive');
+        el.innerHTML = `You are currently on subscription <strong>[${escHtml(label)}]</strong>.`;
+    }
+
     async function loadDashboard() {
         try {
             const token = localStorage.getItem('token');
@@ -209,13 +498,12 @@
             if (!res.ok) throw new Error();
             dashboardData = await res.json();
             document.getElementById('usmleLoading').style.display = 'none';
-            document.getElementById('usmleBanksGrid').style.display = '';
-            document.querySelectorAll('.step-btn').forEach(b => {
+            document.getElementById('usmleHubContent').style.display = '';
+            document.querySelectorAll('.step-btn').forEach((b) => {
                 b.classList.toggle('active', b.dataset.step === activeStep);
             });
-            const title = document.getElementById('stepTitle');
-            if (title) title.textContent = `Банки вопросов — ${STEP_LABELS[activeStep]}`;
-            renderCards();
+            updateSubLabel();
+            renderHub();
         } catch {
             document.getElementById('usmleLoading').innerHTML =
                 `<p style="text-align:center;color:var(--danger-color);padding:2rem;">Ошибка загрузки.

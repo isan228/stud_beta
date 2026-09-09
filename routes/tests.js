@@ -567,13 +567,16 @@ router.get('/usmle/dashboard', async (req, res) => {
     }
 
     const lastOutcome = new Map();
+    const testsCompletedByTest = new Map();
     if (userId && tests.length) {
       const rows = await TestResult.findAll({
         where: { userId, testId: { [Op.in]: tests.map((t) => t.id) } },
-        attributes: ['results', 'createdAt'],
+        attributes: ['testId', 'results', 'createdAt'],
         order: [['createdAt', 'ASC']]
       });
       for (const row of rows) {
+        const tid = Number(row.testId);
+        testsCompletedByTest.set(tid, (testsCompletedByTest.get(tid) || 0) + 1);
         const r = row.results;
         if (!r || typeof r !== 'object') continue;
         for (const [qid, data] of Object.entries(r)) {
@@ -599,6 +602,7 @@ router.get('/usmle/dashboard', async (req, res) => {
         if (lastOutcome.get(qId) === true) correct++;
       }
       const total = qIds.length;
+      const isSa = isSelfAssessmentTest(t);
       const item = {
         id: t.id,
         name: t.name,
@@ -606,24 +610,26 @@ router.get('/usmle/dashboard', async (req, res) => {
         subjectId: t.subjectId,
         stepGroup: step,
         isFree: !!t.isFree,
-        testKind: isSelfAssessmentTest(t) ? 'self_assessment' : (t.testKind || 'standard'),
-        isSelfAssessment: isSelfAssessmentTest(t),
+        testKind: isSa ? 'self_assessment' : (t.testKind || 'standard'),
+        isSelfAssessment: isSa,
         totalQuestions: total,
         usedQuestions: used,
         correctCount: correct,
-        percentage: total > 0 ? Math.round((used / total) * 1000) / 10 : 0
+        percentage: total > 0 ? Math.round((used / total) * 1000) / 10 : 0,
+        testsCompleted: testsCompletedByTest.get(Number(t.id)) || 0,
+        totalTests: isSa ? 4 : Math.max(1, testsCompletedByTest.get(Number(t.id)) || 0)
       };
       if (grouped[step]) grouped[step].push(item);
       else grouped.step1.push(item);
     }
 
-    // Self-Assessment всегда сверху в Step 1
+    // Обычные банки, затем Self-Assessment по номеру
     for (const step of Object.keys(grouped)) {
       grouped[step].sort((a, b) => {
-        const aSa = a.isSelfAssessment ? 0 : 1;
-        const bSa = b.isSelfAssessment ? 0 : 1;
+        const aSa = a.isSelfAssessment ? 1 : 0;
+        const bSa = b.isSelfAssessment ? 1 : 0;
         if (aSa !== bSa) return aSa - bSa;
-        return String(a.name || '').localeCompare(String(b.name || ''), 'en');
+        return String(a.name || '').localeCompare(String(b.name || ''), 'en', { numeric: true });
       });
     }
 

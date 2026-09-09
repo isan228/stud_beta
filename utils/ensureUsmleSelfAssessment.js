@@ -1,11 +1,15 @@
 const { Subject, Test } = require('../models');
 
-const SA_TEST_NAME = 'Self-Assessment 1 - Step 1';
 const SA_SUBJECT_NAME = 'Self-Assessments';
+const SA_TEST_NAMES = [
+  'Self-Assessment 1 - Step 1',
+  'Self-Assessment 2 - Step 1',
+  'Self-Assessment 3 - Step 1'
+];
 
 /**
- * Гарантирует банк Self-Assessment 1 - Step 1 на /usmle (Step 1).
- * Вопросы админ загружает отдельно (нужно 160 = 4×40).
+ * Гарантирует Self-Assessment 1–3 (Step 1) на /usmle.
+ * В каждый банк нужно 160 вопросов (4×40).
  */
 async function ensureUsmleSelfAssessment() {
   let subject = await Subject.findOne({
@@ -42,81 +46,69 @@ async function ensureUsmleSelfAssessment() {
     } catch (_) {}
   }
 
-  let test = null;
-  try {
-    test = await Test.findOne({
-      where: {
+  const allUsmle = await Test.findAll({
+    where: { programType: 'usmle' },
+    attributes: ['id', 'name', 'subjectId', 'hasExplanations', 'testKind']
+  }).catch(async () => Test.findAll({
+    where: { programType: 'usmle' },
+    attributes: ['id', 'name', 'subjectId', 'hasExplanations']
+  }));
+
+  const created = [];
+  for (let i = 0; i < SA_TEST_NAMES.length; i++) {
+    const name = SA_TEST_NAMES[i];
+    const num = i + 1;
+    let test = allUsmle.find((t) => String(t.name || '').trim() === name)
+      || allUsmle.find((t) => new RegExp(`self[-\\s]?assessment\\s*${num}\\b`, 'i').test(t.name || ''));
+
+    if (!test) {
+      const payload = {
+        name,
+        description: '4 блока × 40 вопросов, таймер 60 минут на блок',
+        subjectId: subject.id,
+        universityId: null,
         programType: 'usmle',
-        testKind: 'self_assessment',
-        name: SA_TEST_NAME
+        isFree: false,
+        hasExplanations: true
+      };
+      try {
+        test = await Test.create({ ...payload, testKind: 'self_assessment' });
+      } catch (_) {
+        test = await Test.create(payload);
       }
-    });
-  } catch (_) {
-    test = null;
-  }
-
-  if (!test) {
-    test = await Test.findOne({
-      where: {
-        programType: 'usmle',
-        name: SA_TEST_NAME
-      }
-    });
-  }
-
-  if (!test) {
-    const all = await Test.findAll({
-      where: { programType: 'usmle' },
-      attributes: ['id', 'name', 'subjectId', 'hasExplanations']
-    });
-    test = all.find((t) => /self[-\s]?assessment\s*1/i.test(t.name || '')) || null;
-  }
-
-  if (!test) {
-    const payload = {
-      name: SA_TEST_NAME,
-      description: '4 блока × 40 вопросов, таймер 60 минут на блок',
-      subjectId: subject.id,
-      universityId: null,
-      programType: 'usmle',
-      isFree: false,
-      hasExplanations: true
-    };
-    try {
-      test = await Test.create({ ...payload, testKind: 'self_assessment' });
-    } catch (e) {
-      // Колонка testKind ещё не в БД
-      test = await Test.create(payload);
+      console.log(`✅ USMLE банк создан: ${name} (id=${test.id})`);
+      created.push(test);
+      continue;
     }
-    console.log(`✅ USMLE банк создан: ${SA_TEST_NAME} (id=${test.id})`);
-    return test;
-  }
 
-  let changed = false;
-  try {
-    if (test.testKind !== 'self_assessment') {
-      test.testKind = 'self_assessment';
+    let changed = false;
+    try {
+      if (test.testKind !== 'self_assessment') {
+        test.testKind = 'self_assessment';
+        changed = true;
+      }
+    } catch (_) {}
+    if (test.name !== name) {
+      test.name = name;
       changed = true;
     }
-  } catch (_) {}
-  if (test.name !== SA_TEST_NAME) {
-    test.name = SA_TEST_NAME;
-    changed = true;
-  }
-  if (!test.hasExplanations) {
-    test.hasExplanations = true;
-    changed = true;
-  }
-  if (changed) {
-    await test.save();
-    console.log(`✅ USMLE Self-Assessment обновлён: id=${test.id}`);
+    if (!test.hasExplanations) {
+      test.hasExplanations = true;
+      changed = true;
+    }
+    if (changed) {
+      await test.save();
+      console.log(`✅ USMLE Self-Assessment обновлён: ${name} (id=${test.id})`);
+    }
+    created.push(test);
   }
 
-  return test;
+  return created;
 }
 
 module.exports = {
   ensureUsmleSelfAssessment,
-  SA_TEST_NAME,
+  SA_TEST_NAMES,
+  SA_TEST_NAME: SA_TEST_NAMES[0],
   SA_SUBJECT_NAME
 };
