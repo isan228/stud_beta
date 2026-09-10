@@ -92,7 +92,7 @@
                             <span id="userUniversity" style="margin-right:0.5rem;">-</span>
                         </p>
                         <form id="changeUniversityForm" class="password-form" style="margin:0.5rem 0 1rem;">
-                            <div class="form-group" style="margin-bottom:0.75rem;">
+                            <div id="university" class="form-group" style="margin-bottom:0.75rem;">
                                 <label for="profileUniversityId">Изменить университет</label>
                                 <select id="profileUniversityId" required>
                                     <option value="">Загрузка...</option>
@@ -426,6 +426,18 @@
             if (location.hash === '#direction') {
                 const el = document.getElementById('direction');
                 if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            if (location.hash === '#university') {
+                const form = document.getElementById('changeUniversityForm');
+                const select = document.getElementById('profileUniversityId');
+                if (form) {
+                    form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    form.classList.add('university-setup-highlight');
+                    setTimeout(() => form.classList.remove('university-setup-highlight'), 4500);
+                }
+                if (select) {
+                    try { select.focus({ preventScroll: true }); } catch (_) { select.focus(); }
+                }
             }
 
             if (typeof window.loadAndRenderSubscriptionPlans === 'function') {

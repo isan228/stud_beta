@@ -424,6 +424,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         updateNavUserChip();
         ensureUserChatVisibility();
         ensureSubscriptionAlertVisibility();
+        ensureUniversitySetupPrompt();
     }
 
     function ensureUserChatVisibility() {
@@ -505,6 +506,123 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }];
     }
 
+    function userNeedsUniversity() {
+        if (!currentUser) return false;
+        if (currentUser.isAdminAccount === true) return false;
+        const uniId = currentUser.universityId || currentUser.University?.id;
+        return !(uniId && Number(uniId) > 0);
+    }
+
+    function buildUniversitySetupAlert() {
+        if (!userNeedsUniversity()) return [];
+        return [{
+            level: 'danger',
+            kind: 'university-setup',
+            key: 'university-setup',
+            title: 'Выберите университет',
+            text: 'Без университета недоступны тесты и тарифы вашего вуза. Укажите университет в профиле.',
+            link: '/profile#university',
+            linkLabel: 'Выбрать университет'
+        }];
+    }
+
+    function ensureUniversitySetupPrompt() {
+        if (!userNeedsUniversity()) return;
+        const path = String(window.location.pathname || '');
+        if (
+            path.includes('/login')
+            || path.includes('/register')
+            || path.includes('/admin')
+            || path.includes('/payment')
+        ) {
+            return;
+        }
+
+        // На профиле только подсвечиваем форму выбора (один раз за сессию)
+        if (path.includes('/profile')) {
+            let focused = false;
+            try {
+                focused = sessionStorage.getItem('uniSetupFocused') === '1';
+            } catch (_) {}
+            if (!focused || String(window.location.hash || '') === '#university') {
+                focusUniversitySelector({ scroll: true, notify: !focused });
+                try {
+                    sessionStorage.setItem('uniSetupFocused', '1');
+                } catch (_) {}
+            }
+            return;
+        }
+
+        let already = false;
+        try {
+            already = sessionStorage.getItem('uniSetupPrompted') === '1';
+        } catch (_) {}
+
+        showUniversityRequiredModal({
+            autoRedirect: !already
+        });
+        try {
+            sessionStorage.setItem('uniSetupPrompted', '1');
+        } catch (_) {}
+    }
+
+    function focusUniversitySelector(options = {}) {
+        const form = document.getElementById('changeUniversityForm');
+        const select = document.getElementById('profileUniversityId');
+        if (!form && !select) return;
+        if (options.scroll !== false && form) {
+            form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        if (form) {
+            form.classList.add('university-setup-highlight');
+            setTimeout(() => form.classList.remove('university-setup-highlight'), 4500);
+        }
+        if (select) {
+            try { select.focus({ preventScroll: true }); } catch (_) { select.focus(); }
+        }
+        if (options.notify !== false && typeof showNotification === 'function') {
+            showNotification('Выберите университет и нажмите «Сохранить университет»', 'warning');
+        }
+    }
+
+    function showUniversityRequiredModal(options = {}) {
+        let modal = document.getElementById('universityRequiredModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'universityRequiredModal';
+            modal.className = 'modal university-required-modal';
+            modal.innerHTML = `
+                <div class="modal-content university-required-modal-content" role="dialog" aria-modal="true" aria-labelledby="universityRequiredTitle">
+                    <h2 id="universityRequiredTitle">Выберите университет</h2>
+                    <p>Чтобы открыть тесты и подписку вашего вуза, сначала укажите университет в профиле.</p>
+                    <div class="university-required-actions">
+                        <a href="/profile#university" class="btn btn-primary" id="universityRequiredGoBtn">Выбрать университет</a>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    // Не закрываем кликом вне — нужно выбрать вуз; только кнопка ведёт дальше
+                    e.stopPropagation();
+                }
+            });
+        }
+        modal.style.display = 'flex';
+        if (options.autoRedirect) {
+            setTimeout(() => {
+                if (userNeedsUniversity() && !String(window.location.pathname || '').includes('/profile')) {
+                    window.location.href = '/profile#university';
+                }
+            }, 1400);
+        }
+    }
+
+    function closeUniversityRequiredModal() {
+        const modal = document.getElementById('universityRequiredModal');
+        if (modal) modal.style.display = 'none';
+    }
+
     function getLocalAlertSeenKey(key) {
         return `alertSeen:${key}`;
     }
@@ -573,7 +691,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             });
             pendingBroadcastAlerts = (pendingBroadcastAlerts || []).map((a) => ({ ...a, isRead: true }));
             pendingDeviceAlerts = (pendingDeviceAlerts || []).map((a) => ({ ...a, isRead: true }));
-            [...buildSubscriptionAlerts(), ...buildScheduleSetupAlert()].forEach((a) => {
+            [...buildSubscriptionAlerts(), ...buildScheduleSetupAlert(), ...buildUniversitySetupAlert()].forEach((a) => {
                 if (a.key) markLocalAlertSeen(a.key);
             });
         } catch (e) {
@@ -652,8 +770,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         ensureSubscriptionAlertVisibility();
     }
 
-    function countUnreadAlerts(subAlerts, scheduleAlerts, deviceAlerts, broadcastAlerts) {
-        const localUnread = [...subAlerts, ...scheduleAlerts].filter((a) => !isLocalAlertSeen(a.key)).length;
+    function countUnreadAlerts(subAlerts, scheduleAlerts, universityAlerts, deviceAlerts, broadcastAlerts) {
+        const localUnread = [...subAlerts, ...scheduleAlerts, ...(universityAlerts || [])]
+            .filter((a) => !isLocalAlertSeen(a.key)).length;
         const deviceUnread = (deviceAlerts || []).filter((a) => a.isRead !== true).length;
         const broadcastUnread = (broadcastAlerts || []).filter((a) => a.isRead !== true).length;
         return localUnread + deviceUnread + broadcastUnread;
@@ -665,10 +784,18 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const fabDock = document.getElementById('userChatFabDock');
         const subAlerts = buildSubscriptionAlerts();
         const scheduleAlerts = buildScheduleSetupAlert();
+        const universityAlerts = buildUniversitySetupAlert();
         const deviceAlerts = pendingDeviceAlerts || [];
         const broadcastAlerts = pendingBroadcastAlerts || [];
-        const totalCount = subAlerts.length + scheduleAlerts.length + deviceAlerts.length + broadcastAlerts.length;
-        const unreadCount = countUnreadAlerts(subAlerts, scheduleAlerts, deviceAlerts, broadcastAlerts);
+        const totalCount = subAlerts.length + scheduleAlerts.length + universityAlerts.length
+            + deviceAlerts.length + broadcastAlerts.length;
+        const unreadCount = countUnreadAlerts(
+            subAlerts,
+            scheduleAlerts,
+            universityAlerts,
+            deviceAlerts,
+            broadcastAlerts
+        );
 
         if (!fabDock) return;
 
@@ -788,6 +915,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
             const subHtml = renderLocal(subAlerts);
             const scheduleHtml = renderLocal(scheduleAlerts);
+            const universityHtml = renderLocal(universityAlerts);
             const devHtml = deviceAlerts.map((a) => {
                 const when = a.createdAt ? new Date(a.createdAt).toLocaleString('ru-RU') : '';
                 const ip = a.ipAddress || '—';
@@ -814,7 +942,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                     <button type="button" class="btn btn-secondary btn-sm broadcast-alert-dismiss" data-dismiss-id="${a.id}">Скрыть</button>
                 </div>`;
             }).join('');
-            list.innerHTML = scheduleHtml + broadcastHtml + subHtml + devHtml;
+            list.innerHTML = universityHtml + scheduleHtml + broadcastHtml + subHtml + devHtml;
             list.querySelectorAll('.broadcast-alert-dismiss').forEach((btn) => {
                 btn.addEventListener('click', async (ev) => {
                     ev.preventDefault();
@@ -3816,6 +3944,12 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 await loadProfileUniversitiesSelect(currentUser.universityId);
                 await fillProfileDirectionForm(currentUser);
                 await loadMyScheduleProfile(currentUser);
+                try {
+                    sessionStorage.removeItem('uniSetupPrompted');
+                    sessionStorage.removeItem('uniSetupFocused');
+                } catch (_) {}
+                closeUniversityRequiredModal();
+                ensureSubscriptionAlertVisibility();
                 showNotification(data.message || 'Университет сохранён', 'success');
             } catch (err) {
                 showNotification(err.message || 'Ошибка сохранения', 'error');
