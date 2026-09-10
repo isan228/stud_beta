@@ -162,6 +162,12 @@
             box-shadow: 0 6px 16px rgba(220, 38, 38, 0.28);
         }
 
+        .rating-tab.is-direction.is-active {
+            background: #059669;
+            border-color: #059669;
+            box-shadow: 0 6px 16px rgba(5, 150, 105, 0.28);
+        }
+
         .rating-panel {
             display: grid;
             gap: 1.25rem;
@@ -426,7 +432,7 @@
             <section class="rating-hero">
                 <div class="rating-hero-inner">
                     <h1>Рейтинг</h1>
-                    <p class="rating-hero-lead">Топ месяца по правильным ответам — отдельно для USMLE и для каждого университета.</p>
+                    <p class="rating-hero-lead">Топ месяца по правильным ответам — USMLE, университеты и ваше направление (факультет + курс).</p>
                     <div class="rating-meta-row">
                         <span class="rating-pill" id="ratingPeriod">Период загружается…</span>
                         <span class="rating-pill" id="ratingParticipantsPill" style="display:none;">Участников: <strong id="ratingParticipants">0</strong></span>
@@ -488,7 +494,8 @@
             var state = {
                 scope: null,
                 universityId: null,
-                universities: []
+                universities: [],
+                myDirection: null
             };
 
             function esc(s) {
@@ -504,11 +511,36 @@
                 return u.shortName || u.name || ('Университет #' + u.id);
             }
 
+            function directionTabLabel(d) {
+                if (!d) return 'Моё направление';
+                var fac = d.facultyShortName || d.facultyName || 'Факультет';
+                return fac + ' · ' + d.course + ' курс';
+            }
+
+            function directionTitle(data) {
+                var d = data.direction || data.myDirection;
+                var fac = d
+                    ? (d.facultyName || d.facultyShortName || 'Факультет')
+                    : 'Направление';
+                var course = d && d.course ? (d.course + ' курс') : '';
+                var uni = data.university
+                    ? (data.university.shortName || data.university.name)
+                    : '';
+                return [uni, fac, course].filter(Boolean).join(' · ');
+            }
+
             function renderTabs() {
                 if (!tabsEl) return;
                 var html = '<button type="button" class="rating-tab is-usmle' +
                     (state.scope === 'usmle' ? ' is-active' : '') +
                     '" data-scope="usmle">USMLE</button>';
+
+                if (state.myDirection) {
+                    html += '<button type="button" class="rating-tab is-direction' +
+                        (state.scope === 'direction' ? ' is-active' : '') +
+                        '" data-scope="direction">' + esc(directionTabLabel(state.myDirection)) + '</button>';
+                }
+
                 (state.universities || []).forEach(function(u) {
                     var active = state.scope === 'university' && Number(state.universityId) === Number(u.id);
                     html += '<button type="button" class="rating-tab' + (active ? ' is-active' : '') +
@@ -567,6 +599,8 @@
                 if (scopeLabelEl) {
                     if (data.scope === 'usmle') {
                         scopeLabelEl.textContent = 'Рейтинг USMLE';
+                    } else if (data.scope === 'direction') {
+                        scopeLabelEl.textContent = 'Рейтинг направления';
                     } else {
                         var name = data.university
                             ? (data.university.shortName ? data.university.shortName + ' — ' + data.university.name : data.university.name)
@@ -575,7 +609,13 @@
                     }
                 }
                 if (scopeSubEl) {
-                    scopeSubEl.textContent = 'Топ-' + Math.min(20, list.length || 20) + ' · ' + (data.totalParticipants || 0) + ' участников';
+                    if (data.scope === 'direction') {
+                        scopeSubEl.textContent = directionTitle(data)
+                            + ' · без деления на группы · топ-' + Math.min(20, list.length || 20)
+                            + ' · ' + (data.totalParticipants || 0) + ' участников';
+                    } else {
+                        scopeSubEl.textContent = 'Топ-' + Math.min(20, list.length || 20) + ' · ' + (data.totalParticipants || 0) + ' участников';
+                    }
                 }
 
                 if (list.length === 0) {
@@ -586,9 +626,15 @@
                         podiumEl.innerHTML = '';
                     }
                     emptyEl.style.display = 'block';
-                    emptyEl.textContent = data.scope === 'usmle'
-                        ? 'Пока нет данных рейтинга USMLE за этот месяц.'
-                        : 'Пока нет данных рейтинга этого университета за этот месяц.';
+                    if (data.message) {
+                        emptyEl.textContent = data.message;
+                    } else if (data.scope === 'usmle') {
+                        emptyEl.textContent = 'Пока нет данных рейтинга USMLE за этот месяц.';
+                    } else if (data.scope === 'direction') {
+                        emptyEl.textContent = 'Пока нет данных рейтинга вашего направления за этот месяц.';
+                    } else {
+                        emptyEl.textContent = 'Пока нет данных рейтинга этого университета за этот месяц.';
+                    }
                     if (myRankCard) myRankCard.style.display = 'none';
                     return;
                 }
@@ -651,6 +697,7 @@
                         state.scope = data.scope || scope || 'usmle';
                         state.universityId = data.universityId || universityId || null;
                         state.universities = data.universities || state.universities || [];
+                        state.myDirection = data.myDirection || null;
                         renderTabs();
                         renderBoard(data);
                     })

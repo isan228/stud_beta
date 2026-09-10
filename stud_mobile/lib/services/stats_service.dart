@@ -93,6 +93,9 @@ class StatsService {
     String scope,
     int? universityId,
     Map<String, dynamic>? university,
+    Map<String, dynamic>? direction,
+    Map<String, dynamic>? myDirection,
+    String? message,
     List<Map<String, dynamic>> universities,
     int? currentUserUniversityId,
   })> getLeaderboard({
@@ -122,6 +125,12 @@ class StatsService {
       final uni = data['university'] != null
           ? Map<String, dynamic>.from(data['university'] as Map)
           : null;
+      final direction = data['direction'] != null
+          ? Map<String, dynamic>.from(data['direction'] as Map)
+          : null;
+      final myDirection = data['myDirection'] != null
+          ? Map<String, dynamic>.from(data['myDirection'] as Map)
+          : null;
       return (
         leaderboard: list,
         currentUserEntry: current,
@@ -130,6 +139,9 @@ class StatsService {
         scope: data['scope'] as String? ?? (scope ?? 'usmle'),
         universityId: data['universityId'] as int?,
         university: uni,
+        direction: direction,
+        myDirection: myDirection,
+        message: data['message'] as String?,
         universities: universities,
         currentUserUniversityId: data['currentUserUniversityId'] as int?,
       );

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const { UserStats, TestResult, Test, Subject, User, Question, University } = require('../models');
+const { UserStats, TestResult, Test, Subject, User, Question, University, Faculty } = require('../models');
 const { Op } = require('sequelize');
 const jwt = require('jsonwebtoken');
 
@@ -189,8 +189,8 @@ router.post('/stats/test-result', auth, async (req, res) => {
   }
 });
 
-// Рейтинг: отдельные таблицы — USMLE и каждый университет
-// GET /api/leaderboard?scope=usmle|university&universityId=&limit=20
+// Рейтинг: USMLE | университет | моё направление (факультет+курс, без групп)
+// GET /api/leaderboard?scope=usmle|university|direction&universityId=&limit=20
 router.get('/leaderboard', async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
@@ -201,9 +201,33 @@ router.get('/leaderboard', async (req, res) => {
 
     const currentUserId = parseOptionalUserId(req);
     let currentUserUniversityId = null;
+    let myDirection = null;
+
     if (currentUserId) {
-      const me = await User.findByPk(currentUserId, { attributes: ['id', 'universityId'] });
+      const me = await User.findByPk(currentUserId, {
+        attributes: ['id', 'universityId', 'facultyId', 'course'],
+        include: [{
+          model: Faculty,
+          as: 'Faculty',
+          attributes: ['id', 'name', 'shortName'],
+          required: false
+        }]
+      });
       currentUserUniversityId = me?.universityId || null;
+      if (
+        me?.universityId
+        && me?.facultyId
+        && me?.course
+        && Number(me.course) >= 1
+      ) {
+        myDirection = {
+          universityId: Number(me.universityId),
+          facultyId: Number(me.facultyId),
+          course: Number(me.course),
+          facultyName: me.Faculty?.name || null,
+          facultyShortName: me.Faculty?.shortName || null
+        };
+      }
     }
 
     const universities = await University.findAll({
@@ -215,7 +239,7 @@ router.get('/leaderboard', async (req, res) => {
     let scope = String(req.query.scope || '').toLowerCase();
     let universityId = parseInt(req.query.universityId, 10);
 
-    if (scope !== 'usmle' && scope !== 'university') {
+    if (scope !== 'usmle' && scope !== 'university' && scope !== 'direction') {
       // По умолчанию: вуз пользователя, иначе USMLE
       if (currentUserUniversityId) {
         scope = 'university';
@@ -225,33 +249,64 @@ router.get('/leaderboard', async (req, res) => {
       }
     }
 
-    if (scope === 'university') {
+    const emptyPayload = (extra = {}) => ({
+      scope,
+      universityId: null,
+      university: null,
+      direction: null,
+      myDirection,
+      leaderboard: [],
+      currentUserEntry: null,
+      totalParticipants: 0,
+      period,
+      universities: universities.map((u) => ({
+        id: u.id,
+        name: u.name,
+        shortName: u.shortName
+      })),
+      currentUserUniversityId,
+      ...extra
+    });
+
+    if (scope === 'direction') {
+      if (!myDirection) {
+        return res.json(emptyPayload({
+          scope: 'direction',
+          message: 'Сначала выберите направление в профиле (факультет и курс).'
+        }));
+      }
+      universityId = myDirection.universityId;
+    }
+
+    if (scope === 'university' || scope === 'direction') {
       if (!Number.isFinite(universityId) || universityId <= 0) {
         universityId = currentUserUniversityId
           || (universities[0] ? Number(universities[0].id) : null);
       }
       if (!Number.isFinite(universityId) || universityId <= 0) {
-        return res.json({
-          scope: 'university',
-          universityId: null,
-          university: null,
-          leaderboard: [],
-          currentUserEntry: null,
-          totalParticipants: 0,
-          period,
-          universities: universities.map((u) => ({
-            id: u.id,
-            name: u.name,
-            shortName: u.shortName
-          })),
-          currentUserUniversityId
-        });
+        return res.json(emptyPayload({
+          scope: scope === 'direction' ? 'direction' : 'university'
+        }));
       }
     }
 
     const testWhere = scope === 'usmle'
       ? { programType: 'usmle' }
       : { programType: 'university', universityId: Number(universityId) };
+
+    const userInclude = {
+      model: User,
+      as: 'User',
+      attributes: ['id', 'username', 'facultyId', 'course', 'universityId'],
+      required: true
+    };
+    if (scope === 'direction' && myDirection) {
+      userInclude.where = {
+        universityId: myDirection.universityId,
+        facultyId: myDirection.facultyId,
+        course: myDirection.course
+      };
+    }
 
     const rows = await TestResult.findAll({
       where: {
@@ -261,12 +316,7 @@ router.get('/leaderboard', async (req, res) => {
         }
       },
       attributes: ['id', 'userId', 'score', 'totalQuestions', 'createdAt', 'testId'],
-      include: [{
-        model: User,
-        as: 'User',
-        attributes: ['id', 'username'],
-        required: true
-      }, {
+      include: [userInclude, {
         model: Test,
         as: 'Test',
         attributes: ['id', 'programType', 'universityId', 'name'],
@@ -283,7 +333,7 @@ router.get('/leaderboard', async (req, res) => {
       : null;
 
     let university = null;
-    if (scope === 'university') {
+    if (scope === 'university' || scope === 'direction') {
       university = universities.find((u) => Number(u.id) === Number(universityId)) || null;
       if (!university) {
         university = await University.findByPk(universityId, {
@@ -292,12 +342,19 @@ router.get('/leaderboard', async (req, res) => {
       }
     }
 
+    let direction = null;
+    if (scope === 'direction' && myDirection) {
+      direction = { ...myDirection };
+    }
+
     res.json({
       scope,
-      universityId: scope === 'university' ? Number(universityId) : null,
+      universityId: (scope === 'university' || scope === 'direction') ? Number(universityId) : null,
       university: university
         ? { id: university.id, name: university.name, shortName: university.shortName }
         : null,
+      direction,
+      myDirection,
       leaderboard,
       currentUserEntry,
       totalParticipants: leaderboardAll.length,

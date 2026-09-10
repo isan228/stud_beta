@@ -19,11 +19,14 @@ class _RatingScreenState extends ConsumerState<RatingScreen> {
   int _total = 0;
   bool _loading = true;
   String? _error;
+  String? _message;
 
   String _scope = 'usmle';
   int? _universityId;
   List<Map<String, dynamic>> _universities = [];
   Map<String, dynamic>? _university;
+  Map<String, dynamic>? _direction;
+  Map<String, dynamic>? _myDirection;
 
   @override
   void initState() {
@@ -35,6 +38,7 @@ class _RatingScreenState extends ConsumerState<RatingScreen> {
     setState(() {
       _loading = true;
       _error = null;
+      _message = null;
     });
     try {
       final data = await ref.read(statsServiceProvider).getLeaderboard(
@@ -51,6 +55,9 @@ class _RatingScreenState extends ConsumerState<RatingScreen> {
         _universityId = data.universityId;
         _universities = data.universities;
         _university = data.university;
+        _direction = data.direction;
+        _myDirection = data.myDirection;
+        _message = data.message;
         _loading = false;
       });
     } catch (e) {
@@ -64,6 +71,19 @@ class _RatingScreenState extends ConsumerState<RatingScreen> {
 
   String get _scopeTitle {
     if (_scope == 'usmle') return 'USMLE';
+    if (_scope == 'direction') {
+      final d = _direction ?? _myDirection;
+      final fac = (d?['facultyName'] as String?)?.isNotEmpty == true
+          ? d!['facultyName'] as String
+          : ((d?['facultyShortName'] as String?) ?? 'Направление');
+      final course = d?['course'];
+      final uni = _university?['shortName'] as String? ?? _university?['name'] as String?;
+      return [
+        if (uni != null && uni.isNotEmpty) uni,
+        fac,
+        if (course != null) '$course курс',
+      ].join(' · ');
+    }
     final shortName = _university?['shortName'] as String?;
     final name = _university?['name'] as String?;
     if (shortName != null && shortName.isNotEmpty) {
@@ -76,6 +96,16 @@ class _RatingScreenState extends ConsumerState<RatingScreen> {
     final shortName = u['shortName'] as String?;
     if (shortName != null && shortName.isNotEmpty) return shortName;
     return (u['name'] as String?) ?? 'Вуз';
+  }
+
+  String get _directionChipLabel {
+    final d = _myDirection;
+    if (d == null) return 'Моё направление';
+    final fac = (d['facultyShortName'] as String?)?.isNotEmpty == true
+        ? d['facultyShortName'] as String
+        : ((d['facultyName'] as String?) ?? 'Направление');
+    final course = d['course'];
+    return course != null ? '$fac · $course курс' : fac;
   }
 
   @override
@@ -100,7 +130,7 @@ class _RatingScreenState extends ConsumerState<RatingScreen> {
                 children: [
                   Text('Рейтинг месяца', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 4),
-                  Text('Отдельно: USMLE и каждый университет'),
+                  const Text('USMLE, университеты и ваше направление (факультет + курс)'),
                   if (_period.isNotEmpty) Text('Период: $_period'),
                   Text('$_scopeTitle · участников: $_total'),
                 ],
@@ -123,6 +153,18 @@ class _RatingScreenState extends ConsumerState<RatingScreen> {
                     },
                   ),
                 ),
+                if (_myDirection != null)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(_directionChipLabel),
+                      selected: _scope == 'direction',
+                      selectedColor: Colors.green.shade100,
+                      onSelected: (_) {
+                        if (_scope != 'direction') _load(scope: 'direction');
+                      },
+                    ),
+                  ),
                 ..._universities.map((u) {
                   final id = u['id'] as int?;
                   final selected =
@@ -163,7 +205,7 @@ class _RatingScreenState extends ConsumerState<RatingScreen> {
             ],
             const SizedBox(height: 12),
             if (_leaderboard.isEmpty)
-              const EmptyView(message: 'Пока нет данных рейтинга')
+              EmptyView(message: _message ?? 'Пока нет данных рейтинга')
             else
               ..._leaderboard.map(
                 (entry) => Card(
