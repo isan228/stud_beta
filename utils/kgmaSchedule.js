@@ -133,6 +133,61 @@ function listKgmaGroups(meta, facultyId, course) {
     .sort((a, b) => a.name.localeCompare(b.name, 'ru', { numeric: true }));
 }
 
+function normalizeFacultyKey(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/["'«»]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * В БД часто есть дефолт «Лечфак» / «Лечебный факультет»,
+ * а на kgma.kg — «Леч №1» / «Лечебное дело №1».
+ */
+const KGMA_FACULTY_ALIASES = {
+  лечфак: ['леч №1', 'лечебное дело №1'],
+  'лечебный факультет': ['лечебное дело №1', 'леч №1']
+};
+
+/** Сопоставить факультет из нашей БД с записью meta.faculty с kgma.kg */
+function findKgmaFacultyInMeta(meta, faculty) {
+  const list = meta?.faculty;
+  if (!Array.isArray(list) || !list.length || !faculty) return null;
+
+  const byShort = list.find((f) => f.shortName === faculty.shortName);
+  if (byShort) return byShort;
+
+  const byName = list.find((f) => f.name === faculty.name);
+  if (byName) return byName;
+
+  const nShort = normalizeFacultyKey(faculty.shortName);
+  const nName = normalizeFacultyKey(faculty.name);
+  const fuzzy = list.find((f) => {
+    const fs = normalizeFacultyKey(f.shortName);
+    const fn = normalizeFacultyKey(f.name);
+    return (nShort && (fs === nShort || fn === nShort))
+      || (nName && (fn === nName || fs === nName));
+  });
+  if (fuzzy) return fuzzy;
+
+  const aliasTargets = [
+    ...(KGMA_FACULTY_ALIASES[nShort] || []),
+    ...(KGMA_FACULTY_ALIASES[nName] || [])
+  ];
+  for (const target of aliasTargets) {
+    const hit = list.find((f) => {
+      const fs = normalizeFacultyKey(f.shortName);
+      const fn = normalizeFacultyKey(f.name);
+      return fs === target || fn === target;
+    });
+    if (hit) return hit;
+  }
+
+  return null;
+}
+
 async function fetchKgmaWeekSchedule(kgmaGroupId, weekStartInput) {
   const weekStart = getWeekStart(weekStartInput);
   const weekStartStr = formatDateISO(weekStart);
@@ -257,6 +312,8 @@ module.exports = {
   fetchKgmaMeta,
   listKgmaCourses,
   listKgmaGroups,
+  findKgmaFacultyInMeta,
+  normalizeFacultyKey,
   fetchKgmaWeekSchedule,
   flattenKgmaWeekToEntries,
   getWeekStart,

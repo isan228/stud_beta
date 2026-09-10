@@ -71,8 +71,18 @@ class _ProfileDirectionCardState extends ConsumerState<ProfileDirectionCard> {
       setState(() {
         _faculties = faculties;
         _loadingFaculties = false;
-        if (_facultyId == null && faculties.isNotEmpty) {
-          _facultyId = faculties.first.id;
+        if (faculties.isEmpty) {
+          _facultyId = null;
+        } else if (_facultyId == null ||
+            !faculties.any((f) => f.id == _facultyId)) {
+          FacultyModel? lech1;
+          for (final f in faculties) {
+            if (f.shortName == 'Леч №1' || f.name == 'Лечебное дело №1') {
+              lech1 = f;
+              break;
+            }
+          }
+          _facultyId = lech1?.id ?? faculties.first.id;
         }
       });
       await _loadGroups();

@@ -3999,7 +3999,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             groupSelect.innerHTML = groups.length
                 ? '<option value="">Выберите группу</option>'
                   + groups.map((g) => `<option value="${g.id}" data-name="${escapeHtmlStr(g.name)}">${escapeHtmlStr(g.name)}</option>`).join('')
-                : '<option value="">Группы не найдены</option>';
+                : `<option value="">${escapeHtmlStr(data.error || 'Группы не найдены для этого курса')}</option>`;
 
             const selected = user?.kgmaGroupId || data.selectedGroupId;
             if (selected && groupSelect.querySelector(`option[value="${CSS.escape(String(selected))}"]`)) {
@@ -4032,7 +4032,16 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             facultySelect.innerHTML = faculties.length
                 ? faculties.map((f) => `<option value="${f.id}">${f.name}</option>`).join('')
                 : '<option value="">Нет факультетов</option>';
-            if (user.facultyId) facultySelect.value = String(user.facultyId);
+
+            let facultyId = user.facultyId ? String(user.facultyId) : '';
+            if (facultyId && !facultySelect.querySelector(`option[value="${CSS.escape(facultyId)}"]`)) {
+                // Старый «Лечфак» скрыт — берём «Лечебное дело №1» или первый в списке
+                const lech1 = faculties.find((f) =>
+                    f.shortName === 'Леч №1' || f.name === 'Лечебное дело №1'
+                );
+                facultyId = lech1 ? String(lech1.id) : (faculties[0] ? String(faculties[0].id) : '');
+            }
+            if (facultyId) facultySelect.value = facultyId;
             if (user.course) courseSelect.value = String(user.course);
             await fillProfileGroupSelect(user);
         } catch (e) {

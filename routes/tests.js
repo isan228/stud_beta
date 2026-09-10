@@ -482,11 +482,36 @@ router.get('/faculties', async (req, res) => {
       return res.json([]);
     }
 
-    const faculties = await Faculty.findAll({
+    const university = await University.findByPk(universityId, {
+      attributes: ['id', 'shortName']
+    });
+    if (university?.shortName === 'КГМА') {
+      try {
+        const { ensureKgmaFacultiesInDb } = require('../utils/kgmaFacultyResolve');
+        await ensureKgmaFacultiesInDb();
+      } catch (e) {
+        console.warn('ensureKgmaFacultiesInDb (faculties):', e.message);
+      }
+    }
+
+    let faculties = await Faculty.findAll({
       where: { universityId, isActive: true },
       attributes: ['id', 'name', 'shortName', 'universityId', 'sortOrder'],
       order: [['sortOrder', 'ASC'], ['name', 'ASC']]
     });
+
+    // Скрываем устаревший «Лечфак», если уже есть реальные факультеты с kgma.kg
+    if (university?.shortName === 'КГМА') {
+      const hasRealLech = faculties.some((f) =>
+        f.shortName === 'Леч №1' || f.name === 'Лечебное дело №1'
+      );
+      if (hasRealLech) {
+        faculties = faculties.filter((f) =>
+          f.shortName !== 'Лечфак' && f.name !== 'Лечебный факультет'
+        );
+      }
+    }
+
     res.json(faculties);
   } catch (error) {
     console.error('Ошибка получения факультетов:', error);

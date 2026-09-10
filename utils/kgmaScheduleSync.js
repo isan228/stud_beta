@@ -11,7 +11,7 @@ const {
   getDefaultSemester,
   KGMA_SCHEDULE_URL
 } = require('./kgmaSchedule');
-const { getKgmaUniversity, resolveFacultyForKgma } = require('../routes/schedule');
+const { getKgmaUniversity, resolveFacultyForKgma } = require('./kgmaFacultyResolve');
 
 const SETTING_LAST_SYNC = 'kgma_schedule_last_sync';
 const SETTING_LAST_SYNC_RESULT = 'kgma_schedule_last_sync_result';

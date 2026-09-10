@@ -9,10 +9,16 @@ const {
   fetchKgmaMeta,
   listKgmaCourses,
   listKgmaGroups,
+  findKgmaFacultyInMeta,
   fetchKgmaWeekSchedule,
   getWeekStart,
   formatDateISO
 } = require('../utils/kgmaSchedule');
+const {
+  getKgmaUniversity,
+  resolveFacultyForKgma,
+  ensureKgmaFacultiesInDb
+} = require('../utils/kgmaFacultyResolve');
 
 let metaCache = { at: 0, data: null };
 const META_TTL_MS = 5 * 60 * 1000;
@@ -185,8 +191,7 @@ router.get('/my-prefs', auth, async (req, res) => {
     let kgmaFacultyId = null;
     if (isKgma && user.Faculty) {
       const meta = await getKgmaMetaCached();
-      const match = meta.faculty.find((f) => f.shortName === user.Faculty.shortName)
-        || meta.faculty.find((f) => f.name === user.Faculty.name);
+      const match = findKgmaFacultyInMeta(meta, user.Faculty);
       kgmaFacultyId = match ? match.id : null;
     }
 
@@ -278,7 +283,7 @@ router.put('/my-prefs', auth, async (req, res) => {
       return res.status(400).json({ error: 'Группа не найдена для выбранного курса' });
     }
 
-    const faculty = await module.exports.resolveFacultyForKgma(kgmaUni.id, kgmaFaculty);
+    const faculty = await resolveFacultyForKgma(kgmaUni.id, kgmaFaculty);
     user.facultyId = faculty.id;
     user.course = course;
     user.kgmaGroupId = kgmaGroupId;
@@ -350,15 +355,18 @@ router.get('/kgma/profile-groups', auth, async (req, res) => {
     }
 
     const meta = await getKgmaMetaCached();
-    let kgmaFaculty = meta.faculty.find((f) => f.shortName === faculty.shortName);
-    if (!kgmaFaculty) {
-      kgmaFaculty = meta.faculty.find((f) => f.name === faculty.name);
+    try {
+      await ensureKgmaFacultiesInDb(meta);
+    } catch (e) {
+      console.warn('ensureKgmaFacultiesInDb:', e.message);
     }
+
+    const kgmaFaculty = findKgmaFacultyInMeta(meta, faculty);
     if (!kgmaFaculty) {
       return res.json({
         groups: [],
         isKgma: true,
-        error: 'Факультет не найден на kgma.kg'
+        error: 'Факультет не найден на kgma.kg. Выберите направление из списка КГМА (например «Лечебное дело №1»).'
       });
     }
 
@@ -368,7 +376,8 @@ router.get('/kgma/profile-groups', auth, async (req, res) => {
       kgmaFacultyId: kgmaFaculty.id,
       groups,
       selectedGroupId: user.kgmaGroupId || null,
-      selectedGroupName: user.groupName || null
+      selectedGroupName: user.groupName || null,
+      availableCourses: listKgmaCourses(meta, kgmaFaculty.id)
     });
   } catch (error) {
     console.error('Ошибка групп профиля КГМА:', error);
@@ -463,35 +472,6 @@ router.get('/my/week', auth, async (req, res) => {
 
 module.exports = router;
 
-module.exports.resolveFacultyForKgma = async function resolveFacultyForKgma(universityId, kgmaFaculty) {
-  if (!kgmaFaculty) {
-    const fallback = await Faculty.findOne({
-      where: { universityId, isActive: true },
-      order: [['sortOrder', 'ASC'], ['id', 'ASC']]
-    });
-    return fallback;
-  }
-
-  let faculty = await Faculty.findOne({
-    where: { universityId, shortName: kgmaFaculty.shortName }
-  });
-  if (!faculty) {
-    faculty = await Faculty.findOne({
-      where: { universityId, name: kgmaFaculty.name }
-    });
-  }
-  if (!faculty) {
-    faculty = await Faculty.create({
-      universityId,
-      name: kgmaFaculty.name,
-      shortName: (kgmaFaculty.shortName || kgmaFaculty.name).slice(0, 50),
-      sortOrder: 0,
-      isActive: true
-    });
-  }
-  return faculty;
-};
-
-module.exports.getKgmaUniversity = async function getKgmaUniversity() {
-  return University.findOne({ where: { shortName: KGMA.shortName } });
-};
+module.exports.resolveFacultyForKgma = resolveFacultyForKgma;
+module.exports.getKgmaUniversity = getKgmaUniversity;
+module.exports.ensureKgmaFacultiesInDb = ensureKgmaFacultiesInDb;
