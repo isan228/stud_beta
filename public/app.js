@@ -103,6 +103,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     let _questionViewStart = null;
     let _lastViewedQuestionId = null;
     let _usmleQuestionLiveTimer = null;
+    /** Избранные вопросы текущей USMLE-сессии (для флажков в навигаторе). */
+    let sessionFavoriteIds = new Set();
+    let sessionFavoritesSyncStarted = false;
 
     const USMLE_SUBJECT_TAG_NAMES = new Set([
         'anatomy', 'behavioral science', 'histology', 'physiology', 'pharmacology',
@@ -119,6 +122,36 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             return !!(data.isCustomUsmle || data.programType === 'usmle');
         } catch (_) {
             return false;
+        }
+    }
+
+    function favoriteFlagSvg(filled) {
+        // Красный флажок (UWorld-стиль). filled — заливка, иначе контур.
+        if (filled) {
+            return `<svg class="fav-flag-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M6 2v20h2V14h.8l.5 1.5H20l-1.6-4.2L20 7H9V2H6zm3 7h8.1l-1.1 2.8 1.1 2.7H9.8L9.3 13H9V9z"/></svg>`;
+        }
+        return `<svg class="fav-flag-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M7 21V3.5h10.5L16 7.5l1.5 4H7"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M7 3.5V21"/></svg>`;
+    }
+
+    async function syncSessionFavorites() {
+        if (!currentUser || !currentToken || !currentQuestions?.length) {
+            sessionFavoriteIds = new Set();
+            return;
+        }
+        try {
+            const res = await fetch(`${API_URL}/favorites`, {
+                headers: { Authorization: `Bearer ${currentToken}` }
+            });
+            if (!res.ok) return;
+            const favs = await res.json();
+            const inSession = new Set((currentQuestions || []).map((q) => Number(q.id)));
+            sessionFavoriteIds = new Set(
+                (Array.isArray(favs) ? favs : [])
+                    .map((f) => Number(f.id))
+                    .filter((id) => Number.isFinite(id) && inSession.has(id))
+            );
+        } catch (e) {
+            console.error('Ошибка синхронизации избранного сессии:', e);
         }
     }
 
@@ -2662,24 +2695,31 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             const answered = currentAnswers[q.id] != null;
             const locked = !!(instantFeedbackMode && instantFeedbackLockedQuestions[q.id]);
             const active = index === currentQuestionIndex;
+            const isFav = sessionFavoriteIds.has(Number(q.id));
             const classes = [
                 'usmle-qnav-item',
                 active ? 'is-active' : '',
                 answered ? 'is-answered' : '',
                 locked ? 'is-reviewed' : '',
+                isFav ? 'is-favorite' : '',
                 f.linked ? 'is-linked' : '',
                 f.start ? 'is-linked-start' : '',
                 f.mid ? 'is-linked-mid' : '',
                 f.end ? 'is-linked-end' : ''
             ].filter(Boolean).join(' ');
 
+            const flagMark = isFav
+                ? `<span class="usmle-qnav-flag" title="Отмечено флажком">${favoriteFlagSvg(true)}</span>`
+                : '';
+
             return `
                 <li class="${classes}">
-                    <button type="button" class="usmle-qnav-btn" data-q-index="${index}" aria-current="${active ? 'true' : 'false'}" title="Вопрос ${index + 1}">
+                    <button type="button" class="usmle-qnav-btn" data-q-index="${index}" aria-current="${active ? 'true' : 'false'}" title="Вопрос ${index + 1}${isFav ? ' · флажок' : ''}">
                         <span class="usmle-qnav-rail" aria-hidden="true">
                             <span class="usmle-qnav-dot"></span>
                         </span>
                         <span class="usmle-qnav-num">${index + 1}</span>
+                        ${flagMark}
                     </button>
                 </li>
             `;
@@ -2768,16 +2808,30 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             return;
         }
 
-        // Добавляем звездочку в правый верхний угол
+        // Избранное: в USMLE — красный флажок, иначе звезда
         const favoriteContainer = document.getElementById('favoriteContainer');
         if (favoriteContainer && currentUser) {
-            favoriteContainer.innerHTML = `
-            <button class="favorite-icon-btn" onclick="toggleFavorite(${question.id})" id="favoriteBtn${question.id}" title="Добавить в избранное">
+            const usmleFav = isUsmleTestSession();
+            const knownFav = sessionFavoriteIds.has(Number(question.id));
+            favoriteContainer.innerHTML = usmleFav
+                ? `<button class="favorite-icon-btn usmle-flag-btn${knownFav ? ' favorite-active' : ''}" onclick="toggleFavorite(${question.id})" id="favoriteBtn${question.id}" title="${knownFav ? 'Снять флажок' : 'Отметить флажком'}">
+                <span id="favoriteIcon${question.id}">${favoriteFlagSvg(knownFav)}</span>
+            </button>`
+                : `<button class="favorite-icon-btn" onclick="toggleFavorite(${question.id})" id="favoriteBtn${question.id}" title="Добавить в избранное">
                 <span id="favoriteIcon${question.id}">☆</span>
-            </button>
-        `;
+            </button>`;
         } else if (favoriteContainer) {
             favoriteContainer.innerHTML = '';
+        }
+
+        if (isUsmleTestSession() && currentUser && !sessionFavoritesSyncStarted) {
+            sessionFavoritesSyncStarted = true;
+            syncSessionFavorites().then(() => {
+                renderUsmleQuestionNav();
+                if (currentQuestions[currentQuestionIndex]) {
+                    updateFavoriteButton(currentQuestions[currentQuestionIndex].id, sessionFavoriteIds.has(Number(currentQuestions[currentQuestionIndex].id)));
+                }
+            });
         }
 
         const questionImageHtml = renderImageGalleryHtml(question.imageUrls || question.imageUrl, 'Иллюстрация к вопросу');
@@ -4473,9 +4527,15 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             });
 
             if (response.ok) {
-                const message = isFavorite ? 'Вопрос удален из избранного' : 'Вопрос добавлен в избранное';
+                const nextFav = !isFavorite;
+                const message = isUsmleTestSession()
+                    ? (nextFav ? 'Вопрос отмечен флажком' : 'Флажок снят')
+                    : (isFavorite ? 'Вопрос удален из избранного' : 'Вопрос добавлен в избранное');
                 showNotification(message, 'success');
-                updateFavoriteButton(questionId, !isFavorite);
+                if (nextFav) sessionFavoriteIds.add(Number(questionId));
+                else sessionFavoriteIds.delete(Number(questionId));
+                updateFavoriteButton(questionId, nextFav);
+                if (isUsmleTestSession()) renderUsmleQuestionNav();
             }
         } catch (error) {
             console.error('Ошибка изменения избранного:', error);
@@ -4491,7 +4551,10 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 }
             });
             const data = await response.json();
+            if (data.isFavorite) sessionFavoriteIds.add(Number(questionId));
+            else sessionFavoriteIds.delete(Number(questionId));
             updateFavoriteButton(questionId, data.isFavorite);
+            if (isUsmleTestSession()) renderUsmleQuestionNav();
         } catch (error) {
             console.error('Ошибка проверки избранного:', error);
         }
@@ -4500,14 +4563,23 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     function updateFavoriteButton(questionId, isFavorite) {
         const btn = document.getElementById(`favoriteBtn${questionId}`);
         const icon = document.getElementById(`favoriteIcon${questionId}`);
-        if (btn && icon) {
+        if (!btn || !icon) return;
+
+        const usmleFav = isUsmleTestSession() || btn.classList.contains('usmle-flag-btn');
+        if (usmleFav) {
+            btn.classList.add('usmle-flag-btn');
+            icon.innerHTML = favoriteFlagSvg(!!isFavorite);
+            btn.title = isFavorite ? 'Снять флажок' : 'Отметить флажком';
+        } else {
             icon.textContent = isFavorite ? '⭐' : '☆';
             btn.title = isFavorite ? 'Удалить из избранного' : 'Добавить в избранное';
-            if (isFavorite) {
-                btn.classList.add('favorite-active');
-            } else {
-                btn.classList.remove('favorite-active');
-            }
+        }
+        if (isFavorite) {
+            btn.classList.add('favorite-active');
+            sessionFavoriteIds.add(Number(questionId));
+        } else {
+            btn.classList.remove('favorite-active');
+            sessionFavoriteIds.delete(Number(questionId));
         }
     }
 
@@ -5158,7 +5230,11 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     Object.defineProperty(window, 'currentQuestions', {
         get: () => currentQuestions,
-        set: (value) => { currentQuestions = value; },
+        set: (value) => {
+            currentQuestions = value;
+            sessionFavoriteIds = new Set();
+            sessionFavoritesSyncStarted = false;
+        },
         configurable: true
     });
 

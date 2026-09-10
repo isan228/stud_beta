@@ -1986,6 +1986,25 @@ html[data-theme="dark"] .navbar {
     color: var(--primary-color);
 }
 
+.favorite-icon-btn.usmle-flag-btn {
+    color: #9ca3af;
+}
+
+.favorite-icon-btn.usmle-flag-btn:hover {
+    color: #dc2626;
+    background-color: rgba(220, 38, 38, 0.08);
+}
+
+.favorite-icon-btn.usmle-flag-btn.favorite-active {
+    color: #dc2626;
+}
+
+.favorite-icon-btn .fav-flag-ico {
+    width: 1.35rem;
+    height: 1.35rem;
+    display: block;
+}
+
 .favorite-icon-btn span {
     display: inline-block;
     transition: transform 0.2s ease;
@@ -2391,6 +2410,25 @@ body.dark-theme .usmle-qnav {
     line-height: 1;
     min-width: 1.1rem;
     text-align: left;
+}
+
+.usmle-qnav-flag {
+    margin-left: auto;
+    color: #dc2626;
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    line-height: 0;
+}
+
+.usmle-qnav-flag .fav-flag-ico {
+    width: 0.85rem;
+    height: 0.85rem;
+    display: block;
+}
+
+.usmle-qnav-item.is-active .usmle-qnav-flag {
+    color: #fecaca;
 }
 
 /* Dashed connector for linked question clusters */
