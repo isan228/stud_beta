@@ -513,6 +513,63 @@ router.put('/direction', require('../middleware/auth'), async (req, res) => {
   }
 });
 
+// Изменить университет (сбрасывает факультет/курс/группу старого вуза)
+router.put('/university', require('../middleware/auth'), [
+  body('universityId').isInt({ min: 1 }).withMessage('Выберите университет')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: errors.array()[0]?.msg || 'Некорректные данные' });
+    }
+
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+
+    const universityId = parseInt(req.body.universityId, 10);
+    const university = await University.findOne({
+      where: { id: universityId, isActive: true }
+    });
+    if (!university) {
+      return res.status(400).json({ error: 'Университет не найден или неактивен' });
+    }
+
+    const sameUni = Number(user.universityId) === Number(university.id);
+    user.universityId = university.id;
+
+    if (!sameUni) {
+      // Направление и группа привязаны к вузу — сбрасываем и ставим дефолт
+      const lechfak = await ensureLechfakForUniversity(university.id);
+      user.facultyId = lechfak.id;
+      user.course = user.course && ALLOWED_COURSES.includes(Number(user.course))
+        ? Number(user.course)
+        : 1;
+      user.kgmaGroupId = null;
+      user.groupName = null;
+    }
+
+    await user.save();
+
+    const full = await User.findByPk(user.id, {
+      attributes: USER_PROFILE_ATTRIBUTES,
+      include: userProfileIncludes()
+    });
+    const payload = full.toJSON();
+    const adminLinked = await isAdminLinkedUser(full);
+    payload.isAdminAccount = adminLinked;
+    payload.subscriptionActive = adminLinked || isSubscriptionActive(full.subscriptionEndDate);
+    payload.usmleSubscriptionActive = adminLinked || isSubscriptionActive(full.usmleSubscriptionEndDate);
+
+    res.json({
+      user: payload,
+      message: sameUni ? 'Университет без изменений' : 'Университет обновлён'
+    });
+  } catch (error) {
+    console.error('Ошибка смены университета:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 // Изменение пароля
 router.post('/change-password', require('../middleware/auth'), [
   body('currentPassword').notEmpty().withMessage('Текущий пароль обязателен'),

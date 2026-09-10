@@ -3696,6 +3696,84 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     }
 
     // Профиль
+    async function loadProfileUniversitiesSelect(selectedId) {
+        const select = document.getElementById('profileUniversityId');
+        if (!select) return;
+        try {
+            const res = await fetch(`${API_URL}/universities`);
+            const list = res.ok ? await res.json() : [];
+            if (!Array.isArray(list) || !list.length) {
+                select.innerHTML = '<option value="">Нет университетов</option>';
+                return;
+            }
+            select.innerHTML = list.map((u) => {
+                const label = u.shortName ? `${u.shortName} — ${u.name}` : u.name;
+                return `<option value="${u.id}">${escapeHtmlStr(label)}</option>`;
+            }).join('');
+            const sid = selectedId != null ? String(selectedId) : '';
+            if (sid && select.querySelector(`option[value="${CSS.escape(sid)}"]`)) {
+                select.value = sid;
+            }
+        } catch (e) {
+            select.innerHTML = '<option value="">Ошибка загрузки</option>';
+        }
+    }
+
+    function bindChangeUniversityForm() {
+        const form = document.getElementById('changeUniversityForm');
+        if (!form || form.dataset.bound) return;
+        form.dataset.bound = '1';
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const select = document.getElementById('profileUniversityId');
+            const btn = document.getElementById('saveUniversityBtn');
+            const universityId = parseInt(select?.value, 10);
+            if (!Number.isFinite(universityId) || universityId <= 0) {
+                showNotification('Выберите университет', 'error');
+                return;
+            }
+            const prev = btn ? btn.textContent : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Сохранение…';
+            }
+            try {
+                const res = await fetch(`${API_URL}/auth/university`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${currentToken}`
+                    },
+                    body: JSON.stringify({ universityId })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.error || 'Не удалось сохранить');
+                currentUser = data.user;
+                const universityEl = document.getElementById('userUniversity');
+                const uniLabel = currentUser.University
+                    ? `${currentUser.University.shortName} — ${currentUser.University.name}`
+                    : 'Не указан';
+                if (universityEl) universityEl.textContent = uniLabel;
+                const heroLine = document.getElementById('profileHeroLine');
+                if (heroLine) {
+                    heroLine.textContent = [currentUser.email, uniLabel !== 'Не указан' ? uniLabel : null]
+                        .filter(Boolean).join(' · ');
+                }
+                await loadProfileUniversitiesSelect(currentUser.universityId);
+                await fillProfileDirectionForm(currentUser);
+                await loadMyScheduleProfile(currentUser);
+                showNotification(data.message || 'Университет сохранён', 'success');
+            } catch (err) {
+                showNotification(err.message || 'Ошибка сохранения', 'error');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = prev || 'Сохранить университет';
+                }
+            }
+        });
+    }
+
     async function fillProfileGroupSelect(user) {
         const wrap = document.getElementById('profileGroupWrap');
         const groupSelect = document.getElementById('profileGroupId');
@@ -3952,6 +4030,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 if (universityEl) {
                     universityEl.textContent = uniLabel;
                 }
+                await loadProfileUniversitiesSelect(user.universityId);
+                bindChangeUniversityForm();
 
                 const heroName = document.getElementById('profileHeroName');
                 const heroAvatar = document.getElementById('profileHeroAvatar');
