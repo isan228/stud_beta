@@ -9130,6 +9130,26 @@ async function deleteMedicalImage(id) {
 }
 
 // Предпросмотр выбранного файла
+function medicalGlossaryNameFromFile(file) {
+    if (!file || !file.name) return '';
+    const base = String(file.name).replace(/^.*[\\/]/, '');
+    const withoutExt = base.replace(/\.[^.]+$/, '').trim();
+    return withoutExt || base.trim();
+}
+
+function fillMedicalGlossaryFieldsFromFile(file, { force = false } = {}) {
+    const name = medicalGlossaryNameFromFile(file);
+    if (!name) return;
+    const titleEl = document.getElementById('medicalImageTitle');
+    const kwEl = document.getElementById('medicalImageKeywords');
+    if (titleEl && (force || !titleEl.value.trim())) {
+        titleEl.value = name;
+    }
+    if (kwEl && (force || !kwEl.value.trim())) {
+        kwEl.value = name;
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const fileInput = document.getElementById('medicalImageFile');
     if (fileInput) {
@@ -9137,6 +9157,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const file = fileInput.files[0];
             if (!file) return;
             pendingMedicalImageFile = file;
+            // При новой записи всегда подставляем имя файла; при редактировании — только в пустые поля
+            fillMedicalGlossaryFieldsFromFile(file, { force: !editingMedicalImageId });
             const reader = new FileReader();
             reader.onload = e => {
                 document.getElementById('medicalImagePreviewWrap').innerHTML =
@@ -9152,6 +9174,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const file = videoInput.files[0];
             if (!file) return;
             pendingMedicalVideoFile = file;
+            // Не перетираем уже подставленное имя с фото — только пустые поля
+            fillMedicalGlossaryFieldsFromFile(file, { force: false });
             const wrap = document.getElementById('medicalVideoPreviewWrap');
             if (!wrap) return;
             const url = URL.createObjectURL(file);
