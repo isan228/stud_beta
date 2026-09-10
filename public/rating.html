@@ -19,7 +19,44 @@
     <title>Рейтинг - stud.kg</title>
     <link rel="stylesheet" href="styles.css">
     <style>
-        .rating-page { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
+        .rating-page { max-width: 960px; margin: 0 auto; padding: 2rem 1rem; }
+        .rating-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+            margin: 1.25rem 0 1.5rem;
+        }
+        .rating-tab {
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border-radius: 999px;
+            padding: 0.45rem 0.95rem;
+            font-size: 0.92rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+        }
+        .rating-tab:hover {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+        .rating-tab.is-active {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            color: #fff;
+        }
+        .rating-tab.is-usmle.is-active {
+            background: #dc2626;
+            border-color: #dc2626;
+        }
+        .rating-scope-label {
+            text-align: center;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+        }
         .rating-table-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .rating-table { width: 100%; border-collapse: collapse; background: var(--card-bg); border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
         .rating-table th, .rating-table td { padding: 0.875rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); }
@@ -40,6 +77,8 @@
             .rating-page { padding: 1.25rem 0.5rem; }
             .rating-table { min-width: 640px; font-size: 0.92rem; }
             .rating-table th, .rating-table td { padding: 0.65rem 0.75rem; }
+            .rating-tabs { justify-content: flex-start; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 0.25rem; }
+            .rating-tab { white-space: nowrap; flex-shrink: 0; }
         }
         @media (max-width: 480px) {
             .rating-table th:nth-child(4),
@@ -80,11 +119,13 @@
 
     <main class="main-content">
         <div class="rating-page">
-            <div class="page-header" style="text-align: center; margin-bottom: 2rem;">
+            <div class="page-header" style="text-align: center; margin-bottom: 0.5rem;">
                 <h1>Рейтинг</h1>
-                <p class="page-description">Топ-20 за текущий месяц по количеству правильных ответов</p>
+                <p class="page-description">Отдельные топы за текущий месяц: USMLE и каждый университет</p>
                 <div class="rating-period" id="ratingPeriod"></div>
             </div>
+            <div class="rating-tabs" id="ratingTabs" aria-label="Выбор рейтинга"></div>
+            <div class="rating-scope-label" id="ratingScopeLabel"></div>
             <div id="ratingContent">
                 <div class="rating-loading" id="ratingLoading">Загрузка рейтинга...</div>
                 <div id="ratingTableWrap" class="rating-table-wrap" style="display: none;"></div>
@@ -105,62 +146,152 @@
     <script src="app.js"></script>
     <script>
         (function() {
-            initTheme();
+            if (typeof initTheme === 'function') initTheme();
+
             var loadingEl = document.getElementById('ratingLoading');
             var tableWrap = document.getElementById('ratingTableWrap');
             var emptyEl = document.getElementById('ratingEmpty');
             var periodEl = document.getElementById('ratingPeriod');
             var myRankCard = document.getElementById('myRankCard');
+            var tabsEl = document.getElementById('ratingTabs');
+            var scopeLabelEl = document.getElementById('ratingScopeLabel');
             var token = localStorage.getItem('token');
             var headers = token ? { 'Authorization': 'Bearer ' + token } : {};
 
-            fetch('/api/leaderboard?limit=20', { headers: headers })
-                .then(function(r) { return r.json(); })
-                .then(function(data) {
-                    loadingEl.style.display = 'none';
-                    var list = data.leaderboard || [];
-                    var myEntry = data.currentUserEntry || null;
-                    if (periodEl && data.period) {
-                        var parts = String(data.period).split('-');
-                        if (parts.length === 2) {
-                            periodEl.textContent = 'Период рейтинга: ' + parts[1] + '.' + parts[0] + ' (обновляется каждый месяц)';
-                        }
+            var state = {
+                scope: null,
+                universityId: null,
+                universities: []
+            };
+
+            function esc(s) {
+                return String(s == null ? '' : s)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;');
+            }
+
+            function uniLabel(u) {
+                if (!u) return 'Университет';
+                return u.shortName || u.name || ('Университет #' + u.id);
+            }
+
+            function renderTabs() {
+                if (!tabsEl) return;
+                var html = '<button type="button" class="rating-tab is-usmle' +
+                    (state.scope === 'usmle' ? ' is-active' : '') +
+                    '" data-scope="usmle">USMLE</button>';
+                (state.universities || []).forEach(function(u) {
+                    var active = state.scope === 'university' && Number(state.universityId) === Number(u.id);
+                    html += '<button type="button" class="rating-tab' + (active ? ' is-active' : '') +
+                        '" data-scope="university" data-university-id="' + u.id + '">' +
+                        esc(uniLabel(u)) + '</button>';
+                });
+                tabsEl.innerHTML = html;
+                tabsEl.querySelectorAll('.rating-tab').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var scope = btn.getAttribute('data-scope');
+                        var uniId = parseInt(btn.getAttribute('data-university-id'), 10);
+                        loadLeaderboard(scope, Number.isFinite(uniId) ? uniId : null);
+                    });
+                });
+            }
+
+            function renderBoard(data) {
+                var list = data.leaderboard || [];
+                var myEntry = data.currentUserEntry || null;
+
+                if (periodEl && data.period) {
+                    var parts = String(data.period).split('-');
+                    if (parts.length === 2) {
+                        periodEl.textContent = 'Период: ' + parts[1] + '.' + parts[0] + ' (обновляется каждый месяц)';
                     }
-                    if (list.length === 0) {
+                }
+
+                if (scopeLabelEl) {
+                    if (data.scope === 'usmle') {
+                        scopeLabelEl.textContent = 'Рейтинг USMLE · участников: ' + (data.totalParticipants || 0);
+                    } else {
+                        var name = data.university
+                            ? (data.university.shortName ? data.university.shortName + ' — ' + data.university.name : data.university.name)
+                            : 'Университет';
+                        scopeLabelEl.textContent = 'Рейтинг: ' + name + ' · участников: ' + (data.totalParticipants || 0);
+                    }
+                }
+
+                if (list.length === 0) {
+                    tableWrap.style.display = 'none';
+                    tableWrap.innerHTML = '';
+                    emptyEl.style.display = 'block';
+                    emptyEl.textContent = data.scope === 'usmle'
+                        ? 'Пока нет данных рейтинга USMLE за этот месяц.'
+                        : 'Пока нет данных рейтинга этого университета за этот месяц.';
+                    if (myRankCard) myRankCard.style.display = 'none';
+                    return;
+                }
+
+                emptyEl.style.display = 'none';
+                var html = '<table class="rating-table"><thead><tr><th>Место</th><th>Никнейм</th><th>Правильных ответов</th><th>Всего вопросов</th><th>Тестов</th><th>Точность %</th></tr></thead><tbody>';
+                list.forEach(function(row) {
+                    var rankClass = row.rank === 1 ? ' top1' : (row.rank === 2 ? ' top2' : (row.rank === 3 ? ' top3' : ''));
+                    html += '<tr><td class="rating-rank' + rankClass + '">' + row.rank + '</td><td>' +
+                        esc(row.username || '—') + '</td><td>' + row.correctAnswers + '</td><td>' +
+                        row.totalQuestionsAnswered + '</td><td>' + row.totalTestsCompleted + '</td><td>' +
+                        row.accuracy + '%</td></tr>';
+                });
+                html += '</tbody></table>';
+                tableWrap.innerHTML = html;
+                tableWrap.style.display = 'block';
+
+                if (myRankCard) {
+                    if (myEntry) {
+                        myRankCard.innerHTML =
+                            '<div class="my-rank-title">Ваше место в этом рейтинге</div>' +
+                            '<div class="my-rank-value">#' + myEntry.rank + ' — ' + esc(myEntry.username || '—') + '</div>' +
+                            '<div style="margin-top:0.35rem;color:var(--text-secondary);font-size:0.9rem;">' +
+                            'Правильных: ' + myEntry.correctAnswers + ', вопросов: ' + myEntry.totalQuestionsAnswered +
+                            ', тестов: ' + myEntry.totalTestsCompleted + ', точность: ' + myEntry.accuracy + '%' +
+                            '</div>';
+                        myRankCard.style.display = 'block';
+                    } else {
+                        myRankCard.style.display = 'none';
+                    }
+                }
+            }
+
+            function loadLeaderboard(scope, universityId) {
+                loadingEl.style.display = 'block';
+                tableWrap.style.display = 'none';
+                emptyEl.style.display = 'none';
+                if (myRankCard) myRankCard.style.display = 'none';
+
+                var qs = new URLSearchParams();
+                qs.set('limit', '20');
+                if (scope) qs.set('scope', scope);
+                if (scope === 'university' && universityId) qs.set('universityId', String(universityId));
+
+                fetch('/api/leaderboard?' + qs.toString(), { headers: headers })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        loadingEl.style.display = 'none';
+                        if (data.error) throw new Error(data.error);
+                        state.scope = data.scope || scope || 'usmle';
+                        state.universityId = data.universityId || universityId || null;
+                        state.universities = data.universities || state.universities || [];
+                        renderTabs();
+                        renderBoard(data);
+                    })
+                    .catch(function() {
+                        loadingEl.style.display = 'none';
+                        emptyEl.textContent = 'Не удалось загрузить рейтинг. Попробуйте позже.';
                         emptyEl.style.display = 'block';
                         if (myRankCard) myRankCard.style.display = 'none';
-                        return;
-                    }
-                    var html = '<table class="rating-table"><thead><tr><th>Место</th><th>Никнейм</th><th>Правильных ответов</th><th>Всего вопросов</th><th>Тестов</th><th>Точность %</th></tr></thead><tbody>';
-                    list.forEach(function(row) {
-                        var rankClass = row.rank === 1 ? ' top1' : (row.rank === 2 ? ' top2' : (row.rank === 3 ? ' top3' : ''));
-                        html += '<tr><td class="rating-rank' + rankClass + '">' + row.rank + '</td><td>' + (row.username || '—') + '</td><td>' + row.correctAnswers + '</td><td>' + row.totalQuestionsAnswered + '</td><td>' + row.totalTestsCompleted + '</td><td>' + row.accuracy + '%</td></tr>';
                     });
-                    html += '</tbody></table>';
-                    tableWrap.innerHTML = html;
-                    tableWrap.style.display = 'block';
+            }
 
-                    if (myRankCard) {
-                        if (myEntry) {
-                            myRankCard.innerHTML =
-                                '<div class="my-rank-title">Ваше место в рейтинге</div>' +
-                                '<div class="my-rank-value">#' + myEntry.rank + ' — ' + (myEntry.username || '—') + '</div>' +
-                                '<div style="margin-top:0.35rem;color:var(--text-secondary);font-size:0.9rem;">' +
-                                'Правильных: ' + myEntry.correctAnswers + ', вопросов: ' + myEntry.totalQuestionsAnswered +
-                                ', тестов: ' + myEntry.totalTestsCompleted + ', точность: ' + myEntry.accuracy + '%' +
-                                '</div>';
-                            myRankCard.style.display = 'block';
-                        } else {
-                            myRankCard.style.display = 'none';
-                        }
-                    }
-                })
-                .catch(function() {
-                    loadingEl.style.display = 'none';
-                    emptyEl.textContent = 'Не удалось загрузить рейтинг. Попробуйте позже.';
-                    emptyEl.style.display = 'block';
-                    if (myRankCard) myRankCard.style.display = 'none';
-                });
+            // Первый запрос — сервер сам выберет вуз пользователя или USMLE
+            loadLeaderboard(null, null);
         })();
     </script>
 </body>

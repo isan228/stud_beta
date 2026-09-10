@@ -90,11 +90,24 @@ class StatsService {
     LeaderboardEntry? currentUserEntry,
     int totalParticipants,
     String period,
-  })> getLeaderboard({int limit = 20}) async {
+    String scope,
+    int? universityId,
+    Map<String, dynamic>? university,
+    List<Map<String, dynamic>> universities,
+    int? currentUserUniversityId,
+  })> getLeaderboard({
+    int limit = 20,
+    String? scope,
+    int? universityId,
+  }) async {
     try {
+      final query = <String, dynamic>{'limit': limit};
+      if (scope != null && scope.isNotEmpty) query['scope'] = scope;
+      if (universityId != null) query['universityId'] = universityId;
+
       final data = await _api.get<Map<String, dynamic>>(
         '/leaderboard',
-        queryParameters: {'limit': limit},
+        queryParameters: query,
         parser: (d) => Map<String, dynamic>.from(d as Map),
       );
       final list = (data['leaderboard'] as List? ?? [])
@@ -103,11 +116,22 @@ class StatsService {
       final current = data['currentUserEntry'] != null
           ? LeaderboardEntry.fromJson(data['currentUserEntry'] as Map<String, dynamic>)
           : null;
+      final universities = (data['universities'] as List? ?? [])
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+      final uni = data['university'] != null
+          ? Map<String, dynamic>.from(data['university'] as Map)
+          : null;
       return (
         leaderboard: list,
         currentUserEntry: current,
         totalParticipants: data['totalParticipants'] as int? ?? 0,
         period: data['period'] as String? ?? '',
+        scope: data['scope'] as String? ?? (scope ?? 'usmle'),
+        universityId: data['universityId'] as int?,
+        university: uni,
+        universities: universities,
+        currentUserUniversityId: data['currentUserUniversityId'] as int?,
       );
     } on DioException catch (e) {
       throw _api.rethrowAsApi(e);

@@ -1,9 +1,63 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const { UserStats, TestResult, Test, Subject, User, Question } = require('../models');
+const { UserStats, TestResult, Test, Subject, User, Question, University } = require('../models');
 const { Op } = require('sequelize');
 const jwt = require('jsonwebtoken');
+
+function parseOptionalUserId(req) {
+  const authHeader = req.header('Authorization');
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.replace('Bearer ', '') : null;
+  if (!token) return null;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    return decoded?.userId || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function buildLeaderboardFromRows(rows) {
+  const byUser = new Map();
+  rows.forEach((row) => {
+    const userId = row.User?.id || row.userId;
+    if (!userId) return;
+    const prev = byUser.get(userId) || {
+      userId,
+      username: row.User?.username || '—',
+      correctAnswers: 0,
+      totalQuestionsAnswered: 0,
+      totalTestsCompleted: 0
+    };
+    prev.correctAnswers += Number(row.score) || 0;
+    prev.totalQuestionsAnswered += Number(row.totalQuestions) || 0;
+    prev.totalTestsCompleted += 1;
+    byUser.set(userId, prev);
+  });
+
+  return Array.from(byUser.values())
+    .sort((a, b) => {
+      if (b.correctAnswers !== a.correctAnswers) return b.correctAnswers - a.correctAnswers;
+      if (b.totalQuestionsAnswered !== a.totalQuestionsAnswered) {
+        return b.totalQuestionsAnswered - a.totalQuestionsAnswered;
+      }
+      if (b.totalTestsCompleted !== a.totalTestsCompleted) {
+        return b.totalTestsCompleted - a.totalTestsCompleted;
+      }
+      return String(a.username).localeCompare(String(b.username), 'ru');
+    })
+    .map((item, index) => ({
+      rank: index + 1,
+      userId: item.userId,
+      username: item.username,
+      correctAnswers: item.correctAnswers,
+      totalQuestionsAnswered: item.totalQuestionsAnswered,
+      totalTestsCompleted: item.totalTestsCompleted,
+      accuracy: item.totalQuestionsAnswered > 0
+        ? Math.round((item.correctAnswers / item.totalQuestionsAnswered) * 100)
+        : 0
+    }));
+}
 
 // Публичная статистика платформы для главной страницы
 router.get('/platform', async (req, res) => {
@@ -135,26 +189,69 @@ router.post('/stats/test-result', auth, async (req, res) => {
   }
 });
 
-// Рейтинг: кто больше всего правильно сдаёт тесты (по количеству правильных ответов)
+// Рейтинг: отдельные таблицы — USMLE и каждый университет
+// GET /api/leaderboard?scope=usmle|university&universityId=&limit=20
 router.get('/leaderboard', async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const period = `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, '0')}`;
 
-    // Пробуем определить текущего пользователя по Bearer-токену (опционально)
-    let currentUserId = null;
-    const authHeader = req.header('Authorization');
-    const token = authHeader?.startsWith('Bearer ') ? authHeader.replace('Bearer ', '') : null;
-    if (token) {
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        currentUserId = decoded?.userId || null;
-      } catch (e) {
-        currentUserId = null;
+    const currentUserId = parseOptionalUserId(req);
+    let currentUserUniversityId = null;
+    if (currentUserId) {
+      const me = await User.findByPk(currentUserId, { attributes: ['id', 'universityId'] });
+      currentUserUniversityId = me?.universityId || null;
+    }
+
+    const universities = await University.findAll({
+      where: { isActive: true },
+      attributes: ['id', 'name', 'shortName'],
+      order: [['shortName', 'ASC'], ['name', 'ASC']]
+    });
+
+    let scope = String(req.query.scope || '').toLowerCase();
+    let universityId = parseInt(req.query.universityId, 10);
+
+    if (scope !== 'usmle' && scope !== 'university') {
+      // По умолчанию: вуз пользователя, иначе USMLE
+      if (currentUserUniversityId) {
+        scope = 'university';
+        universityId = Number(currentUserUniversityId);
+      } else {
+        scope = 'usmle';
       }
     }
+
+    if (scope === 'university') {
+      if (!Number.isFinite(universityId) || universityId <= 0) {
+        universityId = currentUserUniversityId
+          || (universities[0] ? Number(universities[0].id) : null);
+      }
+      if (!Number.isFinite(universityId) || universityId <= 0) {
+        return res.json({
+          scope: 'university',
+          universityId: null,
+          university: null,
+          leaderboard: [],
+          currentUserEntry: null,
+          totalParticipants: 0,
+          period,
+          universities: universities.map((u) => ({
+            id: u.id,
+            name: u.name,
+            shortName: u.shortName
+          })),
+          currentUserUniversityId
+        });
+      }
+    }
+
+    const testWhere = scope === 'usmle'
+      ? { programType: 'usmle' }
+      : { programType: 'university', universityId: Number(universityId) };
 
     const rows = await TestResult.findAll({
       where: {
@@ -163,63 +260,54 @@ router.get('/leaderboard', async (req, res) => {
           [Op.lt]: nextMonthStart
         }
       },
-      attributes: ['id', 'userId', 'score', 'totalQuestions', 'createdAt'],
+      attributes: ['id', 'userId', 'score', 'totalQuestions', 'createdAt', 'testId'],
       include: [{
         model: User,
         as: 'User',
         attributes: ['id', 'username'],
         required: true
+      }, {
+        model: Test,
+        as: 'Test',
+        attributes: ['id', 'programType', 'universityId', 'name'],
+        required: true,
+        where: testWhere
       }],
       order: [['createdAt', 'DESC']]
     });
-    const byUser = new Map();
-    rows.forEach((row) => {
-      const userId = row.User?.id || row.userId;
-      if (!userId) return;
-      const prev = byUser.get(userId) || {
-        userId,
-        username: row.User?.username || '—',
-        correctAnswers: 0,
-        totalQuestionsAnswered: 0,
-        totalTestsCompleted: 0
-      };
-      prev.correctAnswers += Number(row.score) || 0;
-      prev.totalQuestionsAnswered += Number(row.totalQuestions) || 0;
-      prev.totalTestsCompleted += 1;
-      byUser.set(userId, prev);
-    });
 
-    const leaderboardAll = Array.from(byUser.values())
-      .sort((a, b) => {
-        if (b.correctAnswers !== a.correctAnswers) return b.correctAnswers - a.correctAnswers;
-        if (b.totalQuestionsAnswered !== a.totalQuestionsAnswered) return b.totalQuestionsAnswered - a.totalQuestionsAnswered;
-        if (b.totalTestsCompleted !== a.totalTestsCompleted) return b.totalTestsCompleted - a.totalTestsCompleted;
-        return String(a.username).localeCompare(String(b.username), 'ru');
-      })
-      .map((item, index) => ({
-        rank: index + 1,
-        userId: item.userId,
-        username: item.username,
-        correctAnswers: item.correctAnswers,
-        totalQuestionsAnswered: item.totalQuestionsAnswered,
-        totalTestsCompleted: item.totalTestsCompleted,
-        accuracy: item.totalQuestionsAnswered > 0
-          ? Math.round((item.correctAnswers / item.totalQuestionsAnswered) * 100)
-          : 0
-      }));
-
+    const leaderboardAll = buildLeaderboardFromRows(rows);
     const leaderboard = leaderboardAll.slice(0, limit);
     const currentUserEntry = currentUserId
-      ? (leaderboardAll.find(item => Number(item.userId) === Number(currentUserId)) || null)
+      ? (leaderboardAll.find((item) => Number(item.userId) === Number(currentUserId)) || null)
       : null;
 
-    const period = `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, '0')}`;
+    let university = null;
+    if (scope === 'university') {
+      university = universities.find((u) => Number(u.id) === Number(universityId)) || null;
+      if (!university) {
+        university = await University.findByPk(universityId, {
+          attributes: ['id', 'name', 'shortName']
+        });
+      }
+    }
 
     res.json({
+      scope,
+      universityId: scope === 'university' ? Number(universityId) : null,
+      university: university
+        ? { id: university.id, name: university.name, shortName: university.shortName }
+        : null,
       leaderboard,
       currentUserEntry,
       totalParticipants: leaderboardAll.length,
-      period
+      period,
+      universities: universities.map((u) => ({
+        id: u.id,
+        name: u.name,
+        shortName: u.shortName
+      })),
+      currentUserUniversityId
     });
   } catch (error) {
     console.error('Ошибка получения рейтинга:', error);
