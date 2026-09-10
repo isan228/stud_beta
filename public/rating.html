@@ -19,80 +19,384 @@
     <title>Рейтинг - stud.kg</title>
     <link rel="stylesheet" href="styles.css">
     <style>
-        .rating-page { max-width: 960px; margin: 0 auto; padding: 2rem 1rem; }
-        .rating-tabs {
+        body.rating-body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background:
+                radial-gradient(ellipse 90% 55% at 10% -10%, rgba(37, 99, 235, 0.14), transparent 55%),
+                radial-gradient(ellipse 70% 45% at 100% 0%, rgba(5, 150, 105, 0.1), transparent 50%),
+                var(--bg-color);
+        }
+
+        body.rating-body .main-content {
+            flex: 1;
+            width: 100%;
+            max-width: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .rating-page {
+            width: 100%;
+            max-width: none;
+            margin: 0;
+            padding: 0 0 3rem;
+        }
+
+        .rating-hero {
+            width: 100%;
+            padding: clamp(1.75rem, 4vw, 3rem) clamp(1rem, 4vw, 3rem) 1.5rem;
+            border-bottom: 1px solid var(--border-light);
+            background:
+                linear-gradient(180deg, color-mix(in srgb, var(--primary-color) 8%, var(--card-bg)) 0%, transparent 100%);
+        }
+
+        .rating-hero-inner {
+            width: min(1400px, 100%);
+            margin: 0 auto;
+            display: grid;
+            gap: 1rem;
+        }
+
+        .rating-hero h1 {
+            margin: 0;
+            font-size: clamp(2rem, 4.5vw, 2.75rem);
+            letter-spacing: -0.03em;
+            line-height: 1.15;
+        }
+
+        .rating-hero-lead {
+            margin: 0;
+            max-width: 42rem;
+            color: var(--text-secondary);
+            font-size: clamp(1rem, 2vw, 1.1rem);
+            line-height: 1.5;
+        }
+
+        .rating-meta-row {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.5rem;
-            justify-content: center;
-            margin: 1.25rem 0 1.5rem;
+            gap: 0.6rem;
+            align-items: center;
         }
+
+        .rating-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.35rem 0.8rem;
+            border-radius: 999px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-light);
+            color: var(--text-secondary);
+            font-size: 0.88rem;
+            font-weight: 600;
+            box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.06));
+        }
+
+        .rating-pill strong {
+            color: var(--text-primary);
+            font-weight: 700;
+        }
+
+        .rating-shell {
+            width: min(1400px, 100%);
+            margin: 0 auto;
+            padding: 1.25rem clamp(1rem, 4vw, 3rem) 0;
+            display: grid;
+            gap: 1.25rem;
+        }
+
+        .rating-tabs-bar {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            margin: 0 calc(-1 * clamp(1rem, 4vw, 3rem));
+            padding: 0.75rem clamp(1rem, 4vw, 3rem);
+            background: color-mix(in srgb, var(--bg-color) 88%, transparent);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .rating-tabs {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 0.55rem;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+            padding-bottom: 0.15rem;
+        }
+
         .rating-tab {
             border: 1px solid var(--border-color);
             background: var(--card-bg);
             color: var(--text-primary);
             border-radius: 999px;
-            padding: 0.45rem 0.95rem;
+            padding: 0.55rem 1.1rem;
             font-size: 0.92rem;
-            font-weight: 600;
+            font-weight: 650;
             cursor: pointer;
-            transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+            white-space: nowrap;
+            flex-shrink: 0;
+            transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
         }
+
         .rating-tab:hover {
             border-color: var(--primary-color);
             color: var(--primary-color);
+            transform: translateY(-1px);
         }
+
         .rating-tab.is-active {
             background: var(--primary-color);
             border-color: var(--primary-color);
             color: #fff;
+            box-shadow: 0 6px 16px rgba(37, 99, 235, 0.28);
         }
+
         .rating-tab.is-usmle.is-active {
             background: #dc2626;
             border-color: #dc2626;
+            box-shadow: 0 6px 16px rgba(220, 38, 38, 0.28);
         }
+
+        .rating-panel {
+            display: grid;
+            gap: 1.25rem;
+        }
+
+        .rating-scope-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 0.5rem 1rem;
+        }
+
         .rating-scope-label {
-            text-align: center;
-            font-weight: 700;
-            margin-bottom: 0.75rem;
+            margin: 0;
+            font-size: clamp(1.15rem, 2.4vw, 1.45rem);
+            font-weight: 800;
+            letter-spacing: -0.02em;
             color: var(--text-primary);
         }
-        .rating-table-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-        .rating-table { width: 100%; border-collapse: collapse; background: var(--card-bg); border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
-        .rating-table th, .rating-table td { padding: 0.875rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); }
-        .rating-table th { background: var(--bg-secondary); font-weight: 600; color: var(--text-primary); }
-        .rating-table tr:last-child td { border-bottom: none; }
-        .rating-table tr:hover td { background: var(--bg-secondary); }
-        .rating-rank { font-weight: 700; color: var(--primary-color); min-width: 2.5rem; }
-        .rating-rank.top1 { color: #f59e0b; }
-        .rating-rank.top2 { color: #94a3b8; }
-        .rating-rank.top3 { color: #b45309; }
-        .rating-loading, .rating-empty { text-align: center; padding: 3rem; color: var(--text-secondary); }
-        .rating-empty { font-size: 1.1rem; }
-        .rating-period { margin-top: 0.5rem; color: var(--text-secondary); font-size: 0.95rem; }
-        .my-rank-card { margin-top: 1rem; padding: 0.75rem 1rem; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-secondary); }
-        .my-rank-title { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.35rem; }
-        .my-rank-value { font-weight: 700; color: var(--primary-color); }
-        @media (max-width: 768px) {
-            .rating-page { padding: 1.25rem 0.5rem; }
-            .rating-table { min-width: 640px; font-size: 0.92rem; }
-            .rating-table th, .rating-table td { padding: 0.65rem 0.75rem; }
-            .rating-tabs { justify-content: flex-start; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 0.25rem; }
-            .rating-tab { white-space: nowrap; flex-shrink: 0; }
+
+        .rating-scope-sub {
+            color: var(--text-muted);
+            font-size: 0.92rem;
+            font-weight: 600;
         }
-        @media (max-width: 480px) {
+
+        .rating-podium {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.85rem;
+        }
+
+        .rating-podium-card {
+            position: relative;
+            background: var(--card-bg);
+            border: 1px solid var(--border-light);
+            border-radius: 16px;
+            padding: 1.15rem 1rem 1.2rem;
+            box-shadow: var(--shadow-sm, 0 2px 8px rgba(0,0,0,0.06));
+            overflow: hidden;
+            min-height: 8.5rem;
+        }
+
+        .rating-podium-card::before {
+            content: '';
+            position: absolute;
+            inset: 0 0 auto 0;
+            height: 4px;
+            background: var(--primary-color);
+        }
+
+        .rating-podium-card.top1 {
+            background:
+                linear-gradient(160deg, rgba(245, 158, 11, 0.14), transparent 55%),
+                var(--card-bg);
+        }
+        .rating-podium-card.top1::before { background: #f59e0b; }
+
+        .rating-podium-card.top2::before { background: #94a3b8; }
+        .rating-podium-card.top3::before { background: #b45309; }
+
+        .rating-podium-rank {
+            font-size: 0.78rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 0.45rem;
+        }
+
+        .rating-podium-name {
+            font-size: 1.15rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin: 0 0 0.55rem;
+            word-break: break-word;
+        }
+
+        .rating-podium-stats {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem 0.85rem;
+            color: var(--text-secondary);
+            font-size: 0.88rem;
+            font-weight: 600;
+        }
+
+        .rating-board {
+            background: var(--card-bg);
+            border: 1px solid var(--border-light);
+            border-radius: 16px;
+            box-shadow: var(--shadow-md, 0 4px 18px rgba(0,0,0,0.07));
+            overflow: hidden;
+        }
+
+        .rating-table-wrap {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .rating-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 720px;
+        }
+
+        .rating-table th,
+        .rating-table td {
+            padding: 0.95rem 1.15rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-light);
+            vertical-align: middle;
+        }
+
+        .rating-table th {
+            background: var(--bg-secondary);
+            font-weight: 700;
+            font-size: 0.82rem;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        .rating-table tbody tr:last-child td { border-bottom: none; }
+
+        .rating-table tbody tr:hover td {
+            background: color-mix(in srgb, var(--primary-color) 5%, var(--bg-secondary));
+        }
+
+        .rating-table tr.is-me td {
+            background: color-mix(in srgb, var(--primary-color) 10%, var(--card-bg));
+        }
+
+        .rating-rank {
+            font-weight: 800;
+            color: var(--primary-color);
+            font-variant-numeric: tabular-nums;
+            width: 4rem;
+        }
+
+        .rating-rank.top1 { color: #d97706; }
+        .rating-rank.top2 { color: #64748b; }
+        .rating-rank.top3 { color: #b45309; }
+
+        .rating-user {
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .rating-num {
+            font-variant-numeric: tabular-nums;
+            font-weight: 650;
+            color: var(--text-primary);
+        }
+
+        .rating-acc {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 3.4rem;
+            padding: 0.2rem 0.55rem;
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--success-color) 12%, transparent);
+            color: var(--success-color);
+            font-weight: 800;
+            font-size: 0.88rem;
+        }
+
+        .my-rank-card {
+            display: grid;
+            gap: 0.35rem;
+            padding: 1.1rem 1.25rem;
+            border-radius: 16px;
+            border: 1px solid color-mix(in srgb, var(--primary-color) 28%, var(--border-light));
+            background:
+                linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 12%, var(--card-bg)), var(--card-bg));
+            box-shadow: var(--shadow-sm, 0 2px 8px rgba(0,0,0,0.06));
+        }
+
+        .my-rank-title {
+            font-size: 0.84rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .my-rank-value {
+            font-size: clamp(1.2rem, 2.5vw, 1.55rem);
+            font-weight: 850;
+            letter-spacing: -0.02em;
+            color: var(--primary-color);
+        }
+
+        .my-rank-stats {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        .rating-loading,
+        .rating-empty {
+            text-align: center;
+            padding: 3.5rem 1.5rem;
+            color: var(--text-secondary);
+            background: var(--card-bg);
+            border: 1px dashed var(--border-color);
+            border-radius: 16px;
+            font-size: 1.05rem;
+            font-weight: 600;
+        }
+
+        @media (max-width: 900px) {
+            .rating-podium {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 640px) {
             .rating-table th:nth-child(4),
             .rating-table td:nth-child(4),
             .rating-table th:nth-child(5),
             .rating-table td:nth-child(5) {
                 display: none;
             }
-            .rating-table { min-width: 0; width: 100%; font-size: 0.88rem; }
-            .rating-table th, .rating-table td { padding: 0.6rem 0.5rem; }
+            .rating-table { min-width: 0; }
+            .rating-table th,
+            .rating-table td { padding: 0.75rem 0.7rem; }
         }
     </style>
 </head>
-<body>
+<body class="rating-body">
     <nav class="navbar">
         <div class="container">
             <div class="nav-brand"><a href="/"><h1>stud.kg</h1></a></div>
@@ -119,18 +423,37 @@
 
     <main class="main-content">
         <div class="rating-page">
-            <div class="page-header" style="text-align: center; margin-bottom: 0.5rem;">
-                <h1>Рейтинг</h1>
-                <p class="page-description">Отдельные топы за текущий месяц: USMLE и каждый университет</p>
-                <div class="rating-period" id="ratingPeriod"></div>
-            </div>
-            <div class="rating-tabs" id="ratingTabs" aria-label="Выбор рейтинга"></div>
-            <div class="rating-scope-label" id="ratingScopeLabel"></div>
-            <div id="ratingContent">
-                <div class="rating-loading" id="ratingLoading">Загрузка рейтинга...</div>
-                <div id="ratingTableWrap" class="rating-table-wrap" style="display: none;"></div>
-                <div id="myRankCard" class="my-rank-card" style="display: none;"></div>
-                <div class="rating-empty" id="ratingEmpty" style="display: none;">Пока нет данных для рейтинга. Проходите тесты!</div>
+            <section class="rating-hero">
+                <div class="rating-hero-inner">
+                    <h1>Рейтинг</h1>
+                    <p class="rating-hero-lead">Топ месяца по правильным ответам — отдельно для USMLE и для каждого университета.</p>
+                    <div class="rating-meta-row">
+                        <span class="rating-pill" id="ratingPeriod">Период загружается…</span>
+                        <span class="rating-pill" id="ratingParticipantsPill" style="display:none;">Участников: <strong id="ratingParticipants">0</strong></span>
+                    </div>
+                </div>
+            </section>
+
+            <div class="rating-shell">
+                <div class="rating-tabs-bar">
+                    <div class="rating-tabs" id="ratingTabs" aria-label="Выбор рейтинга"></div>
+                </div>
+
+                <div class="rating-panel">
+                    <div class="rating-scope-head">
+                        <h2 class="rating-scope-label" id="ratingScopeLabel">Загрузка…</h2>
+                        <div class="rating-scope-sub" id="ratingScopeSub"></div>
+                    </div>
+
+                    <div id="ratingPodium" class="rating-podium" style="display:none;"></div>
+
+                    <div id="ratingContent">
+                        <div class="rating-loading" id="ratingLoading">Загрузка рейтинга...</div>
+                        <div id="ratingTableWrap" class="rating-board rating-table-wrap" style="display: none;"></div>
+                        <div id="myRankCard" class="my-rank-card" style="display: none;"></div>
+                        <div class="rating-empty" id="ratingEmpty" style="display: none;">Пока нет данных для рейтинга. Проходите тесты!</div>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
@@ -155,6 +478,10 @@
             var myRankCard = document.getElementById('myRankCard');
             var tabsEl = document.getElementById('ratingTabs');
             var scopeLabelEl = document.getElementById('ratingScopeLabel');
+            var scopeSubEl = document.getElementById('ratingScopeSub');
+            var podiumEl = document.getElementById('ratingPodium');
+            var participantsPill = document.getElementById('ratingParticipantsPill');
+            var participantsEl = document.getElementById('ratingParticipants');
             var token = localStorage.getItem('token');
             var headers = token ? { 'Authorization': 'Bearer ' + token } : {};
 
@@ -198,31 +525,66 @@
                 });
             }
 
+            function renderPodium(list) {
+                if (!podiumEl) return;
+                var top = (list || []).slice(0, 3);
+                if (!top.length) {
+                    podiumEl.style.display = 'none';
+                    podiumEl.innerHTML = '';
+                    return;
+                }
+                var labels = ['1 место', '2 место', '3 место'];
+                podiumEl.innerHTML = top.map(function(row, i) {
+                    return '<article class="rating-podium-card top' + (i + 1) + '">' +
+                        '<div class="rating-podium-rank">' + labels[i] + '</div>' +
+                        '<h3 class="rating-podium-name">' + esc(row.username || '—') + '</h3>' +
+                        '<div class="rating-podium-stats">' +
+                        '<span>' + row.correctAnswers + ' прав.</span>' +
+                        '<span>' + row.accuracy + '%</span>' +
+                        '<span>' + row.totalTestsCompleted + ' тест.</span>' +
+                        '</div></article>';
+                }).join('');
+                podiumEl.style.display = 'grid';
+            }
+
             function renderBoard(data) {
                 var list = data.leaderboard || [];
                 var myEntry = data.currentUserEntry || null;
+                var myId = myEntry ? Number(myEntry.userId) : null;
 
                 if (periodEl && data.period) {
                     var parts = String(data.period).split('-');
                     if (parts.length === 2) {
-                        periodEl.textContent = 'Период: ' + parts[1] + '.' + parts[0] + ' (обновляется каждый месяц)';
+                        periodEl.textContent = 'Период: ' + parts[1] + '.' + parts[0] + ' · обновляется каждый месяц';
                     }
+                }
+
+                if (participantsPill && participantsEl) {
+                    participantsEl.textContent = String(data.totalParticipants || 0);
+                    participantsPill.style.display = 'inline-flex';
                 }
 
                 if (scopeLabelEl) {
                     if (data.scope === 'usmle') {
-                        scopeLabelEl.textContent = 'Рейтинг USMLE · участников: ' + (data.totalParticipants || 0);
+                        scopeLabelEl.textContent = 'Рейтинг USMLE';
                     } else {
                         var name = data.university
                             ? (data.university.shortName ? data.university.shortName + ' — ' + data.university.name : data.university.name)
                             : 'Университет';
-                        scopeLabelEl.textContent = 'Рейтинг: ' + name + ' · участников: ' + (data.totalParticipants || 0);
+                        scopeLabelEl.textContent = name;
                     }
+                }
+                if (scopeSubEl) {
+                    scopeSubEl.textContent = 'Топ-' + Math.min(20, list.length || 20) + ' · ' + (data.totalParticipants || 0) + ' участников';
                 }
 
                 if (list.length === 0) {
                     tableWrap.style.display = 'none';
                     tableWrap.innerHTML = '';
+                    if (podiumEl) {
+                        podiumEl.style.display = 'none';
+                        podiumEl.innerHTML = '';
+                    }
                     emptyEl.style.display = 'block';
                     emptyEl.textContent = data.scope === 'usmle'
                         ? 'Пока нет данных рейтинга USMLE за этот месяц.'
@@ -232,13 +594,22 @@
                 }
 
                 emptyEl.style.display = 'none';
-                var html = '<table class="rating-table"><thead><tr><th>Место</th><th>Никнейм</th><th>Правильных ответов</th><th>Всего вопросов</th><th>Тестов</th><th>Точность %</th></tr></thead><tbody>';
+                renderPodium(list);
+
+                var html = '<table class="rating-table"><thead><tr>' +
+                    '<th>Место</th><th>Никнейм</th><th>Правильных</th><th>Вопросов</th><th>Тестов</th><th>Точность</th>' +
+                    '</tr></thead><tbody>';
                 list.forEach(function(row) {
                     var rankClass = row.rank === 1 ? ' top1' : (row.rank === 2 ? ' top2' : (row.rank === 3 ? ' top3' : ''));
-                    html += '<tr><td class="rating-rank' + rankClass + '">' + row.rank + '</td><td>' +
-                        esc(row.username || '—') + '</td><td>' + row.correctAnswers + '</td><td>' +
-                        row.totalQuestionsAnswered + '</td><td>' + row.totalTestsCompleted + '</td><td>' +
-                        row.accuracy + '%</td></tr>';
+                    var isMe = myId != null && Number(row.userId) === myId;
+                    html += '<tr' + (isMe ? ' class="is-me"' : '') + '>' +
+                        '<td class="rating-rank' + rankClass + '">#' + row.rank + '</td>' +
+                        '<td class="rating-user">' + esc(row.username || '—') + (isMe ? ' <span style="color:var(--primary-color);font-size:0.82rem;">· вы</span>' : '') + '</td>' +
+                        '<td class="rating-num">' + row.correctAnswers + '</td>' +
+                        '<td class="rating-num">' + row.totalQuestionsAnswered + '</td>' +
+                        '<td class="rating-num">' + row.totalTestsCompleted + '</td>' +
+                        '<td><span class="rating-acc">' + row.accuracy + '%</span></td>' +
+                        '</tr>';
                 });
                 html += '</tbody></table>';
                 tableWrap.innerHTML = html;
@@ -247,13 +618,13 @@
                 if (myRankCard) {
                     if (myEntry) {
                         myRankCard.innerHTML =
-                            '<div class="my-rank-title">Ваше место в этом рейтинге</div>' +
+                            '<div class="my-rank-title">Ваше место</div>' +
                             '<div class="my-rank-value">#' + myEntry.rank + ' — ' + esc(myEntry.username || '—') + '</div>' +
-                            '<div style="margin-top:0.35rem;color:var(--text-secondary);font-size:0.9rem;">' +
-                            'Правильных: ' + myEntry.correctAnswers + ', вопросов: ' + myEntry.totalQuestionsAnswered +
-                            ', тестов: ' + myEntry.totalTestsCompleted + ', точность: ' + myEntry.accuracy + '%' +
+                            '<div class="my-rank-stats">' +
+                            myEntry.correctAnswers + ' правильных · ' + myEntry.totalQuestionsAnswered + ' вопросов · ' +
+                            myEntry.totalTestsCompleted + ' тестов · ' + myEntry.accuracy + '%' +
                             '</div>';
-                        myRankCard.style.display = 'block';
+                        myRankCard.style.display = 'grid';
                     } else {
                         myRankCard.style.display = 'none';
                     }
@@ -265,6 +636,7 @@
                 tableWrap.style.display = 'none';
                 emptyEl.style.display = 'none';
                 if (myRankCard) myRankCard.style.display = 'none';
+                if (podiumEl) podiumEl.style.display = 'none';
 
                 var qs = new URLSearchParams();
                 qs.set('limit', '20');
@@ -290,7 +662,6 @@
                     });
             }
 
-            // Первый запрос — сервер сам выберет вуз пользователя или USMLE
             loadLeaderboard(null, null);
         })();
     </script>
