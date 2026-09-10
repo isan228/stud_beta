@@ -126,11 +126,11 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     }
 
     function favoriteFlagSvg(filled) {
-        // Красный флажок (UWorld-стиль). filled — заливка, иначе контур.
+        // Крупный красный флажок. filled — заливка, иначе жирный контур.
         if (filled) {
-            return `<svg class="fav-flag-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M6 2v20h2V14h.8l.5 1.5H20l-1.6-4.2L20 7H9V2H6zm3 7h8.1l-1.1 2.8 1.1 2.7H9.8L9.3 13H9V9z"/></svg>`;
+            return `<svg class="fav-flag-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M5 2v20h2.4V13.2h1l.55 1.8H21l-2-5.2L21 4.6H8.95V2H5zm3.95 5.1h9.55l-1.35 3.5 1.35 3.5H9.85l-.4-1.3h-.5V7.1z"/></svg>`;
         }
-        return `<svg class="fav-flag-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M7 21V3.5h10.5L16 7.5l1.5 4H7"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M7 3.5V21"/></svg>`;
+        return `<svg class="fav-flag-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" d="M6.5 21V3.2h11.2L15.8 7.6l1.9 4.4H6.5"/><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" d="M6.5 3.2V21"/></svg>`;
     }
 
     async function syncSessionFavorites() {

@@ -1987,22 +1987,42 @@ html[data-theme="dark"] .navbar {
 }
 
 .favorite-icon-btn.usmle-flag-btn {
-    color: #9ca3af;
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1.5px solid rgba(239, 68, 68, 0.35);
+    min-width: 48px;
+    min-height: 48px;
+    border-radius: 10px;
 }
 
 .favorite-icon-btn.usmle-flag-btn:hover {
     color: #dc2626;
-    background-color: rgba(220, 38, 38, 0.08);
+    background-color: rgba(220, 38, 38, 0.16);
+    border-color: rgba(220, 38, 38, 0.55);
+    transform: scale(1.08);
 }
 
 .favorite-icon-btn.usmle-flag-btn.favorite-active {
-    color: #dc2626;
+    color: #fff;
+    background: #dc2626;
+    border-color: #b91c1c;
+    box-shadow: 0 2px 10px rgba(220, 38, 38, 0.45);
+}
+
+.favorite-icon-btn.usmle-flag-btn.favorite-active:hover {
+    background: #b91c1c;
+    color: #fff;
 }
 
 .favorite-icon-btn .fav-flag-ico {
     width: 1.35rem;
     height: 1.35rem;
     display: block;
+}
+
+.favorite-icon-btn.usmle-flag-btn .fav-flag-ico {
+    width: 1.7rem;
+    height: 1.7rem;
 }
 
 .favorite-icon-btn span {
@@ -2414,21 +2434,33 @@ body.dark-theme .usmle-qnav {
 
 .usmle-qnav-flag {
     margin-left: auto;
-    color: #dc2626;
+    color: #fff;
+    background: #dc2626;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     flex-shrink: 0;
     line-height: 0;
+    width: 1.15rem;
+    height: 1.15rem;
+    border-radius: 0.25rem;
+    box-shadow: 0 1px 4px rgba(185, 28, 28, 0.45);
 }
 
 .usmle-qnav-flag .fav-flag-ico {
-    width: 0.85rem;
-    height: 0.85rem;
+    width: 0.78rem;
+    height: 0.78rem;
     display: block;
 }
 
 .usmle-qnav-item.is-active .usmle-qnav-flag {
-    color: #fecaca;
+    color: #dc2626;
+    background: #fff;
+    box-shadow: none;
+}
+
+.usmle-qnav-item.is-favorite .usmle-qnav-num {
+    font-weight: 800;
 }
 
 /* Dashed connector for linked question clusters */
