@@ -348,7 +348,7 @@
             reviewData = resultId ? await loadFromApi(resultId) : loadFromSession();
         } catch (err) {
             if (left) {
-                left.innerHTML = `<div style="padding:2rem;"><p style="color:var(--danger-color);">${esc(err.message || 'Ошибка')}</p><a class="btn btn-primary" href="/tests">К тестам</a></div>`;
+                left.innerHTML = `<div style="padding:2rem;"><p style="color:var(--danger-color);">${esc(err.message || 'Ошибка')}</p><a class="btn btn-primary" href="/usmle-test-builder">Назад к тестам</a></div>`;
             }
             return;
         }
@@ -358,7 +358,7 @@
                 left.innerHTML = `
                     <div style="padding:2rem;text-align:center;">
                         <p style="color:#64748b;margin-bottom:1rem;">Данные разбора недоступны.</p>
-                        <a class="btn btn-primary" href="/tests">К тестам</a>
+                        <a class="btn btn-primary" href="/usmle-test-builder">Назад к тестам</a>
                     </div>
                 `;
             }
@@ -370,9 +370,15 @@
             window.setProgramType('usmle');
         }
 
+        // USMLE → конструктор тестов; университет → каталог тестов
+        const testsHref = isUsmle ? '/usmle-test-builder' : '/tests';
         const endBtns = [document.getElementById('endReviewBtn'), document.getElementById('endReviewBtnFooter')];
-        const testsHref = isUsmle ? '/usmle' : '/tests';
         endBtns.forEach((el) => { if (el) el.href = testsHref; });
+        const backToTestsBtn = document.getElementById('backToTestsBtn');
+        if (backToTestsBtn) {
+            backToTestsBtn.href = testsHref;
+            backToTestsBtn.style.display = '';
+        }
 
         const testNameEl = document.getElementById('reviewTestName');
         if (testNameEl) {
