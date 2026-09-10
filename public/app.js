@@ -425,6 +425,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         ensureUserChatVisibility();
         ensureSubscriptionAlertVisibility();
         ensureUniversitySetupPrompt();
+        ensureDirectionSetupPrompt();
     }
 
     function ensureUserChatVisibility() {
@@ -491,19 +492,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     }
 
     function buildScheduleSetupAlert() {
-        if (!currentUser) return [];
-        if (currentUser.kgmaGroupId || currentUser.groupName) return [];
-        const shortName = currentUser.University?.shortName || '';
-        if (shortName !== 'КГМА') return [];
-        return [{
-            level: 'info',
-            kind: 'schedule-setup',
-            key: 'schedule-setup',
-            title: 'Сохраните своё расписание',
-            text: 'Выберите группу на странице расписания — и каждый день около 17:00 придёт напоминание о завтрашних парах.',
-            link: '/schedule',
-            linkLabel: 'Открыть расписание'
-        }];
+        // Группа/направление — через buildDirectionSetupAlert (модалка + колокольчик)
+        return [];
     }
 
     function userNeedsUniversity() {
@@ -511,6 +501,22 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         if (currentUser.isAdminAccount === true) return false;
         const uniId = currentUser.universityId || currentUser.University?.id;
         return !(uniId && Number(uniId) > 0);
+    }
+
+    function userNeedsDirection() {
+        if (!currentUser) return false;
+        if (currentUser.isAdminAccount === true) return false;
+        if (userNeedsUniversity()) return false;
+
+        const hasFaculty = !!(currentUser.facultyId && Number(currentUser.facultyId) > 0);
+        const hasCourse = !!(currentUser.course && Number(currentUser.course) > 0);
+        if (!hasFaculty || !hasCourse) return true;
+
+        const shortName = currentUser.University?.shortName || '';
+        if (shortName === 'КГМА') {
+            return !(currentUser.kgmaGroupId || currentUser.groupName);
+        }
+        return false;
     }
 
     function buildUniversitySetupAlert() {
@@ -523,6 +529,23 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             text: 'Без университета недоступны тесты и тарифы вашего вуза. Укажите университет в профиле.',
             link: '/profile#university',
             linkLabel: 'Выбрать университет'
+        }];
+    }
+
+    function buildDirectionSetupAlert() {
+        if (!userNeedsDirection()) return [];
+        const shortName = currentUser.University?.shortName || '';
+        const isKgma = shortName === 'КГМА';
+        return [{
+            level: 'danger',
+            kind: 'direction-setup',
+            key: 'direction-setup',
+            title: 'Выберите направление',
+            text: isKgma
+                ? 'Укажите факультет, курс и группу в профиле — так откроются предметы и напоминания о парах.'
+                : 'Укажите факультет и курс в профиле, чтобы видеть нужные предметы.',
+            link: '/profile#direction',
+            linkLabel: 'Выбрать направление'
         }];
     }
 
@@ -566,6 +589,48 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         } catch (_) {}
     }
 
+    function ensureDirectionSetupPrompt() {
+        if (!userNeedsDirection()) {
+            closeDirectionRequiredModal();
+            return;
+        }
+        const path = String(window.location.pathname || '');
+        if (
+            path.includes('/login')
+            || path.includes('/register')
+            || path.includes('/admin')
+            || path.includes('/payment')
+        ) {
+            return;
+        }
+
+        if (path.includes('/profile')) {
+            let focused = false;
+            try {
+                focused = sessionStorage.getItem('dirSetupFocused') === '1';
+            } catch (_) {}
+            if (!focused || String(window.location.hash || '') === '#direction') {
+                focusDirectionSelector({ scroll: true, notify: !focused });
+                try {
+                    sessionStorage.setItem('dirSetupFocused', '1');
+                } catch (_) {}
+            }
+            return;
+        }
+
+        let already = false;
+        try {
+            already = sessionStorage.getItem('dirSetupPrompted') === '1';
+        } catch (_) {}
+
+        showDirectionRequiredModal({
+            autoRedirect: !already
+        });
+        try {
+            sessionStorage.setItem('dirSetupPrompted', '1');
+        } catch (_) {}
+    }
+
     function focusUniversitySelector(options = {}) {
         const form = document.getElementById('changeUniversityForm');
         const select = document.getElementById('profileUniversityId');
@@ -582,6 +647,34 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
         if (options.notify !== false && typeof showNotification === 'function') {
             showNotification('Выберите университет и нажмите «Сохранить университет»', 'warning');
+        }
+    }
+
+    function focusDirectionSelector(options = {}) {
+        const card = document.getElementById('direction');
+        const form = document.getElementById('directionForm');
+        const facultySelect = document.getElementById('profileFacultyId');
+        const groupSelect = document.getElementById('profileGroupId');
+        if (!card && !form) return;
+        if (options.scroll !== false && (card || form)) {
+            (card || form).scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        if (card) {
+            card.classList.add('direction-setup-highlight');
+            setTimeout(() => card.classList.remove('direction-setup-highlight'), 4500);
+        }
+        const focusEl = (groupSelect && groupSelect.offsetParent !== null) ? groupSelect : facultySelect;
+        if (focusEl) {
+            try { focusEl.focus({ preventScroll: true }); } catch (_) { focusEl.focus(); }
+        }
+        if (options.notify !== false && typeof showNotification === 'function') {
+            const shortName = currentUser?.University?.shortName || '';
+            showNotification(
+                shortName === 'КГМА'
+                    ? 'Выберите факультет, курс и группу, затем нажмите «Сохранить направление»'
+                    : 'Выберите факультет и курс, затем нажмите «Сохранить направление»',
+                'warning'
+            );
         }
     }
 
@@ -603,7 +696,6 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             document.body.appendChild(modal);
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) {
-                    // Не закрываем кликом вне — нужно выбрать вуз; только кнопка ведёт дальше
                     e.stopPropagation();
                 }
             });
@@ -620,6 +712,50 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     function closeUniversityRequiredModal() {
         const modal = document.getElementById('universityRequiredModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function showDirectionRequiredModal(options = {}) {
+        let modal = document.getElementById('directionRequiredModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'directionRequiredModal';
+            modal.className = 'modal university-required-modal direction-required-modal';
+            modal.innerHTML = `
+                <div class="modal-content university-required-modal-content" role="dialog" aria-modal="true" aria-labelledby="directionRequiredTitle">
+                    <h2 id="directionRequiredTitle">Выберите направление</h2>
+                    <p>Укажите факультет, курс и группу в профиле — без этого не настроятся предметы и напоминания о парах.</p>
+                    <div class="university-required-actions">
+                        <a href="/profile#direction" class="btn btn-primary" id="directionRequiredGoBtn">Выбрать направление</a>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    e.stopPropagation();
+                }
+            });
+        }
+        const shortName = currentUser?.University?.shortName || '';
+        const textEl = modal.querySelector('p');
+        if (textEl) {
+            textEl.textContent = shortName === 'КГМА'
+                ? 'Укажите факультет, курс и группу в профиле — без этого не настроятся предметы и напоминания о парах.'
+                : 'Укажите факультет и курс в профиле, чтобы видеть нужные предметы.';
+        }
+        modal.style.display = 'flex';
+        if (options.autoRedirect) {
+            setTimeout(() => {
+                if (userNeedsDirection() && !String(window.location.pathname || '').includes('/profile')) {
+                    window.location.href = '/profile#direction';
+                }
+            }, 1400);
+        }
+    }
+
+    function closeDirectionRequiredModal() {
+        const modal = document.getElementById('directionRequiredModal');
         if (modal) modal.style.display = 'none';
     }
 
@@ -691,7 +827,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             });
             pendingBroadcastAlerts = (pendingBroadcastAlerts || []).map((a) => ({ ...a, isRead: true }));
             pendingDeviceAlerts = (pendingDeviceAlerts || []).map((a) => ({ ...a, isRead: true }));
-            [...buildSubscriptionAlerts(), ...buildScheduleSetupAlert(), ...buildUniversitySetupAlert()].forEach((a) => {
+            [...buildSubscriptionAlerts(), ...buildScheduleSetupAlert(), ...buildUniversitySetupAlert(), ...buildDirectionSetupAlert()].forEach((a) => {
                 if (a.key) markLocalAlertSeen(a.key);
             });
         } catch (e) {
@@ -770,9 +906,13 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         ensureSubscriptionAlertVisibility();
     }
 
-    function countUnreadAlerts(subAlerts, scheduleAlerts, universityAlerts, deviceAlerts, broadcastAlerts) {
-        const localUnread = [...subAlerts, ...scheduleAlerts, ...(universityAlerts || [])]
-            .filter((a) => !isLocalAlertSeen(a.key)).length;
+    function countUnreadAlerts(subAlerts, scheduleAlerts, universityAlerts, directionAlerts, deviceAlerts, broadcastAlerts) {
+        const localUnread = [
+            ...subAlerts,
+            ...scheduleAlerts,
+            ...(universityAlerts || []),
+            ...(directionAlerts || [])
+        ].filter((a) => !isLocalAlertSeen(a.key)).length;
         const deviceUnread = (deviceAlerts || []).filter((a) => a.isRead !== true).length;
         const broadcastUnread = (broadcastAlerts || []).filter((a) => a.isRead !== true).length;
         return localUnread + deviceUnread + broadcastUnread;
@@ -785,14 +925,16 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const subAlerts = buildSubscriptionAlerts();
         const scheduleAlerts = buildScheduleSetupAlert();
         const universityAlerts = buildUniversitySetupAlert();
+        const directionAlerts = buildDirectionSetupAlert();
         const deviceAlerts = pendingDeviceAlerts || [];
         const broadcastAlerts = pendingBroadcastAlerts || [];
         const totalCount = subAlerts.length + scheduleAlerts.length + universityAlerts.length
-            + deviceAlerts.length + broadcastAlerts.length;
+            + directionAlerts.length + deviceAlerts.length + broadcastAlerts.length;
         const unreadCount = countUnreadAlerts(
             subAlerts,
             scheduleAlerts,
             universityAlerts,
+            directionAlerts,
             deviceAlerts,
             broadcastAlerts
         );
@@ -916,6 +1058,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             const subHtml = renderLocal(subAlerts);
             const scheduleHtml = renderLocal(scheduleAlerts);
             const universityHtml = renderLocal(universityAlerts);
+            const directionHtml = renderLocal(directionAlerts);
             const devHtml = deviceAlerts.map((a) => {
                 const when = a.createdAt ? new Date(a.createdAt).toLocaleString('ru-RU') : '';
                 const ip = a.ipAddress || '—';
@@ -942,7 +1085,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                     <button type="button" class="btn btn-secondary btn-sm broadcast-alert-dismiss" data-dismiss-id="${a.id}">Скрыть</button>
                 </div>`;
             }).join('');
-            list.innerHTML = universityHtml + scheduleHtml + broadcastHtml + subHtml + devHtml;
+            list.innerHTML = universityHtml + directionHtml + scheduleHtml + broadcastHtml + subHtml + devHtml;
             list.querySelectorAll('.broadcast-alert-dismiss').forEach((btn) => {
                 btn.addEventListener('click', async (ev) => {
                     ev.preventDefault();
@@ -3950,6 +4093,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 } catch (_) {}
                 closeUniversityRequiredModal();
                 ensureSubscriptionAlertVisibility();
+                ensureDirectionSetupPrompt();
                 showNotification(data.message || 'Университет сохранён', 'success');
             } catch (err) {
                 showNotification(err.message || 'Ошибка сохранения', 'error');
@@ -4090,7 +4234,22 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                     currentUser = data.user;
                     await fillProfileGroupSelect(currentUser);
                     await loadMyScheduleProfile(currentUser);
-                    showNotification('Направление сохранено', 'success');
+                    try {
+                        sessionStorage.removeItem('dirSetupPrompted');
+                        sessionStorage.removeItem('dirSetupFocused');
+                    } catch (_) {}
+                    if (!userNeedsDirection()) {
+                        closeDirectionRequiredModal();
+                    } else {
+                        focusDirectionSelector({ scroll: true, notify: true });
+                    }
+                    ensureSubscriptionAlertVisibility();
+                    showNotification(
+                        userNeedsDirection()
+                            ? 'Сохранено. Для КГМА ещё выберите группу и сохраните снова.'
+                            : 'Направление сохранено',
+                        userNeedsDirection() ? 'warning' : 'success'
+                    );
                 } catch (err) {
                     showNotification(err.message || 'Ошибка сохранения', 'error');
                 }

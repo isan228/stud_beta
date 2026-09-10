@@ -425,7 +425,17 @@
 
             if (location.hash === '#direction') {
                 const el = document.getElementById('direction');
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    el.classList.add('direction-setup-highlight');
+                    setTimeout(() => el.classList.remove('direction-setup-highlight'), 4500);
+                }
+                const facultySelect = document.getElementById('profileFacultyId');
+                const groupSelect = document.getElementById('profileGroupId');
+                const focusEl = (groupSelect && groupSelect.offsetParent !== null) ? groupSelect : facultySelect;
+                if (focusEl) {
+                    try { focusEl.focus({ preventScroll: true }); } catch (_) { focusEl.focus(); }
+                }
             }
             if (location.hash === '#university') {
                 const form = document.getElementById('changeUniversityForm');

@@ -4544,6 +4544,14 @@ body.dark-theme .test-review-explanation-wrap {
     animation: universitySetupPulse 1.4s ease-in-out 3;
 }
 
+#direction.direction-setup-highlight {
+    border-radius: var(--radius-md, 10px);
+    border: 2px solid rgba(220, 53, 69, 0.65);
+    background: rgba(220, 53, 69, 0.06);
+    animation: universitySetupPulse 1.4s ease-in-out 3;
+    padding: 0.85rem 1rem;
+}
+
 /* Модальные окна */
 .modal {
     display: none;
