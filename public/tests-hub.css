@@ -75,6 +75,14 @@
   border-bottom: 1px solid var(--border-color);
   margin-bottom: 1.25rem;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+  scrollbar-width: none;
+}
+
+.tests-hub-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .tests-hub-tab {
@@ -82,6 +90,7 @@
   align-items: center;
   gap: 0.45rem;
   padding: 0.75rem 1rem;
+  min-height: 44px;
   border: none;
   background: transparent;
   color: var(--text-secondary);
@@ -91,6 +100,8 @@
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   white-space: nowrap;
+  flex-shrink: 0;
+  touch-action: manipulation;
 }
 
 .tests-hub-tab:hover {
@@ -218,7 +229,8 @@
 }
 
 .tests-fav-subtab {
-  padding: 0.45rem 0.9rem;
+  padding: 0.55rem 1rem;
+  min-height: 44px;
   border-radius: 999px;
   border: 1px solid var(--border-color);
   background: var(--card-bg, #fff);
@@ -226,6 +238,9 @@
   font-weight: 600;
   font-size: 0.875rem;
   cursor: pointer;
+  touch-action: manipulation;
+  display: inline-flex;
+  align-items: center;
 }
 
 .tests-fav-subtab.active {

@@ -23,6 +23,15 @@
     --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     --radius: 0.5rem;
     --radius-lg: 0.75rem;
+    --nav-h: 64px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --fab-size: 56px;
+    --fab-gap: 12px;
+    --fab-clearance: calc(var(--fab-size) + 28px + var(--safe-bottom));
+    --tap-min: 44px;
 }
 
 html[data-theme="dark"],
@@ -65,7 +74,13 @@ body {
     transition: background-color 0.3s ease, color 0.3s ease;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    overflow-x: hidden;
+    overflow-x: clip;
+    min-height: 100dvh;
+}
+
+body.nav-open {
+    overflow: hidden;
+    touch-action: none;
 }
 
 /* Улучшение для touch устройств */
@@ -119,17 +134,19 @@ input, textarea, select {
 .container {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 0 20px;
+    padding: 0 max(16px, var(--safe-left), var(--safe-right));
+    width: 100%;
 }
 
 /* Навигация */
 .navbar {
     background-color: var(--card-bg);
     border-bottom: 1px solid var(--border-color);
-    padding: 1rem 0;
+    padding: 0.85rem 0;
+    padding-top: max(0.85rem, var(--safe-top));
     position: sticky;
     top: 0;
-    z-index: 100;
+    z-index: 1100;
     box-shadow: var(--shadow);
     animation: slideInDown 0.5s ease-out;
     backdrop-filter: blur(10px);
@@ -234,8 +251,8 @@ html[data-theme="dark"] .navbar {
 .theme-toggle {
     background: none;
     border: 1px solid var(--border-color);
-    width: 40px;
-    height: 40px;
+    width: var(--tap-min);
+    height: var(--tap-min);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -479,11 +496,11 @@ html[data-theme="dark"] .navbar {
 .subscription-alert-panel {
     position: fixed;
     z-index: 1910;
-    right: 20px;
-    bottom: 88px;
+    right: max(12px, var(--safe-right));
+    bottom: calc(var(--fab-size) + 24px + var(--safe-bottom));
     width: 340px;
-    max-width: calc(100vw - 24px);
-    max-height: min(420px, calc(100vh - 120px));
+    max-width: calc(100vw - 24px - var(--safe-left) - var(--safe-right));
+    max-height: min(420px, calc(100dvh - 120px - var(--safe-bottom)));
     background: var(--card-bg);
     border: 1px solid var(--border-light);
     border-radius: var(--radius-lg);
@@ -525,8 +542,17 @@ html[data-theme="dark"] .navbar {
     font-size: 1.1rem;
     line-height: 1;
     cursor: pointer;
-    padding: 0.2rem 0.35rem;
+    padding: 0;
+    width: var(--tap-min);
+    height: var(--tap-min);
+    min-width: var(--tap-min);
+    min-height: var(--tap-min);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     border-radius: var(--radius);
+    touch-action: manipulation;
+}
 }
 
 .subscription-alert-panel-close:hover {
@@ -711,8 +737,8 @@ html[data-theme="dark"] .navbar {
 
 /* Главный контент */
 .main-content {
-    min-height: calc(100vh - 80px);
-    padding: 2rem 0 4rem;
+    min-height: calc(100dvh - var(--nav-h));
+    padding: 2rem 0 calc(4rem + var(--fab-clearance));
 }
 
 .page {
@@ -932,7 +958,7 @@ html[data-theme="dark"] .navbar {
     max-width: 800px;
     margin: 0 auto;
     text-align: center;
-    padding: 0 20px;
+    padding: 0;
 }
 
 .hero-title {
@@ -1012,7 +1038,7 @@ html[data-theme="dark"] .navbar {
 
 .features-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
     gap: 2rem;
     margin-top: 3rem;
 }
@@ -1353,7 +1379,7 @@ html[data-theme="dark"] .navbar {
 /* Сетки */
 .subjects-grid, .tests-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
     gap: 1.5rem;
     margin-top: 2rem;
     margin-bottom: 2rem;
@@ -3973,7 +3999,7 @@ body.dark-theme .test-review-explanation-wrap {
     .news-grid {
         grid-template-columns: 1fr;
         gap: 1.5rem;
-        padding: 0 20px;
+        padding: 0;
     }
 
     .news-card {
@@ -4427,15 +4453,15 @@ body.dark-theme .test-review-explanation-wrap {
 /* Уведомления */
 .notification {
     position: fixed;
-    top: 80px;
-    right: 20px;
+    top: calc(var(--nav-h) + 8px + var(--safe-top));
+    right: max(12px, var(--safe-right));
     left: auto;
     background-color: var(--card-bg);
     color: var(--text-color);
     padding: 1rem 1.5rem;
     border-radius: 0.5rem;
     box-shadow: var(--shadow-lg);
-    z-index: 1000;
+    z-index: 2100;
     transform: translateX(400px) scale(0.9);
     opacity: 0;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -4522,7 +4548,7 @@ body.dark-theme .test-review-explanation-wrap {
 }
 
 .university-required-actions .btn {
-    min-width: 200px;
+    min-width: min(200px, 100%);
 }
 
 @keyframes universitySetupPulse {
@@ -4565,26 +4591,30 @@ body.dark-theme .test-review-explanation-wrap {
     backdrop-filter: blur(4px);
     animation: fadeIn 0.3s ease;
     overflow-y: auto;
+    padding: max(12px, var(--safe-top)) max(12px, var(--safe-right)) max(12px, var(--safe-bottom)) max(12px, var(--safe-left));
+    box-sizing: border-box;
 }
 
 .modal-content {
     background-color: var(--card-bg);
-    margin: 10% auto;
+    margin: 0 auto;
     padding: 2rem;
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-xl);
     border: 1px solid var(--border-color);
     max-width: 500px;
-    width: 90%;
+    width: min(500px, 100%);
+    max-height: calc(100dvh - 24px - var(--safe-top) - var(--safe-bottom));
+    overflow-y: auto;
     position: relative;
     animation: scaleIn 0.3s ease;
 }
 
 .modal-close {
     position: absolute;
-    right: 1rem;
-    top: 1rem;
-    font-size: 2rem;
+    right: 0.5rem;
+    top: 0.5rem;
+    font-size: 1.75rem;
     font-weight: bold;
     color: var(--text-muted);
     cursor: pointer;
@@ -4593,11 +4623,14 @@ body.dark-theme .test-review-explanation-wrap {
     background: none;
     border: none;
     padding: 0;
-    width: 32px;
-    height: 32px;
+    width: var(--tap-min);
+    height: var(--tap-min);
+    min-width: var(--tap-min);
+    min-height: var(--tap-min);
     display: flex;
     align-items: center;
     justify-content: center;
+    touch-action: manipulation;
 }
 
 .modal-close:hover {
@@ -4633,9 +4666,13 @@ body.dark-theme .test-review-explanation-wrap {
 
 @media (max-width: 768px) {
     .modal-content {
-        margin: 20% auto;
-        padding: 1.5rem;
-        max-width: 95%;
+        margin: 0 auto;
+        padding: 1.25rem;
+        max-width: 100%;
+    }
+
+    .modal-content .btn {
+        white-space: normal;
     }
     
     .modal-content > div[style*="display: flex"] {
@@ -4644,14 +4681,35 @@ body.dark-theme .test-review-explanation-wrap {
     
     .modal-content > div[style*="display: flex"] .btn {
         width: 100%;
-        min-width: auto;
+        min-width: 0;
+    }
+
+    .university-required-modal {
+        align-items: flex-end;
+        padding-bottom: max(16px, var(--safe-bottom));
+    }
+
+    .university-required-modal-content {
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+        border-radius: var(--radius-lg) var(--radius-lg) 12px 12px;
+    }
+
+    .university-required-actions {
+        flex-direction: column;
+    }
+
+    .university-required-actions .btn {
+        width: 100%;
+        min-width: 0;
     }
 }
 
 /* Адаптивность */
 @media (max-width: 1024px) {
     .container {
-        padding: 0 20px;
+        padding: 0 max(16px, var(--safe-left), var(--safe-right));
     }
 
     /* Улучшение для кнопок назад */
@@ -4664,7 +4722,7 @@ body.dark-theme .test-review-explanation-wrap {
     }
 
     .features-grid {
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
         gap: 1.5rem;
     }
 
@@ -4715,7 +4773,7 @@ body.dark-theme .test-review-explanation-wrap {
 
     .nav-menu {
         position: fixed;
-        top: 70px;
+        top: var(--nav-h);
         left: 0;
         right: 0;
         background-color: var(--card-bg);
@@ -4725,31 +4783,22 @@ body.dark-theme .test-review-explanation-wrap {
         align-items: stretch;
         gap: 0;
         padding: 0.5rem;
+        padding-bottom: max(0.5rem, var(--safe-bottom));
         transform: translateY(-100%);
         opacity: 0;
         visibility: hidden;
         transition: transform 0.3s ease, opacity 0.3s ease, visibility 0.3s ease;
-        z-index: 100;
-        max-height: calc(100vh - 70px);
+        z-index: 1090;
+        max-height: calc(100dvh - var(--nav-h));
         overflow-y: auto;
-        display: flex !important; /* Принудительно показываем на мобильных */
+        -webkit-overflow-scrolling: touch;
+        display: flex !important;
     }
 
     .nav-menu.active {
         transform: translateY(0);
         opacity: 1;
         visibility: visible;
-    }
-    
-    /* На десктопе меню всегда видно */
-    @media (min-width: 769px) {
-        .nav-menu {
-            position: static;
-            transform: none !important;
-            opacity: 1 !important;
-            visibility: visible !important;
-            display: flex !important;
-        }
     }
 
     .nav-link {
@@ -4822,7 +4871,7 @@ body.dark-theme .test-review-explanation-wrap {
 
     /* Главный контент */
     .main-content {
-        padding: 1.5rem 0 3rem;
+        padding: 1.25rem 0 calc(3rem + var(--fab-clearance));
     }
 
     /* Hero секция */
@@ -4831,7 +4880,7 @@ body.dark-theme .test-review-explanation-wrap {
     }
 
     .hero-content {
-        padding: 0 20px;
+        padding: 0;
     }
 
     .hero-title {
@@ -4850,7 +4899,7 @@ body.dark-theme .test-review-explanation-wrap {
         font-size: 1rem;
         margin-bottom: 2.5rem;
         line-height: 1.7;
-        padding: 0 0.5rem;
+        padding: 0;
     }
 
     .hero-actions {
@@ -4861,6 +4910,7 @@ body.dark-theme .test-review-explanation-wrap {
 
     .hero-actions .btn {
         width: 100%;
+        min-width: 0;
         min-height: 52px;
     }
 
@@ -4872,14 +4922,14 @@ body.dark-theme .test-review-explanation-wrap {
     .section-title {
         font-size: 2rem;
         margin-bottom: 2rem;
-        padding: 0 20px;
+        padding: 0;
         line-height: 1.3;
     }
 
     .features-grid {
         grid-template-columns: 1fr;
         gap: 1.5rem;
-        padding: 0 20px;
+        padding: 0;
     }
 
     .feature-card {
@@ -4911,7 +4961,7 @@ body.dark-theme .test-review-explanation-wrap {
     .stats-row {
         grid-template-columns: repeat(2, 1fr);
         gap: 1.5rem;
-        padding: 0 20px;
+        padding: 0;
     }
 
     .stat-box {
@@ -4933,7 +4983,8 @@ body.dark-theme .test-review-explanation-wrap {
     .page-header {
         margin-bottom: 2rem;
         padding-bottom: 1.5rem;
-        padding: 0 20px 1.5rem;
+        padding-left: 0;
+        padding-right: 0;
     }
 
     .page-header h1 {
@@ -4959,7 +5010,7 @@ body.dark-theme .test-review-explanation-wrap {
         gap: 1.5rem;
         margin-top: 2rem;
         margin-bottom: 2rem;
-        padding: 0 20px 2rem;
+        padding: 0 0 2rem;
     }
 
     .subject-card, .test-card {
@@ -5080,7 +5131,7 @@ body.dark-theme .test-review-explanation-wrap {
         align-items: stretch;
         gap: 1.25rem;
         margin-bottom: 2rem;
-        padding: 0 20px;
+        padding: 0;
     }
 
     .test-progress {
@@ -5177,7 +5228,7 @@ body.dark-theme .test-review-explanation-wrap {
     .test-actions {
         flex-direction: row;
         gap: 0.75rem;
-        padding: 0 20px;
+        padding: 0;
         justify-content: space-between;
     }
 
@@ -5329,7 +5380,7 @@ body.dark-theme .test-review-explanation-wrap {
     .favorites-list {
         gap: 1.25rem;
         margin-top: 2rem;
-        padding: 0 20px;
+        padding: 0;
     }
 
     .favorite-item {
@@ -5387,7 +5438,7 @@ body.dark-theme .test-review-explanation-wrap {
     .news-grid {
         grid-template-columns: 1fr;
         gap: 1.5rem;
-        padding: 0 20px;
+        padding: 0;
     }
 
     .news-card {
@@ -5416,7 +5467,7 @@ body.dark-theme .test-review-explanation-wrap {
     .contact-container {
         grid-template-columns: 1fr;
         gap: 2rem;
-        padding: 0 20px;
+        padding: 0;
     }
 
     .contact-form-wrapper {
@@ -5451,7 +5502,7 @@ body.dark-theme .test-review-explanation-wrap {
     .footer-content {
         grid-template-columns: 1fr;
         gap: 2rem;
-        padding: 0 20px;
+        padding: 0;
     }
 
     .footer-section h3 {
@@ -5549,10 +5600,10 @@ body.dark-theme .test-review-explanation-wrap {
 
     /* Уведомления */
     .notification {
-        top: 80px;
-        right: 12px;
-        left: 12px;
-        max-width: calc(100% - 24px);
+        top: calc(var(--nav-h) + 8px);
+        right: max(12px, var(--safe-right));
+        left: max(12px, var(--safe-left));
+        max-width: none;
         padding: 1.25rem 1.5rem;
         font-size: 1rem;
         transform: translateY(-120px);
@@ -6556,13 +6607,13 @@ body.dark-theme .test-review-explanation-wrap {
 
 .user-chat-fab-dock {
     position: fixed;
-    right: 20px;
-    bottom: 20px;
+    right: max(16px, var(--safe-right));
+    bottom: max(16px, var(--safe-bottom));
     z-index: 1900;
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 12px;
+    gap: var(--fab-gap);
 }
 
 .user-chat-fab-dock .user-chat-toggle {
@@ -6574,10 +6625,10 @@ body.dark-theme .test-review-explanation-wrap {
 
 .user-chat-toggle {
     position: fixed;
-    right: 20px;
-    bottom: 20px;
-    width: 56px;
-    height: 56px;
+    right: max(16px, var(--safe-right));
+    bottom: max(16px, var(--safe-bottom));
+    width: var(--fab-size);
+    height: var(--fab-size);
     border: none;
     border-radius: 50%;
     background: var(--primary-color);
@@ -6589,6 +6640,7 @@ body.dark-theme .test-review-explanation-wrap {
     align-items: center;
     justify-content: center;
     transition: box-shadow 0.2s ease, filter 0.2s ease, transform 0.15s ease;
+    touch-action: manipulation;
 }
 
 .user-chat-toggle:hover {
@@ -6649,13 +6701,13 @@ body.dark-theme .test-review-explanation-wrap {
 
 .user-chat-stack {
     position: fixed;
-    right: 20px;
-    bottom: 88px;
+    right: max(12px, var(--safe-right));
+    bottom: calc(var(--fab-size) + 24px + var(--safe-bottom));
     z-index: 1900;
     width: 340px;
-    max-width: calc(100vw - 24px);
-    height: min(540px, calc(100vh - 100px));
-    max-height: calc(100vh - 100px);
+    max-width: calc(100vw - 24px - var(--safe-left) - var(--safe-right));
+    height: min(540px, calc(100dvh - 100px - var(--safe-bottom)));
+    max-height: calc(100dvh - 100px - var(--safe-bottom));
     flex-direction: column;
     gap: 10px;
     align-items: stretch;
@@ -6664,12 +6716,12 @@ body.dark-theme .test-review-explanation-wrap {
 
 .user-chat-notify-popover {
     position: fixed;
-    right: 20px;
-    bottom: 88px;
+    right: max(12px, var(--safe-right));
+    bottom: calc(var(--fab-size) + 24px + var(--safe-bottom));
     z-index: 1910;
     width: 340px;
-    max-width: calc(100vw - 24px);
-    max-height: min(420px, calc(100vh - 168px));
+    max-width: calc(100vw - 24px - var(--safe-left) - var(--safe-right));
+    max-height: min(420px, calc(100dvh - 168px - var(--safe-bottom)));
     background: var(--card-bg);
     border: 1px solid var(--border-light);
     border-radius: var(--radius-lg);
@@ -6884,5 +6936,146 @@ body.dark-theme .test-review-explanation-wrap {
     border: none;
     font-size: 1.25rem;
     cursor: pointer;
-    padding: 0.25rem;
+    padding: 0;
+    width: var(--tap-min);
+    height: var(--tap-min);
+    min-width: var(--tap-min);
+    min-height: var(--tap-min);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
 }
+
+/* ——— Mobile UX utilities (site-wide) ——— */
+.table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+}
+
+.tabs-scroll,
+.rating-tabs,
+.tests-hub-tabs,
+.fc-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x;
+    scrollbar-width: thin;
+}
+
+.rating-tab,
+.tests-hub-tab,
+.fc-tab,
+.tests-fav-subtab {
+    flex-shrink: 0;
+    min-height: var(--tap-min);
+}
+
+.inline-field-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: stretch;
+}
+
+.inline-field-row input,
+.inline-field-row select {
+    flex: 1;
+    min-width: 0;
+}
+
+#referralLink {
+    background: var(--bg-secondary);
+    cursor: text;
+}
+
+img,
+video,
+canvas,
+svg {
+    max-width: 100%;
+    height: auto;
+}
+
+@media (max-width: 768px) {
+    :root {
+        --nav-h: 60px;
+    }
+
+    .btn {
+        touch-action: manipulation;
+    }
+
+    .btn-sm {
+        min-height: var(--tap-min);
+        padding: 0.55rem 0.9rem;
+        font-size: 0.9rem;
+    }
+
+    .profile-content,
+    .settings-content,
+    .user-info-card,
+    .settings-card,
+    .stats-card {
+        max-width: 100%;
+    }
+
+    .password-form .form-group,
+    .settings-content .form-group {
+        margin-bottom: 1rem;
+    }
+
+    select,
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    input[type="search"],
+    textarea {
+        max-width: 100%;
+        width: 100%;
+    }
+
+    .footer {
+        padding-bottom: max(1.5rem, var(--safe-bottom));
+    }
+
+    body.usmle-test-session .main-content,
+    body.uworld-review-page .main-content {
+        padding-bottom: 2rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .inline-field-row {
+        flex-direction: column;
+    }
+
+    .inline-field-row .btn {
+        width: 100%;
+    }
+
+    .stats-row {
+        grid-template-columns: 1fr;
+    }
+
+    .hero-actions .btn,
+    .auth-form .btn,
+    .settings-card .btn-primary,
+    .password-form .btn {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .user-chat-stack,
+    .user-chat-notify-popover,
+    .subscription-alert-panel {
+        left: max(10px, var(--safe-left));
+        right: max(10px, var(--safe-right));
+        width: auto;
+        max-width: none;
+    }
+}
+

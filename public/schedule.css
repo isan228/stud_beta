@@ -320,11 +320,12 @@
     color: var(--text-secondary);
     font-size: 0.85rem;
     font-weight: 650;
-    min-height: 38px;
+    min-height: 44px;
     padding: 0.45rem 0.85rem;
     border-radius: 0.6rem;
     cursor: pointer;
     transition: background 0.15s ease, color 0.15s ease;
+    touch-action: manipulation;
 }
 
 .schedule-week-btn:hover {
@@ -536,6 +537,13 @@ html[data-theme="dark"] .schedule-panel .schedule-week-date {
         width: 100%;
         display: grid;
         grid-template-columns: 1fr 1fr 1fr;
+        gap: 0.35rem;
+    }
+
+    .schedule-week-btn {
+        min-height: 44px;
+        font-size: 0.8rem;
+        padding: 0.4rem 0.5rem;
     }
 
     .schedule-week-date-wrap,

@@ -491,9 +491,9 @@
     }
 
     .usmle-topbar {
-        padding: 0.75rem 1rem;
+        padding: 0.75rem max(1rem, env(safe-area-inset-right, 0px)) 0.75rem max(1rem, env(safe-area-inset-left, 0px));
         position: sticky;
-        top: 0;
+        top: var(--nav-h, 64px);
         z-index: 50;
     }
 
@@ -503,8 +503,9 @@
     }
 
     .usmle-topbar-actions .btn {
-        padding: 0.35rem 0.65rem;
-        font-size: 0.8rem;
+        padding: 0.45rem 0.75rem;
+        font-size: 0.85rem;
+        min-height: 44px;
     }
 
     .usmle-content {

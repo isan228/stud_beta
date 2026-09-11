@@ -1423,6 +1423,11 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         if (mobileMenuToggle && navMenu && mobileMenuToggle.dataset.initialized !== 'true') {
             mobileMenuToggle.dataset.initialized = 'true';
 
+            const syncNavOpen = () => {
+                const open = navMenu.classList.contains('active');
+                document.body.classList.toggle('nav-open', open);
+            };
+
             // Функция для переключения меню
             const toggleMenu = (e) => {
                 if (e) {
@@ -1431,6 +1436,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 }
                 mobileMenuToggle.classList.toggle('active');
                 navMenu.classList.toggle('active');
+                syncNavOpen();
             };
 
             // Добавляем обработчик клика на кнопку меню
@@ -1441,6 +1447,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 link.addEventListener('click', () => {
                     mobileMenuToggle.classList.remove('active');
                     navMenu.classList.remove('active');
+                    syncNavOpen();
                 });
             });
 
@@ -1452,6 +1459,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                     navMenu.classList.contains('active')) {
                     mobileMenuToggle.classList.remove('active');
                     navMenu.classList.remove('active');
+                    syncNavOpen();
                 }
             };
 
