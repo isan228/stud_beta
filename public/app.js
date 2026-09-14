@@ -3172,8 +3172,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             nextQuestion();
         });
 
-        document.getElementById('usmleTbFlashcards')?.addEventListener('click', () => {
-            window.open('/usmle-flashcards', '_blank', 'noopener');
+        document.getElementById('usmleTbShortcuts')?.addEventListener('click', () => {
+            openUsmleModal('usmleShortcutsModal');
         });
         document.getElementById('usmleTbFullscreen')?.addEventListener('click', toggleUsmleFullscreen);
         document.getElementById('usmleTbMarker')?.addEventListener('click', () => {
@@ -3209,6 +3209,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             openUsmleModal('usmleSettingsModal');
         });
 
+        document.getElementById('usmleShortcutsModalClose')?.addEventListener('click', () => closeUsmleModal('usmleShortcutsModal'));
         document.getElementById('usmleLabModalClose')?.addEventListener('click', () => closeUsmleModal('usmleLabModal'));
         document.getElementById('usmleNotesModalClose')?.addEventListener('click', () => closeUsmleModal('usmleNotesModal'));
         document.getElementById('usmleCalcModalClose')?.addEventListener('click', () => closeUsmleModal('usmleCalcModal'));
@@ -3248,7 +3249,74 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             if (usmleMarkerOn) applyUsmleMarkerSelection();
         });
 
-        ['usmleLabModal', 'usmleNotesModal', 'usmleCalcModal', 'usmleSettingsModal'].forEach((id) => {
+        if (!window.__usmleShortcutKeysBound) {
+            window.__usmleShortcutKeysBound = true;
+            document.addEventListener('keydown', (e) => {
+                if (!isUsmleTestSession()) return;
+                const tag = String(e.target?.tagName || '').toLowerCase();
+                if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable) return;
+
+                const key = e.key;
+                if (key === 'Escape') {
+                    ['usmleShortcutsModal', 'usmleLabModal', 'usmleNotesModal', 'usmleCalcModal', 'usmleSettingsModal']
+                        .forEach((id) => closeUsmleModal(id));
+                    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+                    return;
+                }
+                if (key === 'ArrowRight' || key === 'n' || key === 'N') {
+                    e.preventDefault();
+                    if (currentQuestionIndex >= currentQuestions.length - 1) finishTest();
+                    else nextQuestion();
+                    return;
+                }
+                if (key === 'ArrowLeft' || key === 'p' || key === 'P') {
+                    e.preventDefault();
+                    prevQuestion();
+                    return;
+                }
+                if (key === 'f' || key === 'F') {
+                    e.preventDefault();
+                    const q = currentQuestions?.[currentQuestionIndex];
+                    if (q?.id != null) toggleFavorite(q.id);
+                    return;
+                }
+                if (key === 'm' || key === 'M') {
+                    e.preventDefault();
+                    document.getElementById('usmleTbMarker')?.click();
+                    return;
+                }
+                if (key === 'l' || key === 'L') {
+                    e.preventDefault();
+                    document.getElementById('usmleTbLab')?.click();
+                    return;
+                }
+                if (key === 'c' || key === 'C') {
+                    e.preventDefault();
+                    document.getElementById('usmleTbCalc')?.click();
+                    return;
+                }
+                if (key === 'o' || key === 'O') {
+                    e.preventDefault();
+                    document.getElementById('usmleTbNotes')?.click();
+                    return;
+                }
+                if (key === 's' || key === 'S') {
+                    e.preventDefault();
+                    document.getElementById('usmleTbSettings')?.click();
+                    return;
+                }
+                const answerIdx = 'abcde'.indexOf(String(key).toLowerCase());
+                if (answerIdx >= 0) {
+                    const answers = currentQuestions?.[currentQuestionIndex]?.Answers || [];
+                    if (answers[answerIdx]) {
+                        e.preventDefault();
+                        selectAnswer(answers[answerIdx].id);
+                    }
+                }
+            });
+        }
+
+        ['usmleShortcutsModal', 'usmleLabModal', 'usmleNotesModal', 'usmleCalcModal', 'usmleSettingsModal'].forEach((id) => {
             document.getElementById(id)?.addEventListener('click', (e) => {
                 if (e.target?.id === id) closeUsmleModal(id);
             });

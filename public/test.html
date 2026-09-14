@@ -66,9 +66,9 @@
                     </button>
                 </div>
                 <div class="uworld-tb-tools" role="toolbar" aria-label="USMLE tools">
-                    <button type="button" class="uworld-tb-tool" id="usmleTbFlashcards" data-tool="flashcards" title="Flashcards">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="12" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8 5V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-1" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M7 10h6M7 13h5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                        <span>Flashcards</span>
+                    <button type="button" class="uworld-tb-tool" id="usmleTbShortcuts" data-tool="shortcuts" title="Shortcuts">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="19" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M5.5 10h1.2M8.2 10h1.2M10.9 10h1.2M13.6 10h1.2M16.3 10h1.2M5.5 13h1.2M8.2 13h1.2M10.9 13h1.2M13.6 13h1.2M16.3 13h2.2M7.5 16h9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                        <span>Shortcuts</span>
                     </button>
                     <button type="button" class="uworld-tb-tool" id="usmleTbFullscreen" data-tool="fullscreen" title="Full Screen">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4H4v4M16 4h4v4M8 20H4v-4M16 20h4v-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -79,7 +79,7 @@
                         <span>Marker</span>
                     </button>
                     <button type="button" class="uworld-tb-tool" id="usmleTbLab" data-tool="lab" title="Lab Values">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M10 3v5.2L5.8 18.2A2.2 2.2 0 0 0 7.8 21h8.4a2.2 2.2 0 0 0 2-2.8L14 8.2V3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8.2 14h7.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v5.5L3.8 16.8A1.8 1.8 0 0 0 5.5 19.5h4.2A1.8 1.8 0 0 0 11.4 16.8L8.2 8.5V3M6.2 3h2.6" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linejoin="round"/><path d="M15.2 3v4.8L12.6 15.2A1.7 1.7 0 0 0 14.2 17.6h4.6a1.7 1.7 0 0 0 1.6-2.4L17.8 7.8V3M14.4 3h3.4" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linejoin="round"/></svg>
                         <span>Lab Values</span>
                     </button>
                     <button type="button" class="uworld-tb-tool" id="usmleTbNotes" data-tool="notes" title="Notes">
@@ -135,6 +135,24 @@
     </main>
 
     <!-- USMLE tool panels -->
+    <div id="usmleShortcutsModal" class="modal uworld-tool-modal" style="display:none;">
+        <div class="modal-content uworld-tool-modal-content" style="max-width:480px;">
+            <span class="modal-close" id="usmleShortcutsModalClose">&times;</span>
+            <h2>Shortcuts</h2>
+            <div class="uworld-shortcuts-list">
+                <div class="uworld-shortcut-row"><kbd>→</kbd> / <kbd>N</kbd><span>Next question</span></div>
+                <div class="uworld-shortcut-row"><kbd>←</kbd> / <kbd>P</kbd><span>Previous question</span></div>
+                <div class="uworld-shortcut-row"><kbd>F</kbd><span>Mark / unmark</span></div>
+                <div class="uworld-shortcut-row"><kbd>M</kbd><span>Toggle Marker</span></div>
+                <div class="uworld-shortcut-row"><kbd>L</kbd><span>Lab Values</span></div>
+                <div class="uworld-shortcut-row"><kbd>C</kbd><span>Calculator</span></div>
+                <div class="uworld-shortcut-row"><kbd>O</kbd><span>Notes</span></div>
+                <div class="uworld-shortcut-row"><kbd>S</kbd><span>Settings</span></div>
+                <div class="uworld-shortcut-row"><kbd>A</kbd>–<kbd>E</kbd><span>Select answer A–E</span></div>
+                <div class="uworld-shortcut-row"><kbd>Esc</kbd><span>Close panels / exit fullscreen</span></div>
+            </div>
+        </div>
+    </div>
     <div id="usmleLabModal" class="modal uworld-tool-modal" style="display:none;">
         <div class="modal-content uworld-tool-modal-content" style="max-width:720px;">
             <span class="modal-close" id="usmleLabModalClose">&times;</span>

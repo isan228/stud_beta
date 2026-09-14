@@ -2576,6 +2576,36 @@ mark.usmle-marker-hl {
     gap: 0.65rem;
 }
 
+.uworld-shortcuts-list {
+    display: grid;
+    gap: 0.55rem;
+}
+
+.uworld-shortcut-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.55rem 0.65rem;
+    border: 1px solid var(--border-light);
+    border-radius: 0.5rem;
+    background: var(--bg-secondary);
+    font-size: 0.92rem;
+}
+
+.uworld-shortcut-row kbd {
+    display: inline-block;
+    min-width: 1.5rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.3rem;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-align: center;
+}
+
 .test-header-right {
     display: flex;
     align-items: center;
