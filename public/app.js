@@ -2563,13 +2563,16 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     function startTimer(seconds) {
         const timerEl = document.getElementById('testTimer');
         const timerDisplayEl = document.getElementById('timerDisplay');
+        const usmleTimerEl = document.getElementById('usmleTbTimer');
+        const usmleTimerDisplayEl = document.getElementById('usmleTbTimerDisplay');
 
-        if (!timerEl || !timerDisplayEl) {
+        if (!timerDisplayEl && !usmleTimerDisplayEl) {
             console.warn('Элементы таймера не найдены на странице');
             return;
         }
 
-        timerEl.style.display = 'block';
+        if (timerEl) timerEl.style.display = 'block';
+        if (usmleTimerEl) usmleTimerEl.style.display = 'inline-flex';
         let timeLeft = seconds;
 
         const updateTimer = () => {
@@ -2578,8 +2581,10 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             const newText = `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 
             if (timerDisplayEl && timerDisplayEl.textContent !== newText) {
-                // Обновляем только если текст изменился, чтобы избежать лишних перерисовок
                 timerDisplayEl.textContent = newText;
+            }
+            if (usmleTimerDisplayEl && usmleTimerDisplayEl.textContent !== newText) {
+                usmleTimerDisplayEl.textContent = newText;
             }
 
             if (timeLeft <= 0) {
@@ -2951,6 +2956,305 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         return flags;
     }
 
+    let usmleMarkerOn = false;
+    let usmleToolbarBound = false;
+    let usmleCalcExpr = '0';
+    let usmleFontScale = 1;
+
+    function syncUsmleSessionChrome(isUsmle) {
+        const topbar = document.getElementById('usmleSessionTopbar');
+        const uniHeader = document.getElementById('uniTestHeader');
+        const uniActions = document.getElementById('uniTestActions');
+        if (topbar) topbar.hidden = !isUsmle;
+        if (uniHeader) uniHeader.hidden = !!isUsmle;
+        if (uniActions) uniActions.classList.toggle('is-usmle-hidden', !!isUsmle);
+        if (isUsmle) ensureUsmleToolbarBound();
+    }
+
+    function updateUsmleToolbarChrome(question) {
+        if (!isUsmleTestSession()) return;
+        const itemLabel = document.getElementById('usmleTbItemLabel');
+        const qidEl = document.getElementById('usmleTbQuestionId');
+        const markBtn = document.getElementById('usmleTbMark');
+        const markIcon = document.getElementById('usmleTbMarkIcon');
+        const prevBtn = document.getElementById('usmleTbPrev');
+        const nextBtn = document.getElementById('usmleTbNext');
+
+        if (itemLabel) {
+            itemLabel.textContent = `Item ${currentQuestionIndex + 1} of ${currentQuestions.length}`;
+        }
+        if (qidEl) {
+            qidEl.textContent = `Question Id: ${question?.id ?? '—'}`;
+        }
+
+        const isFav = question ? sessionFavoriteIds.has(Number(question.id)) : false;
+        if (markIcon) markIcon.innerHTML = favoriteFlagSvg(isFav);
+        if (markBtn) {
+            markBtn.classList.toggle('is-marked', isFav);
+            markBtn.dataset.questionId = question?.id != null ? String(question.id) : '';
+        }
+        if (prevBtn) prevBtn.disabled = currentQuestionIndex <= 0;
+        if (nextBtn) {
+            const isLast = currentQuestionIndex >= currentQuestions.length - 1;
+            nextBtn.disabled = false;
+            nextBtn.classList.toggle('is-finish', isLast);
+            const label = nextBtn.querySelector('span');
+            if (label) label.textContent = isLast ? 'End' : 'Next';
+        }
+
+        const markerBtn = document.getElementById('usmleTbMarker');
+        if (markerBtn) markerBtn.classList.toggle('is-active', usmleMarkerOn);
+        document.body.classList.toggle('usmle-marker-on', usmleMarkerOn && isUsmleTestSession());
+    }
+
+    function getUsmleNotesKey(questionId) {
+        return `usmleNote:${questionId}`;
+    }
+
+    function openUsmleModal(id) {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'flex';
+    }
+
+    function closeUsmleModal(id) {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    }
+
+    function ensureUsmleLabTables() {
+        const box = document.getElementById('usmleLabTables');
+        if (!box || box.dataset.ready === '1') return;
+        box.dataset.ready = '1';
+        box.innerHTML = `
+            <table class="uworld-lab-table">
+                <thead><tr><th colspan="2">Serum</th></tr></thead>
+                <tbody>
+                    <tr><td>Na⁺</td><td>136–145 mEq/L</td></tr>
+                    <tr><td>K⁺</td><td>3.5–5.0 mEq/L</td></tr>
+                    <tr><td>Cl⁻</td><td>95–105 mEq/L</td></tr>
+                    <tr><td>HCO₃⁻</td><td>22–28 mEq/L</td></tr>
+                    <tr><td>BUN</td><td>7–18 mg/dL</td></tr>
+                    <tr><td>Creatinine</td><td>0.6–1.2 mg/dL</td></tr>
+                    <tr><td>Glucose</td><td>70–110 mg/dL</td></tr>
+                    <tr><td>Ca²⁺</td><td>8.4–10.2 mg/dL</td></tr>
+                </tbody>
+            </table>
+            <table class="uworld-lab-table">
+                <thead><tr><th colspan="2">CBC</th></tr></thead>
+                <tbody>
+                    <tr><td>WBC</td><td>4.5–11.0 × 10³/mm³</td></tr>
+                    <tr><td>Hb (♂)</td><td>13.5–17.5 g/dL</td></tr>
+                    <tr><td>Hb (♀)</td><td>12.0–16.0 g/dL</td></tr>
+                    <tr><td>Hct (♂)</td><td>41–53%</td></tr>
+                    <tr><td>Hct (♀)</td><td>36–46%</td></tr>
+                    <tr><td>Platelets</td><td>150–400 × 10³/mm³</td></tr>
+                </tbody>
+            </table>
+            <table class="uworld-lab-table">
+                <thead><tr><th colspan="2">Other</th></tr></thead>
+                <tbody>
+                    <tr><td>AST / ALT</td><td>8–40 U/L</td></tr>
+                    <tr><td>ALP</td><td>40–120 U/L</td></tr>
+                    <tr><td>Bilirubin (total)</td><td>0.1–1.0 mg/dL</td></tr>
+                    <tr><td>Albumin</td><td>3.5–5.5 g/dL</td></tr>
+                    <tr><td>INR</td><td>0.8–1.2</td></tr>
+                    <tr><td>pH (ABG)</td><td>7.35–7.45</td></tr>
+                    <tr><td>PaCO₂</td><td>33–45 mm Hg</td></tr>
+                    <tr><td>PaO₂</td><td>75–105 mm Hg</td></tr>
+                </tbody>
+            </table>`;
+    }
+
+    function ensureUsmleCalcPad() {
+        const pad = document.getElementById('usmleCalcPad');
+        if (!pad || pad.dataset.ready === '1') return;
+        pad.dataset.ready = '1';
+        const keys = ['C', '⌫', '%', '÷', '7', '8', '9', '×', '4', '5', '6', '−', '1', '2', '3', '+', '0', '.', '=', ''];
+        pad.innerHTML = keys.filter(Boolean).map((k) =>
+            `<button type="button" class="uworld-calc-key" data-key="${k}">${k}</button>`
+        ).join('');
+        pad.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-key]');
+            if (!btn) return;
+            handleUsmleCalcKey(btn.getAttribute('data-key'));
+        });
+    }
+
+    function setUsmleCalcDisplay(v) {
+        usmleCalcExpr = String(v);
+        const display = document.getElementById('usmleCalcDisplay');
+        if (display) display.value = usmleCalcExpr;
+    }
+
+    function handleUsmleCalcKey(key) {
+        if (key === 'C') {
+            setUsmleCalcDisplay('0');
+            return;
+        }
+        if (key === '⌫') {
+            setUsmleCalcDisplay(usmleCalcExpr.length > 1 ? usmleCalcExpr.slice(0, -1) : '0');
+            return;
+        }
+        if (key === '=') {
+            try {
+                const expr = usmleCalcExpr
+                    .replace(/×/g, '*')
+                    .replace(/÷/g, '/')
+                    .replace(/−/g, '-')
+                    .replace(/%/g, '/100');
+                if (!/^[\d.+\-*/() ]+$/.test(expr)) throw new Error('bad');
+                // eslint-disable-next-line no-new-func
+                const result = Function(`"use strict"; return (${expr})`)();
+                setUsmleCalcDisplay(Number.isFinite(result) ? String(Number(result.toPrecision(12))) : 'Error');
+            } catch (_) {
+                setUsmleCalcDisplay('Error');
+            }
+            return;
+        }
+        if (usmleCalcExpr === '0' || usmleCalcExpr === 'Error') {
+            setUsmleCalcDisplay(/[\d.]/.test(key) ? key : `0${key}`);
+            return;
+        }
+        setUsmleCalcDisplay(usmleCalcExpr + key);
+    }
+
+    function applyUsmleMarkerSelection() {
+        if (!usmleMarkerOn || !isUsmleTestSession()) return;
+        const sel = window.getSelection?.();
+        if (!sel || sel.isCollapsed || !sel.rangeCount) return;
+        const range = sel.getRangeAt(0);
+        const stem = document.querySelector('#testContent .usmle-question-stem, #testContent .question-text, #testContent .question-item');
+        if (!stem || !stem.contains(range.commonAncestorContainer)) return;
+        try {
+            const mark = document.createElement('mark');
+            mark.className = 'usmle-marker-hl';
+            range.surroundContents(mark);
+            sel.removeAllRanges();
+        } catch (_) {
+            /* overlapping selection — ignore */
+        }
+    }
+
+    function toggleUsmleFullscreen() {
+        const root = document.documentElement;
+        if (!document.fullscreenElement) {
+            root.requestFullscreen?.().catch(() => {});
+        } else {
+            document.exitFullscreen?.().catch(() => {});
+        }
+    }
+
+    function ensureUsmleToolbarBound() {
+        if (usmleToolbarBound) return;
+        const topbar = document.getElementById('usmleSessionTopbar');
+        if (!topbar) return;
+        usmleToolbarBound = true;
+
+        document.getElementById('usmleTbMenu')?.addEventListener('click', () => {
+            const nav = document.getElementById('usmleQuestionNav');
+            const layout = document.getElementById('testSessionLayout');
+            if (!nav) return;
+            const open = nav.classList.toggle('is-drawer-open');
+            layout?.classList.toggle('qnav-drawer-open', open);
+        });
+
+        document.getElementById('usmleTbMark')?.addEventListener('click', () => {
+            const q = currentQuestions?.[currentQuestionIndex];
+            if (q?.id != null) toggleFavorite(q.id);
+        });
+
+        document.getElementById('usmleTbPrev')?.addEventListener('click', () => prevQuestion());
+        document.getElementById('usmleTbNext')?.addEventListener('click', () => {
+            if (currentQuestionIndex >= currentQuestions.length - 1) {
+                finishTest();
+                return;
+            }
+            nextQuestion();
+        });
+
+        document.getElementById('usmleTbFlashcards')?.addEventListener('click', () => {
+            window.open('/usmle-flashcards', '_blank', 'noopener');
+        });
+        document.getElementById('usmleTbFullscreen')?.addEventListener('click', toggleUsmleFullscreen);
+        document.getElementById('usmleTbMarker')?.addEventListener('click', () => {
+            usmleMarkerOn = !usmleMarkerOn;
+            updateUsmleToolbarChrome(currentQuestions?.[currentQuestionIndex]);
+            showNotification(
+                usmleMarkerOn ? 'Marker: выделите текст в вопросе' : 'Marker выключен',
+                'info'
+            );
+        });
+        document.getElementById('usmleTbLab')?.addEventListener('click', () => {
+            ensureUsmleLabTables();
+            openUsmleModal('usmleLabModal');
+        });
+        document.getElementById('usmleTbNotes')?.addEventListener('click', () => {
+            const q = currentQuestions?.[currentQuestionIndex];
+            const ta = document.getElementById('usmleNotesTextarea');
+            if (ta && q) {
+                try {
+                    ta.value = localStorage.getItem(getUsmleNotesKey(q.id)) || '';
+                } catch (_) {
+                    ta.value = '';
+                }
+            }
+            openUsmleModal('usmleNotesModal');
+        });
+        document.getElementById('usmleTbCalc')?.addEventListener('click', () => {
+            ensureUsmleCalcPad();
+            setUsmleCalcDisplay('0');
+            openUsmleModal('usmleCalcModal');
+        });
+        document.getElementById('usmleTbSettings')?.addEventListener('click', () => {
+            openUsmleModal('usmleSettingsModal');
+        });
+
+        document.getElementById('usmleLabModalClose')?.addEventListener('click', () => closeUsmleModal('usmleLabModal'));
+        document.getElementById('usmleNotesModalClose')?.addEventListener('click', () => closeUsmleModal('usmleNotesModal'));
+        document.getElementById('usmleCalcModalClose')?.addEventListener('click', () => closeUsmleModal('usmleCalcModal'));
+        document.getElementById('usmleSettingsModalClose')?.addEventListener('click', () => closeUsmleModal('usmleSettingsModal'));
+
+        document.getElementById('usmleNotesSaveBtn')?.addEventListener('click', () => {
+            const q = currentQuestions?.[currentQuestionIndex];
+            const ta = document.getElementById('usmleNotesTextarea');
+            if (!q || !ta) return;
+            try {
+                localStorage.setItem(getUsmleNotesKey(q.id), ta.value || '');
+                showNotification('Заметка сохранена', 'success');
+                closeUsmleModal('usmleNotesModal');
+            } catch (_) {
+                showNotification('Не удалось сохранить заметку', 'error');
+            }
+        });
+
+        document.getElementById('usmleSettingsReportBtn')?.addEventListener('click', () => {
+            closeUsmleModal('usmleSettingsModal');
+            document.getElementById('reportQuestionErrorBtn')?.click();
+        });
+        document.getElementById('usmleSettingsFinishBtn')?.addEventListener('click', () => {
+            closeUsmleModal('usmleSettingsModal');
+            finishTest();
+        });
+        document.getElementById('usmleSettingsFontUp')?.addEventListener('click', () => {
+            usmleFontScale = Math.min(1.35, usmleFontScale + 0.08);
+            document.documentElement.style.setProperty('--usmle-font-scale', String(usmleFontScale));
+        });
+        document.getElementById('usmleSettingsFontDown')?.addEventListener('click', () => {
+            usmleFontScale = Math.max(0.85, usmleFontScale - 0.08);
+            document.documentElement.style.setProperty('--usmle-font-scale', String(usmleFontScale));
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (usmleMarkerOn) applyUsmleMarkerSelection();
+        });
+
+        ['usmleLabModal', 'usmleNotesModal', 'usmleCalcModal', 'usmleSettingsModal'].forEach((id) => {
+            document.getElementById(id)?.addEventListener('click', (e) => {
+                if (e.target?.id === id) closeUsmleModal(id);
+            });
+        });
+    }
+
     function renderUsmleQuestionNav() {
         const nav = document.getElementById('usmleQuestionNav');
         const list = document.getElementById('usmleQuestionNavList');
@@ -2960,6 +3264,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const isUsmle = getProgramType() === 'usmle';
         document.body.classList.toggle('usmle-test-session', isUsmle);
         if (layout) layout.classList.toggle('has-usmle-qnav', isUsmle);
+        syncUsmleSessionChrome(isUsmle);
 
         if (!isUsmle || !currentQuestions || !currentQuestions.length) {
             nav.hidden = true;
@@ -3017,6 +3322,10 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const next = Math.max(0, Math.min(currentQuestions.length - 1, Number(index)));
         if (next === currentQuestionIndex) return;
         currentQuestionIndex = next;
+        const nav = document.getElementById('usmleQuestionNav');
+        const layout = document.getElementById('testSessionLayout');
+        nav?.classList.remove('is-drawer-open');
+        layout?.classList.remove('qnav-drawer-open');
         showQuestion();
     }
 
@@ -3078,7 +3387,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             ? `Item ${currentQuestionIndex + 1} of ${currentQuestions.length}`
             : `Вопрос ${currentQuestionIndex + 1} из ${currentQuestions.length}`;
 
+        syncUsmleSessionChrome(isUsmleSession);
         updateUsmleQuestionMeta(question);
+        updateUsmleToolbarChrome(question);
 
         // Проверяем наличие ответов
         if (!question.Answers || question.Answers.length === 0) {
@@ -3183,14 +3494,16 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const finishBtn = document.getElementById('finishTest');
 
         if (prevBtn) {
-            prevBtn.style.display = currentQuestionIndex > 0 ? 'block' : 'none';
+            prevBtn.style.display = (!isUsmleSession && currentQuestionIndex > 0) ? 'block' : 'none';
         }
         if (nextBtn) {
-            nextBtn.style.display = currentQuestionIndex < currentQuestions.length - 1 ? 'block' : 'none';
+            nextBtn.style.display = (!isUsmleSession && currentQuestionIndex < currentQuestions.length - 1) ? 'block' : 'none';
         }
         if (finishBtn) {
-            // Кнопка досрочного завершения доступна на любом вопросе
-            finishBtn.style.display = currentQuestions.length > 0 ? 'block' : 'none';
+            finishBtn.style.display = (!isUsmleSession && currentQuestions.length > 0) ? 'block' : 'none';
+        }
+        if (isUsmleSession) {
+            updateUsmleToolbarChrome(question);
         }
     }
 
@@ -4890,6 +5203,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         } else {
             btn.classList.remove('favorite-active');
             sessionFavoriteIds.delete(Number(questionId));
+        }
+        if (isUsmleTestSession()) {
+            updateUsmleToolbarChrome(currentQuestions?.[currentQuestionIndex]);
         }
     }
 

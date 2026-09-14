@@ -30,14 +30,15 @@
 
     <main class="main-content">
         <div class="container test-session-container">
-            <div class="test-header">
+            <!-- Обычный хедер (университетские тесты) -->
+            <div class="test-header" id="uniTestHeader">
                 <div class="test-progress">
                     <div class="progress-bar">
                         <div class="progress-fill" id="progressFill"></div>
                     </div>
                     <span id="progressText">Вопрос 1 из 10</span>
                 </div>
-                <div style="display: flex; align-items: center; gap: 1rem;">
+                <div class="test-header-right">
                     <div class="test-timer" id="testTimer" style="display: none;">
                         <span id="timerDisplay">30:00</span>
                     </div>
@@ -48,11 +49,72 @@
                     <div id="favoriteContainer"></div>
                 </div>
             </div>
+
+            <!-- UWorld-меню для USMLE -->
+            <header class="uworld-session-topbar" id="usmleSessionTopbar" hidden>
+                <div class="uworld-tb-left">
+                    <button type="button" class="uworld-tb-icon-btn" id="usmleTbMenu" title="Items" aria-label="Открыть список вопросов">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </button>
+                    <div class="uworld-tb-item-info">
+                        <span class="uworld-tb-item-label" id="usmleTbItemLabel">Item 1 of 1</span>
+                        <span class="uworld-tb-qid" id="usmleTbQuestionId">Question Id: —</span>
+                    </div>
+                    <button type="button" class="uworld-tb-mark" id="usmleTbMark" title="Mark">
+                        <span class="uworld-tb-mark-icon" id="usmleTbMarkIcon" aria-hidden="true"></span>
+                        <span class="uworld-tb-mark-text">Mark</span>
+                    </button>
+                </div>
+                <div class="uworld-tb-tools" role="toolbar" aria-label="USMLE tools">
+                    <button type="button" class="uworld-tb-tool" id="usmleTbFlashcards" data-tool="flashcards" title="Flashcards">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="12" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8 5V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-1" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M7 10h6M7 13h5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                        <span>Flashcards</span>
+                    </button>
+                    <button type="button" class="uworld-tb-tool" id="usmleTbFullscreen" data-tool="fullscreen" title="Full Screen">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4H4v4M16 4h4v4M8 20H4v-4M16 20h4v-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <span>Full Screen</span>
+                    </button>
+                    <button type="button" class="uworld-tb-tool" id="usmleTbMarker" data-tool="marker" title="Marker">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 4.5l4 4L10 18H6v-4L15.5 4.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M13.5 6.5l4 4" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>
+                        <span>Marker</span>
+                    </button>
+                    <button type="button" class="uworld-tb-tool" id="usmleTbLab" data-tool="lab" title="Lab Values">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M10 3v5.2L5.8 18.2A2.2 2.2 0 0 0 7.8 21h8.4a2.2 2.2 0 0 0 2-2.8L14 8.2V3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8.2 14h7.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                        <span>Lab Values</span>
+                    </button>
+                    <button type="button" class="uworld-tb-tool" id="usmleTbNotes" data-tool="notes" title="Notes">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h8l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M15 3v5h5M9 13h6M9 17h5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                        <span>Notes</span>
+                    </button>
+                    <button type="button" class="uworld-tb-tool" id="usmleTbCalc" data-tool="calculator" title="Calculator">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="8" y="6" width="8" height="3" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 12h.01M12 12h.01M16 12h.01M8 15h.01M12 15h.01M16 15h.01M8 18h.01M12 18h.01M16 18h.01" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+                        <span>Calculator</span>
+                    </button>
+                    <button type="button" class="uworld-tb-tool" id="usmleTbSettings" data-tool="settings" title="Settings">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 3.5v2.2M12 18.3v2.2M4.9 7.1l1.6 1.5M17.5 15.4l1.6 1.5M3.5 12h2.2M18.3 12h2.2M4.9 16.9l1.6-1.5M17.5 8.6l1.6-1.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                        <span>Settings</span>
+                    </button>
+                </div>
+                <div class="uworld-tb-nav">
+                    <button type="button" class="uworld-tb-nav-btn" id="usmleTbPrev" title="Previous">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <span>Previous</span>
+                    </button>
+                    <button type="button" class="uworld-tb-nav-btn" id="usmleTbNext" title="Next">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <span>Next</span>
+                    </button>
+                </div>
+            </header>
+
             <div id="usmleQuestionMeta" class="usmle-question-meta" hidden>
                 <div class="usmle-meta-row">
                     <span class="usmle-meta-chip usmle-meta-subject" id="usmleMetaSubject"><span class="usmle-meta-label">Subject</span> <span class="usmle-meta-value">—</span></span>
                     <span class="usmle-meta-chip usmle-meta-system" id="usmleMetaSystem"><span class="usmle-meta-label">System</span> <span class="usmle-meta-value">—</span></span>
                     <span class="usmle-meta-chip usmle-meta-time" id="usmleMetaQuestionTime" title="Время на этот вопрос">⏱ <span id="usmleMetaQuestionTimeValue">0:00</span></span>
+                    <div class="test-timer usmle-tb-timer" id="usmleTbTimer" style="display: none;">
+                        <span id="usmleTbTimerDisplay">30:00</span>
+                    </div>
                 </div>
             </div>
             <div class="test-session-layout" id="testSessionLayout">
@@ -62,7 +124,7 @@
                 </aside>
                 <div class="test-session-main">
                     <div id="testContent" class="test-content"></div>
-                    <div class="test-actions">
+                    <div class="test-actions" id="uniTestActions">
                         <button class="btn btn-secondary" id="prevQuestion" style="display: none;">Назад</button>
                         <button class="btn btn-primary" id="nextQuestion">Далее</button>
                         <button class="btn btn-success" id="finishTest" style="display: none;">Завершить тест</button>
@@ -71,6 +133,46 @@
             </div>
         </div>
     </main>
+
+    <!-- USMLE tool panels -->
+    <div id="usmleLabModal" class="modal uworld-tool-modal" style="display:none;">
+        <div class="modal-content uworld-tool-modal-content" style="max-width:720px;">
+            <span class="modal-close" id="usmleLabModalClose">&times;</span>
+            <h2>Lab Values</h2>
+            <div class="uworld-lab-tables" id="usmleLabTables"></div>
+        </div>
+    </div>
+    <div id="usmleNotesModal" class="modal uworld-tool-modal" style="display:none;">
+        <div class="modal-content uworld-tool-modal-content" style="max-width:520px;">
+            <span class="modal-close" id="usmleNotesModalClose">&times;</span>
+            <h2>Notes</h2>
+            <p class="uworld-tool-hint">Заметки сохраняются локально для этого вопроса.</p>
+            <textarea id="usmleNotesTextarea" rows="10" placeholder="Your notes…"></textarea>
+            <div class="uworld-tool-actions">
+                <button type="button" class="btn btn-primary" id="usmleNotesSaveBtn">Сохранить</button>
+            </div>
+        </div>
+    </div>
+    <div id="usmleCalcModal" class="modal uworld-tool-modal" style="display:none;">
+        <div class="modal-content uworld-tool-modal-content uworld-calc-modal" style="max-width:320px;">
+            <span class="modal-close" id="usmleCalcModalClose">&times;</span>
+            <h2>Calculator</h2>
+            <input type="text" id="usmleCalcDisplay" class="uworld-calc-display" readonly value="0">
+            <div class="uworld-calc-pad" id="usmleCalcPad"></div>
+        </div>
+    </div>
+    <div id="usmleSettingsModal" class="modal uworld-tool-modal" style="display:none;">
+        <div class="modal-content uworld-tool-modal-content" style="max-width:420px;">
+            <span class="modal-close" id="usmleSettingsModalClose">&times;</span>
+            <h2>Settings</h2>
+            <div class="uworld-settings-list">
+                <button type="button" class="btn btn-secondary btn-block" id="usmleSettingsReportBtn">Сообщить об ошибке в вопросе</button>
+                <button type="button" class="btn btn-secondary btn-block" id="usmleSettingsFontUp">Увеличить шрифт</button>
+                <button type="button" class="btn btn-secondary btn-block" id="usmleSettingsFontDown">Уменьшить шрифт</button>
+                <button type="button" class="btn btn-danger btn-block" id="usmleSettingsFinishBtn">Завершить тест</button>
+            </div>
+        </div>
+    </div>
 
     <div id="questionErrorModal" class="modal" style="display: none;">
         <div class="modal-content" style="max-width: 680px;">
