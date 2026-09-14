@@ -30,6 +30,10 @@
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4H4v4M16 4h4v4M8 20H4v-4M16 20h4v-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 <span>Full Screen</span>
             </button>
+            <button type="button" class="uworld-tb-tool" id="reviewTbNotes" title="Notes">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h8l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M15 3v5h5M9 13h6M9 17h6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                <span>Notes</span>
+            </button>
             <button type="button" class="uworld-tb-tool" id="reviewTbLab" title="Lab Values">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M10 3v5.2L5.8 18.2A2.2 2.2 0 0 0 7.8 21h8.4a2.2 2.2 0 0 0 2-2.8L14 8.2V3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8.2 14h7.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                 <span>Lab Values</span>
@@ -91,6 +95,16 @@
     <div id="usmleLabModal" class="uworld-lab-dock" hidden>
         <div class="uworld-lab-dock-inner" id="usmleLabTables"></div>
     </div>
+    <div id="usmleNotesModal" class="modal uworld-tool-modal" style="display:none;">
+        <div class="modal-content uworld-tool-modal-content" style="max-width:520px;">
+            <span class="modal-close" id="usmleNotesModalClose">&times;</span>
+            <h2>Notes</h2>
+            <textarea id="usmleNotesTextarea" rows="10" placeholder="Your notes…"></textarea>
+            <div style="margin-top:0.75rem;display:flex;gap:0.5rem;justify-content:flex-end;">
+                <button type="button" class="btn btn-primary" id="usmleNotesSaveBtn">Сохранить</button>
+            </div>
+        </div>
+    </div>
     <div id="usmleCalcModal" class="modal uworld-tool-modal" style="display:none;">
         <div class="modal-content uworld-tool-modal-content uworld-calc-modal" style="max-width:320px;">
             <span class="modal-close" id="usmleCalcModalClose">&times;</span>
@@ -102,6 +116,7 @@
 
     <div id="notification" class="notification"></div>
     <script src="usmle-linked-question.js"></script>
+    <script src="usmle-annotations.js"></script>
     <script src="usmle-lab-values.js"></script>
     <script src="app.js"></script>
     <script src="test-review.js"></script>

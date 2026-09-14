@@ -2494,6 +2494,13 @@ mark.usmle-marker-hl {
     border-radius: 0.1em;
 }
 
+.uworld-tb-tool.has-note {
+    box-shadow: inset 0 -2px 0 #fbbf24;
+}
+.uworld-tb-tool.has-note span {
+    color: #fde68a;
+}
+
 .uworld-tool-modal .uworld-tool-modal-content {
     margin: auto;
 }

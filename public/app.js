@@ -3085,10 +3085,83 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         if (USMLE_MARKER_COLORS[usmleMarkerColor]) {
             document.documentElement.style.setProperty('--usmle-marker-color', USMLE_MARKER_COLORS[usmleMarkerColor]);
         }
+        syncUsmleNotesButton(question);
     }
 
     function getUsmleNotesKey(questionId) {
         return `usmleNote:${questionId}`;
+    }
+
+    function loadUsmleNote(questionId) {
+        if (window.UsmleAnnotations?.getNotes) {
+            return window.UsmleAnnotations.getNotes(questionId);
+        }
+        try {
+            return localStorage.getItem(getUsmleNotesKey(questionId)) || '';
+        } catch (_) {
+            return '';
+        }
+    }
+
+    function saveUsmleNote(questionId, text) {
+        if (window.UsmleAnnotations?.setNotes) {
+            return window.UsmleAnnotations.setNotes(questionId, text);
+        }
+        try {
+            const value = String(text || '');
+            if (!value.trim()) localStorage.removeItem(getUsmleNotesKey(questionId));
+            else localStorage.setItem(getUsmleNotesKey(questionId), value);
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function syncUsmleNotesButton(question) {
+        const btn = document.getElementById('usmleTbNotes');
+        if (!btn) return;
+        const has = question?.id != null && (
+            window.UsmleAnnotations?.hasNotes?.(question.id) || !!String(loadUsmleNote(question.id) || '').trim()
+        );
+        btn.classList.toggle('has-note', !!has);
+        btn.title = has ? 'Notes (есть заметка)' : 'Notes';
+    }
+
+    function persistCurrentUsmleNoteFromModal(force) {
+        const modal = document.getElementById('usmleNotesModal');
+        const ta = document.getElementById('usmleNotesTextarea');
+        const boundId = ta?.dataset.questionId;
+        if (!ta || boundId == null || boundId === '') return;
+        const modalOpen = modal && modal.style.display !== 'none' && window.getComputedStyle(modal).display !== 'none';
+        if (!force && !modalOpen) return;
+        saveUsmleNote(boundId, ta.value || '');
+        const q = currentQuestions?.[currentQuestionIndex];
+        if (q) syncUsmleNotesButton(q);
+    }
+
+    function reloadUsmleNotesModalIfOpen(question) {
+        const modal = document.getElementById('usmleNotesModal');
+        const ta = document.getElementById('usmleNotesTextarea');
+        if (!modal || !ta || !question) return;
+        const modalOpen = modal.style.display !== 'none' && window.getComputedStyle(modal).display !== 'none';
+        if (!modalOpen) return;
+        ta.dataset.questionId = String(question.id);
+        ta.value = loadUsmleNote(question.id);
+    }
+
+    function getUsmleHighlightRoot() {
+        return document.querySelector('#testContent .question-item') || document.getElementById('testContent');
+    }
+
+    function persistUsmleHighlights() {
+        const q = currentQuestions?.[currentQuestionIndex];
+        if (!q || !isUsmleTestSession()) return;
+        window.UsmleAnnotations?.saveMarksFromRoot?.(q.id, getUsmleHighlightRoot());
+    }
+
+    function restoreUsmleHighlights(questionId) {
+        if (questionId == null || !isUsmleTestSession()) return;
+        window.UsmleAnnotations?.restoreMarksToRoot?.(questionId, getUsmleHighlightRoot());
     }
 
     function openUsmleModal(id) {
@@ -3186,22 +3259,13 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     function applyUsmleMarkerSelection() {
         if (!usmleMarkerOn || !isUsmleTestSession()) return;
-        const sel = window.getSelection?.();
-        if (!sel || sel.isCollapsed || !sel.rangeCount) return;
-        const range = sel.getRangeAt(0);
-        const stem = document.querySelector('#testContent .usmle-question-stem, #testContent .question-text, #testContent .question-item');
-        if (!stem || !stem.contains(range.commonAncestorContainer)) return;
-        try {
-            const mark = document.createElement('mark');
-            mark.className = 'usmle-marker-hl';
-            if (USMLE_MARKER_COLORS[usmleMarkerColor]) {
-                mark.style.background = USMLE_MARKER_COLORS[usmleMarkerColor];
-            }
-            range.surroundContents(mark);
-            sel.removeAllRanges();
-        } catch (_) {
-            /* overlapping selection — ignore */
-        }
+        const color = USMLE_MARKER_COLORS[usmleMarkerColor];
+        if (!color) return;
+        const root = getUsmleHighlightRoot();
+        const applied = window.UsmleAnnotations?.applyMarkerSelection
+            ? window.UsmleAnnotations.applyMarkerSelection(color, root)
+            : false;
+        if (applied) persistUsmleHighlights();
     }
 
     function toggleUsmleFullscreen() {
@@ -3277,11 +3341,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             const q = currentQuestions?.[currentQuestionIndex];
             const ta = document.getElementById('usmleNotesTextarea');
             if (ta && q) {
-                try {
-                    ta.value = localStorage.getItem(getUsmleNotesKey(q.id)) || '';
-                } catch (_) {
-                    ta.value = '';
-                }
+                ta.dataset.questionId = String(q.id);
+                ta.value = loadUsmleNote(q.id);
             }
             openUsmleModal('usmleNotesModal');
         });
@@ -3295,19 +3356,33 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         });
 
         document.getElementById('usmleShortcutsModalClose')?.addEventListener('click', () => closeUsmleModal('usmleShortcutsModal'));
-        document.getElementById('usmleNotesModalClose')?.addEventListener('click', () => closeUsmleModal('usmleNotesModal'));
+        document.getElementById('usmleNotesModalClose')?.addEventListener('click', () => {
+            persistCurrentUsmleNoteFromModal(true);
+            closeUsmleModal('usmleNotesModal');
+        });
         document.getElementById('usmleCalcModalClose')?.addEventListener('click', () => closeUsmleModal('usmleCalcModal'));
         document.getElementById('usmleSettingsModalClose')?.addEventListener('click', () => closeUsmleModal('usmleSettingsModal'));
 
+        const notesTa = document.getElementById('usmleNotesTextarea');
+        if (notesTa && !notesTa.dataset.autoSaveBound) {
+            notesTa.dataset.autoSaveBound = '1';
+            let notesSaveTimer = null;
+            notesTa.addEventListener('input', () => {
+                clearTimeout(notesSaveTimer);
+                notesSaveTimer = setTimeout(() => persistCurrentUsmleNoteFromModal(true), 300);
+            });
+            notesTa.addEventListener('blur', () => persistCurrentUsmleNoteFromModal(true));
+        }
+
         document.getElementById('usmleNotesSaveBtn')?.addEventListener('click', () => {
-            const q = currentQuestions?.[currentQuestionIndex];
             const ta = document.getElementById('usmleNotesTextarea');
-            if (!q || !ta) return;
-            try {
-                localStorage.setItem(getUsmleNotesKey(q.id), ta.value || '');
+            const qid = ta?.dataset.questionId || currentQuestions?.[currentQuestionIndex]?.id;
+            if (qid == null || !ta) return;
+            if (saveUsmleNote(qid, ta.value || '')) {
+                syncUsmleNotesButton(currentQuestions?.[currentQuestionIndex]);
                 showNotification('Заметка сохранена', 'success');
                 closeUsmleModal('usmleNotesModal');
-            } catch (_) {
+            } else {
                 showNotification('Не удалось сохранить заметку', 'error');
             }
         });
@@ -3331,6 +3406,15 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
         document.addEventListener('mouseup', () => {
             if (usmleMarkerOn) applyUsmleMarkerSelection();
+        });
+
+        window.addEventListener('pagehide', () => {
+            persistCurrentUsmleNoteFromModal(true);
+            persistUsmleHighlights();
+        });
+        window.addEventListener('beforeunload', () => {
+            persistCurrentUsmleNoteFromModal(true);
+            persistUsmleHighlights();
         });
 
         if (!window.__usmleShortcutKeysBound) {
@@ -3513,6 +3597,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         if (!currentQuestions || !currentQuestions.length) return;
         const next = Math.max(0, Math.min(currentQuestions.length - 1, Number(index)));
         if (next === currentQuestionIndex) return;
+        persistCurrentUsmleNoteFromModal();
+        persistUsmleHighlights();
         currentQuestionIndex = next;
         const nav = document.getElementById('usmleQuestionNav');
         const layout = document.getElementById('testSessionLayout');
@@ -3696,6 +3782,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
         if (isUsmleSession) {
             updateUsmleToolbarChrome(question);
+            restoreUsmleHighlights(question.id);
+            reloadUsmleNotesModalIfOpen(question);
         }
     }
 
@@ -3738,6 +3826,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     }
 
     function nextQuestion() {
+        persistCurrentUsmleNoteFromModal();
+        persistUsmleHighlights();
         if (currentQuestionIndex < currentQuestions.length - 1) {
             currentQuestionIndex++;
             showQuestion();
@@ -3745,6 +3835,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     }
 
     function prevQuestion() {
+        persistCurrentUsmleNoteFromModal();
+        persistUsmleHighlights();
         if (currentQuestionIndex > 0) {
             currentQuestionIndex--;
             showQuestion();
@@ -3752,6 +3844,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     }
 
     async function finishTest() {
+        persistCurrentUsmleNoteFromModal();
+        persistUsmleHighlights();
         // КРИТИЧЕСКОЕ ЛОГИРОВАНИЕ В НАЧАЛЕ ФУНКЦИИ
         console.error('=== FINISH TEST CALLED ===');
         console.error('currentTestId:', currentTestId);

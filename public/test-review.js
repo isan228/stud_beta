@@ -235,10 +235,10 @@
             const pct = byAnswer[answer.id] != null ? byAnswer[answer.id] : byAnswer[String(answer.id)];
             const pctLabel = pct != null ? ` (${pct}%)` : '';
             return `
-                <div class="uworld-review-choice ${ok ? 'is-correct' : ''} ${isUser && !ok ? 'is-user-wrong' : ''} ${isUser && ok ? 'is-user-correct' : ''}">
+                <div class="uworld-review-choice ${ok ? 'is-correct' : ''} ${isUser && !ok ? 'is-user-wrong' : ''} ${isUser && ok ? 'is-user-correct' : ''}" data-answer-id="${answer.id}">
                     <span class="uworld-review-choice-mark" aria-hidden="true">${ok ? '✓' : (isUser ? '✗' : '')}</span>
                     <span class="uworld-review-choice-letter">${letter}.</span>
-                    <span class="uworld-review-choice-text">${esc(answer.text)}${pctLabel ? `<span class="uworld-review-choice-pct">${esc(pctLabel)}</span>` : ''}</span>
+                    <span class="uworld-review-choice-text answer-option-text">${esc(answer.text)}${pctLabel ? `<span class="uworld-review-choice-pct">${esc(pctLabel)}</span>` : ''}</span>
                     ${renderImages(answer.imageUrls || answer.imageUrl, 'Иллюстрация к ответу')}
                 </div>
             `;
@@ -268,6 +268,12 @@
             </div>
         `;
 
+        window.UsmleAnnotations?.restoreMarksToRoot?.(question.id, left);
+        const notesBtn = document.getElementById('reviewTbNotes');
+        if (notesBtn) {
+            const has = window.UsmleAnnotations?.hasNotes?.(question.id);
+            notesBtn.classList.toggle('has-note', !!has);
+        }
         const explanationHtml = (question.explanation || normalizeImageUrls(question.explanationImageUrls || question.explanationImageUrl).length)
             ? (
                 typeof window.renderQuestionExplanationHtml === 'function'
@@ -466,6 +472,52 @@
             dock.hidden = false;
             document.body.classList.add('usmle-lab-open');
         });
+
+        const saveReviewNote = () => {
+            const ta = document.getElementById('usmleNotesTextarea');
+            const qid = ta?.dataset.questionId;
+            if (qid == null || !ta) return;
+            window.UsmleAnnotations?.setNotes?.(qid, ta.value || '');
+            const q = reviewData?.questions?.[currentIndex];
+            if (q && String(q.id) === String(qid)) {
+                document.getElementById('reviewTbNotes')?.classList.toggle(
+                    'has-note',
+                    !!window.UsmleAnnotations?.hasNotes?.(q.id)
+                );
+            }
+        };
+
+        document.getElementById('reviewTbNotes')?.addEventListener('click', () => {
+            const q = reviewData?.questions?.[currentIndex];
+            const ta = document.getElementById('usmleNotesTextarea');
+            const modal = document.getElementById('usmleNotesModal');
+            if (ta && q) {
+                ta.dataset.questionId = String(q.id);
+                ta.value = window.UsmleAnnotations?.getNotes?.(q.id) || '';
+            }
+            if (modal) modal.style.display = 'flex';
+        });
+        document.getElementById('usmleNotesModalClose')?.addEventListener('click', () => {
+            saveReviewNote();
+            const modal = document.getElementById('usmleNotesModal');
+            if (modal) modal.style.display = 'none';
+        });
+        document.getElementById('usmleNotesSaveBtn')?.addEventListener('click', () => {
+            saveReviewNote();
+            const modal = document.getElementById('usmleNotesModal');
+            if (modal) modal.style.display = 'none';
+        });
+        const notesTa = document.getElementById('usmleNotesTextarea');
+        if (notesTa && !notesTa.dataset.autoSaveBound) {
+            notesTa.dataset.autoSaveBound = '1';
+            let t = null;
+            notesTa.addEventListener('input', () => {
+                clearTimeout(t);
+                t = setTimeout(saveReviewNote, 300);
+            });
+            notesTa.addEventListener('blur', saveReviewNote);
+        }
+
         document.getElementById('reviewTbCalc')?.addEventListener('click', () => {
             ensureCalc();
             setCalc('0');
