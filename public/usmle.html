@@ -85,6 +85,18 @@
             transform: translateY(-3px);
             box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
         }
+        .usmle-feat-card.is-active {
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.45), var(--hub-card-shadow);
+        }
+        .usmle-feat-card.tone-blue.is-active {
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.45), 0 12px 28px rgba(29, 78, 216, 0.4);
+        }
+        .usmle-qb-back {
+            display: none;
+            margin: 0 0 0.85rem;
+        }
+        .usmle-qb-back.is-visible { display: inline-flex; }
+        .usmle-qb-back .btn { font-size: 0.85rem; }
         .usmle-feat-card.tone-blue {
             background: linear-gradient(145deg, #1e40af 0%, #2563eb 55%, #3b82f6 100%);
             color: #fff;
@@ -307,7 +319,8 @@
 
             <div class="usmle-qb-head">
                 <div>
-                    <h2>Question Banks</h2>
+                    <button type="button" class="btn btn-secondary btn-sm usmle-qb-back" id="usmleQbBack" onclick="selectHubFilter('all')">← Все банки</button>
+                    <h2 id="usmleQbTitle">Question Banks</h2>
                     <p class="usmle-qb-sub" id="usmleSubLabel">You are currently on subscription <strong>USMLE</strong>.</p>
                 </div>
                 <div class="usmle-tg-actions">
@@ -334,6 +347,7 @@
 <script>
     let dashboardData = null;
     let activeStep = (window.UsmleApp && window.UsmleApp.getStoredStep()) || 'step1';
+    let hubFilter = 'all'; // all | nbme
     const STEP_LABELS = { step1: 'Step 1', step2: 'Step 2', step3: 'Step 3' };
     const R = 22;
     const C = 2 * Math.PI * R;
@@ -342,11 +356,24 @@
 
     function selectStep(step) {
         activeStep = step;
+        hubFilter = 'all';
         if (window.UsmleApp) window.UsmleApp.setStoredStep(step);
         document.querySelectorAll('.step-btn').forEach((b) => {
             b.classList.toggle('active', b.dataset.step === step);
         });
         renderHub();
+    }
+
+    function isNbmeBankItem(t) {
+        return !!(t && (t.isNbme || t.testKind === 'nbme' || /\bnbme\b/i.test(String(t.name || ''))));
+    }
+
+    function selectHubFilter(filter) {
+        hubFilter = filter === 'nbme' ? 'nbme' : 'all';
+        renderHub();
+        if (hubFilter === 'nbme') {
+            document.getElementById('usmleBanksGrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
     }
 
     function openBank(test) {
@@ -453,31 +480,62 @@
         </div>`;
     }
 
+    function nbmeCategoryCardHtml(nbmeBanks) {
+        const total = nbmeBanks.reduce((s, t) => s + (Number(t.totalQuestions) || 0), 0);
+        const used = nbmeBanks.reduce((s, t) => s + (Number(t.usedQuestions) || 0), 0);
+        const pct = total > 0 ? Math.round((used / total) * 1000) / 10 : 0;
+        const active = hubFilter === 'nbme' ? ' is-active' : '';
+        return `<div class="usmle-feat-card tone-blue${active}" role="button" tabindex="0"
+            onclick="selectHubFilter('nbme')" onkeydown="if(event.key==='Enter')selectHubFilter('nbme')">
+            ${arcSvg(pct, true)}
+            <h3 class="usmle-feat-title">NBME</h3>
+            <div class="usmle-feat-stats">
+                <div><span>Total Questions</span><strong>${total}</strong></div>
+                <div><span>Used Questions</span><strong>${used}</strong></div>
+                <div><span>Question Banks</span><strong>${nbmeBanks.length}</strong></div>
+            </div>
+        </div>`;
+    }
+
     function renderHub() {
         const featured = document.getElementById('usmleFeaturedGrid');
         const grid = document.getElementById('usmleBanksGrid');
+        const titleEl = document.getElementById('usmleQbTitle');
+        const backBtn = document.getElementById('usmleQbBack');
         if (!featured || !grid || !dashboardData) return;
 
         const banks = dashboardData[activeStep] || [];
-        const regular = banks.filter((t) => !t.isSelfAssessment && !t.isNbme
-            && t.testKind !== 'self_assessment' && t.testKind !== 'nbme');
-        const tones = ['tone-blue', 'tone-white', 'tone-white', 'tone-blue'];
+        const nbmeBanks = banks.filter(isNbmeBankItem);
+        const regular = banks.filter((t) => !t.isSelfAssessment && !isNbmeBankItem(t)
+            && t.testKind !== 'self_assessment');
+        const tones = ['tone-white', 'tone-white', 'tone-blue'];
 
-        const featuredBanks = regular.slice(0, 3);
-        let featHtml = featuredBanks.map((t, i) => featuredCardHtml(t, tones[i] || 'tone-white')).join('');
-        featHtml += promoCardHtml();
-        if (!featuredBanks.length) {
-            // если обычных банков нет — покажем SA как featured
+        // Сверху: NBME (если есть) → обычные банки → promo
+        let featParts = [];
+        if (nbmeBanks.length) featParts.push(nbmeCategoryCardHtml(nbmeBanks));
+        const featuredBanks = regular.slice(0, nbmeBanks.length ? 2 : 3);
+        featParts = featParts.concat(featuredBanks.map((t, i) => featuredCardHtml(t, tones[i] || 'tone-white')));
+        featParts.push(promoCardHtml());
+        if (!nbmeBanks.length && !featuredBanks.length) {
             const saFeat = banks.filter((t) => t.isSelfAssessment).slice(0, 3);
-            featHtml = saFeat.map((t, i) => featuredCardHtml(t, tones[i] || 'tone-white')).join('') + promoCardHtml();
+            featParts = saFeat.map((t, i) => featuredCardHtml(t, tones[i] || 'tone-white'));
+            featParts.push(promoCardHtml());
         }
-        featured.innerHTML = featHtml;
+        featured.innerHTML = featParts.join('');
 
-        if (!banks.length) {
-            grid.innerHTML = `<div class="usmle-empty"><p>Для ${STEP_LABELS[activeStep]} пока нет банков вопросов.</p></div>`;
+        if (titleEl) titleEl.textContent = hubFilter === 'nbme' ? 'NBME Forms' : 'Question Banks';
+        if (backBtn) backBtn.classList.toggle('is-visible', hubFilter === 'nbme');
+
+        const list = hubFilter === 'nbme'
+            ? nbmeBanks
+            : banks.filter((t) => !isNbmeBankItem(t));
+        if (!list.length) {
+            grid.innerHTML = hubFilter === 'nbme'
+                ? `<div class="usmle-empty"><p>Для ${STEP_LABELS[activeStep]} пока нет NBME форм.</p></div>`
+                : `<div class="usmle-empty"><p>Для ${STEP_LABELS[activeStep]} пока нет банков вопросов.</p></div>`;
             return;
         }
-        grid.innerHTML = banks.map(qbCardHtml).join('');
+        grid.innerHTML = list.map(qbCardHtml).join('');
     }
 
     function openBankFromCard(el) {
@@ -534,6 +592,7 @@
     });
 
     window.selectStep = selectStep;
+    window.selectHubFilter = selectHubFilter;
     window.openBankFromCard = openBankFromCard;
     window.loadDashboard = loadDashboard;
 </script>
