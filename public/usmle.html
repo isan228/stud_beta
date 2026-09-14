@@ -350,21 +350,26 @@
     }
 
     function openBank(test) {
-        const isSa = !!(test.isSelfAssessment || test.testKind === 'self_assessment'
+        const isNbme = !!(test.isNbme || test.testKind === 'nbme' || /\bnbme\b/i.test(String(test.name || '')));
+        const isSa = !isNbme && !!(test.isSelfAssessment || test.testKind === 'self_assessment'
             || /self[-\s]?assessment/i.test(String(test.name || '')));
         if (window.UsmleApp) {
             window.UsmleApp.setSelectedBank({
                 id: test.id,
                 name: test.name || '',
                 step: activeStep,
-                testKind: isSa ? 'self_assessment' : (test.testKind || 'standard'),
-                isSelfAssessment: isSa
+                testKind: isNbme ? 'nbme' : (isSa ? 'self_assessment' : (test.testKind || 'standard')),
+                isSelfAssessment: isSa,
+                isNbme
             });
         }
         const name = encodeURIComponent(test.name || '');
-        const kind = isSa ? 'self_assessment' : encodeURIComponent(test.testKind || 'standard');
+        if (isNbme) {
+            window.location.href = `/usmle-nbme?testId=${test.id}&name=${name}&step=${activeStep}&testKind=nbme`;
+            return;
+        }
         if (isSa) {
-            window.location.href = `/usmle-self-assessment?testId=${test.id}&name=${name}&step=${activeStep}&testKind=${kind}`;
+            window.location.href = `/usmle-self-assessment?testId=${test.id}&name=${name}&step=${activeStep}&testKind=self_assessment`;
             return;
         }
         window.location.href = `/usmle-home?testId=${test.id}&name=${name}&step=${activeStep}`;
@@ -393,24 +398,27 @@
     }
 
     function bankAttrs(t) {
-        const isSa = !!(t.isSelfAssessment || t.testKind === 'self_assessment');
+        const isNbme = !!(t.isNbme || t.testKind === 'nbme');
+        const isSa = !isNbme && !!(t.isSelfAssessment || t.testKind === 'self_assessment');
         return `data-test-id="${t.id}" data-test-name="${escHtml(t.name)}"
             data-test-kind="${escHtml(t.testKind || 'standard')}"
             data-self-assessment="${isSa ? '1' : '0'}"
+            data-nbme="${isNbme ? '1' : '0'}"
             onclick="openBankFromCard(this)" onkeydown="if(event.key==='Enter')this.click()"
             role="button" tabindex="0"`;
     }
 
     function featuredCardHtml(t, tone) {
         const pct = Number(t.percentage) || 0;
-        const banksCount = t.isSelfAssessment ? 4 : Math.max(1, Number(t.totalTests) || 1);
+        const isBlock = !!(t.isSelfAssessment || t.isNbme || t.testKind === 'self_assessment' || t.testKind === 'nbme');
+        const banksCount = isBlock ? 4 : Math.max(1, Number(t.totalTests) || 1);
         return `<div class="usmle-feat-card ${tone}" ${bankAttrs(t)}>
             ${arcSvg(pct, true)}
             <h3 class="usmle-feat-title">${escHtml(t.name)}</h3>
             <div class="usmle-feat-stats">
                 <div><span>Total Questions</span><strong>${t.totalQuestions || 0}</strong></div>
                 <div><span>Used Questions</span><strong>${t.usedQuestions || 0}</strong></div>
-                <div><span>${t.isSelfAssessment ? 'Blocks' : 'Question Banks'}</span><strong>${banksCount}</strong></div>
+                <div><span>${isBlock ? 'Blocks' : 'Question Banks'}</span><strong>${banksCount}</strong></div>
             </div>
         </div>`;
     }
@@ -430,14 +438,15 @@
 
     function qbCardHtml(t) {
         const pct = Number(t.percentage) || 0;
-        const totalTests = t.isSelfAssessment ? 4 : Math.max(Number(t.testsCompleted) || 0, Number(t.totalTests) || 0);
+        const isBlock = !!(t.isSelfAssessment || t.isNbme || t.testKind === 'self_assessment' || t.testKind === 'nbme');
+        const totalTests = isBlock ? 4 : Math.max(Number(t.testsCompleted) || 0, Number(t.totalTests) || 0);
         return `<div class="usmle-qb-card" ${bankAttrs(t)}>
             <div>
                 <h3 class="usmle-qb-name">${escHtml(t.name)}</h3>
                 <div class="usmle-qb-stats">
                     <div><span>Used Questions</span><strong>${t.usedQuestions || 0}</strong></div>
                     <div><span>Total Questions</span><strong>${t.totalQuestions || 0}</strong></div>
-                    <div><span>Total Tests</span><strong>${totalTests}</strong></div>
+                    <div><span>${isBlock ? 'Blocks' : 'Total Tests'}</span><strong>${totalTests}</strong></div>
                 </div>
             </div>
             ${arcSvg(pct, false)}
@@ -450,7 +459,8 @@
         if (!featured || !grid || !dashboardData) return;
 
         const banks = dashboardData[activeStep] || [];
-        const regular = banks.filter((t) => !t.isSelfAssessment && t.testKind !== 'self_assessment');
+        const regular = banks.filter((t) => !t.isSelfAssessment && !t.isNbme
+            && t.testKind !== 'self_assessment' && t.testKind !== 'nbme');
         const tones = ['tone-blue', 'tone-white', 'tone-white', 'tone-blue'];
 
         const featuredBanks = regular.slice(0, 3);
@@ -475,7 +485,8 @@
             id: Number(el.dataset.testId),
             name: el.dataset.testName || '',
             testKind: el.dataset.testKind || 'standard',
-            isSelfAssessment: el.dataset.selfAssessment === '1'
+            isSelfAssessment: el.dataset.selfAssessment === '1',
+            isNbme: el.dataset.nbme === '1'
         });
     }
 

@@ -24,11 +24,12 @@
             const s = await res.json();
             const U = window.UsmleApp;
             const isSa = U.isSelfAssessmentBank(bank);
-            const createHref = isSa
-                ? `/usmle-self-assessment?${U.bankQuery(bank)}`
+            const isNbme = U.isNbmeBank?.(bank);
+            const createHref = (isSa || isNbme)
+                ? (isNbme ? `/usmle-nbme?${U.bankQuery(bank)}` : `/usmle-self-assessment?${U.bankQuery(bank)}`)
                 : `/usmle-test-builder?${U.bankQuery(bank)}`;
             const historyHref = `/usmle-history?${U.bankQuery(bank)}`;
-            const createLabel = isSa ? 'Открыть Blocks' : 'Создать тест';
+            const createLabel = (isSa || isNbme) ? 'Открыть Blocks' : 'Создать тест';
 
             box.innerHTML = `
                 <div class="usmle-stat-card usmle-stats-span-12" style="padding:0.85rem 1.1rem;">

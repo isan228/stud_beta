@@ -9,7 +9,7 @@ const {
   SA_BLOCK_COUNT,
   SA_QUESTIONS_PER_BLOCK,
   SA_TIMER_MINUTES,
-  isSelfAssessmentTest,
+  isBlockExamTest,
   loadSaBlockQuestionRows,
   countQuestionsInSaBlock
 } = require('../utils/usmleSelfAssessment');
@@ -746,8 +746,8 @@ async function handleSaBlockTxtUpload(req, res) {
     res.status(404).json({ error: 'Тест не найден' });
     return;
   }
-  if (test.programType !== 'usmle' || !isSelfAssessmentTest(test)) {
-    res.status(400).json({ error: 'Загрузка по блокам доступна только для Self-Assessment тестов USMLE' });
+  if (test.programType !== 'usmle' || !isBlockExamTest(test)) {
+    res.status(400).json({ error: 'Загрузка по блокам доступна только для Self-Assessment / NBME тестов USMLE' });
     return;
   }
 

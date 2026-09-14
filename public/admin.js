@@ -2791,7 +2791,9 @@ function syncTestFormProgramFromSubject() {
     if (saGroup) saGroup.style.display = isUsmle ? '' : 'none';
     if (!isUsmle) {
         const saCb = document.getElementById('testIsSelfAssessment');
+        const nbmeCb = document.getElementById('testIsNbme');
         if (saCb) saCb.checked = false;
+        if (nbmeCb) nbmeCb.checked = false;
     }
     if (uniSelect) {
         uniSelect.required = !isUsmle;
@@ -2851,10 +2853,12 @@ async function editTest(testId) {
             const testHasExplEl = document.getElementById('testHasExplanations');
             if (testHasExplEl) testHasExplEl.checked = !!test.hasExplanations;
             const saCb = document.getElementById('testIsSelfAssessment');
-            if (saCb) {
-                saCb.checked = test.testKind === 'self_assessment'
-                    || /self[-\s]?assessment/i.test(String(test.name || ''));
-            }
+            const nbmeCb = document.getElementById('testIsNbme');
+            const isNbme = test.testKind === 'nbme' || /\bnbme\b/i.test(String(test.name || ''));
+            const isSa = !isNbme && (test.testKind === 'self_assessment'
+                || /self[-\s]?assessment/i.test(String(test.name || '')));
+            if (saCb) saCb.checked = isSa;
+            if (nbmeCb) nbmeCb.checked = isNbme;
             document.getElementById('testModalTitle').textContent = 'Редактировать тест';
             document.getElementById('testModal').style.display = 'block';
         }
@@ -3118,6 +3122,8 @@ async function saveTest(e) {
     const isFree = document.getElementById('testIsFree').checked;
     const hasExplanations = document.getElementById('testHasExplanations')?.checked || false;
     const isSelfAssessment = isUsmle && !!(document.getElementById('testIsSelfAssessment')?.checked);
+    const isNbme = isUsmle && !!(document.getElementById('testIsNbme')?.checked);
+    const resolvedKind = isNbme ? 'nbme' : (isSelfAssessment ? 'self_assessment' : 'standard');
 
     if (!subjectId) {
         showNotification('Выберите предмет', 'error');
@@ -3145,7 +3151,7 @@ async function saveTest(e) {
                 universityId: isUsmle ? null : universityId,
                 isFree,
                 hasExplanations,
-                testKind: isSelfAssessment ? 'self_assessment' : 'standard'
+                testKind: resolvedKind
             })
         });
 
@@ -4583,7 +4589,17 @@ async function focusUsmleSubjectTests(subjectId) {
 
 function isUsmleSelfAssessmentTest(test) {
     if (!test) return false;
+    if (test.testKind === 'nbme' || /\bnbme\b/i.test(String(test.name || ''))) return false;
     return test.testKind === 'self_assessment' || /self[-\s]?assessment/i.test(String(test.name || ''));
+}
+
+function isUsmleNbmeTest(test) {
+    if (!test) return false;
+    return test.testKind === 'nbme' || /\bnbme\b/i.test(String(test.name || ''));
+}
+
+function isUsmleBlockExamTest(test) {
+    return isUsmleSelfAssessmentTest(test) || isUsmleNbmeTest(test);
 }
 
 function getSelectedUsmleSaTestId() {
@@ -4623,8 +4639,8 @@ async function loadUsmleTestsAdmin() {
         const tests = await response.json();
         const matchesSubject = (t) => !subjectId
             || String(t.subjectId || t.Subject?.id || '') === String(subjectId);
-        const standardTests = tests.filter((t) => !isUsmleSelfAssessmentTest(t) && matchesSubject(t));
-        const saTests = tests.filter((t) => isUsmleSelfAssessmentTest(t));
+        const standardTests = tests.filter((t) => !isUsmleBlockExamTest(t) && matchesSubject(t));
+        const saTests = tests.filter((t) => isUsmleBlockExamTest(t));
 
         const questionsFilter = document.getElementById('usmleQuestionsTestFilter');
         if (questionsFilter) {
@@ -4651,7 +4667,9 @@ async function loadUsmleTestsAdmin() {
             saFilter.innerHTML = '<option value="">Выберите форму</option>' +
                 saTests.map(t => {
                     const subj = t.Subject?.name ? ` — ${t.Subject.name}` : '';
-                    return `<option value="${t.id}" data-test-kind="self_assessment" data-self-assessment="1">${escapeAdminHtml(t.name)}${escapeAdminHtml(subj)}</option>`;
+                    const kind = isUsmleNbmeTest(t) ? 'nbme' : 'self_assessment';
+                    const badge = kind === 'nbme' ? ' [NBME]' : ' [SA]';
+                    return `<option value="${t.id}" data-test-kind="${kind}" data-self-assessment="1">${escapeAdminHtml(t.name)}${badge}${escapeAdminHtml(subj)}</option>`;
                 }).join('');
             if (currentSa && saTests.some(t => String(t.id) === String(currentSa))) {
                 saFilter.value = currentSa;
@@ -4685,12 +4703,17 @@ async function loadUsmleTestsAdmin() {
 
         if (saList) {
             if (!saTests.length) {
-                saList.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1.5rem;">Нет Self-Assessment форм. Создайте тест с типом Self-Assessment или дождитесь авто-сида.</p>';
+                saList.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1.5rem;">Нет SA / NBME форм. Создайте тест с типом Self-Assessment или NBME, либо дождитесь авто-сида.</p>';
             } else {
-                saList.innerHTML = saTests.map(test => `
+                saList.innerHTML = saTests.map(test => {
+                    const isNbme = isUsmleNbmeTest(test);
+                    const badge = isNbme
+                        ? '<span style="background:#0e7490;color:white;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.75rem;margin-left:0.5rem;">NBME · 4×40 · 60 мин</span>'
+                        : '<span style="background:#1d4ed8;color:white;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.75rem;margin-left:0.5rem;">Self-Assessment · 4×40 · 60 мин</span>';
+                    return `
             <div class="admin-list-item">
                 <div style="flex: 1;">
-                    <h4>${escapeAdminHtml(test.name)} <span style="background:#1d4ed8;color:white;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.75rem;margin-left:0.5rem;">Self-Assessment · 4×40 · 60 мин</span></h4>
+                    <h4>${escapeAdminHtml(test.name)} ${badge}</h4>
                     ${test.description ? `<p style="color: var(--text-muted); margin: 0.5rem 0;">${escapeAdminHtml(test.description)}</p>` : ''}
                     <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
                         Предмет: ${escapeAdminHtml(test.Subject?.name || '—')} | Вопросов: ${test.questionCount ?? 0}
@@ -4701,13 +4724,13 @@ async function loadUsmleTestsAdmin() {
                     <button class="btn btn-primary btn-sm" onclick="editTest(${test.id})">Редактировать</button>
                     <button class="btn btn-danger btn-sm" onclick="deleteTest(${test.id})">Удалить</button>
                 </div>
-            </div>
-        `).join('');
+            </div>`;
+                }).join('');
             }
         }
     } catch (e) {
         if (list) list.innerHTML = '<p style="color: var(--danger-color);">Ошибка загрузки тестов USMLE</p>';
-        if (saList) saList.innerHTML = '<p style="color: var(--danger-color);">Ошибка загрузки Self-Assessment</p>';
+        if (saList) saList.innerHTML = '<p style="color: var(--danger-color);">Ошибка загрузки SA / NBME</p>';
     }
 }
 

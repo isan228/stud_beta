@@ -4293,10 +4293,11 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                     try {
                         const td = JSON.parse(sessionStorage.getItem('testData') || '{}');
                         if (td.selfAssessment && td.selfAssessmentBlockIndex) {
+                            const metaKind = (td.nbme || td.testKind === 'nbme') ? 'nbme' : 'self_assessment';
                             answersPayload = {
                                 ...(currentAnswers && typeof currentAnswers === 'object' ? currentAnswers : {}),
                                 __meta: {
-                                    kind: 'self_assessment',
+                                    kind: metaKind,
                                     blockIndex: Number(td.selfAssessmentBlockIndex)
                                 }
                             };
@@ -4423,6 +4424,18 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                         const td = JSON.parse(sessionStorage.getItem('testData') || '{}');
                         return !!td.selfAssessment;
                     } catch (_) { return false; }
+                })(),
+                nbme: (() => {
+                    try {
+                        const td = JSON.parse(sessionStorage.getItem('testData') || '{}');
+                        return !!(td.nbme || td.testKind === 'nbme');
+                    } catch (_) { return false; }
+                })(),
+                testKind: (() => {
+                    try {
+                        const td = JSON.parse(sessionStorage.getItem('testData') || '{}');
+                        return td.testKind || null;
+                    } catch (_) { return null; }
                 })(),
                 selfAssessmentBlockIndex: (() => {
                     try {

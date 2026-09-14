@@ -3079,7 +3079,9 @@ router.post('/tests', adminAuth, [
     const resolvedKind = subject.programType === 'usmle'
       && (testKind === 'self_assessment' || testKind === 'self-assessment')
       ? 'self_assessment'
-      : 'standard';
+      : (subject.programType === 'usmle' && testKind === 'nbme'
+        ? 'nbme'
+        : 'standard');
 
     const test = await Test.create({
       name,
@@ -3155,6 +3157,8 @@ router.put('/tests/:id', adminAuth, [
         test.testKind = 'standard';
       } else if (testKind === 'self_assessment' || testKind === 'self-assessment') {
         test.testKind = 'self_assessment';
+      } else if (testKind === 'nbme') {
+        test.testKind = 'nbme';
       } else if (testKind === 'standard') {
         test.testKind = 'standard';
       }
@@ -3331,14 +3335,15 @@ router.get('/tests/:id/self-assessment/blocks', adminAuth, async (req, res) => {
       SA_BLOCK_COUNT,
       SA_QUESTIONS_PER_BLOCK,
       SA_TIMER_MINUTES,
-      isSelfAssessmentTest,
+      isBlockExamTest,
+      getBlockExamKind,
       countQuestionsInSaBlock
     } = require('../utils/usmleSelfAssessment');
 
     const test = await assertTestScope(req, res, req.params.id);
     if (!test) return;
-    if (test.programType !== 'usmle' || !isSelfAssessmentTest(test)) {
-      return res.status(400).json({ error: 'Это не Self-Assessment тест' });
+    if (test.programType !== 'usmle' || !isBlockExamTest(test)) {
+      return res.status(400).json({ error: 'Это не Self-Assessment / NBME тест' });
     }
 
     const blocks = [];
@@ -3361,6 +3366,7 @@ router.get('/tests/:id/self-assessment/blocks', adminAuth, async (req, res) => {
     res.json({
       testId: test.id,
       testName: test.name,
+      testKind: getBlockExamKind(test),
       blockCount: SA_BLOCK_COUNT,
       questionsPerBlock: SA_QUESTIONS_PER_BLOCK,
       questionsPerAttempt: SA_QUESTIONS_PER_BLOCK,
@@ -3381,14 +3387,14 @@ router.delete('/tests/:id/self-assessment/blocks/:blockIndex', adminAuth, async 
   try {
     const {
       SA_BLOCK_COUNT,
-      isSelfAssessmentTest,
+      isBlockExamTest,
       loadSaBlockQuestionRows
     } = require('../utils/usmleSelfAssessment');
 
     const test = await assertTestScope(req, res, req.params.id);
     if (!test) return;
-    if (test.programType !== 'usmle' || !isSelfAssessmentTest(test)) {
-      return res.status(400).json({ error: 'Это не Self-Assessment тест' });
+    if (test.programType !== 'usmle' || !isBlockExamTest(test)) {
+      return res.status(400).json({ error: 'Это не Self-Assessment / NBME тест' });
     }
 
     const blockIndex = parseInt(req.params.blockIndex, 10);

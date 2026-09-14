@@ -41,7 +41,7 @@ const Test = sequelize.define('Test', {
     type: DataTypes.STRING(40),
     allowNull: false,
     defaultValue: 'standard',
-    comment: 'standard | self_assessment'
+    comment: 'standard | self_assessment | nbme'
   },
   isFree: {
     type: DataTypes.BOOLEAN,

@@ -8,11 +8,34 @@ function isSelfAssessmentName(name) {
   return /self[-\s]?assessment/i.test(String(name || ''));
 }
 
+function isNbmeName(name) {
+  return /\bnbme\b/i.test(String(name || ''));
+}
+
 function isSelfAssessmentTest(test) {
   if (!test) return false;
   const kind = String(test.testKind || '').toLowerCase();
   if (kind === 'self_assessment' || kind === 'self-assessment') return true;
+  if (kind === 'nbme') return false;
   return isSelfAssessmentName(test.name);
+}
+
+function isNbmeTest(test) {
+  if (!test) return false;
+  const kind = String(test.testKind || '').toLowerCase();
+  if (kind === 'nbme') return true;
+  if (kind === 'self_assessment' || kind === 'self-assessment') return false;
+  return isNbmeName(test.name);
+}
+
+function isBlockExamTest(test) {
+  return isSelfAssessmentTest(test) || isNbmeTest(test);
+}
+
+function getBlockExamKind(test) {
+  if (isNbmeTest(test)) return 'nbme';
+  if (isSelfAssessmentTest(test)) return 'self_assessment';
+  return 'standard';
 }
 
 function extractBlockMeta(answers) {
@@ -21,16 +44,18 @@ function extractBlockMeta(answers) {
   if (!meta || typeof meta !== 'object') return null;
   const blockIndex = parseInt(meta.blockIndex, 10);
   if (!Number.isFinite(blockIndex) || blockIndex < 1 || blockIndex > SA_BLOCK_COUNT) return null;
+  const kind = String(meta.kind || 'self_assessment').toLowerCase();
   return {
     blockIndex,
-    kind: meta.kind || 'self_assessment'
+    kind: kind === 'nbme' ? 'nbme' : 'self_assessment'
   };
 }
 
-function withBlockMeta(answers, blockIndex) {
+function withBlockMeta(answers, blockIndex, kind = 'self_assessment') {
   const base = answers && typeof answers === 'object' ? { ...answers } : {};
+  const normalized = String(kind || '').toLowerCase() === 'nbme' ? 'nbme' : 'self_assessment';
   base[SA_META_KEY] = {
-    kind: 'self_assessment',
+    kind: normalized,
     blockIndex: parseInt(blockIndex, 10)
   };
   return base;
@@ -93,7 +118,11 @@ module.exports = {
   SA_TIMER_SECONDS,
   SA_META_KEY,
   isSelfAssessmentName,
+  isNbmeName,
   isSelfAssessmentTest,
+  isNbmeTest,
+  isBlockExamTest,
+  getBlockExamKind,
   extractBlockMeta,
   withBlockMeta,
   blockSliceBounds,

@@ -153,6 +153,7 @@ const pages = {
   '/usmle-test-builder': 'usmle-test-builder.html',
   '/usmle-flashcards': 'usmle-flashcards.html',
   '/usmle-self-assessment': 'usmle-self-assessment.html',
+  '/usmle-nbme': 'usmle-nbme.html',
   '/flashcards': 'flashcards.html',
   '/schedule': 'schedule.html',
   '/mobile': 'mobile.html'
@@ -296,6 +297,12 @@ sequelize.authenticate()
       await ensureUsmleSelfAssessment();
     } catch (e) {
       console.warn('ensureUsmleSelfAssessment:', e.message);
+    }
+    try {
+      const { ensureUsmleNbme } = require('./utils/ensureUsmleNbme');
+      await ensureUsmleNbme();
+    } catch (e) {
+      console.warn('ensureUsmleNbme:', e.message);
     }
     // После sync (если таблица только создана) — индекс тарифов
     try {

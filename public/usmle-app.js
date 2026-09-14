@@ -52,7 +52,8 @@
                 name: String(data.name || ''),
                 step: data.step || getStoredStep(),
                 testKind: data.testKind || 'standard',
-                isSelfAssessment: !!data.isSelfAssessment
+                isSelfAssessment: !!data.isSelfAssessment,
+                isNbme: !!data.isNbme
             };
         } catch {
             return null;
@@ -61,12 +62,16 @@
 
     function setSelectedBank(bank) {
         try {
+            const isNbme = !!(bank.isNbme || bank.testKind === 'nbme' || /\bnbme\b/i.test(String(bank.name || '')));
+            const isSa = !isNbme && !!(bank.isSelfAssessment || bank.testKind === 'self_assessment'
+                || /self[-\s]?assessment/i.test(String(bank.name || '')));
             localStorage.setItem(BANK_KEY, JSON.stringify({
                 id: Number(bank.id),
                 name: bank.name || '',
                 step: bank.step || getStoredStep(),
-                testKind: bank.testKind || (bank.isSelfAssessment ? 'self_assessment' : 'standard'),
-                isSelfAssessment: !!(bank.isSelfAssessment || bank.testKind === 'self_assessment')
+                testKind: isNbme ? 'nbme' : (isSa ? 'self_assessment' : (bank.testKind || 'standard')),
+                isSelfAssessment: isSa,
+                isNbme
             }));
             if (bank.step) setStoredStep(bank.step);
         } catch (_) {}
@@ -86,23 +91,41 @@
     function isSelfAssessmentBank(bank) {
         const b = bank || getSelectedBank();
         if (!b) return false;
+        if (isNbmeBank(b)) return false;
         if (b.isSelfAssessment || b.testKind === 'self_assessment') return true;
         return /self[-\s]?assessment/i.test(String(b.name || ''));
+    }
+
+    function isNbmeBank(bank) {
+        const b = bank || getSelectedBank();
+        if (!b) return false;
+        if (b.isNbme || b.testKind === 'nbme') return true;
+        return /\bnbme\b/i.test(String(b.name || ''));
+    }
+
+    function isBlockExamBank(bank) {
+        return isSelfAssessmentBank(bank) || isNbmeBank(bank);
     }
 
     function bankQuery(bank) {
         const b = bank || getSelectedBank();
         if (!b) return '';
         const name = encodeURIComponent(b.name || '');
-        const kind = encodeURIComponent(b.testKind || (isSelfAssessmentBank(b) ? 'self_assessment' : 'standard'));
-        return `testId=${b.id}&name=${name}&step=${encodeURIComponent(b.step || 'step1')}&testKind=${kind}`;
+        let kind = 'standard';
+        if (isNbmeBank(b)) kind = 'nbme';
+        else if (isSelfAssessmentBank(b)) kind = 'self_assessment';
+        else kind = b.testKind || 'standard';
+        return `testId=${b.id}&name=${name}&step=${encodeURIComponent(b.step || 'step1')}&testKind=${encodeURIComponent(kind)}`;
     }
 
     function navHref(id, bank) {
         const q = bankQuery(bank);
         if (id === 'welcome') return q ? `/usmle-home?${q}` : '/usmle';
         if (id === 'create') return q ? `/usmle-test-builder?${q}` : '/usmle';
-        if (id === 'blocks') return q ? `/usmle-self-assessment?${q}` : '/usmle';
+        if (id === 'blocks') {
+            if (!q) return '/usmle';
+            return isNbmeBank(bank) ? `/usmle-nbme?${q}` : `/usmle-self-assessment?${q}`;
+        }
         if (id === 'history') return q ? `/usmle-history?${q}` : '/usmle';
         if (id === 'flashcards') return q ? `/usmle-flashcards?${q}` : '/usmle-flashcards';
         if (id === 'banks') return '/usmle';
@@ -112,12 +135,12 @@
     }
 
     function buildNav(bank) {
-        const sa = isSelfAssessmentBank(bank);
+        const blockExam = isBlockExamBank(bank);
         const items = [
             { id: 'banks', href: '/usmle', icon: ICONS.banks, label: 'Сменить банк' },
             { id: 'welcome', href: navHref('welcome', bank), icon: ICONS.welcome, label: 'Добро пожаловать' }
         ];
-        if (sa) {
+        if (blockExam) {
             items.push({ id: 'blocks', href: navHref('blocks', bank), icon: ICONS.create, label: 'Blocks' });
         } else {
             items.push({ id: 'create', href: navHref('create', bank), icon: ICONS.create, label: 'Создать тест' });
@@ -280,13 +303,16 @@
         let name = params.get('name') || '';
         try { name = decodeURIComponent(name); } catch (_) {}
         const step = params.get('step') || getStoredStep();
-        const testKind = params.get('testKind') || (/self[-\s]?assessment/i.test(name) ? 'self_assessment' : 'standard');
+        const testKind = params.get('testKind')
+            || (/\bnbme\b/i.test(name) ? 'nbme'
+                : (/self[-\s]?assessment/i.test(name) ? 'self_assessment' : 'standard'));
         const bank = {
             id: testId,
             name,
             step,
             testKind,
-            isSelfAssessment: testKind === 'self_assessment' || /self[-\s]?assessment/i.test(name)
+            isSelfAssessment: testKind === 'self_assessment' || /self[-\s]?assessment/i.test(name),
+            isNbme: testKind === 'nbme' || /\bnbme\b/i.test(name)
         };
         setSelectedBank(bank);
         return bank;
@@ -340,6 +366,8 @@
         syncBankFromUrl,
         bankQuery,
         isSelfAssessmentBank,
+        isNbmeBank,
+        isBlockExamBank,
         STEP_LABELS,
         ICONS,
         escHtml,
