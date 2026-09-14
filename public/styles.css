@@ -2488,7 +2488,7 @@ body.usmle-marker-on #testContent {
 }
 
 mark.usmle-marker-hl {
-    background: #ffe566;
+    background: var(--usmle-marker-color, #ffe566);
     color: inherit;
     padding: 0 0.05em;
     border-radius: 0.1em;
@@ -2604,6 +2604,155 @@ mark.usmle-marker-hl {
     font-size: 0.8rem;
     font-weight: 700;
     text-align: center;
+}
+
+/* UWorld Keyboard Shortcuts window */
+.uworld-shortcuts-overlay {
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.45);
+    z-index: 3200;
+    padding: 1rem;
+}
+
+.uworld-shortcuts-window {
+    width: min(820px, 100%);
+    max-height: min(88dvh, 720px);
+    display: flex;
+    flex-direction: column;
+    background: #f4f6f8;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.35);
+}
+
+.uworld-shortcuts-head {
+    display: grid;
+    grid-template-columns: 40px 1fr 40px;
+    align-items: center;
+    min-height: 46px;
+    padding: 0 0.5rem;
+    background: #3b4a8b;
+    color: #fff;
+}
+
+.uworld-shortcuts-head h2 {
+    margin: 0;
+    text-align: center;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.uworld-shortcuts-close {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 50%;
+    background: #ef4444;
+    color: #fff;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    justify-self: end;
+}
+
+.uworld-shortcuts-close:hover {
+    background: #dc2626;
+}
+
+.uworld-shortcuts-os {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.85rem 1rem 0.35rem;
+}
+
+.uworld-os-btn {
+    appearance: none;
+    border: 1px solid #c9d2e3;
+    background: #fff;
+    color: #64748b;
+    border-radius: 999px;
+    padding: 0.4rem 1.15rem;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.uworld-os-btn.is-active {
+    background: #3b4a8b;
+    border-color: #3b4a8b;
+    color: #fff;
+}
+
+.uworld-shortcuts-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem 1rem;
+    padding: 0.75rem 1rem 1.1rem;
+    overflow: auto;
+}
+
+.uworld-sc-col {
+    display: grid;
+    gap: 0.45rem;
+    align-content: start;
+}
+
+.uworld-sc-row {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 40px;
+    padding: 0.4rem 0.65rem;
+    border-radius: 999px;
+    background: #e8edf3;
+    color: #1e293b;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.uworld-sc-keys {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+
+.uworld-sc-keys kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.55rem;
+    min-height: 1.55rem;
+    padding: 0.1rem 0.4rem;
+    border: 1px solid #c5cedb;
+    border-radius: 0.35rem;
+    background: #fff;
+    box-shadow: 0 1px 0 #d6dde8;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.uworld-sc-plus,
+.uworld-sc-arrow {
+    color: #94a3b8;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.uworld-sc-label {
+    min-width: 0;
+    line-height: 1.25;
+}
+
+@media (max-width: 720px) {
+    .uworld-shortcuts-body {
+        grid-template-columns: 1fr;
+    }
 }
 
 .test-header-right {

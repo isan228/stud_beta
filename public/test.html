@@ -135,22 +135,18 @@
     </main>
 
     <!-- USMLE tool panels -->
-    <div id="usmleShortcutsModal" class="modal uworld-tool-modal" style="display:none;">
-        <div class="modal-content uworld-tool-modal-content" style="max-width:480px;">
-            <span class="modal-close" id="usmleShortcutsModalClose">&times;</span>
-            <h2>Shortcuts</h2>
-            <div class="uworld-shortcuts-list">
-                <div class="uworld-shortcut-row"><kbd>→</kbd> / <kbd>N</kbd><span>Next question</span></div>
-                <div class="uworld-shortcut-row"><kbd>←</kbd> / <kbd>P</kbd><span>Previous question</span></div>
-                <div class="uworld-shortcut-row"><kbd>F</kbd><span>Mark / unmark</span></div>
-                <div class="uworld-shortcut-row"><kbd>M</kbd><span>Toggle Marker</span></div>
-                <div class="uworld-shortcut-row"><kbd>L</kbd><span>Lab Values</span></div>
-                <div class="uworld-shortcut-row"><kbd>C</kbd><span>Calculator</span></div>
-                <div class="uworld-shortcut-row"><kbd>O</kbd><span>Notes</span></div>
-                <div class="uworld-shortcut-row"><kbd>S</kbd><span>Settings</span></div>
-                <div class="uworld-shortcut-row"><kbd>A</kbd>–<kbd>E</kbd><span>Select answer A–E</span></div>
-                <div class="uworld-shortcut-row"><kbd>Esc</kbd><span>Close panels / exit fullscreen</span></div>
+    <div id="usmleShortcutsModal" class="modal uworld-tool-modal uworld-shortcuts-overlay" style="display:none;">
+        <div class="uworld-shortcuts-window" role="dialog" aria-modal="true" aria-labelledby="usmleShortcutsTitle">
+            <div class="uworld-shortcuts-head">
+                <span class="uworld-shortcuts-head-spacer" aria-hidden="true"></span>
+                <h2 id="usmleShortcutsTitle">Keyboard Shortcuts</h2>
+                <button type="button" class="uworld-shortcuts-close" id="usmleShortcutsModalClose" aria-label="Close">×</button>
             </div>
+            <div class="uworld-shortcuts-os">
+                <button type="button" class="uworld-os-btn is-active" data-os="windows" id="usmleShortcutsOsWin">Windows</button>
+                <button type="button" class="uworld-os-btn" data-os="macos" id="usmleShortcutsOsMac">macOS</button>
+            </div>
+            <div class="uworld-shortcuts-body" id="usmleShortcutsBody"></div>
         </div>
     </div>
     <div id="usmleLabModal" class="modal uworld-tool-modal" style="display:none;">

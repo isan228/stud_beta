@@ -2957,9 +2957,86 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     }
 
     let usmleMarkerOn = false;
+    let usmleMarkerColor = 'yellow'; // none|yellow|green|cyan|red
     let usmleToolbarBound = false;
     let usmleCalcExpr = '0';
     let usmleFontScale = 1;
+    let usmleShortcutsOs = 'windows';
+
+    const USMLE_MARKER_COLORS = {
+        none: null,
+        yellow: '#ffe566',
+        green: '#86efac',
+        cyan: '#67e8f9',
+        red: '#fca5a5'
+    };
+
+    function renderUsmleShortcutKeys(keys, joiner = '+') {
+        const parts = [];
+        keys.forEach((k, i) => {
+            if (i > 0) {
+                parts.push(joiner === '+'
+                    ? '<span class="uworld-sc-plus">+</span>'
+                    : `<span class="uworld-sc-plus">${joiner}</span>`);
+            }
+            parts.push(`<kbd>${k}</kbd>`);
+        });
+        return `<span class="uworld-sc-keys">${parts.join('')}</span>`;
+    }
+
+    function renderUsmleShortcutRow(keys, label, joiner = '+') {
+        return `<div class="uworld-sc-row">${renderUsmleShortcutKeys(keys, joiner)}<span class="uworld-sc-arrow">→</span><span class="uworld-sc-label">${label}</span></div>`;
+    }
+
+    function renderUsmleShortcutsBody() {
+        const box = document.getElementById('usmleShortcutsBody');
+        if (!box) return;
+        const mod = usmleShortcutsOs === 'macos' ? '⌥' : 'Alt';
+        const left = [
+            renderUsmleShortcutRow([mod, 'M'], 'Mark Question'),
+            renderUsmleShortcutRow([mod, 'N'], 'Notes'),
+            renderUsmleShortcutRow([mod, 'O'], 'Notebook'),
+            renderUsmleShortcutRow([mod, 'L'], 'Library'),
+            renderUsmleShortcutRow([mod, 'I'], 'Labs'),
+            renderUsmleShortcutRow(['0'], 'Highlight Marker - None'),
+            renderUsmleShortcutRow(['1'], 'Highlight Marker - Yellow'),
+            renderUsmleShortcutRow(['2'], 'Highlight Marker - Green'),
+            renderUsmleShortcutRow(['3'], 'Highlight Marker - Cyan'),
+            renderUsmleShortcutRow(['4'], 'Highlight Marker - Red')
+        ].join('');
+        const right = [
+            renderUsmleShortcutRow([mod, 'C'], 'Calculator'),
+            renderUsmleShortcutRow([mod, 'F'], 'Flashcards'),
+            renderUsmleShortcutRow([mod, 'R'], 'Sidebar'),
+            renderUsmleShortcutRow([mod, 'S'], 'Split View / Settings'),
+            renderUsmleShortcutRow([mod, 'Enter'], 'Submit Choice'),
+            renderUsmleShortcutRow(['←'], 'Previous Question'),
+            renderUsmleShortcutRow(['→'], 'Next Question'),
+            renderUsmleShortcutRow(['F11'], 'Full Screen'),
+            renderUsmleShortcutRow(['A', 'B', 'C', 'D', 'E'], 'Choices', ',')
+        ].join('');
+        box.innerHTML = `<div class="uworld-sc-col">${left}</div><div class="uworld-sc-col">${right}</div>`;
+    }
+
+    function setUsmleMarkerColor(colorKey) {
+        const key = USMLE_MARKER_COLORS[colorKey] !== undefined ? colorKey : 'yellow';
+        usmleMarkerColor = key;
+        usmleMarkerOn = key !== 'none';
+        document.body.classList.toggle('usmle-marker-on', usmleMarkerOn && isUsmleTestSession());
+        document.documentElement.style.setProperty(
+            '--usmle-marker-color',
+            USMLE_MARKER_COLORS[key] || '#ffe566'
+        );
+        updateUsmleToolbarChrome(currentQuestions?.[currentQuestionIndex]);
+        const names = {
+            none: 'Marker off',
+            yellow: 'Marker: Yellow',
+            green: 'Marker: Green',
+            cyan: 'Marker: Cyan',
+            red: 'Marker: Red'
+        };
+        showNotification(names[key] || 'Marker', 'info');
+    }
 
     function syncUsmleSessionChrome(isUsmle) {
         const topbar = document.getElementById('usmleSessionTopbar');
@@ -3005,6 +3082,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const markerBtn = document.getElementById('usmleTbMarker');
         if (markerBtn) markerBtn.classList.toggle('is-active', usmleMarkerOn);
         document.body.classList.toggle('usmle-marker-on', usmleMarkerOn && isUsmleTestSession());
+        if (USMLE_MARKER_COLORS[usmleMarkerColor]) {
+            document.documentElement.style.setProperty('--usmle-marker-color', USMLE_MARKER_COLORS[usmleMarkerColor]);
+        }
     }
 
     function getUsmleNotesKey(questionId) {
@@ -3128,6 +3208,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         try {
             const mark = document.createElement('mark');
             mark.className = 'usmle-marker-hl';
+            if (USMLE_MARKER_COLORS[usmleMarkerColor]) {
+                mark.style.background = USMLE_MARKER_COLORS[usmleMarkerColor];
+            }
             range.surroundContents(mark);
             sel.removeAllRanges();
         } catch (_) {
@@ -3173,16 +3256,28 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         });
 
         document.getElementById('usmleTbShortcuts')?.addEventListener('click', () => {
+            renderUsmleShortcutsBody();
             openUsmleModal('usmleShortcutsModal');
+        });
+        document.getElementById('usmleShortcutsOsWin')?.addEventListener('click', () => {
+            usmleShortcutsOs = 'windows';
+            document.getElementById('usmleShortcutsOsWin')?.classList.add('is-active');
+            document.getElementById('usmleShortcutsOsMac')?.classList.remove('is-active');
+            renderUsmleShortcutsBody();
+        });
+        document.getElementById('usmleShortcutsOsMac')?.addEventListener('click', () => {
+            usmleShortcutsOs = 'macos';
+            document.getElementById('usmleShortcutsOsMac')?.classList.add('is-active');
+            document.getElementById('usmleShortcutsOsWin')?.classList.remove('is-active');
+            renderUsmleShortcutsBody();
         });
         document.getElementById('usmleTbFullscreen')?.addEventListener('click', toggleUsmleFullscreen);
         document.getElementById('usmleTbMarker')?.addEventListener('click', () => {
-            usmleMarkerOn = !usmleMarkerOn;
-            updateUsmleToolbarChrome(currentQuestions?.[currentQuestionIndex]);
-            showNotification(
-                usmleMarkerOn ? 'Marker: выделите текст в вопросе' : 'Marker выключен',
-                'info'
-            );
+            if (!usmleMarkerOn || usmleMarkerColor === 'none') {
+                setUsmleMarkerColor('yellow');
+            } else {
+                setUsmleMarkerColor('none');
+            }
         });
         document.getElementById('usmleTbLab')?.addEventListener('click', () => {
             ensureUsmleLabTables();
@@ -3257,60 +3352,99 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable) return;
 
                 const key = e.key;
+                const code = e.code;
+                const alt = e.altKey;
+
                 if (key === 'Escape') {
                     ['usmleShortcutsModal', 'usmleLabModal', 'usmleNotesModal', 'usmleCalcModal', 'usmleSettingsModal']
                         .forEach((id) => closeUsmleModal(id));
                     if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
                     return;
                 }
-                if (key === 'ArrowRight' || key === 'n' || key === 'N') {
+
+                if (key === 'F11') {
+                    e.preventDefault();
+                    toggleUsmleFullscreen();
+                    return;
+                }
+
+                if (key === 'ArrowRight') {
                     e.preventDefault();
                     if (currentQuestionIndex >= currentQuestions.length - 1) finishTest();
                     else nextQuestion();
                     return;
                 }
-                if (key === 'ArrowLeft' || key === 'p' || key === 'P') {
+                if (key === 'ArrowLeft') {
                     e.preventDefault();
                     prevQuestion();
                     return;
                 }
-                if (key === 'f' || key === 'F') {
+
+                // Marker colors 0-4
+                if (!alt && ['0', '1', '2', '3', '4'].includes(key)) {
                     e.preventDefault();
-                    const q = currentQuestions?.[currentQuestionIndex];
-                    if (q?.id != null) toggleFavorite(q.id);
+                    const map = { 0: 'none', 1: 'yellow', 2: 'green', 3: 'cyan', 4: 'red' };
+                    setUsmleMarkerColor(map[key]);
                     return;
                 }
-                if (key === 'm' || key === 'M') {
-                    e.preventDefault();
-                    document.getElementById('usmleTbMarker')?.click();
-                    return;
-                }
-                if (key === 'l' || key === 'L') {
-                    e.preventDefault();
-                    document.getElementById('usmleTbLab')?.click();
-                    return;
-                }
-                if (key === 'c' || key === 'C') {
-                    e.preventDefault();
-                    document.getElementById('usmleTbCalc')?.click();
-                    return;
-                }
-                if (key === 'o' || key === 'O') {
-                    e.preventDefault();
-                    document.getElementById('usmleTbNotes')?.click();
-                    return;
-                }
-                if (key === 's' || key === 'S') {
-                    e.preventDefault();
-                    document.getElementById('usmleTbSettings')?.click();
-                    return;
-                }
-                const answerIdx = 'abcde'.indexOf(String(key).toLowerCase());
-                if (answerIdx >= 0) {
-                    const answers = currentQuestions?.[currentQuestionIndex]?.Answers || [];
-                    if (answers[answerIdx]) {
+
+                // Alt + shortcuts (Windows Alt / macOS Option)
+                if (alt) {
+                    const k = String(key).toLowerCase();
+                    if (k === 'm') {
                         e.preventDefault();
-                        selectAnswer(answers[answerIdx].id);
+                        const q = currentQuestions?.[currentQuestionIndex];
+                        if (q?.id != null) toggleFavorite(q.id);
+                        return;
+                    }
+                    if (k === 'n' || k === 'o') {
+                        e.preventDefault();
+                        document.getElementById('usmleTbNotes')?.click();
+                        return;
+                    }
+                    if (k === 'i' || k === 'l') {
+                        e.preventDefault();
+                        document.getElementById('usmleTbLab')?.click();
+                        return;
+                    }
+                    if (k === 'c') {
+                        e.preventDefault();
+                        document.getElementById('usmleTbCalc')?.click();
+                        return;
+                    }
+                    if (k === 'f') {
+                        e.preventDefault();
+                        window.open('/usmle-flashcards', '_blank', 'noopener');
+                        return;
+                    }
+                    if (k === 'r') {
+                        e.preventDefault();
+                        document.getElementById('usmleTbMenu')?.click();
+                        return;
+                    }
+                    if (k === 's') {
+                        e.preventDefault();
+                        document.getElementById('usmleTbSettings')?.click();
+                        return;
+                    }
+                    if (key === 'Enter') {
+                        e.preventDefault();
+                        // Submit current choice = go next / finish
+                        if (currentQuestionIndex >= currentQuestions.length - 1) finishTest();
+                        else nextQuestion();
+                        return;
+                    }
+                }
+
+                // A-E choices (without modifiers)
+                if (!alt && !e.ctrlKey && !e.metaKey) {
+                    const answerIdx = 'abcde'.indexOf(String(key).toLowerCase());
+                    if (answerIdx >= 0) {
+                        const answers = currentQuestions?.[currentQuestionIndex]?.Answers || [];
+                        if (answers[answerIdx]) {
+                            e.preventDefault();
+                            selectAnswer(answers[answerIdx].id);
+                        }
                     }
                 }
             });
