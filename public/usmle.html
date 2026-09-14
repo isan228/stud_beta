@@ -64,7 +64,7 @@
         }
         .usmle-featured-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 1rem;
             margin-bottom: 1.75rem;
         }
@@ -319,8 +319,8 @@
 
             <div class="usmle-qb-head">
                 <div>
-                    <button type="button" class="btn btn-secondary btn-sm usmle-qb-back" id="usmleQbBack" onclick="selectHubFilter('all')">← Все банки</button>
-                    <h2 id="usmleQbTitle">Question Banks</h2>
+                    <button type="button" class="btn btn-secondary btn-sm usmle-qb-back" id="usmleQbBack" onclick="selectHubFilter('myworld')">← My World</button>
+                    <h2 id="usmleQbTitle">My World</h2>
                     <p class="usmle-qb-sub" id="usmleSubLabel">You are currently on subscription <strong>USMLE</strong>.</p>
                 </div>
                 <div class="usmle-tg-actions">
@@ -347,7 +347,7 @@
 <script>
     let dashboardData = null;
     let activeStep = (window.UsmleApp && window.UsmleApp.getStoredStep()) || 'step1';
-    let hubFilter = 'all'; // all | nbme
+    let hubFilter = 'myworld'; // myworld | nbme
     const STEP_LABELS = { step1: 'Step 1', step2: 'Step 2', step3: 'Step 3' };
     const R = 22;
     const C = 2 * Math.PI * R;
@@ -356,7 +356,7 @@
 
     function selectStep(step) {
         activeStep = step;
-        hubFilter = 'all';
+        hubFilter = 'myworld';
         if (window.UsmleApp) window.UsmleApp.setStoredStep(step);
         document.querySelectorAll('.step-btn').forEach((b) => {
             b.classList.toggle('active', b.dataset.step === step);
@@ -368,12 +368,45 @@
         return !!(t && (t.isNbme || t.testKind === 'nbme' || /\bnbme\b/i.test(String(t.name || ''))));
     }
 
+    function nbmeFormNumber(t) {
+        const m = String(t?.name || '').match(/NBME\s*(\d+)/i);
+        return m ? parseInt(m[1], 10) : 9999;
+    }
+
+    function sortNbmeBanks(list) {
+        return [...list].sort((a, b) => {
+            const d = nbmeFormNumber(a) - nbmeFormNumber(b);
+            if (d !== 0) return d;
+            return String(a.name || '').localeCompare(String(b.name || ''), 'en', { numeric: true });
+        });
+    }
+
     function selectHubFilter(filter) {
-        hubFilter = filter === 'nbme' ? 'nbme' : 'all';
+        hubFilter = filter === 'nbme' ? 'nbme' : 'myworld';
         renderHub();
-        if (hubFilter === 'nbme') {
-            document.getElementById('usmleBanksGrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        document.getElementById('usmleBanksGrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function aggregateStats(list) {
+        const total = list.reduce((s, t) => s + (Number(t.totalQuestions) || 0), 0);
+        const used = list.reduce((s, t) => s + (Number(t.usedQuestions) || 0), 0);
+        const pct = total > 0 ? Math.round((used / total) * 1000) / 10 : 0;
+        return { total, used, pct, count: list.length };
+    }
+
+    function categoryCardHtml({ id, title, banks, tone }) {
+        const { total, used, pct, count } = aggregateStats(banks);
+        const active = hubFilter === id ? ' is-active' : '';
+        return `<div class="usmle-feat-card ${tone}${active}" role="button" tabindex="0"
+            onclick="selectHubFilter('${id}')" onkeydown="if(event.key==='Enter')selectHubFilter('${id}')">
+            ${arcSvg(pct, true)}
+            <h3 class="usmle-feat-title">${escHtml(title)}</h3>
+            <div class="usmle-feat-stats">
+                <div><span>Total Questions</span><strong>${total}</strong></div>
+                <div><span>Used Questions</span><strong>${used}</strong></div>
+                <div><span>Question Banks</span><strong>${count}</strong></div>
+            </div>
+        </div>`;
     }
 
     function openBank(test) {
@@ -481,20 +514,21 @@
     }
 
     function nbmeCategoryCardHtml(nbmeBanks) {
-        const total = nbmeBanks.reduce((s, t) => s + (Number(t.totalQuestions) || 0), 0);
-        const used = nbmeBanks.reduce((s, t) => s + (Number(t.usedQuestions) || 0), 0);
-        const pct = total > 0 ? Math.round((used / total) * 1000) / 10 : 0;
-        const active = hubFilter === 'nbme' ? ' is-active' : '';
-        return `<div class="usmle-feat-card tone-blue${active}" role="button" tabindex="0"
-            onclick="selectHubFilter('nbme')" onkeydown="if(event.key==='Enter')selectHubFilter('nbme')">
-            ${arcSvg(pct, true)}
-            <h3 class="usmle-feat-title">NBME</h3>
-            <div class="usmle-feat-stats">
-                <div><span>Total Questions</span><strong>${total}</strong></div>
-                <div><span>Used Questions</span><strong>${used}</strong></div>
-                <div><span>Question Banks</span><strong>${nbmeBanks.length}</strong></div>
-            </div>
-        </div>`;
+        return categoryCardHtml({
+            id: 'nbme',
+            title: 'NBME',
+            banks: nbmeBanks,
+            tone: hubFilter === 'nbme' ? 'tone-blue' : 'tone-white'
+        });
+    }
+
+    function myWorldCategoryCardHtml(myWorldBanks) {
+        return categoryCardHtml({
+            id: 'myworld',
+            title: 'My World',
+            banks: myWorldBanks,
+            tone: hubFilter === 'myworld' ? 'tone-blue' : 'tone-white'
+        });
     }
 
     function renderHub() {
@@ -505,34 +539,27 @@
         if (!featured || !grid || !dashboardData) return;
 
         const banks = dashboardData[activeStep] || [];
-        const nbmeBanks = banks.filter(isNbmeBankItem);
-        const regular = banks.filter((t) => !t.isSelfAssessment && !isNbmeBankItem(t)
-            && t.testKind !== 'self_assessment');
-        const tones = ['tone-white', 'tone-white', 'tone-blue'];
+        const nbmeBanks = sortNbmeBanks(banks.filter(isNbmeBankItem));
+        const myWorldBanks = banks.filter((t) => !isNbmeBankItem(t));
 
-        // Сверху: NBME (если есть) → обычные банки → promo
-        let featParts = [];
-        if (nbmeBanks.length) featParts.push(nbmeCategoryCardHtml(nbmeBanks));
-        const featuredBanks = regular.slice(0, nbmeBanks.length ? 2 : 3);
-        featParts = featParts.concat(featuredBanks.map((t, i) => featuredCardHtml(t, tones[i] || 'tone-white')));
-        featParts.push(promoCardHtml());
-        if (!nbmeBanks.length && !featuredBanks.length) {
-            const saFeat = banks.filter((t) => t.isSelfAssessment).slice(0, 3);
-            featParts = saFeat.map((t, i) => featuredCardHtml(t, tones[i] || 'tone-white'));
-            featParts.push(promoCardHtml());
-        }
+        // Сверху: My World → NBME → Flashcards
+        const featParts = [
+            myWorldCategoryCardHtml(myWorldBanks),
+            nbmeBanks.length ? nbmeCategoryCardHtml(nbmeBanks) : '',
+            promoCardHtml()
+        ].filter(Boolean);
         featured.innerHTML = featParts.join('');
 
-        if (titleEl) titleEl.textContent = hubFilter === 'nbme' ? 'NBME Forms' : 'Question Banks';
+        if (titleEl) {
+            titleEl.textContent = hubFilter === 'nbme' ? 'NBME Forms' : 'My World';
+        }
         if (backBtn) backBtn.classList.toggle('is-visible', hubFilter === 'nbme');
 
-        const list = hubFilter === 'nbme'
-            ? nbmeBanks
-            : banks.filter((t) => !isNbmeBankItem(t));
+        const list = hubFilter === 'nbme' ? nbmeBanks : myWorldBanks;
         if (!list.length) {
             grid.innerHTML = hubFilter === 'nbme'
                 ? `<div class="usmle-empty"><p>Для ${STEP_LABELS[activeStep]} пока нет NBME форм.</p></div>`
-                : `<div class="usmle-empty"><p>Для ${STEP_LABELS[activeStep]} пока нет банков вопросов.</p></div>`;
+                : `<div class="usmle-empty"><p>Для ${STEP_LABELS[activeStep]} пока нет банков My World.</p></div>`;
             return;
         }
         grid.innerHTML = list.map(qbCardHtml).join('');
