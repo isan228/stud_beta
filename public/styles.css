@@ -2290,6 +2290,14 @@ body.usmle-test-session .test-session-layout.has-usmle-qnav {
     padding: 0 0.75rem 0.75rem;
 }
 
+body.usmle-test-session .test-session-layout.has-usmle-qnav.qnav-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+body.usmle-test-session .test-session-layout.qnav-collapsed > .usmle-qnav {
+    display: none;
+}
+
 body.usmle-test-session .usmle-qnav {
     width: 64px;
     top: 4.5rem;
@@ -2384,6 +2392,128 @@ body.usmle-test-session .usmle-question-stem {
     padding: 0.2rem 0.35rem;
     border-radius: 0.35rem;
     touch-action: manipulation;
+}
+
+.uworld-tb-icon-btn.is-active {
+    background: rgba(255, 255, 255, 0.16);
+}
+
+/* ——— UWorld session footer ——— */
+.uworld-session-footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 75;
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: 52px;
+    padding: 0.3rem 0.75rem;
+    padding-bottom: max(0.3rem, env(safe-area-inset-bottom));
+    background: #3b4a8b;
+    color: #fff;
+    box-shadow: 0 -1px 0 rgba(0, 0, 0, 0.18);
+}
+
+.uworld-session-footer[hidden] {
+    display: none !important;
+}
+
+.uworld-sf-left {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.1rem;
+    min-width: 0;
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.25;
+    white-space: nowrap;
+}
+
+.uworld-sf-tools {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.15rem;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.uworld-sf-tools::-webkit-scrollbar {
+    display: none;
+}
+
+.uworld-sf-tool {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: #fff;
+    cursor: pointer;
+    font: inherit;
+    text-decoration: none;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.12rem;
+    min-width: 64px;
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.35rem;
+    flex: 0 0 auto;
+}
+
+.uworld-sf-tool:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+
+.uworld-sf-tool svg {
+    width: 1.35rem;
+    height: 1.35rem;
+}
+
+.uworld-sf-tool span {
+    font-size: 0.68rem;
+    font-weight: 600;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+
+.uworld-sf-end span {
+    color: #fecaca;
+}
+
+body.usmle-test-session {
+    padding-bottom: 0;
+}
+
+body.usmle-test-session .main-content {
+    padding-bottom: calc(0.5rem + 56px + env(safe-area-inset-bottom));
+}
+
+body.usmle-test-session .uworld-lab-dock {
+    bottom: calc(52px + env(safe-area-inset-bottom));
+}
+
+body.uworld-review-page .uworld-review-shell {
+    height: calc(100vh - 54px - 52px - env(safe-area-inset-bottom));
+}
+
+@media (max-width: 900px) {
+    .uworld-sf-left {
+        font-size: 0.72rem;
+    }
+    .uworld-sf-tool {
+        min-width: 56px;
+    }
+    .uworld-sf-tool span {
+        font-size: 0.62rem;
+    }
 }
 
 .uworld-tb-icon-btn {
@@ -3012,9 +3142,15 @@ body.usmle-lab-open .uworld-lab-dock {
     body.usmle-test-session .usmle-qnav.is-drawer-open {
         transform: translateX(0);
     }
-}
 
-@media (min-width: 1400px) {
+    body.usmle-test-session .test-session-layout.qnav-collapsed > .usmle-qnav {
+        display: block;
+    }
+
+    body.usmle-test-session .test-session-layout.has-usmle-qnav.qnav-collapsed {
+        grid-template-columns: 1fr;
+    }
+}
     body.usmle-test-session .test-session-layout.has-usmle-qnav {
         padding-left: 1.25rem;
         padding-right: 1.25rem;
@@ -3034,6 +3170,14 @@ body.usmle-lab-open .uworld-lab-dock {
     grid-template-columns: 56px minmax(0, 1fr);
     gap: 0.85rem;
     align-items: start;
+}
+
+.test-session-layout.has-usmle-qnav.qnav-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.test-session-layout.qnav-collapsed > .usmle-qnav {
+    display: none;
 }
 
 .test-session-main {
@@ -3775,8 +3919,10 @@ body.dark-theme .usmle-medical-library-title {
     text-decoration: none;
     cursor: pointer;
 }
-.usmle-medical-library-link:hover {
-    text-decoration: underline;
+.usmle-medical-library-flash {
+    outline: 2px solid #60a5fa;
+    outline-offset: 4px;
+    border-radius: 0.35rem;
 }
 .usmle-medical-library-icon {
     width: 1.05rem;
@@ -3792,6 +3938,7 @@ body.uworld-review-page {
     display: flex;
     flex-direction: column;
     background: #e8edf2;
+    padding-bottom: calc(52px + env(safe-area-inset-bottom));
 }
 body.uworld-review-page .navbar {
     display: none;
@@ -3833,6 +3980,7 @@ a.uworld-tb-nav-btn {
 
 body.uworld-review-page .uworld-lab-dock {
     top: 54px;
+    bottom: calc(52px + env(safe-area-inset-bottom));
 }
 
 @media (max-width: 900px) {
@@ -3848,6 +3996,9 @@ body.uworld-review-page .uworld-lab-dock {
     }
     body.uworld-review-page .uworld-review-qnav.is-drawer-open {
         transform: translateX(0);
+    }
+    body.uworld-review-page .uworld-review-shell.qnav-collapsed > .uworld-review-qnav {
+        display: block;
     }
 }
 .uworld-review-topbar-left,
@@ -3923,7 +4074,13 @@ body.uworld-review-page .uworld-lab-dock {
     display: grid;
     grid-template-columns: 56px minmax(0, 1fr);
     min-height: 0;
-    height: calc(100vh - 84px);
+    height: calc(100vh - 106px);
+}
+.uworld-review-shell.qnav-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+}
+.uworld-review-shell.qnav-collapsed > .uworld-review-qnav {
+    display: none;
 }
 .uworld-review-qnav {
     height: 100%;

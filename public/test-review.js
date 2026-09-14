@@ -378,21 +378,35 @@
 
         // USMLE → конструктор тестов; университет → каталог тестов
         const testsHref = isUsmle ? '/usmle-test-builder' : '/tests';
-        const endBtns = [document.getElementById('endReviewBtn'), document.getElementById('endReviewBtnFooter')];
+        const endBtns = [
+            document.getElementById('endReviewBtn'),
+            document.getElementById('reviewSfEnd')
+        ];
         endBtns.forEach((el) => { if (el) el.href = testsHref; });
-        const backToTestsBtn = document.getElementById('backToTestsBtn');
-        if (backToTestsBtn) {
-            backToTestsBtn.href = testsHref;
-            backToTestsBtn.style.display = '';
+
+        const testIdEl = document.getElementById('reviewSfTestId');
+        if (testIdEl) {
+            const params = new URLSearchParams(window.location.search);
+            testIdEl.textContent = String(
+                reviewData.testId
+                || reviewData.Test?.id
+                || params.get('resultId')
+                || reviewData.id
+                || '—'
+            );
         }
 
-        const testNameEl = document.getElementById('reviewTestName');
-        if (testNameEl) {
-            testNameEl.textContent = reviewData.testName || 'Разбор теста';
+        const elapsedEl = document.getElementById('reviewSfElapsed');
+        let baseElapsed = Number(reviewData.timeSpent) || 0;
+        if (!baseElapsed && reviewData.questionTimes) {
+            baseElapsed = Object.values(reviewData.questionTimes).reduce((a, b) => a + (Number(b) || 0), 0);
         }
-        const scoreEl = document.getElementById('reviewScoreSummary');
-        if (scoreEl) {
-            scoreEl.textContent = `${reviewData.score}/${reviewData.total} · ${reviewData.percentage}%`;
+        if (elapsedEl) {
+            const s = Math.max(0, Math.floor(baseElapsed));
+            const hh = String(Math.floor(s / 3600)).padStart(2, '0');
+            const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+            const ss = String(s % 60).padStart(2, '0');
+            elapsedEl.textContent = `${hh}:${mm}:${ss}`;
         }
 
         peerStats = await loadPeerStats(reviewData.questions);
@@ -401,7 +415,29 @@
         document.getElementById('reviewNextBtn')?.addEventListener('click', () => goTo(currentIndex + 1));
 
         document.getElementById('reviewTbMenu')?.addEventListener('click', () => {
-            document.getElementById('reviewQuestionNav')?.classList.toggle('is-drawer-open');
+            const nav = document.getElementById('reviewQuestionNav');
+            const shell = document.querySelector('.uworld-review-shell');
+            const btn = document.getElementById('reviewTbMenu');
+            if (!nav) return;
+            const mobile = window.matchMedia('(max-width: 900px)').matches;
+            if (mobile) {
+                shell?.classList.remove('qnav-collapsed');
+                const open = nav.classList.toggle('is-drawer-open');
+                if (btn) {
+                    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+                    btn.title = open ? 'Скрыть список вопросов' : 'Открыть список вопросов';
+                    btn.classList.toggle('is-active', open);
+                }
+                return;
+            }
+            nav.classList.remove('is-drawer-open');
+            const collapsed = shell?.classList.toggle('qnav-collapsed');
+            const open = !collapsed;
+            if (btn) {
+                btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+                btn.title = open ? 'Скрыть список вопросов' : 'Открыть список вопросов';
+                btn.classList.toggle('is-active', open);
+            }
         });
         document.getElementById('reviewTbFullscreen')?.addEventListener('click', () => {
             if (!document.fullscreenElement) {
@@ -496,6 +532,88 @@
                 ta.value = window.UsmleAnnotations?.getNotes?.(q.id) || '';
             }
             if (modal) modal.style.display = 'flex';
+        });
+        document.getElementById('reviewSfNotebook')?.addEventListener('click', () => {
+            document.getElementById('reviewTbNotes')?.click();
+        });
+        document.getElementById('reviewSfLibrary')?.addEventListener('click', () => {
+            const lib = document.querySelector('#reviewExplanationBody .usmle-medical-library, .usmle-medical-library');
+            if (lib) {
+                lib.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                lib.classList.add('usmle-medical-library-flash');
+                setTimeout(() => lib.classList.remove('usmle-medical-library-flash'), 1200);
+            } else if (typeof window.showNotification === 'function') {
+                window.showNotification('Medical Library появится в объяснении, если есть термины', 'info');
+            }
+        });
+        document.getElementById('reviewSfFlashcards')?.addEventListener('click', () => {
+            if (typeof window.showNotification === 'function') {
+                window.showNotification('Flashcards скоро будут доступны', 'info');
+            }
+        });
+        document.getElementById('reviewSfFeedback')?.addEventListener('click', () => {
+            const q = reviewData?.questions?.[currentIndex];
+            const modal = document.getElementById('questionErrorModal');
+            if (!q || !modal) {
+                if (typeof window.showNotification === 'function') {
+                    window.showNotification('Не удалось открыть Feedback', 'error');
+                }
+                return;
+            }
+            const setVal = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.value = val == null ? '' : String(val);
+            };
+            setVal('errorQuestionId', q.id);
+            setVal('errorTestId', reviewData.testId || reviewData.Test?.id || '');
+            setVal('errorQuestionNumber', currentIndex + 1);
+            setVal('errorQuestionText', q.text || '');
+            setVal('errorQuestionPreview', q.text || '');
+            setVal('errorReason', '');
+            modal.style.display = 'block';
+            document.getElementById('errorReason')?.focus();
+        });
+        const closeFeedback = () => {
+            const modal = document.getElementById('questionErrorModal');
+            if (modal) modal.style.display = 'none';
+        };
+        document.getElementById('questionErrorModalClose')?.addEventListener('click', closeFeedback);
+        document.getElementById('cancelQuestionErrorBtn')?.addEventListener('click', closeFeedback);
+        document.getElementById('questionErrorForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const q = reviewData?.questions?.[currentIndex];
+            const reason = String(document.getElementById('errorReason')?.value || '').trim();
+            if (!q) return;
+            if (reason.length < 5) {
+                window.showNotification?.('Опишите проблему подробнее (минимум 5 символов)', 'error');
+                return;
+            }
+            try {
+                const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+                const headers = { 'Content-Type': 'application/json' };
+                if (token) headers.Authorization = `Bearer ${token}`;
+                const response = await fetch(`${API_URL}/test-error-report`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        questionId: q.id,
+                        testId: reviewData.testId || reviewData.Test?.id || null,
+                        questionNumber: currentIndex + 1,
+                        questionText: q.text || '',
+                        reason
+                    })
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    window.showNotification?.(result.error || 'Ошибка отправки', 'error');
+                    return;
+                }
+                window.showNotification?.('Отчет отправлен. Спасибо!', 'success');
+                closeFeedback();
+            } catch (_) {
+                window.showNotification?.('Ошибка соединения', 'error');
+            }
         });
         document.getElementById('usmleNotesModalClose')?.addEventListener('click', () => {
             saveReviewNote();
