@@ -31,6 +31,7 @@
     --fab-size: 56px;
     --fab-gap: 12px;
     --fab-clearance: calc(var(--fab-size) + 28px + var(--safe-bottom));
+    --uworld-footer-h: 0px;
     --tap-min: 44px;
 }
 
@@ -497,10 +498,10 @@ html[data-theme="dark"] .navbar {
     position: fixed;
     z-index: 1910;
     right: max(12px, var(--safe-right));
-    bottom: calc(var(--fab-size) + 24px + var(--safe-bottom));
+    bottom: calc(var(--fab-size) + 24px + var(--uworld-footer-h) + var(--safe-bottom));
     width: 340px;
     max-width: calc(100vw - 24px - var(--safe-left) - var(--safe-right));
-    max-height: min(420px, calc(100dvh - 120px - var(--safe-bottom)));
+    max-height: min(420px, calc(100dvh - 120px - var(--uworld-footer-h) - var(--safe-bottom)));
     background: var(--card-bg);
     border: 1px solid var(--border-light);
     border-radius: var(--radius-lg);
@@ -7501,10 +7502,16 @@ body.dark-theme .test-review-explanation-wrap {
     font-weight: 600;
 }
 
+body.usmle-test-session,
+body.uworld-review-page,
+body.has-uworld-footer {
+    --uworld-footer-h: 56px;
+}
+
 .user-chat-fab-dock {
     position: fixed;
     right: max(16px, var(--safe-right));
-    bottom: max(16px, var(--safe-bottom));
+    bottom: max(16px, calc(var(--uworld-footer-h) + 14px + var(--safe-bottom)));
     z-index: 1900;
     display: flex;
     flex-direction: row;
@@ -7522,7 +7529,7 @@ body.dark-theme .test-review-explanation-wrap {
 .user-chat-toggle {
     position: fixed;
     right: max(16px, var(--safe-right));
-    bottom: max(16px, var(--safe-bottom));
+    bottom: max(16px, calc(var(--uworld-footer-h) + 14px + var(--safe-bottom)));
     width: var(--fab-size);
     height: var(--fab-size);
     border: none;
@@ -7598,12 +7605,12 @@ body.dark-theme .test-review-explanation-wrap {
 .user-chat-stack {
     position: fixed;
     right: max(12px, var(--safe-right));
-    bottom: calc(var(--fab-size) + 24px + var(--safe-bottom));
+    bottom: calc(var(--fab-size) + 24px + var(--uworld-footer-h) + var(--safe-bottom));
     z-index: 1900;
     width: 340px;
     max-width: calc(100vw - 24px - var(--safe-left) - var(--safe-right));
-    height: min(540px, calc(100dvh - 100px - var(--safe-bottom)));
-    max-height: calc(100dvh - 100px - var(--safe-bottom));
+    height: min(540px, calc(100dvh - 100px - var(--uworld-footer-h) - var(--safe-bottom)));
+    max-height: calc(100dvh - 100px - var(--uworld-footer-h) - var(--safe-bottom));
     flex-direction: column;
     gap: 10px;
     align-items: stretch;
@@ -7613,11 +7620,11 @@ body.dark-theme .test-review-explanation-wrap {
 .user-chat-notify-popover {
     position: fixed;
     right: max(12px, var(--safe-right));
-    bottom: calc(var(--fab-size) + 24px + var(--safe-bottom));
+    bottom: calc(var(--fab-size) + 24px + var(--uworld-footer-h) + var(--safe-bottom));
     z-index: 1910;
     width: 340px;
     max-width: calc(100vw - 24px - var(--safe-left) - var(--safe-right));
-    max-height: min(420px, calc(100dvh - 168px - var(--safe-bottom)));
+    max-height: min(420px, calc(100dvh - 168px - var(--uworld-footer-h) - var(--safe-bottom)));
     background: var(--card-bg);
     border: 1px solid var(--border-light);
     border-radius: var(--radius-lg);
