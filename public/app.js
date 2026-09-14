@@ -3101,48 +3101,34 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         if (el) el.style.display = 'none';
     }
 
+    function openUsmleLabPanel() {
+        const dock = document.getElementById('usmleLabModal');
+        const mount = document.getElementById('usmleLabTables');
+        if (!dock || !mount) return;
+        if (window.UsmleLabValues?.mountLabPanel) {
+            window.UsmleLabValues.mountLabPanel(mount);
+        }
+        dock.hidden = false;
+        document.body.classList.add('usmle-lab-open');
+        const closeBtn = mount.querySelector('[data-lab-close]');
+        if (closeBtn && !closeBtn.dataset.bound) {
+            closeBtn.dataset.bound = '1';
+            closeBtn.addEventListener('click', closeUsmleLabPanel);
+        }
+    }
+
+    function closeUsmleLabPanel() {
+        const dock = document.getElementById('usmleLabModal');
+        if (dock) dock.hidden = true;
+        document.body.classList.remove('usmle-lab-open');
+    }
+
     function ensureUsmleLabTables() {
-        const box = document.getElementById('usmleLabTables');
-        if (!box || box.dataset.ready === '1') return;
-        box.dataset.ready = '1';
-        box.innerHTML = `
-            <table class="uworld-lab-table">
-                <thead><tr><th colspan="2">Serum</th></tr></thead>
-                <tbody>
-                    <tr><td>Na⁺</td><td>136–145 mEq/L</td></tr>
-                    <tr><td>K⁺</td><td>3.5–5.0 mEq/L</td></tr>
-                    <tr><td>Cl⁻</td><td>95–105 mEq/L</td></tr>
-                    <tr><td>HCO₃⁻</td><td>22–28 mEq/L</td></tr>
-                    <tr><td>BUN</td><td>7–18 mg/dL</td></tr>
-                    <tr><td>Creatinine</td><td>0.6–1.2 mg/dL</td></tr>
-                    <tr><td>Glucose</td><td>70–110 mg/dL</td></tr>
-                    <tr><td>Ca²⁺</td><td>8.4–10.2 mg/dL</td></tr>
-                </tbody>
-            </table>
-            <table class="uworld-lab-table">
-                <thead><tr><th colspan="2">CBC</th></tr></thead>
-                <tbody>
-                    <tr><td>WBC</td><td>4.5–11.0 × 10³/mm³</td></tr>
-                    <tr><td>Hb (♂)</td><td>13.5–17.5 g/dL</td></tr>
-                    <tr><td>Hb (♀)</td><td>12.0–16.0 g/dL</td></tr>
-                    <tr><td>Hct (♂)</td><td>41–53%</td></tr>
-                    <tr><td>Hct (♀)</td><td>36–46%</td></tr>
-                    <tr><td>Platelets</td><td>150–400 × 10³/mm³</td></tr>
-                </tbody>
-            </table>
-            <table class="uworld-lab-table">
-                <thead><tr><th colspan="2">Other</th></tr></thead>
-                <tbody>
-                    <tr><td>AST / ALT</td><td>8–40 U/L</td></tr>
-                    <tr><td>ALP</td><td>40–120 U/L</td></tr>
-                    <tr><td>Bilirubin (total)</td><td>0.1–1.0 mg/dL</td></tr>
-                    <tr><td>Albumin</td><td>3.5–5.5 g/dL</td></tr>
-                    <tr><td>INR</td><td>0.8–1.2</td></tr>
-                    <tr><td>pH (ABG)</td><td>7.35–7.45</td></tr>
-                    <tr><td>PaCO₂</td><td>33–45 mm Hg</td></tr>
-                    <tr><td>PaO₂</td><td>75–105 mm Hg</td></tr>
-                </tbody>
-            </table>`;
+        const mount = document.getElementById('usmleLabTables');
+        if (!mount) return;
+        if (window.UsmleLabValues?.mountLabPanel) {
+            window.UsmleLabValues.mountLabPanel(mount);
+        }
     }
 
     function ensureUsmleCalcPad() {
@@ -3280,8 +3266,12 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             }
         });
         document.getElementById('usmleTbLab')?.addEventListener('click', () => {
-            ensureUsmleLabTables();
-            openUsmleModal('usmleLabModal');
+            const dock = document.getElementById('usmleLabModal');
+            if (dock && !dock.hidden) {
+                closeUsmleLabPanel();
+            } else {
+                openUsmleLabPanel();
+            }
         });
         document.getElementById('usmleTbNotes')?.addEventListener('click', () => {
             const q = currentQuestions?.[currentQuestionIndex];
@@ -3305,7 +3295,6 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         });
 
         document.getElementById('usmleShortcutsModalClose')?.addEventListener('click', () => closeUsmleModal('usmleShortcutsModal'));
-        document.getElementById('usmleLabModalClose')?.addEventListener('click', () => closeUsmleModal('usmleLabModal'));
         document.getElementById('usmleNotesModalClose')?.addEventListener('click', () => closeUsmleModal('usmleNotesModal'));
         document.getElementById('usmleCalcModalClose')?.addEventListener('click', () => closeUsmleModal('usmleCalcModal'));
         document.getElementById('usmleSettingsModalClose')?.addEventListener('click', () => closeUsmleModal('usmleSettingsModal'));
@@ -3356,7 +3345,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 const alt = e.altKey;
 
                 if (key === 'Escape') {
-                    ['usmleShortcutsModal', 'usmleLabModal', 'usmleNotesModal', 'usmleCalcModal', 'usmleSettingsModal']
+                    closeUsmleLabPanel();
+                    ['usmleShortcutsModal', 'usmleNotesModal', 'usmleCalcModal', 'usmleSettingsModal']
                         .forEach((id) => closeUsmleModal(id));
                     if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
                     return;
@@ -3450,7 +3440,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             });
         }
 
-        ['usmleShortcutsModal', 'usmleLabModal', 'usmleNotesModal', 'usmleCalcModal', 'usmleSettingsModal'].forEach((id) => {
+        ['usmleShortcutsModal', 'usmleNotesModal', 'usmleCalcModal', 'usmleSettingsModal'].forEach((id) => {
             document.getElementById(id)?.addEventListener('click', (e) => {
                 if (e.target?.id === id) closeUsmleModal(id);
             });

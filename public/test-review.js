@@ -406,20 +406,20 @@
         });
 
         const fillLab = () => {
-            const box = document.getElementById('usmleLabTables');
-            if (!box || box.dataset.ready === '1') return;
-            box.dataset.ready = '1';
-            box.innerHTML = `
-                <table class="uworld-lab-table"><thead><tr><th colspan="2">Serum</th></tr></thead><tbody>
-                <tr><td>Na⁺</td><td>136–145 mEq/L</td></tr><tr><td>K⁺</td><td>3.5–5.0 mEq/L</td></tr>
-                <tr><td>Cl⁻</td><td>95–105 mEq/L</td></tr><tr><td>HCO₃⁻</td><td>22–28 mEq/L</td></tr>
-                <tr><td>BUN</td><td>7–18 mg/dL</td></tr><tr><td>Creatinine</td><td>0.6–1.2 mg/dL</td></tr>
-                <tr><td>Glucose</td><td>70–110 mg/dL</td></tr></tbody></table>
-                <table class="uworld-lab-table"><thead><tr><th colspan="2">CBC</th></tr></thead><tbody>
-                <tr><td>WBC</td><td>4.5–11.0 × 10³/mm³</td></tr><tr><td>Hb (♂)</td><td>13.5–17.5 g/dL</td></tr>
-                <tr><td>Hb (♀)</td><td>12.0–16.0 g/dL</td></tr><tr><td>Platelets</td><td>150–400 × 10³/mm³</td></tr>
-                </tbody></table>`;
+            const mount = document.getElementById('usmleLabTables');
+            if (!mount) return;
+            window.UsmleLabValues?.mountLabPanel?.(mount);
+            const closeBtn = mount.querySelector('[data-lab-close]');
+            if (closeBtn && !closeBtn.dataset.bound) {
+                closeBtn.dataset.bound = '1';
+                closeBtn.addEventListener('click', () => {
+                    const dock = document.getElementById('usmleLabModal');
+                    if (dock) dock.hidden = true;
+                    document.body.classList.remove('usmle-lab-open');
+                });
+            }
         };
+
         let calcExpr = '0';
         const setCalc = (v) => {
             calcExpr = String(v);
@@ -455,19 +455,22 @@
         };
 
         document.getElementById('reviewTbLab')?.addEventListener('click', () => {
+            const dock = document.getElementById('usmleLabModal');
+            if (!dock) return;
+            if (!dock.hidden) {
+                dock.hidden = true;
+                document.body.classList.remove('usmle-lab-open');
+                return;
+            }
             fillLab();
-            const m = document.getElementById('usmleLabModal');
-            if (m) m.style.display = 'flex';
+            dock.hidden = false;
+            document.body.classList.add('usmle-lab-open');
         });
         document.getElementById('reviewTbCalc')?.addEventListener('click', () => {
             ensureCalc();
             setCalc('0');
             const m = document.getElementById('usmleCalcModal');
             if (m) m.style.display = 'flex';
-        });
-        document.getElementById('usmleLabModalClose')?.addEventListener('click', () => {
-            const m = document.getElementById('usmleLabModal');
-            if (m) m.style.display = 'none';
         });
         document.getElementById('usmleCalcModalClose')?.addEventListener('click', () => {
             const m = document.getElementById('usmleCalcModal');

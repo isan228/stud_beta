@@ -2541,6 +2541,198 @@ mark.usmle-marker-hl {
     background: var(--bg-secondary);
 }
 
+/* UWorld Lab Values dock */
+.uworld-lab-dock {
+    position: fixed;
+    top: 54px;
+    right: 0;
+    bottom: 0;
+    z-index: 95;
+    width: min(460px, 100vw);
+    background: #fff;
+    border-left: 1px solid #c9d2e3;
+    box-shadow: -10px 0 28px rgba(15, 23, 42, 0.18);
+    display: flex;
+    flex-direction: column;
+}
+
+.uworld-lab-dock[hidden] {
+    display: none !important;
+}
+
+.uworld-lab-dock-inner,
+.uworld-lab-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.uworld-lab-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    background: #3b4a8b;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.uworld-lab-panel-head h2 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.uworld-lab-panel-close {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 50%;
+    background: #ef4444;
+    color: #fff;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.uworld-lab-search {
+    display: flex;
+    gap: 0.4rem;
+    padding: 0.65rem 0.75rem;
+    background: #f4f6f8;
+    border-bottom: 1px solid #dbe3ef;
+    flex-shrink: 0;
+}
+
+.uworld-lab-search input {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid #c9d2e3;
+    border-radius: 0.35rem;
+    padding: 0.45rem 0.65rem;
+    font-size: 0.9rem;
+    background: #fff;
+}
+
+.uworld-lab-search button {
+    border: none;
+    border-radius: 0.35rem;
+    padding: 0.45rem 0.85rem;
+    background: #3b4a8b;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.uworld-lab-tabs {
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+    border-bottom: 1px solid #dbe3ef;
+    background: #eef2f7;
+    flex-shrink: 0;
+}
+
+.uworld-lab-tab {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: #475569;
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 0.7rem 0.85rem;
+    white-space: nowrap;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+}
+
+.uworld-lab-tab.is-active {
+    color: #3b4a8b;
+    border-bottom-color: #3b4a8b;
+    background: #fff;
+}
+
+.uworld-lab-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    background: #fff;
+}
+
+.uworld-lab-ref-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+}
+
+.uworld-lab-ref-table th,
+.uworld-lab-ref-table td {
+    border-bottom: 1px solid #e2e8f0;
+    padding: 0.4rem 0.55rem;
+    text-align: left;
+    vertical-align: top;
+}
+
+.uworld-lab-ref-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #f8fafc;
+    color: #334155;
+    font-weight: 700;
+    border-bottom: 1px solid #cbd5e1;
+}
+
+.uworld-lab-ref-table td:nth-child(1) {
+    width: 42%;
+    color: #0f172a;
+}
+
+.uworld-lab-ref-table td:nth-child(2),
+.uworld-lab-ref-table td:nth-child(3) {
+    width: 29%;
+    color: #334155;
+    font-variant-numeric: tabular-nums;
+}
+
+.uworld-lab-section td {
+    background: #e8eef8;
+    color: #1e3a5f;
+    font-weight: 800;
+    font-size: 0.78rem;
+    letter-spacing: 0.01em;
+}
+
+.uworld-lab-empty {
+    margin: 1.25rem;
+    color: #64748b;
+    font-weight: 600;
+}
+
+body.usmle-lab-open .uworld-lab-dock {
+    display: flex;
+}
+
+@media (max-width: 900px) {
+    .uworld-lab-dock {
+        top: auto;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        height: min(72dvh, 640px);
+        border-left: none;
+        border-top: 1px solid #c9d2e3;
+        border-radius: 14px 14px 0 0;
+        box-shadow: 0 -12px 32px rgba(15, 23, 42, 0.2);
+    }
+}
+
 .uworld-calc-display {
     width: 100%;
     margin-bottom: 0.75rem;
@@ -3632,9 +3824,8 @@ a.uworld-tb-nav-btn {
     background: #b91c1c !important;
 }
 
-body.uworld-review-page .uworld-session-topbar {
-    position: sticky;
-    top: 0;
+body.uworld-review-page .uworld-lab-dock {
+    top: 54px;
 }
 
 @media (max-width: 900px) {

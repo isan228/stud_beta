@@ -149,12 +149,8 @@
             <div class="uworld-shortcuts-body" id="usmleShortcutsBody"></div>
         </div>
     </div>
-    <div id="usmleLabModal" class="modal uworld-tool-modal" style="display:none;">
-        <div class="modal-content uworld-tool-modal-content" style="max-width:720px;">
-            <span class="modal-close" id="usmleLabModalClose">&times;</span>
-            <h2>Lab Values</h2>
-            <div class="uworld-lab-tables" id="usmleLabTables"></div>
-        </div>
+    <div id="usmleLabModal" class="uworld-lab-dock" hidden>
+        <div class="uworld-lab-dock-inner" id="usmleLabTables"></div>
     </div>
     <div id="usmleNotesModal" class="modal uworld-tool-modal" style="display:none;">
         <div class="modal-content uworld-tool-modal-content" style="max-width:520px;">
@@ -219,6 +215,7 @@
 
     <div id="notification" class="notification"></div>
     <script src="usmle-linked-question.js"></script>
+    <script src="usmle-lab-values.js"></script>
     <script src="app.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
