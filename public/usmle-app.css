@@ -8,9 +8,14 @@
 
 .usmle-app {
     display: flex;
-    min-height: calc(100vh - 0px);
+    min-height: 100dvh;
     background: var(--bg-secondary);
     color: var(--text-color);
+}
+
+body:has(.usmle-app) {
+    margin: 0;
+    background: var(--bg-secondary);
 }
 
 .usmle-sidebar {
@@ -22,7 +27,9 @@
     flex-direction: column;
     position: sticky;
     top: 0;
-    height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
+    align-self: flex-start;
     z-index: 100;
     box-shadow: 2px 0 16px rgba(15, 23, 42, 0.12);
 }
@@ -159,6 +166,7 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
+    min-height: 100dvh;
 }
 
 .usmle-topbar {
@@ -167,9 +175,14 @@
     justify-content: space-between;
     gap: 1rem;
     padding: 0.85rem 1.5rem;
+    padding-top: max(0.85rem, env(safe-area-inset-top, 0px));
     background: var(--card-bg);
     border-bottom: 1px solid var(--border-light);
     box-shadow: var(--shadow);
+    position: sticky;
+    top: 0;
+    z-index: 80;
+    flex-shrink: 0;
 }
 
 .usmle-topbar-left {
@@ -460,9 +473,12 @@
         left: 0;
         top: 0;
         width: min(280px, 86vw);
+        height: 100dvh;
+        max-height: 100dvh;
         transform: translateX(-105%);
         transition: transform 0.25s ease;
         box-shadow: none;
+        padding-top: env(safe-area-inset-top, 0px);
     }
 
     .usmle-sidebar.open {
@@ -492,9 +508,10 @@
 
     .usmle-topbar {
         padding: 0.75rem max(1rem, env(safe-area-inset-right, 0px)) 0.75rem max(1rem, env(safe-area-inset-left, 0px));
+        padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
         position: sticky;
-        top: var(--nav-h, 64px);
-        z-index: 50;
+        top: 0;
+        z-index: 80;
     }
 
     .usmle-topbar h1 {
@@ -604,6 +621,7 @@
     .usmle-topbar {
         gap: 0.5rem;
         padding: 0.55rem max(0.65rem, env(safe-area-inset-right, 0px)) 0.55rem max(0.65rem, env(safe-area-inset-left, 0px));
+        padding-top: max(0.55rem, env(safe-area-inset-top, 0px));
     }
 
     .usmle-topbar h1 {
