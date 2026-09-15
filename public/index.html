@@ -44,25 +44,7 @@
     </script>
 </head>
 
-<body class="has-site-intro">
-    <div id="siteIntro" class="site-intro" role="dialog" aria-modal="true" aria-label="Интро stud.kg">
-        <video
-            id="siteIntroVideo"
-            class="site-intro-video"
-            src="/img/video.mp4"
-            playsinline
-            webkit-playsinline
-            preload="auto"
-        ></video>
-        <div class="site-intro-actions">
-            <button type="button" class="site-intro-btn" id="siteIntroUnmute" aria-label="Звук" title="Звук" hidden>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h3l4 3V7L7 10H4zm11.5 2a3.5 3.5 0 0 0-1.8-3.1v6.2A3.5 3.5 0 0 0 15.5 12zm-1.8-7.4v2.1a5.5 5.5 0 0 1 0 10.6v2.1a7.5 7.5 0 0 0 0-14.8z" fill="currentColor"/></svg>
-                <span>Звук</span>
-            </button>
-            <button type="button" class="site-intro-btn site-intro-skip" id="siteIntroSkip">Пропустить</button>
-        </div>
-    </div>
-
+<body>
     <nav class="navbar">
         <div class="container">
             <div class="nav-brand">
@@ -259,76 +241,6 @@
 
     <script src="app.js"></script>
     <script>
-        (function initSiteIntro() {
-            const KEY = 'stud_intro_seen_v1';
-            const root = document.getElementById('siteIntro');
-            const video = document.getElementById('siteIntroVideo');
-            const skipBtn = document.getElementById('siteIntroSkip');
-            const unmuteBtn = document.getElementById('siteIntroUnmute');
-            if (!root || !video) {
-                document.body.classList.remove('has-site-intro');
-                return;
-            }
-
-            let closed = false;
-            const alreadySeen = (() => {
-                try { return sessionStorage.getItem(KEY) === '1'; } catch (_) { return false; }
-            })();
-
-            function finishIntro() {
-                if (closed) return;
-                closed = true;
-                try { sessionStorage.setItem(KEY, '1'); } catch (_) {}
-                root.classList.add('is-leaving');
-                document.body.classList.remove('has-site-intro');
-                try { video.pause(); } catch (_) {}
-                window.setTimeout(() => {
-                    root.classList.add('is-gone');
-                    root.setAttribute('hidden', '');
-                    root.setAttribute('aria-hidden', 'true');
-                }, 520);
-            }
-
-            if (alreadySeen) {
-                root.classList.add('is-gone');
-                root.setAttribute('hidden', '');
-                document.body.classList.remove('has-site-intro');
-                return;
-            }
-
-            async function startPlayback() {
-                video.muted = false;
-                try {
-                    await video.play();
-                    if (unmuteBtn) unmuteBtn.hidden = true;
-                } catch (_) {
-                    video.muted = true;
-                    try {
-                        await video.play();
-                    } catch (__) {
-                        /* autoplay blocked — wait for tap on skip/unmute */
-                    }
-                    if (unmuteBtn) unmuteBtn.hidden = false;
-                }
-            }
-
-            video.addEventListener('ended', finishIntro);
-            skipBtn?.addEventListener('click', finishIntro);
-            unmuteBtn?.addEventListener('click', async () => {
-                video.muted = false;
-                try {
-                    await video.play();
-                    unmuteBtn.hidden = true;
-                } catch (_) {}
-            });
-
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', startPlayback, { once: true });
-            } else {
-                startPlayback();
-            }
-        })();
-
         document.addEventListener('DOMContentLoaded', async () => {
             initTheme();
             await loadUser();
