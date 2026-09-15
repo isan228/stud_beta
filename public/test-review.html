@@ -83,13 +83,21 @@
 
     <footer class="uworld-session-footer uworld-session-footer--review" id="reviewSessionFooter">
         <div class="uworld-sf-left">
-            <div class="uworld-sf-testid">Test ID: <span id="reviewSfTestId">—</span></div>
-            <div class="uworld-sf-elapsed">REVIEW - Block Time Elapsed: <span id="reviewSfElapsed">00:00:00</span></div>
+            <div class="uworld-sf-meta">
+                <span class="uworld-sf-k">Test ID</span>
+                <span class="uworld-sf-v" id="reviewSfTestId">—</span>
+            </div>
+            <div class="uworld-sf-meta">
+                <span class="uworld-sf-k uworld-sf-k-full">REVIEW · Block Time Elapsed</span>
+                <span class="uworld-sf-k uworld-sf-k-short">Review</span>
+                <span class="uworld-sf-v uworld-sf-time" id="reviewSfElapsed">00:00:00</span>
+            </div>
         </div>
         <div class="uworld-sf-tools" role="toolbar" aria-label="Review footer tools">
             <button type="button" class="uworld-sf-tool" id="reviewSfLibrary" title="Medical Library">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5V5.5zM20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5A2.5 2.5 0 0 1 20 21.5V5.5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
-                <span>Medical Library</span>
+                <span class="uworld-sf-tool-full">Medical Library</span>
+                <span class="uworld-sf-tool-short">Library</span>
             </button>
             <button type="button" class="uworld-sf-tool" id="reviewSfNotebook" title="Notebook">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h8l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M15 3v5h5M9 13h6M9 17h5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
@@ -97,15 +105,17 @@
             </button>
             <button type="button" class="uworld-sf-tool" id="reviewSfFlashcards" title="Flashcards">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3l-1.2 4.2L16 9l-4.2 1.2L13 14.5l-1.3-4.3L7.5 9l4.2-1.2L13 3zM6.5 14.5L5.8 17l-2.5.7 2.5.7.7 2.5.7-2.5 2.5-.7-2.5-.7-.7-2.5zM18.2 13.2l-.6 2.1-2.1.6 2.1.6.6 2.1.6-2.1 2.1-.6-2.1-.6-.6-2.1z" fill="currentColor"/></svg>
-                <span>Flashcards</span>
+                <span class="uworld-sf-tool-full">Flashcards</span>
+                <span class="uworld-sf-tool-short">Cards</span>
             </button>
             <button type="button" class="uworld-sf-tool" id="reviewSfFeedback" title="Feedback">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-4 3v-3H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
                 <span>Feedback</span>
             </button>
             <a href="/tests" class="uworld-sf-tool uworld-sf-end" id="reviewSfEnd" title="End Review">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#dc2626" stroke="#fecaca" stroke-width="1"/><rect x="8.2" y="8.2" width="7.6" height="7.6" rx="1" fill="#fff"/></svg>
-                <span>End Review</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="currentColor"/><rect x="8.2" y="8.2" width="7.6" height="7.6" rx="1" fill="#fff"/></svg>
+                <span class="uworld-sf-tool-full">End Review</span>
+                <span class="uworld-sf-tool-short">End</span>
             </a>
         </div>
     </footer>
