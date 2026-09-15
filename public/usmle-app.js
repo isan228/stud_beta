@@ -53,7 +53,8 @@
                 step: data.step || getStoredStep(),
                 testKind: data.testKind || 'standard',
                 isSelfAssessment: !!data.isSelfAssessment,
-                isNbme: !!data.isNbme
+                isNbme: !!data.isNbme,
+                isFree: !!data.isFree
             };
         } catch {
             return null;
@@ -71,7 +72,8 @@
                 step: bank.step || getStoredStep(),
                 testKind: isNbme ? 'nbme' : (isSa ? 'self_assessment' : (bank.testKind || 'standard')),
                 isSelfAssessment: isSa,
-                isNbme
+                isNbme,
+                isFree: !!bank.isFree
             }));
             if (bank.step) setStoredStep(bank.step);
         } catch (_) {}
@@ -115,7 +117,7 @@
         if (isNbmeBank(b)) kind = 'nbme';
         else if (isSelfAssessmentBank(b)) kind = 'self_assessment';
         else kind = b.testKind || 'standard';
-        return `testId=${b.id}&name=${name}&step=${encodeURIComponent(b.step || 'step1')}&testKind=${encodeURIComponent(kind)}`;
+        return `testId=${b.id}&name=${name}&step=${encodeURIComponent(b.step || 'step1')}&testKind=${encodeURIComponent(kind)}${b.isFree ? '&free=1' : ''}`;
     }
 
     function navHref(id, bank) {
@@ -168,22 +170,17 @@
     }
 
     /**
-     * Весь раздел USMLE — только с активной подпиской USMLE.
-     * Возвращает true если доступ есть.
+     * Раздел USMLE открыт всем: без подписки доступны только бесплатные банки.
+     * requireAuth: true — нужен логин (конструктор / история).
      */
     function requireUsmleAccess(options = {}) {
-        const { redirectTo = '/subscriptions?program=usmle' } = options;
-        const token = localStorage.getItem('token');
-        if (!token || !window.currentUser) {
-            window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
-            return false;
-        }
-        if (!hasActiveUsmleSubscription()) {
-            if (typeof window.showNotification === 'function') {
-                window.showNotification('Раздел USMLE доступен только с активной подпиской USMLE', 'error');
+        const { requireAuth = false } = options;
+        if (requireAuth) {
+            const token = localStorage.getItem('token');
+            if (!token || !window.currentUser) {
+                window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+                return false;
             }
-            window.location.href = redirectTo;
-            return false;
         }
         return true;
     }
@@ -205,7 +202,7 @@
         const userName = user?.username || user?.name || 'Гость';
         const subLabel = (user && (user.isAdminAccount || hasActiveUsmleSubscription()))
             ? (user.isAdminAccount ? 'Админ · полный доступ' : 'Подписка USMLE активна')
-            : (user ? 'Нет подписки USMLE' : 'Войдите в аккаунт');
+            : (user ? 'Бесплатные банки USMLE' : 'Гость · бесплатные банки');
 
         const bankLabel = bank?.name
             ? `${STEP_LABELS[step] || step} · ${bank.name}`
@@ -312,7 +309,8 @@
             step,
             testKind,
             isSelfAssessment: testKind === 'self_assessment' || /self[-\s]?assessment/i.test(name),
-            isNbme: testKind === 'nbme' || /\bnbme\b/i.test(name)
+            isNbme: testKind === 'nbme' || /\bnbme\b/i.test(name),
+            isFree: params.get('free') === '1' || params.get('isFree') === '1'
         };
         setSelectedBank(bank);
         return bank;

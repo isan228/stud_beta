@@ -2043,11 +2043,10 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     function canAccessTest(test) {
         if (!test) return false;
-        // Весь USMLE — только с подпиской USMLE (даже «бесплатные» тесты)
+        if (test.isFree) return true;
         if ((test.programType || 'university') === 'usmle') {
             return hasActiveUsmleSubscription();
         }
-        if (test.isFree) return true;
         return hasActiveSubscription();
     }
 
@@ -2144,7 +2143,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             if (getProgramType() === 'usmle' && tagIds && tagIds.length) {
                 params.push(`tagIds=${encodeURIComponent(tagIds.join(','))}`);
             }
-            if (getProgramType() !== 'usmle' && !hasActiveSubscription()) {
+            if (getProgramType() === 'usmle') {
+                if (!hasActiveUsmleSubscription()) params.push('free=true');
+            } else if (!hasActiveSubscription()) {
                 params.push('free=true');
             }
             if (params.length) url += `?${params.join('&')}`;

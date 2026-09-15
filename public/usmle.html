@@ -446,6 +446,7 @@
         const isNbme = !!(test.isNbme || test.testKind === 'nbme' || /\bnbme\b/i.test(String(test.name || '')));
         const isSa = !isNbme && !!(test.isSelfAssessment || test.testKind === 'self_assessment'
             || /self[-\s]?assessment/i.test(String(test.name || '')));
+        const isFree = !!test.isFree;
         if (window.UsmleApp) {
             window.UsmleApp.setSelectedBank({
                 id: test.id,
@@ -453,19 +454,21 @@
                 step: activeStep,
                 testKind: isNbme ? 'nbme' : (isSa ? 'self_assessment' : (test.testKind || 'standard')),
                 isSelfAssessment: isSa,
-                isNbme
+                isNbme,
+                isFree
             });
         }
         const name = encodeURIComponent(test.name || '');
+        const freeQ = isFree ? '&free=1' : '';
         if (isNbme) {
-            window.location.href = `/usmle-nbme?testId=${test.id}&name=${name}&step=${activeStep}&testKind=nbme`;
+            window.location.href = `/usmle-nbme?testId=${test.id}&name=${name}&step=${activeStep}&testKind=nbme${freeQ}`;
             return;
         }
         if (isSa) {
-            window.location.href = `/usmle-self-assessment?testId=${test.id}&name=${name}&step=${activeStep}&testKind=self_assessment`;
+            window.location.href = `/usmle-self-assessment?testId=${test.id}&name=${name}&step=${activeStep}&testKind=self_assessment${freeQ}`;
             return;
         }
-        window.location.href = `/usmle-home?testId=${test.id}&name=${name}&step=${activeStep}`;
+        window.location.href = `/usmle-home?testId=${test.id}&name=${name}&step=${activeStep}${freeQ}`;
     }
 
     function escHtml(str) {
@@ -497,6 +500,7 @@
             data-test-kind="${escHtml(t.testKind || 'standard')}"
             data-self-assessment="${isSa ? '1' : '0'}"
             data-nbme="${isNbme ? '1' : '0'}"
+            data-is-free="${t.isFree ? '1' : '0'}"
             onclick="openBankFromCard(this)" onkeydown="if(event.key==='Enter')this.click()"
             role="button" tabindex="0"`;
     }
@@ -535,7 +539,7 @@
         const totalTests = isBlock ? 4 : Math.max(Number(t.testsCompleted) || 0, Number(t.totalTests) || 0);
         return `<div class="usmle-qb-card" ${bankAttrs(t)}>
             <div>
-                <h3 class="usmle-qb-name">${escHtml(t.name)}</h3>
+                <h3 class="usmle-qb-name">${escHtml(t.name)}${t.isFree ? ' <span style="font-size:0.72rem;font-weight:700;color:#059669;">FREE</span>' : ''}</h3>
                 <div class="usmle-qb-stats">
                     <div><span>Used Questions</span><strong>${t.usedQuestions || 0}</strong></div>
                     <div><span>Total Questions</span><strong>${t.totalQuestions || 0}</strong></div>
@@ -591,8 +595,8 @@
         const list = hubFilter === 'nbme' ? nbmeBanks : myWorldBanks;
         if (!list.length) {
             grid.innerHTML = hubFilter === 'nbme'
-                ? `<div class="usmle-empty"><p>Для ${STEP_LABELS[activeStep]} пока нет NBME форм.</p></div>`
-                : `<div class="usmle-empty"><p>Для ${STEP_LABELS[activeStep]} пока нет банков My World.</p></div>`;
+                ? `<div class="usmle-empty"><p>Для ${STEP_LABELS[activeStep]} пока нет NBME форм${(window.UsmleApp && !window.UsmleApp.hasActiveUsmleSubscription()) ? ' (доступны только бесплатные)' : ''}.</p></div>`
+                : `<div class="usmle-empty"><p>Для ${STEP_LABELS[activeStep]} пока нет банков My World${(window.UsmleApp && !window.UsmleApp.hasActiveUsmleSubscription()) ? ' (доступны только бесплатные)' : ''}.</p></div>`;
             return;
         }
         grid.innerHTML = list.map(qbCardHtml).join('');
@@ -604,7 +608,8 @@
             name: el.dataset.testName || '',
             testKind: el.dataset.testKind || 'standard',
             isSelfAssessment: el.dataset.selfAssessment === '1',
-            isNbme: el.dataset.nbme === '1'
+            isNbme: el.dataset.nbme === '1',
+            isFree: el.dataset.isFree === '1'
         });
     }
 
@@ -615,7 +620,9 @@
         const active = window.UsmleApp && window.UsmleApp.hasActiveUsmleSubscription
             ? window.UsmleApp.hasActiveUsmleSubscription()
             : false;
-        const label = u?.isAdminAccount ? 'Admin' : (active ? 'Unlimited' : 'Inactive');
+        const label = u?.isAdminAccount
+            ? 'Admin'
+            : (active ? 'Unlimited' : 'Free banks');
         el.innerHTML = `You are currently on subscription <strong>[${escHtml(label)}]</strong>.`;
     }
 
@@ -645,9 +652,6 @@
         if (typeof window.setProgramType === 'function') window.setProgramType('usmle');
         if (typeof window.loadUser === 'function') await window.loadUser();
         if (typeof window.setupEventListeners === 'function') window.setupEventListeners();
-        if (window.UsmleApp && typeof window.UsmleApp.requireUsmleAccess === 'function') {
-            if (!window.UsmleApp.requireUsmleAccess()) return;
-        }
         await loadDashboard();
     });
 

@@ -335,20 +335,27 @@ router.post('/webhook', async (req, res) => {
               // Обновляем подписку для существующего пользователя
               const subscriptionType = registrationData?.subscription?.type || '1';
               const subscriptionMonths = parseInt(subscriptionType) || 1;
-              let subscriptionEndDate = new Date();
-
-              // Если у пользователя уже есть активная подписка, продлеваем её
-              if (existingUser.subscriptionEndDate && new Date(existingUser.subscriptionEndDate) > new Date()) {
-                subscriptionEndDate = new Date(existingUser.subscriptionEndDate);
-                subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + subscriptionMonths);
+              const programType = String(registrationData?.programType || transaction.fields?.programType || 'university').toLowerCase();
+              const now = new Date();
+              if (programType === 'usmle') {
+                let usmleEnd = new Date(now);
+                if (existingUser.usmleSubscriptionEndDate && new Date(existingUser.usmleSubscriptionEndDate) > now) {
+                  usmleEnd = new Date(existingUser.usmleSubscriptionEndDate);
+                }
+                usmleEnd.setMonth(usmleEnd.getMonth() + subscriptionMonths);
+                existingUser.usmleSubscriptionEndDate = usmleEnd;
+                await existingUser.save();
+                console.log(`✅ USMLE subscription updated for existing user ${existingUser.id}: ${usmleEnd.toISOString()}`);
               } else {
-                // Иначе начинаем с текущей даты
+                let subscriptionEndDate = new Date(now);
+                if (existingUser.subscriptionEndDate && new Date(existingUser.subscriptionEndDate) > now) {
+                  subscriptionEndDate = new Date(existingUser.subscriptionEndDate);
+                }
                 subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + subscriptionMonths);
+                existingUser.subscriptionEndDate = subscriptionEndDate;
+                await existingUser.save();
+                console.log(`✅ Subscription updated for existing user ${existingUser.id}: ${subscriptionEndDate.toISOString()}`);
               }
-
-              existingUser.subscriptionEndDate = subscriptionEndDate;
-              await existingUser.save();
-              console.log(`✅ Subscription updated for existing user ${existingUser.id}: ${subscriptionEndDate.toISOString()}`);
             } else {
               // Проверяем наличие обязательных полей
               if (!registrationData.username || !registrationData.email || !registrationData.password) {
@@ -437,14 +444,20 @@ router.post('/webhook', async (req, res) => {
                 }
               }
 
-              // Устанавливаем дату окончания подписки
+              // Устанавливаем дату окончания подписки по выбранной программе
               const subscriptionType = registrationData.subscription?.type || '1';
               const subscriptionMonths = parseInt(subscriptionType) || 1;
-              const subscriptionEndDate = new Date();
-              subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + subscriptionMonths);
-              newUser.subscriptionEndDate = subscriptionEndDate;
+              const programType = String(registrationData.programType || transaction.fields?.programType || 'university').toLowerCase();
+              const endDate = new Date();
+              endDate.setMonth(endDate.getMonth() + subscriptionMonths);
+              if (programType === 'usmle') {
+                newUser.usmleSubscriptionEndDate = endDate;
+                console.log(`✅ USMLE subscription end date set for user ${newUser.id}: ${endDate.toISOString()}`);
+              } else {
+                newUser.subscriptionEndDate = endDate;
+                console.log(`✅ Subscription end date set for user ${newUser.id}: ${endDate.toISOString()}`);
+              }
               await newUser.save();
-              console.log(`✅ Subscription end date set for user ${newUser.id}: ${subscriptionEndDate.toISOString()}`);
 
               console.log(`🎉 Registration completed successfully for ${newUser.email}`);
             }
@@ -627,43 +640,34 @@ router.post('/webhook', async (req, res) => {
           }
         }
 
-        // Если нашли registrationData и пользователь еще не создан
+        // Если нашли registrationData и пользователь еще не создан —
+        // основной путь создания аккаунта: когда PENDING-транзакция уже есть (блок выше).
+        // Здесь только логируем; иначе рискуем дублировать логику.
         if (registrationData && !transaction.userId) {
-          try {
-            // ... (existing code for finding user) ...
-
-            if (existingUser) {
-              // ... (existing code for existing user) ...
-            } else {
-              // ... (existing code for creating user) ...
-
-              // Создаем нового пользователя
-              // ...
-
-              // Устанавливаем дату окончания подписки
-              const subscriptionType = registrationData.subscription?.type || '1';
-              const subscriptionMonths = parseInt(subscriptionType) || 1;
-              const subscriptionEndDate = new Date();
-              subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + subscriptionMonths);
-              newUser.subscriptionEndDate = subscriptionEndDate;
-              await newUser.save();
-              console.log(`✅ Subscription end date set for user ${newUser.id}: ${subscriptionEndDate.toISOString()}`);
-
-              // Помечаем, что подписка уже обновлена, чтобы не обновлять второй раз ниже
-              isSubscriptionProcessed = true;
-            }
-          } catch (error) {
-            // ...
-          }
+          console.warn('⚠️  New Finik transaction with registrationData but no linked PENDING row. paymentId=', finikTransactionId);
         }
 
-        // ... (logging for no registration data) ...
-
-        // ... (logging for no registration data) ...
-
         if (transaction.userId && !isSubscriptionProcessed) {
-          // Обновляем подписку пользователя, если это платеж за подписку (и она еще не была обновлена выше)
-          // ... (existing subscription update logic) ...
+          try {
+            const user = await User.findByPk(transaction.userId);
+            const months = parseInt(
+              transaction.fields?.subscriptionType
+              || registrationData?.subscription?.type
+              || '1',
+              10
+            ) || 1;
+            const pType = transaction.fields?.paymentType
+              || (String(registrationData?.programType || '').toLowerCase() === 'usmle' ? 'usmle_subscription' : 'registration');
+            if (user) {
+              await extendUserSubscription(user, {
+                paymentType: pType === 'usmle' || pType === 'usmle_subscription' ? 'usmle_subscription' : 'subscription',
+                months
+              });
+              console.log(`✅ Subscription applied for user ${user.id} via new-tx webhook path`);
+            }
+          } catch (subErr) {
+            console.error('❌ Error applying subscription on new-tx path:', subErr);
+          }
         }
       }
     }
@@ -672,7 +676,7 @@ router.post('/webhook', async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Webhook processed',
-      transactionId: transaction.id
+      transactionId: transaction?.id || null
     });
 
   } catch (error) {
@@ -1337,10 +1341,22 @@ router.post('/create', [
 
 /**
  * Тарифы для платной регистрации (без авторизации)
- * GET /api/payments/registration-plans?universityId=1
+ * GET /api/payments/registration-plans?program=university|usmle&universityId=1
  */
 router.get('/registration-plans', async (req, res) => {
   try {
+    const program = String(req.query.program || 'university').toLowerCase() === 'usmle'
+      ? 'usmle'
+      : 'university';
+
+    if (program === 'usmle') {
+      const plans = await getPlansForUsmle();
+      return res.json({
+        programType: 'usmle',
+        plans: (plans || []).filter((p) => p.isActive !== false)
+      });
+    }
+
     const universityId = parseInt(req.query.universityId, 10);
     if (!Number.isFinite(universityId) || universityId < 1) {
       return res.status(400).json({ error: 'Укажите университет' });
@@ -1384,6 +1400,7 @@ router.post('/create-registration', [
   body('registrationData.email').isEmail().withMessage('Некорректный email'),
   body('registrationData.password').isLength({ min: 6 }).withMessage('Пароль должен быть минимум 6 символов'),
   body('registrationData.universityId').isInt({ min: 1 }).withMessage('Выберите университет'),
+  body('registrationData.programType').optional().isIn(['university', 'usmle']).withMessage('Выберите программу'),
   body('registrationData.subscription.type').optional().isIn(['1', '3', '12', 1, 3, 12]).withMessage('Выберите тариф')
 ], async (req, res) => {
   try {
@@ -1393,6 +1410,9 @@ router.post('/create-registration', [
     }
 
     const { description, paymentType, registrationData } = req.body;
+    const programType = String(registrationData.programType || 'university').toLowerCase() === 'usmle'
+      ? 'usmle'
+      : 'university';
 
     const university = await University.findOne({
       where: { id: registrationData.universityId, isActive: true }
@@ -1409,7 +1429,9 @@ router.post('/create-registration', [
 
     let finalAmount;
     try {
-      finalAmount = await getPlanPrice(university.id, months);
+      finalAmount = programType === 'usmle'
+        ? await getUsmlePlanPrice(months)
+        : await getPlanPrice(university.id, months);
     } catch (planErr) {
       return res.status(400).json({ error: planErr.message || 'Тариф недоступен' });
     }
@@ -1470,10 +1492,15 @@ router.post('/create-registration', [
       finalAmount = Math.max(0.01, finalAmount - promoDiscountAmount);
     }
 
+    const resolvedPaymentType = programType === 'usmle'
+      ? 'usmle_subscription'
+      : (paymentType || 'registration');
+
     // Сохраняем registrationData в fields для обработки в webhook
     const registrationDataForFields = {
       ...registrationData,
       universityId: university.id,
+      programType,
       subscription: { type: String(months) },
       referralCode: referralCode,
       referrerId: referrerId,
@@ -1506,10 +1533,11 @@ router.post('/create-registration', [
       merchantCategoryCode: merchantCategoryCode,
       nameEn: nameEn,
       webhookUrl: webhookUrl,
-      description: description || `Регистрация + подписка ${months} мес.`,
+      description: description || `Регистрация ${programType === 'usmle' ? 'USMLE' : 'университет'} · ${months} мес.`,
       customFields: {
         registrationData: JSON.stringify(registrationDataForFields), // Сохраняем данные регистрации с реферальным кодом
-        paymentType: paymentType || 'registration',
+        paymentType: resolvedPaymentType,
+        programType,
         subscriptionType: String(months),
         ...(promoCodeData && {
           promoCodeId: promoCodeData.id,
@@ -1522,7 +1550,8 @@ router.post('/create-registration', [
     // Сохраняем транзакцию в БД (со статусом PENDING)
     // userId будет null до успешной оплаты
     const transactionFields = {
-      paymentType: paymentType || 'registration',
+      paymentType: resolvedPaymentType,
+      programType,
       registrationData: registrationDataForFields, // Сохраняем данные для создания аккаунта с реферальным кодом
       subscriptionType: String(months),
       promoCodeId: promoCodeData?.id || null,

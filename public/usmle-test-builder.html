@@ -942,9 +942,9 @@
         if (typeof loadUser === 'function') await loadUser();
         if (typeof setupEventListeners === 'function') setupEventListeners();
         if (window.UsmleApp && typeof window.UsmleApp.requireUsmleAccess === 'function') {
-            if (!window.UsmleApp.requireUsmleAccess()) return;
-        } else if (typeof window.hasActiveUsmleSubscription === 'function' && !window.hasActiveUsmleSubscription()) {
-            window.location.href = '/subscriptions?program=usmle';
+            if (!window.UsmleApp.requireUsmleAccess({ requireAuth: true })) return;
+        } else if (!localStorage.getItem('token')) {
+            window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
             return;
         }
         await loadTags();

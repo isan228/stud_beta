@@ -24,8 +24,39 @@ const { ALLOWED_COURSES } = require('../utils/ensureFaculties');
 const requireUsmleSubscription = require('../middleware/requireUsmleSubscription');
 const { userHasUniversityAccess, userHasUsmleAccess } = require('../utils/adminUserAccess');
 
-/** Весь API /usmle/* — только с активной подпиской USMLE */
+/** /usmle/* — гости и без подписки видят только isFree; полная подписка — все банки */
 router.use('/usmle', requireUsmleSubscription);
+
+async function requestHasUsmleSubscription(req) {
+  if (typeof req.hasUsmleSubscription === 'boolean') return req.hasUsmleSubscription;
+  const token = req.header('Authorization')?.replace('Bearer ', '');
+  if (!token) return false;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findByPk(decoded.userId, {
+      attributes: ['id', 'email', 'username', 'usmleSubscriptionEndDate']
+    });
+    if (!user) return false;
+    return !!(await userHasUsmleAccess(user));
+  } catch {
+    return false;
+  }
+}
+
+/** Платный USMLE-банк — только с подпиской; бесплатный — всем */
+async function assertUsmleBankAccess(test, req) {
+  if (!test || (test.programType || 'university') !== 'usmle') {
+    return { ok: true };
+  }
+  if (test.isFree) return { ok: true };
+  if (await requestHasUsmleSubscription(req)) return { ok: true };
+  return {
+    ok: false,
+    status: 403,
+    error: 'Этот банк USMLE доступен только с активной подпиской',
+    code: 'USMLE_SUBSCRIPTION_REQUIRED'
+  };
+}
 
 /** Университетские flashcards — бесплатные всем авторизованным; остальные по подписке */
 router.get('/flashcards', async (req, res) => {
@@ -206,7 +237,9 @@ async function assertPaidAccess(test, req) {
   const token = req.header('Authorization')?.replace('Bearer ', '');
   const programType = test.programType || 'university';
 
-  // USMLE целиком только по подписке USMLE (даже если тест помечен isFree)
+  // Бесплатные тесты (университет и USMLE) — без подписки
+  if (test.isFree) return { ok: true };
+
   if (programType === 'usmle') {
     if (!token) {
       return { ok: false, status: 401, error: 'Требуется авторизация для USMLE' };
@@ -225,8 +258,6 @@ async function assertPaidAccess(test, req) {
       return { ok: false, status: 401, error: 'Недействительный токен' };
     }
   }
-
-  if (test.isFree) return { ok: true };
 
   if (!token) {
     return { ok: false, status: 401, error: 'Требуется авторизация для этого теста' };
@@ -357,10 +388,10 @@ router.get('/latest', async (req, res) => {
     const wantsFree = req.query.free === 'true';
     const hasPaid = programType === 'university'
       ? await requestHasUniversitySubscription(req)
-      : false;
+      : await requestHasUsmleSubscription(req);
 
-    // Гости и пользователи без подписки видят только бесплатные university-тесты
-    if (wantsFree || (programType === 'university' && !hasPaid)) {
+    // Гости и пользователи без подписки видят только бесплатные тесты
+    if (wantsFree || !hasPaid) {
       whereClause.isFree = true;
     }
 
@@ -425,10 +456,10 @@ router.get('/subjects', async (req, res) => {
     });
 
     const wantsFree = req.query.free === 'true';
-    const hasPaidUni = programType === 'university'
+    const hasPaid = programType === 'university'
       ? await requestHasUniversitySubscription(req)
-      : false;
-    const isFreeOnly = wantsFree || (programType === 'university' && !hasPaidUni);
+      : await requestHasUsmleSubscription(req);
+    const isFreeOnly = wantsFree || !hasPaid;
 
     if (isFreeOnly) {
       const freeTestWhere = { isFree: true, programType };
@@ -566,6 +597,9 @@ router.get('/usmle/dashboard', async (req, res) => {
     }
 
     const userId = tryGetUserIdFromRequest(req);
+    const hasPaidUsmle = await requestHasUsmleSubscription(req);
+    const testWhere = { programType: 'usmle' };
+    if (!hasPaidUsmle) testWhere.isFree = true;
 
     let subjects;
     try {
@@ -601,7 +635,7 @@ router.get('/usmle/dashboard', async (req, res) => {
     let tests;
     try {
       tests = await Test.findAll({
-        where: { programType: 'usmle' },
+        where: testWhere,
         attributes: ['id', 'name', 'description', 'subjectId', 'isFree', 'testKind'],
         include: [{
           model: Question,
@@ -614,7 +648,7 @@ router.get('/usmle/dashboard', async (req, res) => {
     } catch (colErr) {
       console.warn('usmle/dashboard: testKind unavailable, fallback:', colErr.message);
       tests = await Test.findAll({
-        where: { programType: 'usmle' },
+        where: testWhere,
         attributes: ['id', 'name', 'description', 'subjectId', 'isFree'],
         include: [{
           model: Question,
@@ -717,11 +751,15 @@ router.get('/usmle/welcome-stats', async (req, res) => {
     }
 
     const test = await Test.findByPk(testId, {
-      attributes: ['id', 'name', 'programType'],
+      attributes: ['id', 'name', 'programType', 'isFree'],
       include: [{ model: Question, as: 'Questions', attributes: ['id'], required: false }]
     });
     if (!test || test.programType !== 'usmle') {
       return res.status(404).json({ error: 'USMLE банк не найден' });
+    }
+    const bankAccess = await assertUsmleBankAccess(test, req);
+    if (!bankAccess.ok) {
+      return res.status(bankAccess.status).json({ error: bankAccess.error, code: bankAccess.code });
     }
 
     const allQuestionIds = new Set((test.Questions || []).map((q) => q.id));
@@ -807,6 +845,16 @@ router.get('/usmle/history', async (req, res) => {
     if (Number.isFinite(testId) && testId > 0) {
       where.testId = testId;
       testWhere.id = testId;
+      const bank = await Test.findByPk(testId, { attributes: ['id', 'programType', 'isFree'] });
+      if (!bank || bank.programType !== 'usmle') {
+        return res.status(404).json({ error: 'USMLE банк не найден' });
+      }
+      const bankAccess = await assertUsmleBankAccess(bank, req);
+      if (!bankAccess.ok) {
+        return res.status(bankAccess.status).json({ error: bankAccess.error, code: bankAccess.code });
+      }
+    } else if (!(await requestHasUsmleSubscription(req))) {
+      testWhere.isFree = true;
     }
 
     const rows = await TestResult.findAll({
@@ -1016,7 +1064,7 @@ router.post('/usmle/custom-test/questions', async (req, res) => {
       return res.status(404).json({ error: 'USMLE тест не найден' });
     }
 
-    if (!(await userHasUsmleAccess(user))) {
+    if (!(await userHasUsmleAccess(user)) && !test.isFree) {
       return res.status(403).json({
         error: 'Требуется активная подписка USMLE',
         code: 'USMLE_SUBSCRIPTION_REQUIRED'
@@ -1216,7 +1264,7 @@ async function handleBlockExamBlocks(req, res, expectedKind) {
   }
 
   const test = await Test.findByPk(testId, {
-    attributes: ['id', 'name', 'programType', 'testKind']
+    attributes: ['id', 'name', 'programType', 'testKind', 'isFree']
   });
   const kind = test ? getBlockExamKind(test) : null;
   const ok = test
@@ -1227,6 +1275,10 @@ async function handleBlockExamBlocks(req, res, expectedKind) {
     return res.status(404).json({
       error: expectedKind === 'nbme' ? 'NBME тест не найден' : 'Self-Assessment тест не найден'
     });
+  }
+  const bankAccess = await assertUsmleBankAccess(test, req);
+  if (!bankAccess.ok) {
+    return res.status(bankAccess.status).json({ error: bankAccess.error, code: bankAccess.code });
   }
 
   const totalQuestions = await Question.count({ where: { testId } });
@@ -1298,12 +1350,6 @@ async function handleBlockExamStart(req, res, expectedKind) {
   if (!user) {
     return res.status(401).json({ error: 'Пользователь не найден' });
   }
-  if (!(await userHasUsmleAccess(user))) {
-    return res.status(403).json({
-      error: 'Требуется активная подписка USMLE',
-      code: 'USMLE_SUBSCRIPTION_REQUIRED'
-    });
-  }
 
   const testId = parseInt(req.body?.testId, 10);
   const blockIndex = parseInt(req.body?.blockIndex, 10);
@@ -1317,7 +1363,7 @@ async function handleBlockExamStart(req, res, expectedKind) {
   }
 
   const test = await Test.findByPk(testId, {
-    attributes: ['id', 'name', 'programType', 'testKind']
+    attributes: ['id', 'name', 'programType', 'testKind', 'isFree']
   });
   const kind = test ? getBlockExamKind(test) : null;
   const ok = test
@@ -1327,6 +1373,12 @@ async function handleBlockExamStart(req, res, expectedKind) {
   if (!ok) {
     return res.status(404).json({
       error: expectedKind === 'nbme' ? 'NBME тест не найден' : 'Self-Assessment тест не найден'
+    });
+  }
+  if (!(await userHasUsmleAccess(user)) && !test.isFree) {
+    return res.status(403).json({
+      error: 'Требуется активная подписка USMLE',
+      code: 'USMLE_SUBSCRIPTION_REQUIRED'
     });
   }
 
@@ -1452,8 +1504,10 @@ router.get('/usmle/flashcards', async (req, res) => {
     }
 
     async function query(where) {
+      const hasPaid = await requestHasUsmleSubscription(req);
+      const freeFilter = hasPaid ? {} : { isFree: true };
       return Flashcard.findAll({
-        where: { isActive: true, programType: 'usmle', ...where },
+        where: { isActive: true, programType: 'usmle', ...freeFilter, ...where },
         include,
         order: [['sortOrder', 'ASC'], ['id', 'ASC']]
       });
@@ -1553,12 +1607,15 @@ router.get('/usmle/tests-by-tags', async (req, res) => {
       raw: true
     });
     const testIds = [...new Set(questions.map((q) => q.testId))];
+    const hasPaid = await requestHasUsmleSubscription(req);
+    const testWhere = {
+      id: { [Op.in]: testIds },
+      programType: 'usmle'
+    };
+    if (!hasPaid) testWhere.isFree = true;
 
     const tests = await Test.findAll({
-      where: {
-        id: { [Op.in]: testIds },
-        programType: 'usmle'
-      },
+      where: testWhere,
       include: [{
         model: Question,
         as: 'Questions',
@@ -1589,30 +1646,8 @@ async function assertUserCanAccessSubject(subjectId, req) {
   }
 
   if ((subject.programType || 'university') === 'usmle') {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    if (!token) {
-      return { ok: false, status: 401, error: 'Требуется авторизация для USMLE' };
-    }
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findByPk(decoded.userId, {
-        attributes: ['id', 'email', 'username', 'usmleSubscriptionEndDate']
-      });
-      if (!user) {
-        return { ok: false, status: 401, error: 'Пользователь не найден' };
-      }
-      if (!(await userHasUsmleAccess(user))) {
-        return {
-          ok: false,
-          status: 403,
-          error: 'Раздел USMLE доступен только с активной подпиской USMLE',
-          code: 'USMLE_SUBSCRIPTION_REQUIRED'
-        };
-      }
-      return { ok: true, subject };
-    } catch {
-      return { ok: false, status: 401, error: 'Недействительный токен' };
-    }
+    // Список предметов/банков открыт; платные тесты отфильтрует эндпоинт
+    return { ok: true, subject };
   }
 
   const universityId = await resolveUserUniversityId(req);
@@ -1641,6 +1676,12 @@ router.get('/subjects/:subjectId/tests', async (req, res) => {
       if (universityId) where.universityId = universityId;
       const wantsFree = req.query.free === 'true';
       const hasPaid = await requestHasUniversitySubscription(req);
+      if (wantsFree || !hasPaid) {
+        where.isFree = true;
+      }
+    } else if (programType === 'usmle') {
+      const wantsFree = req.query.free === 'true';
+      const hasPaid = await requestHasUsmleSubscription(req);
       if (wantsFree || !hasPaid) {
         where.isFree = true;
       }

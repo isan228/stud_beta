@@ -753,10 +753,27 @@
                 <!-- ── Step 3: consents ── -->
                 <div class="auth-section" id="reg-step-3">
 
+                    <div class="auth-field" id="regProgramField">
+                        <label>Программа</label>
+                        <div id="regProgramSwitch" style="display:grid;grid-template-columns:1fr 1fr;gap:0.55rem;margin-bottom:0.85rem;">
+                            <button type="button" class="reg-program-btn selected" data-program="university" id="regProgramUniversity"
+                                style="padding:0.85rem 0.75rem;border-radius:12px;border:1.5px solid var(--primary-color);background:color-mix(in srgb, var(--primary-color) 10%, var(--card-bg));cursor:pointer;font-weight:700;color:var(--text-color);">
+                                Университет
+                            </button>
+                            <button type="button" class="reg-program-btn" data-program="usmle" id="regProgramUsmle"
+                                style="padding:0.85rem 0.75rem;border-radius:12px;border:1.5px solid var(--border-light);background:var(--card-bg);cursor:pointer;font-weight:700;color:var(--text-color);">
+                                USMLE
+                            </button>
+                        </div>
+                        <p id="regProgramHint" style="margin:0 0 0.85rem;font-size:0.88rem;color:var(--text-secondary);">
+                            Университетская подписка — доступ к платным тестам вашего вуза.
+                        </p>
+                    </div>
+
                     <div class="auth-field" id="regPlanField">
                         <label>Тариф подписки</label>
                         <p style="margin:0 0 0.65rem;font-size:0.88rem;color:var(--text-secondary);">
-                            Регистрация платная: после оплаты аккаунт создаётся автоматически, и открывается доступ к тестам.
+                            Регистрация платная: после оплаты аккаунт создаётся автоматически.
                         </p>
                         <div id="regPlans" class="reg-plans" style="display:grid;gap:0.55rem;">
                             <p style="color:var(--text-muted);font-size:0.9rem;margin:0;">Сначала выберите университет на шаге 1…</p>
@@ -827,6 +844,7 @@
     let referralCode = null;
     let currentStep = 1;
     let selectedRegPlan = null; // { months, price, title }
+    let selectedRegProgram = 'university'; // university | usmle
 
     function formatRegPrice(price, oldPrice) {
         const p = Math.round(Number(price) || 0);
@@ -834,6 +852,25 @@
             return `<span style="text-decoration:line-through;opacity:.65;margin-right:.35rem;">${Math.round(Number(oldPrice))}</span>${p} сом`;
         }
         return `${p} сом`;
+    }
+
+    function setRegProgram(program) {
+        selectedRegProgram = program === 'usmle' ? 'usmle' : 'university';
+        document.querySelectorAll('.reg-program-btn').forEach((btn) => {
+            const on = btn.dataset.program === selectedRegProgram;
+            btn.classList.toggle('selected', on);
+            btn.style.borderColor = on ? 'var(--primary-color)' : 'var(--border-light)';
+            btn.style.background = on
+                ? 'color-mix(in srgb, var(--primary-color) 10%, var(--card-bg))'
+                : 'var(--card-bg)';
+        });
+        const hint = document.getElementById('regProgramHint');
+        if (hint) {
+            hint.textContent = selectedRegProgram === 'usmle'
+                ? 'USMLE — отдельная подписка на банки и Self-Assessment / NBME.'
+                : 'Университетская подписка — доступ к платным тестам вашего вуза.';
+        }
+        loadRegistrationPlans();
     }
 
     function selectRegPlan(el) {
@@ -853,13 +890,18 @@
         const universityId = parseInt(document.getElementById('regUniversity').value, 10);
         selectedRegPlan = null;
         if (!box) return;
-        if (!Number.isFinite(universityId) || universityId < 1) {
+
+        if (selectedRegProgram === 'university' && (!Number.isFinite(universityId) || universityId < 1)) {
             box.innerHTML = '<p style="color:var(--text-muted);font-size:0.9rem;margin:0;">Сначала выберите университет на шаге 1…</p>';
             return;
         }
+
         box.innerHTML = '<p style="color:var(--text-muted);font-size:0.9rem;margin:0;">Загрузка тарифов…</p>';
         try {
-            const res = await fetch(`/api/payments/registration-plans?universityId=${universityId}`);
+            const qs = selectedRegProgram === 'usmle'
+                ? 'program=usmle'
+                : `program=university&universityId=${universityId}`;
+            const res = await fetch(`/api/payments/registration-plans?${qs}`);
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || 'Не удалось загрузить тарифы');
             const plans = Array.isArray(data.plans) ? data.plans : [];
@@ -870,7 +912,7 @@
             box.innerHTML = plans.map((p, i) => {
                 const months = Number(p.months);
                 const selected = i === 0 ? ' selected' : '';
-                return `<button type="button" class="reg-plan${selected}" data-months="${months}" data-price="${p.price}" data-title="${(p.title || '').replace(/"/g, '&quot;')}" onclick="selectRegPlan(this)" style="text-align:left;width:100%;padding:0.85rem 1rem;border-radius:12px;border:1.5px solid ${i === 0 ? 'var(--primary-color)' : 'var(--border-light)'};background:var(--card-bg);cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:0.75rem;">
+                return `<button type="button" class="reg-plan${selected}" data-months="${months}" data-price="${p.price}" data-title="${(p.title || '').replace(/"/g, '&quot;')}" style="text-align:left;width:100%;padding:0.85rem 1rem;border-radius:12px;border:1.5px solid ${i === 0 ? 'var(--primary-color)' : 'var(--border-light)'};background:var(--card-bg);cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:0.75rem;">
                     <span style="font-weight:700;color:var(--text-color);">${p.title || (months + ' мес.')}</span>
                     <span style="font-weight:800;color:var(--primary-color);">${formatRegPrice(p.price, p.oldPrice)}</span>
                 </button>`;
@@ -894,6 +936,7 @@
     }
 
     window.selectRegPlan = selectRegPlan;
+    window.setRegProgram = setRegProgram;
 
     /* ──────────────── helpers ──────────────── */
 
@@ -1113,12 +1156,13 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    description: `Регистрация stud.kg · ${selectedRegPlan.title || (selectedRegPlan.months + ' мес.')}`,
+                    description: `Регистрация stud.kg · ${selectedRegProgram === 'usmle' ? 'USMLE' : 'университет'} · ${selectedRegPlan.title || (selectedRegPlan.months + ' мес.')}`,
                     registrationData: {
                         username,
                         email,
                         password,
                         universityId: parseInt(universityId, 10),
+                        programType: selectedRegProgram,
                         referralCode: referralCode || codeFromInput || undefined,
                         subscription: { type: String(selectedRegPlan.months) }
                     }
@@ -1157,6 +1201,8 @@
         if (typeof initTheme === 'function') initTheme();
         loadUniversitiesForRegister();
         applyReferralLock();
+        document.getElementById('regProgramUniversity')?.addEventListener('click', () => setRegProgram('university'));
+        document.getElementById('regProgramUsmle')?.addEventListener('click', () => setRegProgram('usmle'));
 
         fetch('/api/settings/docs').then(r => r.json()).then(docs => {
             document.querySelectorAll('a[data-doc="privacy"]').forEach(a => { if (docs.privacyPolicyUrl) a.href = docs.privacyPolicyUrl; });
