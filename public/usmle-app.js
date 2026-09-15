@@ -226,7 +226,7 @@
             <button type="button" class="usmle-sidebar-backdrop" id="usmleSidebarBackdrop" aria-label="Закрыть меню"></button>
             <aside class="usmle-sidebar" id="usmleSidebar">
                 <div class="usmle-sidebar-brand">
-                    <div class="usmle-sidebar-logo">${ICONS.logo}</div>
+                    <div class="usmle-sidebar-logo"><img src="/img/logo.png" alt="stud.kg"></div>
                     <h2>stud.kg</h2>
                     <div class="usmle-sidebar-step">${escHtml(bankLabel)}</div>
                 </div>

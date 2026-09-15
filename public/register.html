@@ -55,8 +55,17 @@
             color: #fff;
             letter-spacing: -1px;
             text-decoration: none;
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.55rem;
             margin-bottom: 1.5rem;
+        }
+
+        .auth-hero-logo img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+            border-radius: 10px;
         }
 
         .auth-hero-mark {
@@ -151,6 +160,16 @@
             color: var(--primary-color);
             letter-spacing: -1px;
             text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.55rem;
+        }
+
+        .auth-form-wrap .auth-top-logo img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+            border-radius: 10px;
         }
 
         .auth-form-title {
@@ -578,7 +597,7 @@
     <!-- Hero / brand panel -->
     <aside class="auth-hero" aria-hidden="true">
         <div class="auth-hero-inner">
-            <a href="/" class="auth-hero-logo">stud.kg</a>
+            <a href="/" class="auth-hero-logo"><img src="/img/logo.png" alt="" width="40" height="40">stud.kg</a>
             <div class="auth-hero-mark" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5h8.5a3.5 3.5 0 0 1 0 7H9v7M9 12h6.5a3.5 3.5 0 0 1 0 7H6"/></svg>
             </div>
@@ -598,7 +617,7 @@
 
             <!-- Logo shown only when hero is hidden -->
             <div class="auth-top-logo">
-                <a href="/">stud.kg</a>
+                <a href="/"><img src="/img/logo.png" alt="" width="40" height="40">stud.kg</a>
             </div>
 
             <h1 class="auth-form-title">Создать аккаунт</h1>

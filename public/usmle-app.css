@@ -40,7 +40,6 @@ body:has(.usmle-app) {
     border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.usmle-sidebar-brand img,
 .usmle-sidebar-logo {
     width: 52px;
     height: 52px;
@@ -51,6 +50,14 @@ body:has(.usmle-app) {
     align-items: center;
     justify-content: center;
     color: #fff;
+    overflow: hidden;
+}
+
+.usmle-sidebar-logo img {
+    width: 52px;
+    height: 52px;
+    object-fit: contain;
+    display: block;
 }
 
 .usmle-sidebar-brand h2 {
@@ -116,11 +123,6 @@ body:has(.usmle-app) {
     width: 1.15rem;
     height: 1.15rem;
     display: block;
-}
-
-.usmle-sidebar-logo .usmle-ico {
-    width: 1.6rem;
-    height: 1.6rem;
 }
 
 .usmle-icon-btn,
