@@ -2567,18 +2567,25 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     }
 
     function startTimer(seconds) {
-        const timerEl = document.getElementById('testTimer');
         const timerDisplayEl = document.getElementById('timerDisplay');
-        const usmleTimerEl = document.getElementById('usmleTbTimer');
         const usmleTimerDisplayEl = document.getElementById('usmleTbTimerDisplay');
+        // Таймер сверху скрыт — считаем в фоне (автозавершение по времени)
+        const timerEl = document.getElementById('testTimer');
+        const usmleTimerEl = document.getElementById('usmleTbTimer');
+        if (timerEl) {
+            timerEl.style.display = 'none';
+            timerEl.hidden = true;
+        }
+        if (usmleTimerEl) {
+            usmleTimerEl.style.display = 'none';
+            usmleTimerEl.hidden = true;
+        }
 
         if (!timerDisplayEl && !usmleTimerDisplayEl) {
             console.warn('Элементы таймера не найдены на странице');
             return;
         }
 
-        if (timerEl) timerEl.style.display = 'block';
-        if (usmleTimerEl) usmleTimerEl.style.display = 'inline-flex';
         let timeLeft = seconds;
 
         const updateTimer = () => {
@@ -2874,8 +2881,13 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             text = text.slice(0, objMatch.index).trim();
         }
 
+        // Пустая строка перед пунктами, начинающимися с "-"
+        const ensureBlankBeforeDashes = (chunk) => String(chunk || '')
+            .replace(/\r\n/g, '\n')
+            .replace(/([^\n])\n([ \t]*[-–—•]\s+)/g, '$1\n\n$2');
+
         const formatInline = (chunk) => {
-            let html = escapeHtmlStr(String(chunk || ''));
+            let html = escapeHtmlStr(ensureBlankBeforeDashes(chunk));
             html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
             html = html.replace(/==([^=]+)==/g, '<mark class="usmle-highlight">$1</mark>');
             return html.replace(/\n/g, '<br>');
@@ -2908,7 +2920,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
 
         const objectiveHtml = objective
-            ? `<div class="usmle-edu-objective"><div class="usmle-edu-objective-label">Educational objective:</div><div class="usmle-edu-objective-text question-explanation-text">${formatInline(objective)}</div></div>`
+            ? `<div class="usmle-edu-objective"><div class="usmle-edu-objective-label"><strong>Educational objective:</strong></div><div class="usmle-edu-objective-text question-explanation-text">${formatInline(objective)}</div></div>`
             : '';
 
         return bodyHtml + objectiveHtml;
@@ -3129,7 +3141,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const uniHeader = document.getElementById('uniTestHeader');
         const uniActions = document.getElementById('uniTestActions');
         if (topbar) topbar.hidden = !isUsmle;
-        if (uniHeader) uniHeader.hidden = !!isUsmle;
+        // Старый uni-хедер (прогресс/таймер/флажок/ошибка) больше не показываем
+        if (uniHeader) uniHeader.hidden = true;
         if (uniActions) uniActions.classList.toggle('is-usmle-hidden', !!isUsmle);
         if (isUsmle) {
             ensureUsmleToolbarBound();
@@ -3787,17 +3800,19 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const progressTextEl = document.getElementById('progressText');
         const content = document.getElementById('testContent');
 
-        if (!progressFillEl || !progressTextEl || !content) {
+        if (!content) {
             console.error('Элементы теста не найдены на странице');
             showNotification('Ошибка: элементы теста не найдены', 'error');
             return;
         }
 
         const isUsmleSession = getProgramType() === 'usmle';
-        progressFillEl.style.width = `${progress}%`;
-        progressTextEl.textContent = isUsmleSession
-            ? `Item ${currentQuestionIndex + 1} of ${currentQuestions.length}`
-            : `Вопрос ${currentQuestionIndex + 1} из ${currentQuestions.length}`;
+        if (progressFillEl) progressFillEl.style.width = `${progress}%`;
+        if (progressTextEl) {
+            progressTextEl.textContent = isUsmleSession
+                ? `Item ${currentQuestionIndex + 1} of ${currentQuestions.length}`
+                : `Вопрос ${currentQuestionIndex + 1} из ${currentQuestions.length}`;
+        }
 
         syncUsmleSessionChrome(isUsmleSession);
         updateUsmleQuestionMeta(question);
@@ -3810,21 +3825,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             return;
         }
 
-        // Избранное: в USMLE — красный флажок, иначе звезда
+        // Избранное: в USMLE — через Mark в topbar; сверху флажок/звезду не показываем
         const favoriteContainer = document.getElementById('favoriteContainer');
-        if (favoriteContainer && currentUser) {
-            const usmleFav = isUsmleTestSession();
-            const knownFav = sessionFavoriteIds.has(Number(question.id));
-            favoriteContainer.innerHTML = usmleFav
-                ? `<button class="favorite-icon-btn usmle-flag-btn${knownFav ? ' favorite-active' : ''}" onclick="toggleFavorite(${question.id})" id="favoriteBtn${question.id}" title="${knownFav ? 'Снять флажок' : 'Отметить флажком'}">
-                <span id="favoriteIcon${question.id}">${favoriteFlagSvg(knownFav)}</span>
-            </button>`
-                : `<button class="favorite-icon-btn" onclick="toggleFavorite(${question.id})" id="favoriteBtn${question.id}" title="Добавить в избранное">
-                <span id="favoriteIcon${question.id}">☆</span>
-            </button>`;
-        } else if (favoriteContainer) {
-            favoriteContainer.innerHTML = '';
-        }
+        if (favoriteContainer) favoriteContainer.innerHTML = '';
 
         if (isUsmleTestSession() && currentUser && !sessionFavoritesSyncStarted) {
             sessionFavoritesSyncStarted = true;
@@ -5621,28 +5624,31 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     }
 
     function updateFavoriteButton(questionId, isFavorite) {
-        const btn = document.getElementById(`favoriteBtn${questionId}`);
-        const icon = document.getElementById(`favoriteIcon${questionId}`);
-        if (!btn || !icon) return;
-
-        const usmleFav = isUsmleTestSession() || btn.classList.contains('usmle-flag-btn');
-        if (usmleFav) {
-            btn.classList.add('usmle-flag-btn');
-            icon.innerHTML = favoriteFlagSvg(!!isFavorite);
-            btn.title = isFavorite ? 'Снять флажок' : 'Отметить флажком';
-        } else {
-            icon.textContent = isFavorite ? '⭐' : '☆';
-            btn.title = isFavorite ? 'Удалить из избранного' : 'Добавить в избранное';
-        }
         if (isFavorite) {
-            btn.classList.add('favorite-active');
             sessionFavoriteIds.add(Number(questionId));
         } else {
-            btn.classList.remove('favorite-active');
             sessionFavoriteIds.delete(Number(questionId));
         }
+
+        const btn = document.getElementById(`favoriteBtn${questionId}`);
+        const icon = document.getElementById(`favoriteIcon${questionId}`);
+        if (btn && icon) {
+            const usmleFav = isUsmleTestSession() || btn.classList.contains('usmle-flag-btn');
+            if (usmleFav) {
+                btn.classList.add('usmle-flag-btn');
+                icon.innerHTML = favoriteFlagSvg(!!isFavorite);
+                btn.title = isFavorite ? 'Снять флажок' : 'Отметить флажком';
+            } else {
+                icon.textContent = isFavorite ? '⭐' : '☆';
+                btn.title = isFavorite ? 'Удалить из избранного' : 'Добавить в избранное';
+            }
+            if (isFavorite) btn.classList.add('favorite-active');
+            else btn.classList.remove('favorite-active');
+        }
+
         if (isUsmleTestSession()) {
             updateUsmleToolbarChrome(currentQuestions?.[currentQuestionIndex]);
+            renderUsmleQuestionNav();
         }
     }
 

@@ -3752,8 +3752,8 @@ body.dark-theme .usmle-choice-label {
 }
 
 .usmle-edu-objective {
-    margin-top: 1.35rem;
-    padding-top: 1rem;
+    margin-top: 1.75rem;
+    padding-top: 1.25rem;
     border-top: 1px solid #e5e7eb;
 }
 
@@ -3766,7 +3766,11 @@ body.dark-theme .usmle-edu-objective {
     font-weight: 700;
     font-size: 0.98rem;
     color: #111827;
-    margin-bottom: 0.35rem;
+    margin-bottom: 0.85rem;
+}
+
+.usmle-edu-objective-label strong {
+    font-weight: 700;
 }
 
 [data-theme="dark"] .usmle-edu-objective-label,
@@ -3776,8 +3780,13 @@ body.dark-theme .usmle-edu-objective-label {
 
 .usmle-edu-objective-text {
     font-size: 0.96rem;
-    line-height: 1.6;
+    line-height: 1.65;
     color: #1f2937;
+}
+
+[data-theme="dark"] .usmle-edu-objective-text,
+body.dark-theme .usmle-edu-objective-text {
+    color: var(--text-secondary);
 }
 
 @media (max-width: 768px) {

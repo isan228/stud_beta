@@ -30,25 +30,18 @@
 
     <main class="main-content">
         <div class="container test-session-container">
-            <!-- Обычный хедер (университетские тесты) -->
-            <div class="test-header" id="uniTestHeader">
-                <div class="test-progress">
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="progressFill"></div>
-                    </div>
-                    <span id="progressText">Вопрос 1 из 10</span>
-                </div>
-                <div class="test-header-right">
-                    <div class="test-timer" id="testTimer" style="display: none;">
-                        <span id="timerDisplay">30:00</span>
-                    </div>
-                    <div class="question-help-wrapper">
-                        <button class="question-help-btn" id="reportQuestionErrorBtn" type="button" title="Сообщить об ошибке в вопросе" aria-label="Сообщить об ошибке в вопросе">?</button>
-                        <span class="question-help-text">Нашли ошибку? Сообщите нам</span>
-                    </div>
-                    <div id="favoriteContainer"></div>
-                </div>
+            <!-- Обычный хедер (университетские тесты) — прогресс/таймер/флажок/ошибка убраны -->
+            <div class="test-header" id="uniTestHeader" hidden></div>
+            <!-- Скрытая кнопка для Feedback / модалки ошибки -->
+            <button type="button" id="reportQuestionErrorBtn" hidden aria-hidden="true" tabindex="-1">Report</button>
+            <div id="favoriteContainer" hidden aria-hidden="true"></div>
+            <div class="test-timer" id="testTimer" style="display: none;" hidden aria-hidden="true">
+                <span id="timerDisplay">30:00</span>
             </div>
+            <div class="progress-bar" hidden aria-hidden="true">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <span id="progressText" hidden aria-hidden="true"></span>
 
             <!-- UWorld-меню для USMLE -->
             <header class="uworld-session-topbar" id="usmleSessionTopbar" hidden>
@@ -111,8 +104,9 @@
                 <div class="usmle-meta-row">
                     <span class="usmle-meta-chip usmle-meta-subject" id="usmleMetaSubject"><span class="usmle-meta-label">Subject</span> <span class="usmle-meta-value">—</span></span>
                     <span class="usmle-meta-chip usmle-meta-system" id="usmleMetaSystem"><span class="usmle-meta-label">System</span> <span class="usmle-meta-value">—</span></span>
-                    <span class="usmle-meta-chip usmle-meta-time" id="usmleMetaQuestionTime" title="Время на этот вопрос">⏱ <span id="usmleMetaQuestionTimeValue">0:00</span></span>
-                    <div class="test-timer usmle-tb-timer" id="usmleTbTimer" style="display: none;">
+                    <!-- per-question time / block timer hidden from top meta -->
+                    <span class="usmle-meta-chip usmle-meta-time" id="usmleMetaQuestionTime" hidden aria-hidden="true" title="Время на этот вопрос">⏱ <span id="usmleMetaQuestionTimeValue">0:00</span></span>
+                    <div class="test-timer usmle-tb-timer" id="usmleTbTimer" style="display: none;" hidden aria-hidden="true">
                         <span id="usmleTbTimerDisplay">30:00</span>
                     </div>
                 </div>
