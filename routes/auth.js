@@ -54,96 +54,12 @@ router.post('/register', [
   body('publicOffer').equals('true').withMessage('Необходимо согласие с публичной офертой'),
   body('universityId').isInt({ min: 1 }).withMessage('Выберите университет')
 ], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { username, email, password, referralCode, universityId } = req.body;
-
-    const university = await University.findOne({
-      where: { id: universityId, isActive: true }
-    });
-    if (!university) {
-      return res.status(400).json({ error: 'Выбранный университет недоступен' });
-    }
-
-    // Проверка существующих пользователей со схожими никнеймами или почтами (без учета регистра)
-    const normalizedEmail = email.trim();
-    const normalizedUsername = username.trim();
-
-    const existingUser = await User.findOne({
-      where: {
-        [Op.or]: [
-          { email: { [Op.iLike]: normalizedEmail } },
-          { username: { [Op.iLike]: normalizedUsername } }
-        ]
-      }
-    });
-
-    if (existingUser) {
-      if (existingUser.email.toLowerCase() === normalizedEmail.toLowerCase()) {
-        return res.status(400).json({ error: 'Пользователь с такой почтой (или очень похожей) уже существует' });
-      }
-      return res.status(400).json({ error: 'Пользователь с таким никнеймом (или очень похожим) уже существует' });
-    }
-
-    // Проверка и обработка реферального кода
-    let referredBy = null;
-    if (referralCode) {
-      const referrer = await User.findOne({ where: { referralCode: referralCode.toUpperCase() } });
-      if (referrer) {
-        referredBy = referrer.id;
-      }
-    }
-
-    // Создание пользователя со статусом approved (автоматически одобрен)
-    const user = await User.create({ 
-      username, 
-      email, 
-      password,
-      status: 'approved',
-      referredBy,
-      universityId: university.id
-    });
-
-    // Создание статистики
-    await UserStats.create({ userId: user.id });
-
-    // Реферальные бонусы при бесплатной регистрации
-    if (referredBy) {
-      try {
-        user.coins = (user.coins || 0) + 50;
-        await user.save();
-        const referrer = await User.findByPk(referredBy);
-        if (referrer) {
-          referrer.coins = (referrer.coins || 0) + 50;
-          await referrer.save();
-        }
-      } catch (coinErr) {
-        console.error('Ошибка начисления реферальных монет:', coinErr);
-      }
-    }
-
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
-
-    res.status(201).json({
-      message: 'Регистрация успешно завершена!',
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        status: user.status,
-        universityId: user.universityId,
-        coins: user.coins || 0
-      }
-    });
-  } catch (error) {
-    console.error('Ошибка регистрации:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
+  // Бесплатная регистрация отключена: аккаунт создаётся только после оплаты подписки
+  return res.status(403).json({
+    error: 'Регистрация платная. Оформите подписку при регистрации — после оплаты аккаунт откроется автоматически.',
+    code: 'PAID_REGISTRATION_REQUIRED',
+    registerUrl: '/register'
+  });
 });
 
 // Вход

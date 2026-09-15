@@ -9152,12 +9152,16 @@ async function deleteMedicalImage(id) {
     }
 }
 
-// Предпросмотр выбранного файла
+// Предпросмотр выбранного файла + автозаполнение названия/ключей из имени файла
 function medicalGlossaryNameFromFile(file) {
     if (!file || !file.name) return '';
     const base = String(file.name).replace(/^.*[\\/]/, '');
-    const withoutExt = base.replace(/\.[^.]+$/, '').trim();
-    return withoutExt || base.trim();
+    const withoutExt = base.replace(/\.[^.]+$/, '').trim() || base.trim();
+    return withoutExt
+        .replace(/[_+]+/g, ' ')
+        .replace(/\s*-\s*/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
 }
 
 function fillMedicalGlossaryFieldsFromFile(file, { force = false } = {}) {
@@ -9165,40 +9169,45 @@ function fillMedicalGlossaryFieldsFromFile(file, { force = false } = {}) {
     if (!name) return;
     const titleEl = document.getElementById('medicalImageTitle');
     const kwEl = document.getElementById('medicalImageKeywords');
-    if (titleEl && (force || !titleEl.value.trim())) {
+    if (titleEl && (force || !String(titleEl.value || '').trim())) {
         titleEl.value = name;
     }
-    if (kwEl && (force || !kwEl.value.trim())) {
+    if (kwEl && (force || !String(kwEl.value || '').trim())) {
         kwEl.value = name;
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+function bindMedicalGlossaryFileInputs() {
     const fileInput = document.getElementById('medicalImageFile');
-    if (fileInput) {
+    if (fileInput && !fileInput.dataset.glossaryBound) {
+        fileInput.dataset.glossaryBound = '1';
         fileInput.addEventListener('change', () => {
-            const file = fileInput.files[0];
+            const file = fileInput.files && fileInput.files[0];
             if (!file) return;
             pendingMedicalImageFile = file;
-            // При новой записи всегда подставляем имя файла; при редактировании — только в пустые поля
+            // Новая запись — всегда подставляем имя файла в название и ключевые слова
             fillMedicalGlossaryFieldsFromFile(file, { force: !editingMedicalImageId });
             const reader = new FileReader();
-            reader.onload = e => {
-                document.getElementById('medicalImagePreviewWrap').innerHTML =
-                    `<img src="${e.target.result}" alt="" style="max-height:120px; border-radius:6px; margin-bottom:0.4rem; display:block;">`;
+            reader.onload = (e) => {
+                const wrap = document.getElementById('medicalImagePreviewWrap');
+                if (wrap) {
+                    wrap.innerHTML =
+                        `<img src="${e.target.result}" alt="" style="max-height:120px; border-radius:6px; margin-bottom:0.4rem; display:block;">`;
+                }
             };
             reader.readAsDataURL(file);
         });
     }
 
     const videoInput = document.getElementById('medicalVideoFile');
-    if (videoInput) {
+    if (videoInput && !videoInput.dataset.glossaryBound) {
+        videoInput.dataset.glossaryBound = '1';
         videoInput.addEventListener('change', () => {
-            const file = videoInput.files[0];
+            const file = videoInput.files && videoInput.files[0];
             if (!file) return;
             pendingMedicalVideoFile = file;
-            // Не перетираем уже подставленное имя с фото — только пустые поля
-            fillMedicalGlossaryFieldsFromFile(file, { force: false });
+            // Если поля пустые (например, сначала видео) — тоже подставляем имя
+            fillMedicalGlossaryFieldsFromFile(file, { force: !editingMedicalImageId && !document.getElementById('medicalImageTitle')?.value?.trim() });
             const wrap = document.getElementById('medicalVideoPreviewWrap');
             if (!wrap) return;
             const url = URL.createObjectURL(file);
@@ -9209,8 +9218,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const addBtn = document.getElementById('addMedicalImageBtn');
-    if (addBtn) addBtn.addEventListener('click', openAddMedicalImageModal);
-});
+    if (addBtn && !addBtn.dataset.glossaryBound) {
+        addBtn.dataset.glossaryBound = '1';
+        addBtn.addEventListener('click', openAddMedicalImageModal);
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindMedicalGlossaryFileInputs);
+} else {
+    bindMedicalGlossaryFileInputs();
+}
 
 window.openAddMedicalImageModal = openAddMedicalImageModal;
 window.openEditMedicalImageModal = openEditMedicalImageModal;

@@ -1336,18 +1336,55 @@ router.post('/create', [
 });
 
 /**
+ * Тарифы для платной регистрации (без авторизации)
+ * GET /api/payments/registration-plans?universityId=1
+ */
+router.get('/registration-plans', async (req, res) => {
+  try {
+    const universityId = parseInt(req.query.universityId, 10);
+    if (!Number.isFinite(universityId) || universityId < 1) {
+      return res.status(400).json({ error: 'Укажите университет' });
+    }
+
+    const university = await University.findOne({
+      where: { id: universityId, isActive: true },
+      attributes: ['id', 'name', 'shortName']
+    });
+    if (!university) {
+      return res.status(400).json({ error: 'Выбранный университет недоступен' });
+    }
+
+    const plans = await getPlansForUniversity(universityId);
+    res.json({
+      programType: 'university',
+      universityId: university.id,
+      university: {
+        id: university.id,
+        name: university.name,
+        shortName: university.shortName
+      },
+      plans: (plans || []).filter((p) => p.isActive !== false)
+    });
+  } catch (error) {
+    console.error('Error fetching registration plans:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+/**
  * Создать платеж для регистрации (без авторизации)
  * POST /api/payments/create-registration
  */
 router.post('/create-registration', [
-  body('amount').isFloat({ min: 0.01 }).withMessage('Сумма должна быть больше 0'),
+  body('amount').optional().isFloat({ min: 0.01 }).withMessage('Сумма должна быть больше 0'),
   body('description').optional().isString(),
   body('promoCode').optional({ checkFalsy: true }).isString().trim().isLength({ min: 3, max: 64 }).withMessage('Некорректный промокод'),
   body('registrationData').isObject().withMessage('Данные регистрации обязательны'),
   body('registrationData.username').trim().isLength({ min: 3, max: 50 }).withMessage('Никнейм должен быть от 3 до 50 символов'),
   body('registrationData.email').isEmail().withMessage('Некорректный email'),
   body('registrationData.password').isLength({ min: 6 }).withMessage('Пароль должен быть минимум 6 символов'),
-  body('registrationData.universityId').isInt({ min: 1 }).withMessage('Выберите университет')
+  body('registrationData.universityId').isInt({ min: 1 }).withMessage('Выберите университет'),
+  body('registrationData.subscription.type').optional().isIn(['1', '3', '12', 1, 3, 12]).withMessage('Выберите тариф')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -1355,7 +1392,7 @@ router.post('/create-registration', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { amount, description, paymentType, registrationData } = req.body;
+    const { description, paymentType, registrationData } = req.body;
 
     const university = await University.findOne({
       where: { id: registrationData.universityId, isActive: true }
@@ -1363,6 +1400,24 @@ router.post('/create-registration', [
     if (!university) {
       return res.status(400).json({ error: 'Выбранный университет недоступен' });
     }
+
+    const subscriptionType = String(registrationData.subscription?.type || req.body.subscriptionType || '1');
+    const months = parseInt(subscriptionType, 10) || 1;
+    if (![1, 3, 12].includes(months)) {
+      return res.status(400).json({ error: 'Некорректный тариф подписки' });
+    }
+
+    let finalAmount;
+    try {
+      finalAmount = await getPlanPrice(university.id, months);
+    } catch (planErr) {
+      return res.status(400).json({ error: planErr.message || 'Тариф недоступен' });
+    }
+    finalAmount = parseFloat(finalAmount);
+    if (!Number.isFinite(finalAmount) || finalAmount < 0.01) {
+      return res.status(400).json({ error: 'Не удалось определить стоимость тарифа' });
+    }
+    const amount = finalAmount;
 
     // Проверка существующих пользователей со схожими никнеймами или почтами (на этапе до создания оплаты)
     const normalizedEmail = registrationData.email.trim();
@@ -1385,7 +1440,6 @@ router.post('/create-registration', [
     }
 
     // Обработка реферального кода (без скидки, только для начисления монет)
-    let finalAmount = parseFloat(amount);
     let referralCode = null;
     let referrerId = null;
     let promoCodeData = null;
@@ -1420,7 +1474,7 @@ router.post('/create-registration', [
     const registrationDataForFields = {
       ...registrationData,
       universityId: university.id,
-      subscription: registrationData.subscription || {},
+      subscription: { type: String(months) },
       referralCode: referralCode,
       referrerId: referrerId,
       promoCode: promoCodeData?.code || null
@@ -1452,11 +1506,11 @@ router.post('/create-registration', [
       merchantCategoryCode: merchantCategoryCode,
       nameEn: nameEn,
       webhookUrl: webhookUrl,
-      description: description || `Регистрация: ${paymentType || 'subscription'}`,
+      description: description || `Регистрация + подписка ${months} мес.`,
       customFields: {
         registrationData: JSON.stringify(registrationDataForFields), // Сохраняем данные регистрации с реферальным кодом
         paymentType: paymentType || 'registration',
-        subscriptionType: registrationData.subscription?.type || '1',
+        subscriptionType: String(months),
         ...(promoCodeData && {
           promoCodeId: promoCodeData.id,
           promoCode: promoCodeData.code,
@@ -1470,7 +1524,7 @@ router.post('/create-registration', [
     const transactionFields = {
       paymentType: paymentType || 'registration',
       registrationData: registrationDataForFields, // Сохраняем данные для создания аккаунта с реферальным кодом
-      subscriptionType: registrationData.subscription?.type || '1',
+      subscriptionType: String(months),
       promoCodeId: promoCodeData?.id || null,
       promoCode: promoCodeData?.code || null,
       promoDiscountPercent: promoCodeData?.discountPercent || 0,

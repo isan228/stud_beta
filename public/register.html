@@ -753,6 +753,17 @@
                 <!-- ── Step 3: consents ── -->
                 <div class="auth-section" id="reg-step-3">
 
+                    <div class="auth-field" id="regPlanField">
+                        <label>Тариф подписки</label>
+                        <p style="margin:0 0 0.65rem;font-size:0.88rem;color:var(--text-secondary);">
+                            Регистрация платная: после оплаты аккаунт создаётся автоматически, и открывается доступ к тестам.
+                        </p>
+                        <div id="regPlans" class="reg-plans" style="display:grid;gap:0.55rem;">
+                            <p style="color:var(--text-muted);font-size:0.9rem;margin:0;">Сначала выберите университет на шаге 1…</p>
+                        </div>
+                        <span class="field-error-msg" id="err-plan"></span>
+                    </div>
+
                     <!-- Optional: promo code -->
                     <button type="button" class="auth-optional-toggle" id="promoToggleBtn">
                         <span id="promoToggleIcon">＋</span> Реферальный код (если есть)
@@ -799,7 +810,7 @@
 
                     <div class="auth-btns">
                         <button type="button" class="auth-btn-back" id="backTo2Btn">← Назад</button>
-                        <button type="submit" class="auth-submit" id="registerSubmitBtn">Зарегистрироваться</button>
+                        <button type="submit" class="auth-submit" id="registerSubmitBtn">Оплатить и зарегистрироваться</button>
                     </div>
 
                     <p class="auth-bottom-link">Уже есть аккаунт? <a href="/login">Войти</a></p>
@@ -815,6 +826,74 @@
 <script>
     let referralCode = null;
     let currentStep = 1;
+    let selectedRegPlan = null; // { months, price, title }
+
+    function formatRegPrice(price, oldPrice) {
+        const p = Math.round(Number(price) || 0);
+        if (oldPrice != null && Number(oldPrice) > p) {
+            return `<span style="text-decoration:line-through;opacity:.65;margin-right:.35rem;">${Math.round(Number(oldPrice))}</span>${p} сом`;
+        }
+        return `${p} сом`;
+    }
+
+    function selectRegPlan(el) {
+        document.querySelectorAll('#regPlans .reg-plan').forEach((c) => c.classList.remove('selected'));
+        el.classList.add('selected');
+        selectedRegPlan = {
+            months: Number(el.dataset.months),
+            price: Number(el.dataset.price),
+            title: el.dataset.title || ''
+        };
+        const err = document.getElementById('err-plan');
+        if (err) { err.textContent = ''; err.classList.remove('visible'); }
+    }
+
+    async function loadRegistrationPlans() {
+        const box = document.getElementById('regPlans');
+        const universityId = parseInt(document.getElementById('regUniversity').value, 10);
+        selectedRegPlan = null;
+        if (!box) return;
+        if (!Number.isFinite(universityId) || universityId < 1) {
+            box.innerHTML = '<p style="color:var(--text-muted);font-size:0.9rem;margin:0;">Сначала выберите университет на шаге 1…</p>';
+            return;
+        }
+        box.innerHTML = '<p style="color:var(--text-muted);font-size:0.9rem;margin:0;">Загрузка тарифов…</p>';
+        try {
+            const res = await fetch(`/api/payments/registration-plans?universityId=${universityId}`);
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Не удалось загрузить тарифы');
+            const plans = Array.isArray(data.plans) ? data.plans : [];
+            if (!plans.length) {
+                box.innerHTML = '<p style="color:var(--danger-color);font-size:0.9rem;margin:0;">Тарифы не настроены. Обратитесь в поддержку.</p>';
+                return;
+            }
+            box.innerHTML = plans.map((p, i) => {
+                const months = Number(p.months);
+                const selected = i === 0 ? ' selected' : '';
+                return `<button type="button" class="reg-plan${selected}" data-months="${months}" data-price="${p.price}" data-title="${(p.title || '').replace(/"/g, '&quot;')}" onclick="selectRegPlan(this)" style="text-align:left;width:100%;padding:0.85rem 1rem;border-radius:12px;border:1.5px solid ${i === 0 ? 'var(--primary-color)' : 'var(--border-light)'};background:var(--card-bg);cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:0.75rem;">
+                    <span style="font-weight:700;color:var(--text-color);">${p.title || (months + ' мес.')}</span>
+                    <span style="font-weight:800;color:var(--primary-color);">${formatRegPrice(p.price, p.oldPrice)}</span>
+                </button>`;
+            }).join('');
+            const first = box.querySelector('.reg-plan');
+            if (first) selectRegPlan(first);
+            box.querySelectorAll('.reg-plan').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    box.querySelectorAll('.reg-plan').forEach((b) => {
+                        b.classList.remove('selected');
+                        b.style.borderColor = 'var(--border-light)';
+                    });
+                    btn.classList.add('selected');
+                    btn.style.borderColor = 'var(--primary-color)';
+                    selectRegPlan(btn);
+                });
+            });
+        } catch (e) {
+            box.innerHTML = `<p style="color:var(--danger-color);font-size:0.9rem;margin:0;">${e.message || 'Ошибка загрузки тарифов'}</p>`;
+        }
+    }
+
+    window.selectRegPlan = selectRegPlan;
 
     /* ──────────────── helpers ──────────────── */
 
@@ -982,10 +1061,17 @@
             document.getElementById('regConfirmPassword').classList.add('input-error');
             ok = false;
         }
-        if (ok) setStep(3);
+        if (ok) {
+            setStep(3);
+            loadRegistrationPlans();
+        }
     });
 
     document.getElementById('backTo2Btn').addEventListener('click', () => setStep(2));
+
+    document.getElementById('regUniversity')?.addEventListener('change', () => {
+        if (currentStep === 3) loadRegistrationPlans();
+    });
 
     /* ──────────────── form submit ──────────────── */
 
@@ -1000,6 +1086,12 @@
             return;
         }
 
+        if (!selectedRegPlan || !selectedRegPlan.months) {
+            showFieldError('err-plan', 'Выберите тариф подписки');
+            if (typeof showNotification === 'function') showNotification('Выберите тариф подписки', 'error');
+            return;
+        }
+
         const username = document.getElementById('regUsername').value.trim();
         const email = document.getElementById('regEmail').value.trim();
         const universityId = document.getElementById('regUniversity').value;
@@ -1007,52 +1099,55 @@
         const confirmPassword = document.getElementById('regConfirmPassword').value;
         const codeFromInput = document.getElementById('regPromoCode').value.trim();
 
+        if (password !== confirmPassword) {
+            if (typeof showNotification === 'function') showNotification('Пароли не совпадают', 'error');
+            return;
+        }
+
         const btn = document.getElementById('registerSubmitBtn');
         btn.disabled = true;
-        btn.innerHTML = '<span class="btn-spinner"></span>Регистрация…';
+        btn.innerHTML = '<span class="btn-spinner"></span>Переход к оплате…';
 
         try {
-            const response = await fetch('/api/auth/register', {
+            const response = await fetch('/api/payments/create-registration', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    username,
-                    email,
-                    password,
-                    confirmPassword,
-                    universityId: parseInt(universityId, 10),
-                    referralCode: referralCode || codeFromInput || undefined,
-                    dataConsent: 'true',
-                    publicOffer: 'true'
+                    description: `Регистрация stud.kg · ${selectedRegPlan.title || (selectedRegPlan.months + ' мес.')}`,
+                    registrationData: {
+                        username,
+                        email,
+                        password,
+                        universityId: parseInt(universityId, 10),
+                        referralCode: referralCode || codeFromInput || undefined,
+                        subscription: { type: String(selectedRegPlan.months) }
+                    }
                 })
             });
-            const data = await response.json();
+            const data = await response.json().catch(() => ({}));
             if (!response.ok) {
-                const msg = data.error || data.errors?.[0]?.msg || 'Ошибка регистрации';
+                const msg = data.error || data.errors?.[0]?.msg || 'Ошибка создания оплаты';
                 if (typeof showNotification === 'function') showNotification(msg, 'error');
                 btn.disabled = false;
-                btn.textContent = 'Зарегистрироваться';
+                btn.textContent = 'Оплатить и зарегистрироваться';
                 return;
             }
 
-            if (data.token) {
-                localStorage.setItem('token', data.token);
-            } else {
-                const loginRes = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ identifier: email, password })
-                });
-                const loginData = await loginRes.json();
-                if (loginRes.ok && loginData.token) localStorage.setItem('token', loginData.token);
+            if (!data.paymentUrl) {
+                if (typeof showNotification === 'function') showNotification('Не получен URL оплаты', 'error');
+                btn.disabled = false;
+                btn.textContent = 'Оплатить и зарегистрироваться';
+                return;
             }
 
-            if (typeof showNotification === 'function') showNotification('Аккаунт создан! Переходим к подпискам…', 'success');
-            setTimeout(() => { window.location.href = '/subscriptions?welcome=1'; }, 600);
+            if (typeof showNotification === 'function') {
+                showNotification('Переходим к оплате… После оплаты аккаунт откроется автоматически.', 'success');
+            }
+            window.location.href = data.paymentUrl;
         } catch {
             if (typeof showNotification === 'function') showNotification('Ошибка соединения с сервером', 'error');
             btn.disabled = false;
-            btn.textContent = 'Зарегистрироваться';
+            btn.textContent = 'Оплатить и зарегистрироваться';
         }
     }, true);
 

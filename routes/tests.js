@@ -187,6 +187,21 @@ async function assertUserCanAccessTest(test, req) {
   return { ok: true };
 }
 
+async function requestHasUniversitySubscription(req) {
+  const token = req.header('Authorization')?.replace('Bearer ', '');
+  if (!token) return false;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findByPk(decoded.userId, {
+      attributes: ['id', 'email', 'username', 'subscriptionEndDate']
+    });
+    if (!user) return false;
+    return !!(await userHasUniversityAccess(user));
+  } catch {
+    return false;
+  }
+}
+
 async function assertPaidAccess(test, req) {
   const token = req.header('Authorization')?.replace('Bearer ', '');
   const programType = test.programType || 'university';
@@ -337,11 +352,15 @@ function buildQuestionFilterPool(questionFilters, state) {
 // Получить последние тесты (для главной страницы)
 router.get('/latest', async (req, res) => {
   try {
-    const isFreeOnly = req.query.free === 'true';
     const programType = resolveProgramType(req);
     const whereClause = { programType };
+    const wantsFree = req.query.free === 'true';
+    const hasPaid = programType === 'university'
+      ? await requestHasUniversitySubscription(req)
+      : false;
 
-    if (isFreeOnly) {
+    // Гости и пользователи без подписки видят только бесплатные university-тесты
+    if (wantsFree || (programType === 'university' && !hasPaid)) {
       whereClause.isFree = true;
     }
 
@@ -376,7 +395,6 @@ router.get('/latest', async (req, res) => {
 router.get('/subjects', async (req, res) => {
   try {
     const programType = resolveProgramType(req);
-    const isFreeOnly = req.query.free === 'true';
     const where = { programType };
     let facultyId = parseInt(req.query.facultyId, 10);
     let course = parseInt(req.query.course, 10);
@@ -405,6 +423,12 @@ router.get('/subjects', async (req, res) => {
       include,
       distinct: true
     });
+
+    const wantsFree = req.query.free === 'true';
+    const hasPaidUni = programType === 'university'
+      ? await requestHasUniversitySubscription(req)
+      : false;
+    const isFreeOnly = wantsFree || (programType === 'university' && !hasPaidUni);
 
     if (isFreeOnly) {
       const freeTestWhere = { isFree: true, programType };
@@ -1615,6 +1639,11 @@ router.get('/subjects/:subjectId/tests', async (req, res) => {
     if (programType === 'university') {
       const universityId = await resolveUserUniversityId(req);
       if (universityId) where.universityId = universityId;
+      const wantsFree = req.query.free === 'true';
+      const hasPaid = await requestHasUniversitySubscription(req);
+      if (wantsFree || !hasPaid) {
+        where.isFree = true;
+      }
     }
 
     let tests = await Test.findAll({

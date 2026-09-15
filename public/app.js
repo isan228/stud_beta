@@ -2139,10 +2139,15 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
         try {
             let url = `${API_URL}/tests/subjects/${subjectId}/tests`;
+            const params = [];
             const tagIds = options.tagIds || selectedUsmleTagIds;
             if (getProgramType() === 'usmle' && tagIds && tagIds.length) {
-                url += `?tagIds=${encodeURIComponent(tagIds.join(','))}`;
+                params.push(`tagIds=${encodeURIComponent(tagIds.join(','))}`);
             }
+            if (getProgramType() !== 'usmle' && !hasActiveSubscription()) {
+                params.push('free=true');
+            }
+            if (params.length) url += `?${params.join('&')}`;
             const response = await fetch(url, {
                 headers: currentToken ? { 'Authorization': `Bearer ${currentToken}` } : {}
             });
@@ -5517,12 +5522,12 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             } else {
                 textEl.textContent = currentUser
                     ? 'Оформите или продлите подписку во вкладке «Подписки», чтобы открыть платные тесты.'
-                    : 'Зарегистрируйтесь бесплатно, затем оформите подписку для доступа ко всем тестам.';
+                    : 'Без регистрации доступны только бесплатные тесты. Регистрация платная: после оплаты аккаунт создаётся автоматически.';
             }
         }
         if (primaryBtn) {
             primaryBtn.href = currentUser ? subscriptionsUrl(program) : '/register';
-            primaryBtn.textContent = currentUser ? 'К подпискам' : 'Зарегистрироваться';
+            primaryBtn.textContent = currentUser ? 'К подпискам' : 'Регистрация и оплата';
         }
         if (secondaryBtn) {
             if (currentUser) {
