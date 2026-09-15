@@ -355,6 +355,11 @@
                     <button type="button" class="btn btn-secondary btn-sm usmle-qb-back" id="usmleQbBack" onclick="selectHubFilter('myworld')">← My World</button>
                     <h2 id="usmleQbTitle">My World</h2>
                     <p class="usmle-qb-sub" id="usmleSubLabel">You are currently on subscription <strong>USMLE</strong>.</p>
+                    <p class="usmle-qb-sub" id="usmleRegHint" style="display:none;margin-top:0.35rem;">
+                        Сейчас доступны только бесплатные банки.
+                        <a href="/register" id="usmleRegHintLink" style="font-weight:700;color:var(--hub-blue);">Зарегистрируйтесь</a>
+                        — откроется полный доступ ко всем материалам USMLE.
+                    </p>
                 </div>
                 <div class="usmle-tg-actions">
                     <a class="usmle-tg-btn" href="https://t.me/stud_kg" target="_blank" rel="noopener noreferrer">
@@ -594,9 +599,15 @@
 
         const list = hubFilter === 'nbme' ? nbmeBanks : myWorldBanks;
         if (!list.length) {
+            const noSub = window.UsmleApp && !window.UsmleApp.hasActiveUsmleSubscription();
+            const freeHint = noSub
+                ? (window.currentUser
+                    ? ' Сейчас видны только бесплатные. <a href="/subscriptions?program=usmle" style="font-weight:700;color:var(--hub-blue);">Оформите подписку</a> — будет полный доступ.'
+                    : ' Сейчас видны только бесплатные. <a href="/register" style="font-weight:700;color:var(--hub-blue);">Зарегистрируйтесь</a> — будет полный доступ.')
+                : '';
             grid.innerHTML = hubFilter === 'nbme'
-                ? `<div class="usmle-empty"><p>Для ${STEP_LABELS[activeStep]} пока нет NBME форм${(window.UsmleApp && !window.UsmleApp.hasActiveUsmleSubscription()) ? ' (доступны только бесплатные)' : ''}.</p></div>`
-                : `<div class="usmle-empty"><p>Для ${STEP_LABELS[activeStep]} пока нет банков My World${(window.UsmleApp && !window.UsmleApp.hasActiveUsmleSubscription()) ? ' (доступны только бесплатные)' : ''}.</p></div>`;
+                ? `<div class="usmle-empty"><p>Для ${STEP_LABELS[activeStep]} пока нет NBME форм.${freeHint}</p></div>`
+                : `<div class="usmle-empty"><p>Для ${STEP_LABELS[activeStep]} пока нет банков My World.${freeHint}</p></div>`;
             return;
         }
         grid.innerHTML = list.map(qbCardHtml).join('');
@@ -615,6 +626,8 @@
 
     function updateSubLabel() {
         const el = document.getElementById('usmleSubLabel');
+        const hint = document.getElementById('usmleRegHint');
+        const hintLink = document.getElementById('usmleRegHintLink');
         if (!el) return;
         const u = window.currentUser;
         const active = window.UsmleApp && window.UsmleApp.hasActiveUsmleSubscription
@@ -624,6 +637,23 @@
             ? 'Admin'
             : (active ? 'Unlimited' : 'Free banks');
         el.innerHTML = `You are currently on subscription <strong>[${escHtml(label)}]</strong>.`;
+        if (hint) {
+            const showHint = !u?.isAdminAccount && !active;
+            hint.style.display = showHint ? '' : 'none';
+            if (hintLink) {
+                if (u && !active) {
+                    hintLink.href = '/subscriptions?program=usmle';
+                    hintLink.textContent = 'Оформите подписку';
+                    hint.innerHTML = `Сейчас доступны только бесплатные банки.
+                        <a href="/subscriptions?program=usmle" id="usmleRegHintLink" style="font-weight:700;color:var(--hub-blue);">Оформите подписку</a>
+                        — откроется полный доступ ко всем материалам USMLE.`;
+                } else if (!u) {
+                    hint.innerHTML = `Сейчас доступны только бесплатные банки.
+                        <a href="/register" id="usmleRegHintLink" style="font-weight:700;color:var(--hub-blue);">Зарегистрируйтесь</a>
+                        — откроется полный доступ ко всем материалам USMLE.`;
+                }
+            }
+        }
     }
 
     async function loadDashboard() {

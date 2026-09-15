@@ -202,7 +202,9 @@
         const userName = user?.username || user?.name || 'Гость';
         const subLabel = (user && (user.isAdminAccount || hasActiveUsmleSubscription()))
             ? (user.isAdminAccount ? 'Админ · полный доступ' : 'Подписка USMLE активна')
-            : (user ? 'Бесплатные банки USMLE' : 'Гость · бесплатные банки');
+            : (user
+                ? 'Бесплатные банки · оформите подписку для полного доступа'
+                : 'Гость · зарегистрируйтесь для полного доступа');
 
         const bankLabel = bank?.name
             ? `${STEP_LABELS[step] || step} · ${bank.name}`
