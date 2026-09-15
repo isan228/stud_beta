@@ -68,19 +68,45 @@
             .sa-blocks-table thead { display: none; }
             .sa-blocks-table tr {
                 border-bottom: 1px solid var(--border-light);
-                padding: 0.75rem 0;
+                padding: 0.85rem 0;
             }
             .sa-blocks-table td {
                 border: none;
-                padding: 0.35rem 1rem;
+                padding: 0.4rem 0.85rem;
                 display: flex;
                 justify-content: space-between;
-                gap: 1rem;
+                align-items: center;
+                gap: 0.75rem;
+                font-size: 0.9rem;
             }
             .sa-blocks-table td::before {
                 content: attr(data-label);
                 color: var(--text-muted);
                 font-weight: 600;
+                flex-shrink: 0;
+            }
+            .sa-actions {
+                width: 100%;
+                justify-content: flex-end;
+                gap: 0.5rem;
+                padding-top: 0.35rem;
+            }
+            .sa-action-btn {
+                width: 44px;
+                height: 44px;
+                min-width: 44px;
+                min-height: 44px;
+            }
+            .sa-hint { font-size: 0.88rem; }
+        }
+        @media (max-width: 420px) {
+            .sa-blocks-table td {
+                flex-wrap: wrap;
+                padding: 0.35rem 0.7rem;
+            }
+            .sa-blocks-table td::before {
+                width: 100%;
+                margin-bottom: 0.1rem;
             }
         }
     </style>

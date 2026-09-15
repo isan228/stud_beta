@@ -262,13 +262,46 @@
             .usmle-featured-grid, .usmle-qb-grid { grid-template-columns: repeat(2, 1fr); }
         }
         @media (max-width: 640px) {
-            .usmle-hub { padding: 0.85rem 0.85rem 2.5rem; }
+            .usmle-hub { padding: 0.7rem 0.75rem calc(2.5rem + var(--fab-clearance, 72px)); }
             .step-switcher { width: 100%; max-width: 420px; }
-            .step-btn { flex: 1; padding: 0.5rem 0.75rem; font-size: 0.85rem; }
-            .usmle-featured-grid, .usmle-qb-grid { grid-template-columns: 1fr; }
-            .usmle-qb-head { align-items: stretch; }
+            .step-btn {
+                flex: 1;
+                padding: 0.55rem 0.65rem;
+                font-size: 0.85rem;
+                min-height: 44px;
+            }
+            .usmle-featured-grid, .usmle-qb-grid { grid-template-columns: 1fr; gap: 0.75rem; }
+            .usmle-feat-card {
+                min-height: 148px;
+                padding: 1rem 1rem 1.1rem;
+            }
+            .usmle-feat-title { font-size: 1.08rem; padding-right: 3rem; }
+            .usmle-feat-arc { width: 50px; height: 50px; top: 0.75rem; right: 0.75rem; }
+            .usmle-feat-arc svg { width: 50px; height: 50px; }
+            .usmle-qb-head { align-items: stretch; gap: 0.65rem; }
+            .usmle-qb-head h2 { font-size: 1.15rem; }
+            .usmle-qb-sub { font-size: 0.84rem; }
             .usmle-tg-actions { width: 100%; }
-            .usmle-tg-btn { flex: 1; justify-content: center; }
+            .usmle-tg-btn {
+                flex: 1;
+                justify-content: center;
+                min-height: 44px;
+                padding: 0.6rem 0.85rem;
+            }
+            .usmle-qb-card {
+                min-height: 0;
+                padding: 1rem;
+                gap: 0.55rem;
+            }
+            .usmle-qb-name { font-size: 0.95rem; margin-bottom: 0.55rem; }
+            .usmle-ring { width: 72px; height: 72px; }
+            .usmle-ring svg { width: 72px; height: 72px; }
+        }
+        @media (max-width: 390px) {
+            .usmle-hub { padding: 0.55rem 0.55rem 2rem; }
+            .usmle-feat-stats, .usmle-qb-stats { font-size: 0.8rem; }
+            .usmle-ring { width: 64px; height: 64px; }
+            .usmle-ring svg { width: 64px; height: 64px; }
         }
     </style>
 </head>

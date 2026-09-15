@@ -603,20 +603,41 @@
 
     .usmle-topbar {
         gap: 0.5rem;
-        padding: 0.65rem 0.75rem;
+        padding: 0.55rem max(0.65rem, env(safe-area-inset-right, 0px)) 0.55rem max(0.65rem, env(safe-area-inset-left, 0px));
+    }
+
+    .usmle-topbar h1 {
+        font-size: 0.92rem;
+    }
+
+    .usmle-topbar-toggle {
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+        min-height: 44px;
     }
 
     .usmle-content {
-        padding: 0.75rem;
+        padding: 0.65rem;
     }
 
     .usmle-stat-card {
-        padding: 1rem;
+        padding: 0.85rem;
     }
 
     .usmle-donut {
-        width: 72px;
-        height: 72px;
+        width: 68px;
+        height: 68px;
+    }
+
+    .usmle-sidebar {
+        width: min(270px, 92vw);
+    }
+
+    .usmle-nav a {
+        min-height: 44px;
+        padding: 0.65rem 0.85rem;
+        font-size: 0.9rem;
     }
 
     .usmle-sidebar-step {
@@ -627,6 +648,10 @@
 
     .usmle-app {
         min-height: 100dvh;
+    }
+
+    .usmle-banks-grid {
+        gap: 0.65rem;
     }
 }
 
