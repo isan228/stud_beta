@@ -4518,7 +4518,9 @@ async function loadUsmlePlansAdmin() {
         if (card) card.style.display = '';
         (data.plans || []).forEach((p) => {
             const el = document.getElementById(`usmlePrice${p.months}`);
-            if (el) el.value = p.price;
+            const oldEl = document.getElementById(`usmleOldPrice${p.months}`);
+            if (el) el.value = p.price != null ? p.price : '';
+            if (oldEl) oldEl.value = p.oldPrice != null ? p.oldPrice : '';
         });
     } catch (e) {
         showNotification('Не удалось загрузить тарифы USMLE', 'error');
@@ -5326,14 +5328,19 @@ async function loadUsmleAdminPanel(section) {
 }
 
 async function saveUsmlePlansAdmin() {
-    const plans = [1, 3, 12].map((months) => ({
-        months,
-        price: parseFloat(document.getElementById(`usmlePrice${months}`)?.value),
-        isActive: true
-    }));
+    const plans = [1, 3, 12].map((months) => {
+        const price = parseFloat(document.getElementById(`usmlePrice${months}`)?.value);
+        const oldRaw = document.getElementById(`usmleOldPrice${months}`)?.value;
+        const oldPrice = oldRaw === '' || oldRaw == null ? null : parseFloat(oldRaw);
+        return { months, price, oldPrice, isActive: true };
+    });
     for (const p of plans) {
         if (!Number.isFinite(p.price) || p.price < 0.01) {
             showNotification(`Укажите цену USMLE для ${p.months} мес.`, 'error');
+            return;
+        }
+        if (p.oldPrice != null && (!Number.isFinite(p.oldPrice) || p.oldPrice < 0)) {
+            showNotification(`Некорректная старая цена USMLE для ${p.months} мес.`, 'error');
             return;
         }
     }
@@ -5352,6 +5359,7 @@ async function saveUsmlePlansAdmin() {
             return;
         }
         showNotification('Тарифы USMLE сохранены', 'success');
+        await loadUsmlePlansAdmin();
     } catch (e) {
         showNotification('Ошибка сохранения USMLE', 'error');
     }

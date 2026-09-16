@@ -898,12 +898,63 @@
                             <div style="min-width:0;">
                                 <div class="admin-subs-uni-card" id="usmleAdminPlansCard">
                                     <div class="admin-subs-uni-label">Тарифы подписки USMLE</div>
-                                    <p class="admin-subs-hint" style="margin-top:0;">Цены общие для всей программы, не привязаны к университету.</p>
+                                    <p class="admin-subs-hint" style="margin-top:0;">Цены общие для всей программы. Старая цена показывается студентам зачёркнутой.</p>
                                     <div id="usmleAdminPlansBox" style="margin-top:0.75rem;">
-                                        <div class="admin-subs-fields">
-                                            <div class="admin-subs-field"><label for="usmlePrice1">1 мес.</label><input type="number" id="usmlePrice1" min="0.01" step="0.01"></div>
-                                            <div class="admin-subs-field"><label for="usmlePrice3">3 мес.</label><input type="number" id="usmlePrice3" min="0.01" step="0.01"></div>
-                                            <div class="admin-subs-field"><label for="usmlePrice12">1 год</label><input type="number" id="usmlePrice12" min="0.01" step="0.01"></div>
+                                        <div class="admin-subs-plans-grid">
+                                            <article class="admin-subs-plan-card" data-months="1">
+                                                <header class="admin-subs-plan-head">
+                                                    <div>
+                                                        <div class="admin-subs-plan-duration">1 месяц</div>
+                                                        <div class="admin-subs-plan-tag">Базовый</div>
+                                                    </div>
+                                                </header>
+                                                <div class="admin-subs-fields">
+                                                    <div class="admin-subs-field">
+                                                        <label for="usmlePrice1">Цена, сом</label>
+                                                        <input type="number" id="usmlePrice1" min="0.01" step="0.01">
+                                                    </div>
+                                                    <div class="admin-subs-field">
+                                                        <label for="usmleOldPrice1">Старая цена</label>
+                                                        <input type="number" id="usmleOldPrice1" min="0" step="0.01" placeholder="необяз.">
+                                                    </div>
+                                                </div>
+                                            </article>
+                                            <article class="admin-subs-plan-card popular" data-months="3">
+                                                <header class="admin-subs-plan-head">
+                                                    <div>
+                                                        <div class="admin-subs-plan-duration">3 месяца</div>
+                                                        <div class="admin-subs-plan-tag popular">Популярный</div>
+                                                    </div>
+                                                </header>
+                                                <div class="admin-subs-fields">
+                                                    <div class="admin-subs-field">
+                                                        <label for="usmlePrice3">Цена, сом</label>
+                                                        <input type="number" id="usmlePrice3" min="0.01" step="0.01">
+                                                    </div>
+                                                    <div class="admin-subs-field">
+                                                        <label for="usmleOldPrice3">Старая цена</label>
+                                                        <input type="number" id="usmleOldPrice3" min="0" step="0.01" placeholder="необяз.">
+                                                    </div>
+                                                </div>
+                                            </article>
+                                            <article class="admin-subs-plan-card best" data-months="12">
+                                                <header class="admin-subs-plan-head">
+                                                    <div>
+                                                        <div class="admin-subs-plan-duration">1 год</div>
+                                                        <div class="admin-subs-plan-tag best">Выгодно</div>
+                                                    </div>
+                                                </header>
+                                                <div class="admin-subs-fields">
+                                                    <div class="admin-subs-field">
+                                                        <label for="usmlePrice12">Цена, сом</label>
+                                                        <input type="number" id="usmlePrice12" min="0.01" step="0.01">
+                                                    </div>
+                                                    <div class="admin-subs-field">
+                                                        <label for="usmleOldPrice12">Старая цена</label>
+                                                        <input type="number" id="usmleOldPrice12" min="0" step="0.01" placeholder="необяз.">
+                                                    </div>
+                                                </div>
+                                            </article>
                                         </div>
                                         <button type="button" class="btn btn-primary" id="saveUsmlePlansBtn" style="margin-top:0.75rem;">Сохранить тарифы</button>
                                     </div>
