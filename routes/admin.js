@@ -2207,12 +2207,30 @@ router.post('/flashcard-topics', adminAuth, [
 });
 
 router.put('/flashcard-topics/:id', adminAuth, [
-  body('name').optional().trim().notEmpty()
+  body('name').optional().trim().notEmpty().withMessage('Укажите название раздела')
 ], async (req, res) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
     const topic = await FlashcardTopic.findByPk(req.params.id);
     if (!topic) return res.status(404).json({ error: 'Раздел не найден' });
-    if (req.body.name != null) topic.name = String(req.body.name).trim();
+
+    if (req.body.name != null) {
+      const name = String(req.body.name).trim();
+      const clash = await FlashcardTopic.findOne({
+        where: {
+          universityId: topic.universityId,
+          id: { [Op.ne]: topic.id },
+          name: { [Op.iLike]: name },
+          isActive: true
+        }
+      });
+      if (clash) {
+        return res.status(400).json({ error: 'Такой раздел уже есть' });
+      }
+      topic.name = name;
+    }
     if (req.body.sortOrder != null) topic.sortOrder = parseInt(req.body.sortOrder, 10) || 0;
     if (req.body.isActive != null) topic.isActive = !!req.body.isActive;
     await topic.save();

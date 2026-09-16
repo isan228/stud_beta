@@ -5499,7 +5499,8 @@ async function loadUniFcTopicsAdmin() {
         }
         box.innerHTML = list.map((t) => `
             <span class="admin-tag-chip" style="display:inline-flex; align-items:center; gap:0.35rem; padding:0.35rem 0.55rem; border:1px solid var(--border-light); border-radius:999px; font-size:0.88rem;">
-                ${escapeAdminHtml(t.name)}
+                <span>${escapeAdminHtml(t.name)}</span>
+                <button type="button" class="btn-link" style="border:none; background:transparent; cursor:pointer; color:var(--primary-color); padding:0; line-height:1; font-size:0.95rem;" onclick="renameUniFcTopicAdmin(${t.id}, this)" data-name="${escapeAdminHtml(t.name)}" title="Переименовать">✎</button>
                 <button type="button" class="btn-link" style="border:none; background:transparent; cursor:pointer; color:var(--danger-color); padding:0; line-height:1;" onclick="deleteUniFcTopicAdmin(${t.id})" title="Удалить">×</button>
             </span>
         `).join('');
@@ -5548,6 +5549,52 @@ async function addUniFcTopicAdmin() {
     }
 }
 
+async function renameUniFcTopicAdmin(id, btnEl) {
+    const currentName = String(btnEl?.getAttribute('data-name') || '').trim();
+    const next = window.prompt('Новое название предмета:', currentName);
+    if (next == null) return;
+    const name = String(next).trim();
+    if (!name) {
+        showNotification('Название не может быть пустым', 'error');
+        return;
+    }
+    if (name === currentName) return;
+
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/flashcard-topics/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${currentAdminToken}`
+            },
+            body: JSON.stringify({ name })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || result.errors?.[0]?.msg || 'Ошибка');
+
+        showNotification('Предмет переименован', 'success');
+        const universityId = document.getElementById('uniFcUniversityFilter')?.value;
+        const filterSel = document.getElementById('uniFcTopicFilter');
+        const selectedFilter = filterSel?.value || '';
+        await loadUniFcTopicsAdmin();
+        await fillUniFcTopics(universityId, selectedFilter, 'uniFcTopicFilter');
+
+        const modalTopic = document.getElementById('uniFcTopicId')?.value;
+        const modalUni = document.getElementById('uniFcUniversityId')?.value;
+        if (modalUni && String(modalUni) === String(universityId)) {
+            await fillUniFcTopics(universityId, modalTopic || '', 'uniFcTopicId');
+        }
+        const imgTopic = document.getElementById('fcImgTopicId')?.value;
+        const imgUni = document.getElementById('fcImgUniversityId')?.value;
+        if (imgUni && String(imgUni) === String(universityId)) {
+            await fillUniFcTopics(universityId, imgTopic || '', 'fcImgTopicId');
+        }
+        await loadUniFlashcardsAdmin();
+    } catch (e) {
+        showNotification(e.message || 'Ошибка переименования', 'error');
+    }
+}
+
 async function deleteUniFcTopicAdmin(id) {
     if (!confirm('Удалить предмет? Карточки останутся без предмета.')) return;
     try {
@@ -5566,6 +5613,7 @@ async function deleteUniFcTopicAdmin(id) {
     }
 }
 
+window.renameUniFcTopicAdmin = renameUniFcTopicAdmin;
 window.deleteUniFcTopicAdmin = deleteUniFcTopicAdmin;
 
 async function initUniFlashcardsAdmin() {
