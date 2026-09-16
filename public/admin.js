@@ -1612,15 +1612,17 @@ async function loadQuestions() {
                 return `
                     <div class="admin-list-item">
                         <div style="flex: 1;">
-                            <h4>${escapeAdminHtml(question.text)}</h4>
+                            <h4>${escapeAdminHtml(question.text)}${question.isFree ? ' <span style="background:#10b981;color:#fff;padding:0.15rem 0.45rem;border-radius:4px;font-size:0.72rem;font-weight:700;margin-left:0.35rem;">FREE</span>' : ''}</h4>
                             <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
                                 Тест: ${escapeAdminHtml(question.Test?.name || 'Неизвестно')} | Ответов: ${question.Answers?.length || 0}
                                 ${correctAnswer ? ` | Правильный: ${escapeAdminHtml(correctAnswer.text)}` : ''}
                                 ${hasExplanation ? ' | <span style="color: var(--primary-color); font-weight: 600;">Есть объяснение</span>' : ''}
                                 ${hasImage ? ' | <span style="color: var(--primary-color); font-weight: 600;">Есть картинка</span>' : ''}
+                                ${question.isFree ? ' | <span style="color:#059669;font-weight:600;">бесплатный для гостей</span>' : ''}
                             </p>
                         </div>
-                        <div style="display: flex; gap: 0.5rem;">
+                        <div style="display: flex; gap: 0.5rem; flex-wrap:wrap;">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="toggleQuestionFreeAdmin(${question.id}, ${question.isFree ? 'false' : 'true'})" title="${question.isFree ? 'Убрать бесплатный доступ' : 'Сделать бесплатным для гостей'}">${question.isFree ? '★ Free' : '☆ Free'}</button>
                             <button class="btn btn-primary btn-sm" onclick="editQuestion(${question.id})">Редактировать</button>
                             <button class="btn btn-danger btn-sm" onclick="deleteQuestion(${question.id})">Удалить</button>
                         </div>
@@ -2995,6 +2997,8 @@ async function editQuestion(questionId) {
             if (typeof syncQuestionSaBlockField === 'function') syncQuestionSaBlockField();
             const saBlock = document.getElementById('questionSaBlockIndex');
             if (saBlock) saBlock.value = question.saBlockIndex ? String(question.saBlockIndex) : '';
+            const freeCb = document.getElementById('questionIsFree');
+            if (freeCb) freeCb.checked = !!question.isFree;
             
             // Заполняем ответы
             const answersList = document.getElementById('answersList');
@@ -3239,7 +3243,8 @@ async function saveQuestion(e) {
                 explanation: withExplanations && explanation ? explanation : null,
                 setTestWithExplanations: withExplanations,
                 tagIds,
-                saBlockIndex: document.getElementById('questionSaBlockIndex')?.value || null
+                saBlockIndex: document.getElementById('questionSaBlockIndex')?.value || null,
+                isFree: !!document.getElementById('questionIsFree')?.checked
             })
         });
 
@@ -3791,6 +3796,8 @@ function setupAdminEventListeners() {
 
             document.getElementById('questionId').value = '';
             document.getElementById('questionText').value = '';
+            const freeCb = document.getElementById('questionIsFree');
+            if (freeCb) freeCb.checked = false;
             if (typeof resetQuestionExplanationForm === 'function') resetQuestionExplanationForm();
             if (typeof resetQuestionImageUI === 'function') resetQuestionImageUI();
             if (presetTestId) await applyQuestionExplanationForTestId(presetTestId);
@@ -5061,6 +5068,8 @@ async function openAddUsmleQuestionModal(opts = {}) {
 
     document.getElementById('questionId').value = '';
     document.getElementById('questionText').value = '';
+    const freeCb = document.getElementById('questionIsFree');
+    if (freeCb) freeCb.checked = false;
     if (typeof resetQuestionExplanationForm === 'function') resetQuestionExplanationForm();
     if (typeof resetQuestionImageUI === 'function') resetQuestionImageUI();
     document.getElementById('answersList').innerHTML = '';
@@ -5688,15 +5697,19 @@ async function loadUniFlashcardsAdmin() {
         list.innerHTML = cards.map((c) => `
             <div class="admin-list-item" style="align-items:flex-start;">
                 <div style="flex:1; min-width:0;">
-                    <div style="font-weight:700; margin-bottom:0.35rem;">${escapeAdminHtml(c.frontText)}</div>
+                    <div style="font-weight:700; margin-bottom:0.35rem;">
+                        ${escapeAdminHtml(c.frontText)}
+                        ${c.isFree ? ' <span style="background:#10b981;color:#fff;padding:0.15rem 0.45rem;border-radius:4px;font-size:0.72rem;font-weight:700;margin-left:0.35rem;">FREE</span>' : ''}
+                    </div>
                     <div style="color:var(--text-secondary); font-size:0.88rem; margin-bottom:0.35rem;">${escapeAdminHtml(c.backText)}</div>
                     <div style="font-size:0.8rem; color:var(--text-muted);">
                         ${escapeAdminHtml(c.Topic?.name || 'без предмета')}
-                        ${c.isFree ? ' · бесплатная' : ' · по подписке'}
+                        ${c.isFree ? ' · <span style="color:#059669;font-weight:600;">бесплатная карточка</span>' : ' · по подписке'}
                         ${(c.frontImageUrl || c.backImageUrl) ? ' · с изображениями' : ''}
                     </div>
                 </div>
-                <div style="display:flex; gap:0.35rem; flex-shrink:0;">
+                <div style="display:flex; gap:0.35rem; flex-shrink:0; flex-wrap:wrap;">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="toggleFlashcardFreeAdmin(${c.id}, ${c.isFree ? 'false' : 'true'})" title="${c.isFree ? 'Убрать бесплатный доступ' : 'Сделать бесплатной карточкой'}">${c.isFree ? '★ Free' : '☆ Free'}</button>
                     <button type="button" class="btn btn-secondary btn-sm" onclick="editUniFlashcardAdmin(${c.id})">Изменить</button>
                     <button type="button" class="btn btn-danger btn-sm" onclick="deleteUniFlashcardAdmin(${c.id})">Удалить</button>
                 </div>
@@ -5729,6 +5742,8 @@ async function openAddUniFlashcardModal() {
     document.getElementById('uniFlashcardModalTitle').textContent = 'Добавить карточку';
     await fillSelectFromUniversities('uniFcUniversityId', sel.universityId);
     await fillUniFcTopics(sel.universityId, sel.topicId || '', 'uniFcTopicId');
+    const freeCb = document.getElementById('uniFcIsFree');
+    if (freeCb) freeCb.checked = false;
     document.getElementById('uniFlashcardModal').style.display = 'block';
 }
 
@@ -5927,6 +5942,30 @@ async function deleteUniFlashcardAdmin(id) {
 
 window.editUniFlashcardAdmin = editUniFlashcardAdmin;
 window.deleteUniFlashcardAdmin = deleteUniFlashcardAdmin;
+
+async function toggleFlashcardFreeAdmin(id, makeFree) {
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/flashcards/${id}/free`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${currentAdminToken}`
+            },
+            body: JSON.stringify({ isFree: !!makeFree })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Ошибка');
+        showNotification(
+            makeFree ? 'Карточка отмечена как бесплатная' : 'Карточка снова только по подписке',
+            'success'
+        );
+        if (typeof loadUniFlashcardsAdmin === 'function') await loadUniFlashcardsAdmin();
+        if (typeof loadUsmleFlashcardsAdmin === 'function') await loadUsmleFlashcardsAdmin();
+    } catch (e) {
+        showNotification(e.message || 'Ошибка', 'error');
+    }
+}
+window.toggleFlashcardFreeAdmin = toggleFlashcardFreeAdmin;
 
 /** Сторона для Ctrl+V скриншота в модалке картинок */
 let fcImgPasteSide = 'front';
@@ -6354,15 +6393,19 @@ async function loadUsmleFlashcardsAdmin() {
             return `
                 <div class="admin-list-item" style="align-items:flex-start;">
                     <div style="flex:1; min-width:0;">
-                        <div style="font-weight:700; margin-bottom:0.35rem;">${escapeAdminHtml(c.frontText)}</div>
+                        <div style="font-weight:700; margin-bottom:0.35rem;">
+                            ${escapeAdminHtml(c.frontText)}
+                            ${c.isFree ? ' <span style="background:#10b981;color:#fff;padding:0.15rem 0.45rem;border-radius:4px;font-size:0.72rem;font-weight:700;margin-left:0.35rem;">FREE</span>' : ''}
+                        </div>
                         <div style="color:var(--text-secondary); font-size:0.88rem; margin-bottom:0.35rem;">${escapeAdminHtml(c.backText)}</div>
                         <div style="font-size:0.8rem; color:var(--text-muted);">
                             ${escapeAdminHtml(c.stepGroup || '')} · ${escapeAdminHtml(c.Test?.name || 'без теста')} · ${escapeAdminHtml(tags)}
-                            ${c.isFree ? ' · <span style="color:#059669;font-weight:700;">бесплатная</span>' : ''}
+                            ${c.isFree ? ' · <span style="color:#059669;font-weight:700;">бесплатная карточка</span>' : ''}
                             ${(c.frontImageUrl || c.backImageUrl) ? ' · 🖼' : ''}
                         </div>
                     </div>
-                    <div style="display:flex; gap:0.35rem; flex-shrink:0;">
+                    <div style="display:flex; gap:0.35rem; flex-shrink:0; flex-wrap:wrap;">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="toggleFlashcardFreeAdmin(${c.id}, ${c.isFree ? 'false' : 'true'})" title="${c.isFree ? 'Убрать бесплатный доступ' : 'Сделать бесплатной карточкой'}">${c.isFree ? '★ Free' : '☆ Free'}</button>
                         <button type="button" class="btn btn-secondary btn-sm" onclick="editUsmleFlashcardAdmin(${c.id})">✏️</button>
                         <button type="button" class="btn btn-danger btn-sm" onclick="deleteUsmleFlashcardAdmin(${c.id})">🗑</button>
                     </div>
@@ -9042,6 +9085,29 @@ window.openResetPasswordModal = openResetPasswordModal;
 window.openUpdateCoinsModal = openUpdateCoinsModal;
 window.deleteSubject = deleteSubject;
 window.deleteTest = deleteTest;
+async function toggleQuestionFreeAdmin(id, makeFree) {
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/questions/${id}/free`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${currentAdminToken}`
+            },
+            body: JSON.stringify({ isFree: !!makeFree })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Ошибка');
+        showNotification(
+            makeFree ? 'Вопрос открыт для незарегистрированных' : 'Вопрос снова только по подписке',
+            'success'
+        );
+        await loadQuestions();
+    } catch (e) {
+        showNotification(e.message || 'Ошибка', 'error');
+    }
+}
+
+window.toggleQuestionFreeAdmin = toggleQuestionFreeAdmin;
 window.deleteQuestion = deleteQuestion;
 window.editSubject = editSubject;
 window.editTest = editTest;

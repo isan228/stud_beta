@@ -1831,9 +1831,14 @@
                         </select>
                     </div>
                 </div>
-                <div class="form-group" style="display:flex; align-items:center; gap:0.5rem;">
-                    <input type="checkbox" id="fcImgIsFree">
-                    <label for="fcImgIsFree" style="margin:0;">Бесплатная для незарегистрированных / без подписки</label>
+                <div class="form-group checkbox-group" style="padding:0.75rem 0.9rem; border:1px solid rgba(16,185,129,0.35); border-radius:0.5rem; background:rgba(16,185,129,0.08);">
+                    <label style="display:flex; align-items:flex-start; gap:0.55rem; margin:0; cursor:pointer;">
+                        <input type="checkbox" id="fcImgIsFree" style="margin-top:0.2rem;">
+                        <span>
+                            <strong>Это бесплатная карточка</strong>
+                            <span style="display:block; font-size:0.82rem; color:var(--text-muted); margin-top:0.2rem;">Доступна незарегистрированным и без подписки</span>
+                        </span>
+                    </label>
                 </div>
                 <button type="submit" class="btn btn-primary">Сохранить</button>
                 <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
@@ -1856,9 +1861,14 @@
                         <option value="">Из заголовков TXT</option>
                     </select>
                 </div>
-                <div class="form-group" style="display:flex; align-items:center; gap:0.5rem;">
-                    <input type="checkbox" id="uniTxtFcIsFree">
-                    <label for="uniTxtFcIsFree" style="margin:0;">Все карточки из файла — бесплатные для гостей / без подписки</label>
+                <div class="form-group checkbox-group" style="padding:0.75rem 0.9rem; border:1px solid rgba(16,185,129,0.35); border-radius:0.5rem; background:rgba(16,185,129,0.08);">
+                    <label style="display:flex; align-items:flex-start; gap:0.55rem; margin:0; cursor:pointer;">
+                        <input type="checkbox" id="uniTxtFcIsFree" style="margin-top:0.2rem;">
+                        <span>
+                            <strong>Все карточки из файла — бесплатные</strong>
+                            <span style="display:block; font-size:0.82rem; color:var(--text-muted); margin-top:0.2rem;">Для незарегистрированных и без подписки</span>
+                        </span>
+                    </label>
                 </div>
                 <div class="form-group">
                     <label for="uniTxtFlashcardsFile">TXT файл</label>
@@ -1916,6 +1926,12 @@
                 <div class="form-group">
                     <label for="questionText">Текст вопроса</label>
                     <textarea id="questionText" rows="3" required></textarea>
+                </div>
+                <div class="form-group checkbox-group">
+                    <label>
+                        <input type="checkbox" id="questionIsFree">
+                        <span>Бесплатный вопрос (доступен незарегистрированным / без подписки)</span>
+                    </label>
                 </div>
                 <div class="form-group checkbox-group">
                     <label>
@@ -2019,9 +2035,14 @@
                     <label for="uniFcBackText">Ответ (Back)</label>
                     <textarea id="uniFcBackText" rows="4" required placeholder="Полный ответ"></textarea>
                 </div>
-                <div class="form-group" style="display:flex; align-items:center; gap:0.5rem;">
-                    <input type="checkbox" id="uniFcIsFree">
-                    <label for="uniFcIsFree" style="margin:0;">Бесплатная для незарегистрированных / без подписки</label>
+                <div class="form-group checkbox-group" style="padding:0.75rem 0.9rem; border:1px solid rgba(16,185,129,0.35); border-radius:0.5rem; background:rgba(16,185,129,0.08);">
+                    <label style="display:flex; align-items:flex-start; gap:0.55rem; margin:0; cursor:pointer;">
+                        <input type="checkbox" id="uniFcIsFree" style="margin-top:0.2rem;">
+                        <span>
+                            <strong>Это бесплатная карточка</strong>
+                            <span style="display:block; font-size:0.82rem; color:var(--text-muted); margin-top:0.2rem;">Доступна незарегистрированным и без подписки</span>
+                        </span>
+                    </label>
                 </div>
                 <button type="submit" class="btn btn-primary">Сохранить</button>
                 <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
@@ -2063,9 +2084,14 @@
                     <label for="flashcardTagIds">Тег / система</label>
                     <select id="flashcardTagIds" multiple size="5" style="width:100%; min-height: 7rem;"></select>
                 </div>
-                <div class="form-group" style="display:flex; align-items:center; gap:0.5rem;">
-                    <input type="checkbox" id="flashcardIsFree">
-                    <label for="flashcardIsFree" style="margin:0;">Бесплатная для незарегистрированных / без подписки</label>
+                <div class="form-group checkbox-group" style="padding:0.75rem 0.9rem; border:1px solid rgba(16,185,129,0.35); border-radius:0.5rem; background:rgba(16,185,129,0.08);">
+                    <label style="display:flex; align-items:flex-start; gap:0.55rem; margin:0; cursor:pointer;">
+                        <input type="checkbox" id="flashcardIsFree" style="margin-top:0.2rem;">
+                        <span>
+                            <strong>Это бесплатная карточка</strong>
+                            <span style="display:block; font-size:0.82rem; color:var(--text-muted); margin-top:0.2rem;">Доступна незарегистрированным и без подписки</span>
+                        </span>
+                    </label>
                 </div>
                 <div id="flashcardPreviewBox" class="admin-flashcard-preview" style="display:none; margin-bottom:1rem; padding:1rem; border:1px solid var(--border-light); border-radius:0.75rem; background:var(--bg-secondary);"></div>
                 <button type="button" class="btn btn-secondary" id="flashcardPreviewBtn">Предпросмотр</button>

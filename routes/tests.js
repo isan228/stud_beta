@@ -43,13 +43,15 @@ async function requestHasUsmleSubscription(req) {
   }
 }
 
-/** Платный USMLE-банк — только с подпиской; бесплатный — всем */
+/** Платный USMLE-банк — только с подпиской; бесплатный / с бесплатными вопросами — гостям */
 async function assertUsmleBankAccess(test, req) {
   if (!test || (test.programType || 'university') !== 'usmle') {
     return { ok: true };
   }
-  if (test.isFree) return { ok: true };
-  if (await requestHasUsmleSubscription(req)) return { ok: true };
+  if (test.isFree) return { ok: true, freeQuestionsOnly: false };
+  if (await requestHasUsmleSubscription(req)) return { ok: true, freeQuestionsOnly: false };
+  const freeCount = await Question.count({ where: { testId: test.id, isFree: true } });
+  if (freeCount > 0) return { ok: true, freeQuestionsOnly: true };
   return {
     ok: false,
     status: 403,
@@ -248,46 +250,69 @@ async function assertPaidAccess(test, req) {
   const token = req.header('Authorization')?.replace('Bearer ', '');
   const programType = test.programType || 'university';
 
-  // Бесплатные тесты (университет и USMLE) — без подписки
-  if (test.isFree) return { ok: true };
+  // Весь тест бесплатный — без подписки
+  if (test.isFree) return { ok: true, freeQuestionsOnly: false };
 
   if (programType === 'usmle') {
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findByPk(decoded.userId);
+        if (!user) {
+          return { ok: false, status: 401, error: 'Пользователь не найден' };
+        }
+        if (await userHasUsmleAccess(user)) {
+          return { ok: true, user, freeQuestionsOnly: false };
+        }
+      } catch {
+        return { ok: false, status: 401, error: 'Недействительный токен' };
+      }
+    }
+    const freeCount = await Question.count({ where: { testId: test.id, isFree: true } });
+    if (freeCount > 0) return { ok: true, freeQuestionsOnly: true };
     if (!token) {
       return { ok: false, status: 401, error: 'Требуется авторизация для USMLE' };
     }
+    return { ok: false, status: 403, error: 'Требуется активная подписка USMLE' };
+  }
+
+  if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const user = await User.findByPk(decoded.userId);
       if (!user) {
         return { ok: false, status: 401, error: 'Пользователь не найден' };
       }
-      if (!(await userHasUsmleAccess(user))) {
-        return { ok: false, status: 403, error: 'Требуется активная подписка USMLE' };
+      if (await userHasUniversityAccess(user)) {
+        return { ok: true, user, freeQuestionsOnly: false };
       }
-      return { ok: true, user };
     } catch {
       return { ok: false, status: 401, error: 'Недействительный токен' };
     }
   }
 
+  const freeCount = await Question.count({ where: { testId: test.id, isFree: true } });
+  if (freeCount > 0) return { ok: true, freeQuestionsOnly: true };
+
   if (!token) {
     return { ok: false, status: 401, error: 'Требуется авторизация для этого теста' };
   }
+  return { ok: false, status: 403, error: 'Требуется активная подписка для этого теста' };
+}
 
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findByPk(decoded.userId);
-    if (!user) {
-      return { ok: false, status: 401, error: 'Пользователь не найден' };
-    }
+/** ID тестов, где есть хотя бы один бесплатный вопрос */
+async function findTestIdsWithFreeQuestions(extraWhere = {}) {
+  const rows = await Question.findAll({
+    attributes: ['testId'],
+    where: { isFree: true, ...extraWhere },
+    group: ['testId'],
+    raw: true
+  });
+  return rows.map((r) => r.testId).filter((id) => Number.isFinite(Number(id)));
+}
 
-    if (!(await userHasUniversityAccess(user))) {
-      return { ok: false, status: 403, error: 'Требуется активная подписка для этого теста' };
-    }
-    return { ok: true, user };
-  } catch {
-    return { ok: false, status: 401, error: 'Недействительный токен' };
-  }
+function applyFreeOnlyFilter(questions) {
+  return (questions || []).filter((q) => q && (q.isFree === true || q.isFree === 1));
 }
 
 
@@ -401,9 +426,13 @@ router.get('/latest', async (req, res) => {
       ? await requestHasUniversitySubscription(req)
       : await requestHasUsmleSubscription(req);
 
-    // Гости и пользователи без подписки видят только бесплатные тесты
+    // Гости и пользователи без подписки видят бесплатные тесты и тесты с бесплатными вопросами
     if (wantsFree || !hasPaid) {
-      whereClause.isFree = true;
+      const freeQIds = await findTestIdsWithFreeQuestions();
+      whereClause[Op.or] = [
+        { isFree: true },
+        ...(freeQIds.length ? [{ id: { [Op.in]: freeQIds } }] : [])
+      ];
     }
 
     if (programType === 'university') {
@@ -483,7 +512,26 @@ router.get('/subjects', async (req, res) => {
         attributes: ['subjectId'],
         raw: true
       });
-      const subjectIds = new Set(freeTests.map((t) => t.subjectId).filter(Boolean));
+      const freeQTestIds = await findTestIdsWithFreeQuestions();
+      let freeQSubjectIds = [];
+      if (freeQTestIds.length) {
+        const qTests = await Test.findAll({
+          where: {
+            id: { [Op.in]: freeQTestIds },
+            programType,
+            ...(programType === 'university' && where.universityId
+              ? { universityId: where.universityId }
+              : {})
+          },
+          attributes: ['subjectId'],
+          raw: true
+        });
+        freeQSubjectIds = qTests.map((t) => t.subjectId).filter(Boolean);
+      }
+      const subjectIds = new Set([
+        ...freeTests.map((t) => t.subjectId).filter(Boolean),
+        ...freeQSubjectIds
+      ]);
       subjects = subjects.filter((s) => subjectIds.has(s.id));
     }
 
@@ -610,7 +658,13 @@ router.get('/usmle/dashboard', async (req, res) => {
     const userId = tryGetUserIdFromRequest(req);
     const hasPaidUsmle = await requestHasUsmleSubscription(req);
     const testWhere = { programType: 'usmle' };
-    if (!hasPaidUsmle) testWhere.isFree = true;
+    if (!hasPaidUsmle) {
+      const freeQIds = await findTestIdsWithFreeQuestions();
+      testWhere[Op.or] = [
+        { isFree: true },
+        ...(freeQIds.length ? [{ id: { [Op.in]: freeQIds } }] : [])
+      ];
+    }
 
     let subjects;
     try {
@@ -1688,13 +1742,21 @@ router.get('/subjects/:subjectId/tests', async (req, res) => {
       const wantsFree = req.query.free === 'true';
       const hasPaid = await requestHasUniversitySubscription(req);
       if (wantsFree || !hasPaid) {
-        where.isFree = true;
+        const freeQIds = await findTestIdsWithFreeQuestions();
+        where[Op.or] = [
+          { isFree: true },
+          ...(freeQIds.length ? [{ id: { [Op.in]: freeQIds } }] : [])
+        ];
       }
     } else if (programType === 'usmle') {
       const wantsFree = req.query.free === 'true';
       const hasPaid = await requestHasUsmleSubscription(req);
       if (wantsFree || !hasPaid) {
-        where.isFree = true;
+        const freeQIds = await findTestIdsWithFreeQuestions();
+        where[Op.or] = [
+          { isFree: true },
+          ...(freeQIds.length ? [{ id: { [Op.in]: freeQIds } }] : [])
+        ];
       }
     }
 
@@ -1751,10 +1813,14 @@ router.get('/subjects/:subjectId/tests/free', async (req, res) => {
 
     const subject = access.subject || await Subject.findByPk(req.params.subjectId);
     const programType = subject?.programType || 'university';
+    const freeQIds = await findTestIdsWithFreeQuestions();
     const where = {
       subjectId: req.params.subjectId,
-      isFree: true,
-      programType
+      programType,
+      [Op.or]: [
+        { isFree: true },
+        ...(freeQIds.length ? [{ id: { [Op.in]: freeQIds } }] : [])
+      ]
     };
     if (programType === 'university') {
       const universityId = await resolveUserUniversityId(req);
@@ -1867,6 +1933,10 @@ router.get('/tests/:testId', async (req, res) => {
     // Явно проверяем и нормализуем isCorrect для всех ответов
     // ВАЖНО: Делаем это ПОСЛЕ toJSON(), чтобы получить чистые данные
     if (testData.Questions) {
+      if (paid.freeQuestionsOnly) {
+        testData.Questions = applyFreeOnlyFilter(testData.Questions);
+        testData.freeQuestionsOnly = true;
+      }
       testData.Questions.forEach(q => {
         if (q.Answers && Array.isArray(q.Answers)) {
           q.Answers.forEach(a => {
@@ -1969,6 +2039,12 @@ router.post('/tests/:testId/questions', async (req, res) => {
 
     // Преобразуем в JSON сразу, чтобы избежать циклических ссылок
     let questions = test.Questions.map(q => q.toJSON());
+    if (paid.freeQuestionsOnly) {
+      questions = applyFreeOnlyFilter(questions);
+      if (!questions.length) {
+        return res.status(403).json({ error: 'Нет бесплатных вопросов в этом тесте' });
+      }
+    }
 
     if (questionFilters && typeof questionFilters === 'object') {
       const hasAny = !!(questionFilters.all || questionFilters.unsolved || questionFilters.solved
@@ -2054,6 +2130,7 @@ router.post('/tests/:testId/check', async (req, res) => {
   // КРИТИЧЕСКОЕ ЛОГИРОВАНИЕ - должно появиться в любом случае
   let userId = null;
   let isFreeTest = false;
+  let freeQuestionsOnly = false;
   
   try {
     // Сначала проверяем, является ли тест бесплатным
@@ -2074,6 +2151,7 @@ router.post('/tests/:testId/check', async (req, res) => {
       return res.status(paid.status).json({ error: paid.error });
     }
     if (paid.user) userId = paid.user.id;
+    freeQuestionsOnly = !!paid.freeQuestionsOnly;
   } catch (error) {
     return res.status(500).json({ error: 'Ошибка проверки доступа' });
   }
@@ -2132,9 +2210,15 @@ router.post('/tests/:testId/check', async (req, res) => {
     }
 
     // Если указаны конкретные вопросы, проверяем только их
-    const questionsToCheck = questionIds 
+    let questionsToCheck = questionIds 
       ? test.Questions.filter(q => questionIds.includes(q.id))
       : test.Questions;
+    if (freeQuestionsOnly) {
+      questionsToCheck = questionsToCheck.filter((q) => q.isFree === true);
+      if (questionIds && questionIds.some((id) => !questionsToCheck.some((q) => q.id === id))) {
+        return res.status(403).json({ error: 'Доступны только бесплатные вопросы этого теста' });
+      }
+    }
 
     let correctCount = 0;
     const results = {};

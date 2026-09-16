@@ -278,6 +278,12 @@ sequelize.authenticate()
     } catch (e) {
       console.warn('ensureFlashcardsSchema:', e.message);
     }
+    try {
+      const { ensureQuestionsSchema } = require('./utils/ensureQuestionsSchema');
+      await ensureQuestionsSchema();
+    } catch (e) {
+      console.warn('ensureQuestionsSchema:', e.message);
+    }
     const { ensureUniversities } = require('./utils/ensureUniversities');
     await ensureUniversities();
     try {

@@ -2513,6 +2513,19 @@ router.put('/flashcards/:id', adminAuth, [
   }
 });
 
+router.put('/flashcards/:id/free', adminAuth, async (req, res) => {
+  try {
+    const card = await Flashcard.findByPk(req.params.id);
+    if (!card) return res.status(404).json({ error: 'Карточка не найдена' });
+    card.isFree = !!req.body.isFree;
+    await card.save();
+    res.json({ id: card.id, isFree: card.isFree });
+  } catch (error) {
+    console.error('Ошибка обновления isFree flashcard:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 router.delete('/flashcards/:id', adminAuth, async (req, res) => {
   try {
     const card = await Flashcard.findByPk(req.params.id);
@@ -3461,7 +3474,7 @@ router.post('/questions', adminAuth, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { text, testId, answers, explanation, setTestWithExplanations, tagIds, saBlockIndex } = req.body;
+    const { text, testId, answers, explanation, setTestWithExplanations, tagIds, saBlockIndex, isFree } = req.body;
     const withExplanations = setTestWithExplanations === true || setTestWithExplanations === 'true';
 
     const scopedTest = await assertTestScope(req, res, testId);
@@ -3477,6 +3490,7 @@ router.post('/questions', adminAuth, [
     const questionPayload = {
       text,
       testId,
+      isFree: !!isFree,
       explanation: withExplanations && explanation != null && String(explanation).trim()
         ? String(explanation).trim()
         : null
@@ -3558,7 +3572,7 @@ router.put('/questions/:id', adminAuth, [
     const beforeSnapshot = snapshotFromQuestion(question, question.Answers);
     beforeSnapshot.questionId = question.id;
 
-    const { text, testId, answers, explanation, setTestWithExplanations, tagIds, saBlockIndex } = req.body;
+    const { text, testId, answers, explanation, setTestWithExplanations, tagIds, saBlockIndex, isFree } = req.body;
     const withExplanations = setTestWithExplanations === true || setTestWithExplanations === 'true';
     const { deleteQuestionImageFile } = require('../utils/questionImages');
     const { syncTestHasExplanations } = require('../utils/syncTestExplanations');
@@ -3569,6 +3583,7 @@ router.put('/questions/:id', adminAuth, [
     }
 
     question.text = text;
+    if (isFree != null) question.isFree = !!isFree;
     if (!withExplanations) {
       if (question.explanationImageUrl) {
         deleteQuestionImageFile(question.explanationImageUrl);
@@ -3662,6 +3677,22 @@ router.put('/questions/:id', adminAuth, [
     res.json(questionWithAnswers);
   } catch (error) {
     console.error('Ошибка обновления вопроса:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Быстро переключить бесплатность вопроса для гостей
+router.put('/questions/:id/free', adminAuth, async (req, res) => {
+  try {
+    const question = await Question.findByPk(req.params.id);
+    if (!question) return res.status(404).json({ error: 'Вопрос не найден' });
+    const scopeOk = await assertQuestionScope(req, res, question.id);
+    if (!scopeOk) return;
+    question.isFree = !!req.body.isFree;
+    await question.save();
+    res.json({ id: question.id, isFree: question.isFree });
+  } catch (error) {
+    console.error('Ошибка обновления isFree вопроса:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

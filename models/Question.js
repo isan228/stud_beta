@@ -39,6 +39,12 @@ const Question = sequelize.define('Question', {
     allowNull: true,
     comment: 'Self-Assessment: номер блока 1–4 (по 40 вопросов, таймер 60 мин)'
   },
+  isFree: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+    comment: 'Бесплатный вопрос для незарегистрированных / без подписки'
+  },
   createdAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
