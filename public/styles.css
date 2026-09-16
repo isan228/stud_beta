@@ -3962,6 +3962,14 @@ figure.question-image-wrap::after,
     cursor: zoom-in;
 }
 
+.flashcards-page .flashcard-image,
+.flashcards-page .fc-deck-card-img {
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+    object-position: center;
+}
+
 /* Lightbox — увеличенный просмотр картинок */
 .image-lightbox {
     position: fixed;

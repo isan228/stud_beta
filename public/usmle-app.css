@@ -830,9 +830,12 @@ body:has(.usmle-app) {
 }
 
 .fc-deck-card-img {
-    width: 100%;
-    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
     object-fit: contain;
+    object-position: center;
     background: var(--bg-secondary);
     border-radius: 0.25rem;
 }
@@ -868,10 +871,21 @@ body:has(.usmle-app) {
     overflow: hidden;
 }
 
+.fc-session-card.has-media {
+    height: auto;
+    min-height: min(84vh, 960px);
+    max-height: none;
+    overflow: visible;
+}
+
 @media (min-width: 1100px) {
     .fc-session-card {
         height: min(88vh, 1080px);
         min-height: 640px;
+    }
+
+    .fc-session-card.has-media {
+        min-height: min(88vh, 1080px);
     }
 
     .flashcards-card-shell {
@@ -966,7 +980,10 @@ html[data-theme="dark"] .flashcards-side-toggle button.active,
 }
 
 .fc-session-card.has-media .flashcards-card-body {
-    padding-top: 0.15rem;
+    padding-top: 0.35rem;
+    overflow: visible;
+    flex: 1 1 auto;
+    min-height: auto;
 }
 
 .flashcard-image-wrap {
@@ -974,11 +991,12 @@ html[data-theme="dark"] .flashcards-side-toggle button.active,
     width: 100%;
     display: flex;
     justify-content: center;
-    align-items: flex-start;
+    align-items: center;
     background: #fff;
     border: 1px solid var(--border-light);
     border-radius: 0.15rem;
-    overflow: hidden;
+    overflow: visible;
+    flex: 0 0 auto;
 }
 
 .flashcard-image {
@@ -986,12 +1004,19 @@ html[data-theme="dark"] .flashcards-side-toggle button.active,
     max-width: 100%;
     width: auto;
     height: auto;
-    max-height: none;
+    max-height: min(78vh, 920px);
     object-fit: contain;
+    object-position: center;
     border: none;
     border-radius: 0;
     background: #fff;
     cursor: zoom-in;
+}
+
+@media (min-width: 1100px) {
+    .flashcard-image {
+        max-height: min(82vh, 1000px);
+    }
 }
 
 .flashcard-text {
@@ -1280,8 +1305,18 @@ html[data-theme="dark"] .flashcards-side-toggle button.active,
         min-height: 380px;
     }
 
+    .fc-session-card.has-media {
+        height: auto;
+        min-height: 380px;
+        overflow: visible;
+    }
+
     .flashcards-card-shell {
         min-height: 320px;
+    }
+
+    .flashcard-image {
+        max-height: min(65vh, 640px);
     }
 
     .fc-study-table th:nth-child(5),

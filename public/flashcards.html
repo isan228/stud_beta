@@ -45,20 +45,11 @@
 
             <div id="fcApp" class="flashcards-page flashcards-ready-decks hidden">
                 <div class="fc-tabs">
-                    <button type="button" class="fc-tab active" id="fcTabBrowse">Каталог</button>
-                    <button type="button" class="fc-tab" id="fcTabStudy">Учёба</button>
+                    <button type="button" class="fc-tab active" id="fcTabStudy">Учёба</button>
+                    <button type="button" class="fc-tab" id="fcTabBrowse">Каталог</button>
                 </div>
 
-                <div id="fcBrowsePanel">
-                    <div class="fc-search-bar">
-                        <input type="search" id="fcSearchInput" class="fc-search-input" placeholder="Поиск карточек…" autocomplete="off">
-                    </div>
-                    <div id="fcBrowseList" class="fc-browse-list">
-                        <p class="flashcard-empty">Загрузка…</p>
-                    </div>
-                </div>
-
-                <div id="fcStudyPanel" class="hidden">
+                <div id="fcStudyPanel">
                     <div class="fc-search-bar fc-study-search-row">
                         <input type="search" id="fcStudySearchInput" class="fc-search-input" placeholder="Поиск колод" autocomplete="off">
                     </div>
@@ -78,6 +69,15 @@
                                 <tr><td colspan="6" class="flashcard-empty">Загрузка…</td></tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+
+                <div id="fcBrowsePanel" class="hidden">
+                    <div class="fc-search-bar">
+                        <input type="search" id="fcSearchInput" class="fc-search-input" placeholder="Поиск карточек…" autocomplete="off">
+                    </div>
+                    <div id="fcBrowseList" class="fc-browse-list">
+                        <p class="flashcard-empty">Загрузка…</p>
                     </div>
                 </div>
 

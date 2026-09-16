@@ -8,7 +8,7 @@
     ];
 
     let allCards = [];
-    let mode = 'browse'; // browse | study | session
+    let mode = 'study'; // study | browse | session
     let studyCards = [];
     let studyIndex = 0;
     let showBack = false;
@@ -428,17 +428,20 @@
                 if (studyBody) {
                     studyBody.innerHTML = `<tr><td colspan="6" class="flashcard-empty">${emptyMsg}</td></tr>`;
                 }
+                setMode('study');
                 return;
             }
 
             renderBrowse();
             renderStudyTable();
+            setMode('study');
         } catch (e) {
             const msg = 'Ошибка загрузки карточек';
             if (browse) browse.innerHTML = `<p class="flashcard-empty">${msg}</p>`;
             if (studyBody) {
                 studyBody.innerHTML = `<tr><td colspan="6" class="flashcard-empty">${msg}</td></tr>`;
             }
+            setMode('study');
         }
     }
 
