@@ -6212,7 +6212,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                                     : '';
                                 return `<tr>
                                     <td>${dateStr}</td>
-                                    <td>${t.planLabel || 'Подписка'}${t.promoCode ? ` <small>(${t.promoCode})</small>` : ''}</td>
+                                    <td>${t.planLabel || 'Подписка'}${t.promoCode ? ' <small>(по промокоду)</small>' : ''}</td>
                                     <td>${t.amount} сом${t.coinsUsed ? ` <small>(−${t.coinsUsed} монет)</small>` : ''}</td>
                                     <td>${statusBadge(t.status)}</td>
                                     <td>${renewBtn}</td>
