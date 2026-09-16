@@ -3408,6 +3408,22 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         if (applied) persistUsmleHighlights();
     }
 
+    function isUsmleMarkerTapMode() {
+        return window.matchMedia('(max-width: 900px), (pointer: coarse)').matches;
+    }
+
+    function applyUsmleMarkerAtPoint(clientX, clientY) {
+        if (!usmleMarkerOn || !isUsmleTestSession()) return false;
+        const color = USMLE_MARKER_COLORS[usmleMarkerColor];
+        if (!color) return false;
+        const root = getUsmleHighlightRoot();
+        const applied = window.UsmleAnnotations?.applyMarkerAtPoint
+            ? window.UsmleAnnotations.applyMarkerAtPoint(color, root, clientX, clientY)
+            : false;
+        if (applied) persistUsmleHighlights();
+        return applied;
+    }
+
     function toggleUsmleFullscreen() {
         const root = document.documentElement;
         const req = root.requestFullscreen || root.webkitRequestFullscreen || root.msRequestFullscreen;
@@ -3616,13 +3632,25 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         });
 
         document.addEventListener('mouseup', () => {
-            if (usmleMarkerOn) applyUsmleMarkerSelection();
+            if (!usmleMarkerOn || isUsmleMarkerTapMode()) return;
+            applyUsmleMarkerSelection();
         });
-        document.addEventListener('touchend', () => {
-            if (usmleMarkerOn) {
-                setTimeout(() => applyUsmleMarkerSelection(), 0);
-            }
-        }, { passive: true });
+
+        if (!window.__usmleMarkerTapBound) {
+            window.__usmleMarkerTapBound = true;
+            document.addEventListener('click', (e) => {
+                if (!usmleMarkerOn || !isUsmleTestSession() || !isUsmleMarkerTapMode()) return;
+                const root = getUsmleHighlightRoot();
+                if (!root || !root.contains(e.target)) return;
+                if (e.target.closest?.('a, button, input, textarea, .answer-option-letter')) return;
+                const marked = applyUsmleMarkerAtPoint(e.clientX, e.clientY);
+                if (marked) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            }, true);
+        }
+
         document.addEventListener('fullscreenchange', () => {
             const on = !!(document.fullscreenElement || document.webkitFullscreenElement);
             document.getElementById('usmleTbFullscreen')?.classList.toggle('is-active', on || document.body.classList.contains('usmle-immersive'));
@@ -3996,6 +4024,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     }
 
     function selectAnswer(answerId) {
+        if (usmleMarkerOn && isUsmleTestSession() && typeof isUsmleMarkerTapMode === 'function' && isUsmleMarkerTapMode()) {
+            return;
+        }
         const question = currentQuestions[currentQuestionIndex];
         if (instantFeedbackMode && instantFeedbackLockedQuestions[question.id]) {
             return;

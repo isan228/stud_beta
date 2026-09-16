@@ -255,6 +255,79 @@
     return mark;
   }
 
+  function unwrapMarkEl(mark) {
+    if (!mark || !mark.parentNode) return false;
+    const parent = mark.parentNode;
+    while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+    parent.removeChild(mark);
+    parent.normalize?.();
+    return true;
+  }
+
+  function isWordChar(ch) {
+    return !!ch && /[0-9A-Za-z\u00C0-\u024F\u0400-\u04FF\u0500-\u052F'’-]/.test(ch);
+  }
+
+  function caretRangeFromPoint(x, y) {
+    if (typeof document.caretRangeFromPoint === 'function') {
+      return document.caretRangeFromPoint(x, y);
+    }
+    if (typeof document.caretPositionFromPoint === 'function') {
+      const pos = document.caretPositionFromPoint(x, y);
+      if (!pos || !pos.offsetNode) return null;
+      const range = document.createRange();
+      const node = pos.offsetNode;
+      const off = Math.min(pos.offset, node.nodeType === 3 ? node.nodeValue.length : 0);
+      if (node.nodeType !== 3) return null;
+      range.setStart(node, off);
+      range.setEnd(node, off);
+      return range;
+    }
+    return null;
+  }
+
+  function expandRangeToWord(range) {
+    if (!range || range.startContainer.nodeType !== Node.TEXT_NODE) return null;
+    const node = range.startContainer;
+    const text = node.nodeValue || '';
+    if (!text) return null;
+    let start = range.startOffset;
+    let end = range.startOffset;
+
+    if (start < text.length && !isWordChar(text[start]) && start > 0 && isWordChar(text[start - 1])) {
+      start -= 1;
+      end = start + 1;
+    }
+
+    if (start < text.length && isWordChar(text[start])) {
+      while (start > 0 && isWordChar(text[start - 1])) start -= 1;
+      end = start;
+      while (end < text.length && isWordChar(text[end])) end += 1;
+    } else {
+      let left = start - 1;
+      while (left >= 0 && !isWordChar(text[left])) left -= 1;
+      let right = start;
+      while (right < text.length && !isWordChar(text[right])) right += 1;
+      if (right < text.length && isWordChar(text[right])) {
+        start = right;
+        end = right;
+        while (end < text.length && isWordChar(text[end])) end += 1;
+      } else if (left >= 0 && isWordChar(text[left])) {
+        end = left + 1;
+        start = left;
+        while (start > 0 && isWordChar(text[start - 1])) start -= 1;
+      } else {
+        return null;
+      }
+    }
+
+    if (end <= start) return null;
+    const out = document.createRange();
+    out.setStart(node, start);
+    out.setEnd(node, end);
+    return out;
+  }
+
   function applyMarkerSelection(color, root) {
     const sel = global.getSelection?.();
     if (!sel || sel.isCollapsed || !sel.rangeCount) return false;
@@ -270,6 +343,42 @@
     }
   }
 
+  /** Tap/click a word (mobile-friendly): highlight word under point, or clear if already marked. */
+  function applyMarkerAtPoint(color, root, clientX, clientY) {
+    if (!root || clientX == null || clientY == null) return false;
+
+    const hit = document.elementFromPoint(clientX, clientY);
+    if (!hit || !root.contains(hit)) return false;
+
+    const existing = hit.closest?.('mark.usmle-marker-hl');
+    if (existing && root.contains(existing) && isHighlightTarget(existing)) {
+      return unwrapMarkEl(existing);
+    }
+
+    if (!isHighlightTarget(hit)) return false;
+
+    const caret = caretRangeFromPoint(clientX, clientY);
+    if (!caret || !root.contains(caret.startContainer)) return false;
+    if (!isHighlightTarget(caret.startContainer)) return false;
+
+    const wordRange = expandRangeToWord(caret);
+    if (!wordRange || wordRange.collapsed) return false;
+
+    // If the word is already fully inside a mark, unwrap that mark instead
+    const parentMark = wordRange.startContainer.parentElement?.closest?.('mark.usmle-marker-hl');
+    if (parentMark && root.contains(parentMark)) {
+      return unwrapMarkEl(parentMark);
+    }
+
+    try {
+      wrapSelection(wordRange, color);
+      global.getSelection?.()?.removeAllRanges?.();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   global.UsmleAnnotations = {
     getNotes,
     setNotes,
@@ -279,6 +388,7 @@
     saveMarksFromRoot,
     restoreMarksToRoot,
     applyMarkerSelection,
+    applyMarkerAtPoint,
     isHighlightTarget
   };
 })(typeof window !== 'undefined' ? window : globalThis);
