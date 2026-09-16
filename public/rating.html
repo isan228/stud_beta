@@ -390,15 +390,221 @@
         }
 
         @media (max-width: 640px) {
-            .rating-table th:nth-child(4),
-            .rating-table td:nth-child(4),
-            .rating-table th:nth-child(5),
-            .rating-table td:nth-child(5) {
+            .rating-hero {
+                padding: 1.35rem 1rem 1.15rem;
+            }
+
+            .rating-hero h1 {
+                font-size: 1.75rem;
+                line-height: 1.2;
+            }
+
+            .rating-hero-lead {
+                max-width: none;
+                font-size: 0.98rem;
+                line-height: 1.55;
+                word-break: break-word;
+                overflow-wrap: anywhere;
+            }
+
+            .rating-pill {
+                max-width: 100%;
+                white-space: normal;
+                line-height: 1.35;
+                word-break: break-word;
+            }
+
+            .rating-shell {
+                padding: 1rem 0.85rem 0;
+                gap: 1rem;
+            }
+
+            .rating-tabs-bar {
+                margin: 0 -0.85rem;
+                padding: 0.65rem 0.85rem;
+            }
+
+            .rating-tabs {
+                gap: 0.45rem;
+            }
+
+            .rating-tab {
+                flex: 0 0 auto;
+                padding: 0.65rem 0.95rem;
+                font-size: 0.9rem;
+                min-height: 44px;
+                white-space: normal;
+                line-height: 1.25;
+                max-width: 85vw;
+                text-align: center;
+            }
+
+            .rating-scope-head {
+                gap: 0.45rem;
+            }
+
+            .rating-scope-label {
+                font-size: 1.15rem;
+                line-height: 1.35;
+                word-break: break-word;
+            }
+
+            .rating-scope-sub {
+                font-size: 0.92rem;
+                line-height: 1.45;
+                word-break: break-word;
+            }
+
+            .rating-podium-card {
+                padding: 1rem 1.05rem;
+            }
+
+            .rating-podium-name {
+                font-size: 1.15rem;
+                line-height: 1.35;
+                white-space: normal;
+                overflow: visible;
+                text-overflow: unset;
+                word-break: break-word;
+                overflow-wrap: anywhere;
+            }
+
+            .rating-podium-stats {
+                font-size: 0.92rem;
+                line-height: 1.45;
+                white-space: normal;
+                word-break: break-word;
+            }
+
+            .rating-table-wrap {
+                overflow: visible;
+                border: none;
+                background: transparent;
+            }
+
+            .rating-board {
+                padding: 0;
+                border: none;
+                background: transparent;
+                box-shadow: none;
+            }
+
+            .rating-table,
+            .rating-table thead,
+            .rating-table tbody,
+            .rating-table tr,
+            .rating-table th,
+            .rating-table td {
+                display: block;
+                width: 100%;
+                min-width: 0;
+            }
+
+            .rating-table {
+                min-width: 0;
+                border-collapse: separate;
+                border-spacing: 0;
+            }
+
+            .rating-table thead { display: none; }
+
+            .rating-table tbody {
+                display: flex;
+                flex-direction: column;
+                gap: 0.7rem;
+            }
+
+            .rating-table tbody tr {
+                display: grid;
+                grid-template-columns: auto minmax(0, 1fr) auto;
+                grid-template-areas:
+                    "rank user acc"
+                    "rank stats stats";
+                gap: 0.35rem 0.75rem;
+                align-items: start;
+                padding: 0.95rem 1rem;
+                border: 1px solid var(--border-light);
+                border-radius: 0.85rem;
+                background: var(--card-bg);
+                box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05));
+            }
+
+            .rating-table tbody tr.is-me {
+                border-color: color-mix(in srgb, var(--primary-color) 40%, var(--border-light));
+            }
+
+            .rating-table tbody tr:hover td {
+                background: transparent;
+            }
+
+            .rating-table tr.is-me td {
+                background: transparent;
+            }
+
+            .rating-table th,
+            .rating-table td {
+                padding: 0;
+                border: none;
+                white-space: normal;
+                word-break: break-word;
+                overflow-wrap: anywhere;
+            }
+
+            .rating-table td.rating-rank {
+                grid-area: rank;
+                font-size: 1.05rem;
+                padding-top: 0.15rem;
+            }
+
+            .rating-table td.rating-user {
+                grid-area: user;
+                font-size: 1.05rem;
+                font-weight: 700;
+                line-height: 1.35;
+            }
+
+            .rating-table td.rating-num {
                 display: none;
             }
-            .rating-table { min-width: 0; }
-            .rating-table th,
-            .rating-table td { padding: 0.75rem 0.7rem; }
+
+            .rating-table td.rating-num:nth-child(3) {
+                display: block;
+                grid-area: stats;
+                font-size: 0.9rem;
+                font-weight: 650;
+                color: var(--text-secondary);
+            }
+
+            .rating-table td.rating-num:nth-child(3)::before {
+                content: "Правильных: ";
+                font-weight: 600;
+            }
+
+            .rating-table td:last-child {
+                grid-area: acc;
+                justify-self: end;
+            }
+
+            .rating-acc {
+                min-width: 3.6rem;
+                font-size: 0.9rem;
+            }
+
+            .my-rank-card {
+                padding: 1rem 1.05rem;
+            }
+
+            .my-rank-value {
+                font-size: 1.2rem;
+                line-height: 1.35;
+                word-break: break-word;
+            }
+
+            .my-rank-stats {
+                font-size: 0.92rem;
+                line-height: 1.45;
+                word-break: break-word;
+            }
         }
     </style>
 </head>
