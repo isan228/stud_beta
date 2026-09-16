@@ -3046,6 +3046,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             USMLE_MARKER_COLORS[key] || '#ffe566'
         );
         updateUsmleToolbarChrome(currentQuestions?.[currentQuestionIndex]);
+        syncUsmleMarkerPalette();
         const names = {
             none: 'Marker off',
             yellow: 'Marker: Yellow',
@@ -3054,6 +3055,16 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             red: 'Marker: Red'
         };
         showNotification(names[key] || 'Marker', 'info');
+    }
+
+    function syncUsmleMarkerPalette() {
+        const palette = document.getElementById('usmleMarkerPalette');
+        if (!palette) return;
+        const show = usmleMarkerOn && isUsmleTestSession();
+        palette.hidden = !show;
+        palette.querySelectorAll('[data-marker-color]').forEach((btn) => {
+            btn.classList.toggle('is-active', btn.getAttribute('data-marker-color') === usmleMarkerColor);
+        });
     }
 
     let usmleBlockElapsedTimer = null;
@@ -3197,6 +3208,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         if (USMLE_MARKER_COLORS[usmleMarkerColor]) {
             document.documentElement.style.setProperty('--usmle-marker-color', USMLE_MARKER_COLORS[usmleMarkerColor]);
         }
+        syncUsmleMarkerPalette();
         syncUsmleNotesButton(question);
     }
 
@@ -3278,12 +3290,26 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     function openUsmleModal(id) {
         const el = document.getElementById(id);
-        if (el) el.style.display = 'flex';
+        if (!el) return;
+        el.style.display = 'flex';
+        document.body.classList.add('usmle-tool-modal-open');
     }
 
     function closeUsmleModal(id) {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
+        const stillOpen = ['usmleShortcutsModal', 'usmleNotesModal', 'usmleCalcModal', 'usmleSettingsModal']
+            .some((mid) => {
+                const m = document.getElementById(mid);
+                return m && m.style.display === 'flex';
+            });
+        if (!stillOpen) document.body.classList.remove('usmle-tool-modal-open');
+    }
+
+    function setUsmleLabBackdrop(open) {
+        const backdrop = document.getElementById('usmleLabBackdrop');
+        if (!backdrop) return;
+        backdrop.hidden = !open;
     }
 
     function openUsmleLabPanel() {
@@ -3295,6 +3321,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
         dock.hidden = false;
         document.body.classList.add('usmle-lab-open');
+        setUsmleLabBackdrop(true);
         const closeBtn = mount.querySelector('[data-lab-close]');
         if (closeBtn && !closeBtn.dataset.bound) {
             closeBtn.dataset.bound = '1';
@@ -3306,6 +3333,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const dock = document.getElementById('usmleLabModal');
         if (dock) dock.hidden = true;
         document.body.classList.remove('usmle-lab-open');
+        setUsmleLabBackdrop(false);
     }
 
     function ensureUsmleLabTables() {
@@ -3382,10 +3410,29 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     function toggleUsmleFullscreen() {
         const root = document.documentElement;
-        if (!document.fullscreenElement) {
-            root.requestFullscreen?.().catch(() => {});
-        } else {
-            document.exitFullscreen?.().catch(() => {});
+        const req = root.requestFullscreen || root.webkitRequestFullscreen || root.msRequestFullscreen;
+        const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+        const active = document.fullscreenElement || document.webkitFullscreenElement;
+
+        if (typeof req !== 'function') {
+            const on = document.body.classList.toggle('usmle-immersive');
+            document.getElementById('usmleTbFullscreen')?.classList.toggle('is-active', on);
+            showNotification(on ? 'Полноэкранный режим' : 'Обычный вид', 'info');
+            return;
+        }
+
+        if (!active) {
+            Promise.resolve(req.call(root)).then(() => {
+                document.getElementById('usmleTbFullscreen')?.classList.add('is-active');
+            }).catch(() => {
+                const on = document.body.classList.toggle('usmle-immersive');
+                document.getElementById('usmleTbFullscreen')?.classList.toggle('is-active', on);
+            });
+        } else if (typeof exit === 'function') {
+            Promise.resolve(exit.call(document)).finally(() => {
+                document.body.classList.remove('usmle-immersive');
+                document.getElementById('usmleTbFullscreen')?.classList.remove('is-active');
+            });
         }
     }
 
@@ -3479,6 +3526,12 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 setUsmleMarkerColor('none');
             }
         });
+        document.getElementById('usmleMarkerPalette')?.addEventListener('click', (e) => {
+            const swatch = e.target.closest('[data-marker-color]');
+            if (!swatch) return;
+            setUsmleMarkerColor(swatch.getAttribute('data-marker-color'));
+        });
+        document.getElementById('usmleLabBackdrop')?.addEventListener('click', closeUsmleLabPanel);
         document.getElementById('usmleTbLab')?.addEventListener('click', () => {
             const dock = document.getElementById('usmleLabModal');
             if (dock && !dock.hidden) {
@@ -3503,6 +3556,14 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         });
         document.getElementById('usmleTbSettings')?.addEventListener('click', () => {
             openUsmleModal('usmleSettingsModal');
+        });
+
+        ['usmleShortcutsModal', 'usmleNotesModal', 'usmleCalcModal', 'usmleSettingsModal'].forEach((id) => {
+            document.getElementById(id)?.addEventListener('click', (e) => {
+                if (e.target !== e.currentTarget) return;
+                if (id === 'usmleNotesModal') persistCurrentUsmleNoteFromModal(true);
+                closeUsmleModal(id);
+            });
         });
 
         document.getElementById('usmleShortcutsModalClose')?.addEventListener('click', () => closeUsmleModal('usmleShortcutsModal'));
@@ -3556,6 +3617,16 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
         document.addEventListener('mouseup', () => {
             if (usmleMarkerOn) applyUsmleMarkerSelection();
+        });
+        document.addEventListener('touchend', () => {
+            if (usmleMarkerOn) {
+                setTimeout(() => applyUsmleMarkerSelection(), 0);
+            }
+        }, { passive: true });
+        document.addEventListener('fullscreenchange', () => {
+            const on = !!(document.fullscreenElement || document.webkitFullscreenElement);
+            document.getElementById('usmleTbFullscreen')?.classList.toggle('is-active', on || document.body.classList.contains('usmle-immersive'));
+            if (!on) document.body.classList.remove('usmle-immersive');
         });
 
         window.addEventListener('pagehide', () => {
