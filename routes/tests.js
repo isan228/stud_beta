@@ -58,25 +58,20 @@ async function assertUsmleBankAccess(test, req) {
   };
 }
 
-/** Университетские flashcards — бесплатные всем авторизованным; остальные по подписке */
+/** Университетские flashcards — гости/без подписки видят бесплатные; с подпиской — все */
 router.get('/flashcards', async (req, res) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
-    if (!token) {
-      return res.status(401).json({ error: 'Требуется авторизация', code: 'AUTH_REQUIRED' });
-    }
-
-    let user;
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      user = await User.findByPk(decoded.userId, {
-        attributes: ['id', 'universityId', 'subscriptionEndDate', 'email', 'username']
-      });
-    } catch {
-      return res.status(401).json({ error: 'Недействительный токен', code: 'AUTH_REQUIRED' });
-    }
-    if (!user) {
-      return res.status(401).json({ error: 'Пользователь не найден', code: 'AUTH_REQUIRED' });
+    let user = null;
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        user = await User.findByPk(decoded.userId, {
+          attributes: ['id', 'universityId', 'subscriptionEndDate', 'email', 'username']
+        });
+      } catch {
+        user = null;
+      }
     }
 
     const subjectId = parseInt(req.query.subjectId, 10);
@@ -84,19 +79,35 @@ router.get('/flashcards', async (req, res) => {
     const universityIdQuery = parseInt(req.query.universityId, 10);
     const universityId = (Number.isFinite(universityIdQuery) && universityIdQuery > 0)
       ? universityIdQuery
-      : (user.universityId || null);
+      : (user?.universityId || null);
 
-    if (!universityId) {
-      return res.json([]);
-    }
-
-    const hasPaid = await userHasUniversityAccess(user);
+    const hasPaid = user ? await userHasUniversityAccess(user) : false;
     const where = {
       isActive: true,
-      programType: 'university',
-      universityId: Number(universityId)
+      programType: 'university'
     };
-    if (!hasPaid) where.isFree = true;
+    if (universityId) {
+      where.universityId = Number(universityId);
+    }
+
+    if (!hasPaid) {
+      const freeTopicWhere = {
+        isActive: true,
+        isFree: true
+      };
+      if (universityId) freeTopicWhere.universityId = Number(universityId);
+      const freeTopics = await FlashcardTopic.findAll({
+        where: freeTopicWhere,
+        attributes: ['id']
+      });
+      const freeTopicIds = freeTopics.map((t) => t.id);
+      const freeOr = [{ isFree: true }];
+      if (freeTopicIds.length) {
+        freeOr.push({ topicId: { [Op.in]: freeTopicIds } });
+      }
+      where[Op.or] = freeOr;
+    }
+
     if (Number.isFinite(subjectId) && subjectId > 0) where.subjectId = subjectId;
     if (Number.isFinite(topicId) && topicId > 0) where.topicId = topicId;
 
@@ -110,7 +121,7 @@ router.get('/flashcards', async (req, res) => {
       }, {
         model: FlashcardTopic,
         as: 'Topic',
-        attributes: ['id', 'name', 'sortOrder'],
+        attributes: ['id', 'name', 'sortOrder', 'isFree'],
         required: false
       }],
       order: [['sortOrder', 'ASC'], ['id', 'ASC']]

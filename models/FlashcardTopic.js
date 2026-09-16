@@ -27,6 +27,12 @@ const FlashcardTopic = sequelize.define('FlashcardTopic', {
     type: DataTypes.BOOLEAN,
     allowNull: false,
     defaultValue: true
+  },
+  isFree: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+    comment: 'Бесплатная колода для незарегистрированных / без подписки'
   }
 }, {
   tableName: 'FlashcardTopics',

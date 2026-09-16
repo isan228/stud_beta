@@ -60,6 +60,15 @@ async function ensureFlashcardsSchema() {
 
   try {
     await sequelize.query(`
+      ALTER TABLE "FlashcardTopics"
+      ADD COLUMN IF NOT EXISTS "isFree" BOOLEAN NOT NULL DEFAULT false
+    `);
+  } catch (e) {
+    /* ignore */
+  }
+
+  try {
+    await sequelize.query(`
       ALTER TABLE "Flashcards"
       ADD COLUMN IF NOT EXISTS "universityId" INTEGER REFERENCES "Universities"(id) ON DELETE CASCADE ON UPDATE CASCADE
     `);

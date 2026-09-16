@@ -2184,6 +2184,7 @@ router.post('/flashcard-topics', adminAuth, [
       if (!existing.isActive) {
         existing.isActive = true;
         existing.sortOrder = parseInt(req.body.sortOrder, 10) || existing.sortOrder || 0;
+        if (req.body.isFree != null) existing.isFree = !!req.body.isFree;
         await existing.save();
         return res.json(existing);
       }
@@ -2194,7 +2195,8 @@ router.post('/flashcard-topics', adminAuth, [
       name,
       universityId,
       sortOrder: parseInt(req.body.sortOrder, 10) || 0,
-      isActive: true
+      isActive: true,
+      isFree: !!req.body.isFree
     });
     res.status(201).json(topic);
   } catch (error) {
@@ -2233,6 +2235,16 @@ router.put('/flashcard-topics/:id', adminAuth, [
     }
     if (req.body.sortOrder != null) topic.sortOrder = parseInt(req.body.sortOrder, 10) || 0;
     if (req.body.isActive != null) topic.isActive = !!req.body.isActive;
+    if (req.body.isFree != null) {
+      topic.isFree = !!req.body.isFree;
+      // При включении бесплатного предмета — все его карточки тоже бесплатные
+      if (topic.isFree) {
+        await Flashcard.update(
+          { isFree: true },
+          { where: { topicId: topic.id, programType: 'university' } }
+        );
+      }
+    }
     await topic.save();
     res.json(topic);
   } catch (error) {
@@ -2372,7 +2384,7 @@ router.post('/flashcards', adminAuth, [
       topicId: programType === 'university' && Number.isFinite(topicId) ? topicId : null,
       testId: Number.isFinite(testId) ? testId : null,
       stepGroup: programType === 'usmle' ? stepGroup : null,
-      isFree: programType === 'university' ? !!isFree : false,
+      isFree: !!isFree,
       sortOrder: parseInt(sortOrder, 10) || 0,
       isActive: true
     });
@@ -2432,7 +2444,7 @@ router.put('/flashcards/:id', adminAuth, [
       card.universityId = null;
       card.subjectId = null;
       card.topicId = null;
-      card.isFree = false;
+      if (isFree != null) card.isFree = !!isFree;
       if (rawTestId !== undefined) {
         const testId = rawTestId ? parseInt(rawTestId, 10) : null;
         if (testId) {

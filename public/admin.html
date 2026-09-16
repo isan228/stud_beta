@@ -481,13 +481,18 @@
                     </div>
                     <p class="page-description" style="margin-bottom:1rem;">
                         Предметы карточек — это колоды (как разделы/теги в USMLE). Добавьте предмет ниже, затем карточки, TXT или картинки.
-                        В TXT заголовки <code>=== Предмет ===</code> тоже создают предметы. «Бесплатная» — без подписки.
+                        В TXT заголовки <code>=== Предмет ===</code> тоже создают предметы.
+                        «Бесплатно» — доступно <strong>незарегистрированным</strong> и пользователям без подписки.
                     </p>
                     <div class="admin-subs-panel" style="margin-bottom:1.25rem; padding:1rem; border:1px solid var(--border-light); border-radius:0.5rem;">
                         <h3 style="margin:0 0 0.35rem; font-size:1rem;">Предметы карточек</h3>
-                        <p class="admin-subs-hint" style="margin:0 0 0.65rem;">Как разделы в USMLE: по ним студенты видят колоды в Browse / Study. Нажмите ✎ чтобы переименовать.</p>
+                        <p class="admin-subs-hint" style="margin:0 0 0.65rem;">Как разделы в USMLE: по ним студенты видят колоды в Browse / Study. Нажмите ✎ чтобы переименовать, ☆ — сделать весь предмет бесплатным для гостей.</p>
                         <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin-bottom:0.75rem;">
                             <input type="text" id="newUniFcTopicName" class="form-group input" placeholder="Новый предмет, напр. Анатомия" style="flex:1; min-width:12rem;">
+                            <label style="display:inline-flex; align-items:center; gap:0.35rem; font-size:0.88rem; white-space:nowrap; margin:0;">
+                                <input type="checkbox" id="newUniFcTopicIsFree">
+                                Бесплатный для гостей
+                            </label>
                             <button type="button" class="btn btn-primary btn-sm" id="addUniFcTopicBtn">+ Предмет</button>
                         </div>
                         <div id="uniFcTopicsList" style="display:flex; flex-wrap:wrap; gap:0.5rem;"></div>
@@ -1825,10 +1830,10 @@
                             <option value="">Без предмета</option>
                         </select>
                     </div>
-                    <div class="form-group" style="display:flex; align-items:center; gap:0.5rem;">
-                        <input type="checkbox" id="fcImgIsFree">
-                        <label for="fcImgIsFree" style="margin:0;">Бесплатная (без подписки)</label>
-                    </div>
+                </div>
+                <div class="form-group" style="display:flex; align-items:center; gap:0.5rem;">
+                    <input type="checkbox" id="fcImgIsFree">
+                    <label for="fcImgIsFree" style="margin:0;">Бесплатная для незарегистрированных / без подписки</label>
                 </div>
                 <button type="submit" class="btn btn-primary">Сохранить</button>
                 <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
@@ -1853,7 +1858,7 @@
                 </div>
                 <div class="form-group" style="display:flex; align-items:center; gap:0.5rem;">
                     <input type="checkbox" id="uniTxtFcIsFree">
-                    <label for="uniTxtFcIsFree" style="margin:0;">Все карточки из файла — бесплатные</label>
+                    <label for="uniTxtFcIsFree" style="margin:0;">Все карточки из файла — бесплатные для гостей / без подписки</label>
                 </div>
                 <div class="form-group">
                     <label for="uniTxtFlashcardsFile">TXT файл</label>
@@ -2016,7 +2021,7 @@
                 </div>
                 <div class="form-group" style="display:flex; align-items:center; gap:0.5rem;">
                     <input type="checkbox" id="uniFcIsFree">
-                    <label for="uniFcIsFree" style="margin:0;">Бесплатная (без подписки)</label>
+                    <label for="uniFcIsFree" style="margin:0;">Бесплатная для незарегистрированных / без подписки</label>
                 </div>
                 <button type="submit" class="btn btn-primary">Сохранить</button>
                 <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
@@ -2057,6 +2062,10 @@
                 <div class="form-group">
                     <label for="flashcardTagIds">Тег / система</label>
                     <select id="flashcardTagIds" multiple size="5" style="width:100%; min-height: 7rem;"></select>
+                </div>
+                <div class="form-group" style="display:flex; align-items:center; gap:0.5rem;">
+                    <input type="checkbox" id="flashcardIsFree">
+                    <label for="flashcardIsFree" style="margin:0;">Бесплатная для незарегистрированных / без подписки</label>
                 </div>
                 <div id="flashcardPreviewBox" class="admin-flashcard-preview" style="display:none; margin-bottom:1rem; padding:1rem; border:1px solid var(--border-light); border-radius:0.75rem; background:var(--bg-secondary);"></div>
                 <button type="button" class="btn btn-secondary" id="flashcardPreviewBtn">Предпросмотр</button>

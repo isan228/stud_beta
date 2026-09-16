@@ -394,15 +394,16 @@
     async function loadCards() {
         const gate = document.getElementById('fcGate');
         const app = document.getElementById('fcApp');
-        if (!token()) {
-            if (gate) {
+        const isGuest = !token();
+
+        if (gate) {
+            if (isGuest) {
                 gate.style.display = 'block';
-                gate.innerHTML = 'Войдите, чтобы смотреть карточки. <a href="/login">Войти</a>';
+                gate.innerHTML = 'Показаны бесплатные карточки. <a href="/login">Войдите</a> или <a href="/register">зарегистрируйтесь</a>, чтобы открыть полный доступ.';
+            } else {
+                gate.style.display = 'none';
             }
-            app?.classList.add('hidden');
-            return;
         }
-        if (gate) gate.style.display = 'none';
         app?.classList.remove('hidden');
 
         const browse = document.getElementById('fcBrowseList');
@@ -413,7 +414,13 @@
         }
 
         try {
-            const res = await fetch(API, { headers: authHeaders() });
+            let url = API;
+            if (isGuest) {
+                // Гость: все бесплатные; можно уточнить вуз через ?universityId=
+                const uniId = new URLSearchParams(window.location.search).get('universityId');
+                if (uniId) url += `?universityId=${encodeURIComponent(uniId)}`;
+            }
+            const res = await fetch(url, { headers: authHeaders() });
             if (res.status === 401) {
                 window.location.href = '/login';
                 return;
@@ -423,7 +430,9 @@
             if (!Array.isArray(allCards)) allCards = [];
 
             if (!allCards.length) {
-                const emptyMsg = 'Пока нет карточек для вашего университета. Их добавляет администратор.';
+                const emptyMsg = isGuest
+                    ? 'Пока нет бесплатных карточек. Войдите, чтобы увидеть колоды вашего университета, или дождитесь, пока администратор откроет доступ.'
+                    : 'Пока нет карточек для вашего университета. Их добавляет администратор.';
                 if (browse) browse.innerHTML = `<p class="flashcard-empty">${emptyMsg}</p>`;
                 if (studyBody) {
                     studyBody.innerHTML = `<tr><td colspan="6" class="flashcard-empty">${emptyMsg}</td></tr>`;

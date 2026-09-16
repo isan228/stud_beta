@@ -5506,8 +5506,10 @@ async function loadUniFcTopicsAdmin() {
             return;
         }
         box.innerHTML = list.map((t) => `
-            <span class="admin-tag-chip" style="display:inline-flex; align-items:center; gap:0.35rem; padding:0.35rem 0.55rem; border:1px solid var(--border-light); border-radius:999px; font-size:0.88rem;">
+            <span class="admin-tag-chip" style="display:inline-flex; align-items:center; gap:0.35rem; padding:0.35rem 0.55rem; border:1px solid var(--border-light); border-radius:999px; font-size:0.88rem; ${t.isFree ? 'background:rgba(16,185,129,0.12); border-color:rgba(16,185,129,0.45);' : ''}">
                 <span>${escapeAdminHtml(t.name)}</span>
+                ${t.isFree ? '<span style="font-size:0.72rem; color:#059669; font-weight:700;">FREE</span>' : ''}
+                <button type="button" class="btn-link" style="border:none; background:transparent; cursor:pointer; color:${t.isFree ? '#059669' : 'var(--text-muted)'}; padding:0; line-height:1; font-size:0.95rem;" onclick="toggleUniFcTopicFreeAdmin(${t.id}, ${t.isFree ? 'false' : 'true'})" title="${t.isFree ? 'Убрать бесплатный доступ для гостей' : 'Сделать бесплатным для гостей'}">${t.isFree ? '★' : '☆'}</button>
                 <button type="button" class="btn-link" style="border:none; background:transparent; cursor:pointer; color:var(--primary-color); padding:0; line-height:1; font-size:0.95rem;" onclick="renameUniFcTopicAdmin(${t.id}, this)" data-name="${escapeAdminHtml(t.name)}" title="Переименовать">✎</button>
                 <button type="button" class="btn-link" style="border:none; background:transparent; cursor:pointer; color:var(--danger-color); padding:0; line-height:1;" onclick="deleteUniFcTopicAdmin(${t.id})" title="Удалить">×</button>
             </span>
@@ -5521,6 +5523,7 @@ async function addUniFcTopicAdmin() {
     const universityId = document.getElementById('uniFcUniversityFilter')?.value;
     const input = document.getElementById('newUniFcTopicName');
     const name = String(input?.value || '').trim();
+    const isFree = !!document.getElementById('newUniFcTopicIsFree')?.checked;
     if (!universityId) {
         showNotification('Сначала выберите университет', 'error');
         return;
@@ -5536,12 +5539,14 @@ async function addUniFcTopicAdmin() {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${currentAdminToken}`
             },
-            body: JSON.stringify({ name, universityId })
+            body: JSON.stringify({ name, universityId, isFree })
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error || 'Ошибка');
         if (input) input.value = '';
-        showNotification('Предмет добавлен', 'success');
+        const freeCb = document.getElementById('newUniFcTopicIsFree');
+        if (freeCb) freeCb.checked = false;
+        showNotification(isFree ? 'Бесплатный предмет добавлен' : 'Предмет добавлен', 'success');
         await loadUniFcTopicsAdmin();
         await fillUniFcTopics(universityId, result.id || '', 'uniFcTopicFilter');
         const modalUni = document.getElementById('uniFcUniversityId')?.value;
@@ -5552,6 +5557,31 @@ async function addUniFcTopicAdmin() {
         if (imgUni && String(imgUni) === String(universityId)) {
             await fillUniFcTopics(universityId, result.id || '', 'fcImgTopicId');
         }
+    } catch (e) {
+        showNotification(e.message || 'Ошибка', 'error');
+    }
+}
+
+async function toggleUniFcTopicFreeAdmin(id, makeFree) {
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/flashcard-topics/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${currentAdminToken}`
+            },
+            body: JSON.stringify({ isFree: !!makeFree })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Ошибка');
+        showNotification(
+            makeFree
+                ? 'Предмет открыт для незарегистрированных (карточки тоже)'
+                : 'Предмет снова только по подписке',
+            'success'
+        );
+        await loadUniFcTopicsAdmin();
+        await loadUniFlashcardsAdmin();
     } catch (e) {
         showNotification(e.message || 'Ошибка', 'error');
     }
@@ -5623,6 +5653,7 @@ async function deleteUniFcTopicAdmin(id) {
 
 window.renameUniFcTopicAdmin = renameUniFcTopicAdmin;
 window.deleteUniFcTopicAdmin = deleteUniFcTopicAdmin;
+window.toggleUniFcTopicFreeAdmin = toggleUniFcTopicFreeAdmin;
 
 async function initUniFlashcardsAdmin() {
     await fillSelectFromUniversities('uniFcUniversityFilter');
@@ -6327,6 +6358,7 @@ async function loadUsmleFlashcardsAdmin() {
                         <div style="color:var(--text-secondary); font-size:0.88rem; margin-bottom:0.35rem;">${escapeAdminHtml(c.backText)}</div>
                         <div style="font-size:0.8rem; color:var(--text-muted);">
                             ${escapeAdminHtml(c.stepGroup || '')} · ${escapeAdminHtml(c.Test?.name || 'без теста')} · ${escapeAdminHtml(tags)}
+                            ${c.isFree ? ' · <span style="color:#059669;font-weight:700;">бесплатная</span>' : ''}
                             ${(c.frontImageUrl || c.backImageUrl) ? ' · 🖼' : ''}
                         </div>
                     </div>
@@ -6346,6 +6378,8 @@ async function openAddUsmleFlashcardModal() {
     document.getElementById('flashcardForm').reset();
     document.getElementById('flashcardModalTitle').textContent = 'Добавить flashcard';
     document.getElementById('flashcardStepGroup').value = 'step1';
+    const freeCb = document.getElementById('flashcardIsFree');
+    if (freeCb) freeCb.checked = false;
     document.getElementById('flashcardPreviewBox').style.display = 'none';
     const testFilter = document.getElementById('usmleFlashcardsTestFilter')?.value || '';
     await Promise.all([
@@ -6373,6 +6407,8 @@ async function openAddUsmleFlashcardWithImagesModal() {
         fillFlashcardTagsSelect([], 'fcImgTagIds'),
         fillFlashcardTestsSelect(testFilter, 'fcImgTestId')
     ]);
+    const freeCb = document.getElementById('fcImgIsFree');
+    if (freeCb) freeCb.checked = false;
     document.getElementById('flashcardImageModal').style.display = 'block';
 }
 
@@ -6393,6 +6429,8 @@ async function openEditFlashcardWithImagesModal(card) {
         fillFlashcardTagsSelect((card.Tags || []).map((t) => t.id), 'fcImgTagIds'),
         fillFlashcardTestsSelect(card.testId || '', 'fcImgTestId')
     ]);
+    const freeCb = document.getElementById('fcImgIsFree');
+    if (freeCb) freeCb.checked = !!card.isFree;
     document.getElementById('flashcardImageModal').style.display = 'block';
 }
 
@@ -6420,7 +6458,8 @@ async function saveFlashcardAdmin(e) {
         programType: 'usmle',
         stepGroup: document.getElementById('flashcardStepGroup')?.value || 'step1',
         testId: document.getElementById('flashcardTestId')?.value || null,
-        tagIds: Array.from(document.getElementById('flashcardTagIds')?.selectedOptions || []).map((o) => parseInt(o.value, 10))
+        tagIds: Array.from(document.getElementById('flashcardTagIds')?.selectedOptions || []).map((o) => parseInt(o.value, 10)),
+        isFree: !!document.getElementById('flashcardIsFree')?.checked
     };
     const url = id ? `${ADMIN_API_URL}/flashcards/${id}` : `${ADMIN_API_URL}/flashcards`;
     const method = id ? 'PUT' : 'POST';
@@ -6491,7 +6530,8 @@ async function saveFlashcardWithImagesAdmin(e) {
             programType: 'usmle',
             stepGroup: document.getElementById('fcImgStepGroup')?.value || 'step1',
             testId: document.getElementById('fcImgTestId')?.value || null,
-            tagIds: Array.from(document.getElementById('fcImgTagIds')?.selectedOptions || []).map((o) => parseInt(o.value, 10))
+            tagIds: Array.from(document.getElementById('fcImgTagIds')?.selectedOptions || []).map((o) => parseInt(o.value, 10)),
+            isFree: !!document.getElementById('fcImgIsFree')?.checked
         };
     }
 
