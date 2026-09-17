@@ -62,7 +62,7 @@ const {
   flashcardImageFilename,
   deleteFlashcardImageFile
 } = require('../utils/flashcardImages');
-const { IMAGE_UPLOAD_MAX_BYTES } = require('../utils/uploadLimits');
+const { FLASHCARD_IMAGE_MAX_BYTES } = require('../utils/uploadLimits');
 const schedulePublic = require('./schedule');
 const { Op, QueryTypes } = require('sequelize');
 const { Sequelize } = require('sequelize');
@@ -2552,7 +2552,7 @@ const flashcardImageStorage = multer.diskStorage({
 
 const flashcardImageUpload = multer({
   storage: flashcardImageStorage,
-  limits: { fileSize: IMAGE_UPLOAD_MAX_BYTES },
+  limits: { fileSize: FLASHCARD_IMAGE_MAX_BYTES },
   fileFilter: (req, file, cb) => {
     const name = file.originalname || '';
     const extOk = /\.(jpe?g|jfif|png|gif|webp)$/i.test(name);
@@ -2600,7 +2600,12 @@ async function uploadFlashcardSideImage(req, res, side) {
 router.post('/flashcards/:id/front-image', adminAuth, (req, res, next) => {
   req.flashcardImageSide = 'front';
   flashcardImageUpload.single('image')(req, res, (err) => {
-    if (err) return res.status(400).json({ error: err.message || 'Ошибка загрузки файла' });
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'Изображение слишком большое (макс. 20 МБ)' });
+      }
+      return res.status(400).json({ error: err.message || 'Ошибка загрузки файла' });
+    }
     next();
   });
 }, (req, res) => uploadFlashcardSideImage(req, res, 'front'));
@@ -2608,7 +2613,12 @@ router.post('/flashcards/:id/front-image', adminAuth, (req, res, next) => {
 router.post('/flashcards/:id/back-image', adminAuth, (req, res, next) => {
   req.flashcardImageSide = 'back';
   flashcardImageUpload.single('image')(req, res, (err) => {
-    if (err) return res.status(400).json({ error: err.message || 'Ошибка загрузки файла' });
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'Изображение слишком большое (макс. 20 МБ)' });
+      }
+      return res.status(400).json({ error: err.message || 'Ошибка загрузки файла' });
+    }
     next();
   });
 }, (req, res) => uploadFlashcardSideImage(req, res, 'back'));

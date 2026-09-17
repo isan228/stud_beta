@@ -171,7 +171,14 @@
         return !String(text || '').replace(/\s+/g, ' ').trim();
     }
 
-    function sideHtml(card, side) {
+    function imgAttrs({ eager = false } = {}) {
+        if (eager) {
+            return 'loading="eager" decoding="async" fetchpriority="high"';
+        }
+        return 'loading="lazy" decoding="async"';
+    }
+
+    function sideHtml(card, side, opts = {}) {
         const isBack = side === 'back';
         const imageUrl = String(isBack ? (card.backImageUrl || '') : (card.frontImageUrl || '')).trim();
         const text = isBack
@@ -179,12 +186,33 @@
             : (card.frontHtml || esc(card.frontText || ''));
         const hasText = !isBlankText(isBack ? card.backText : card.frontText);
         const img = imageUrl
-            ? `<figure class="flashcard-image-wrap"><img class="flashcard-image" src="${esc(imageUrl)}" alt="${isBack ? 'Back' : 'Front'}" loading="lazy"></figure>`
+            ? `<figure class="flashcard-image-wrap"><img class="flashcard-image" src="${esc(imageUrl)}" alt="${isBack ? 'Back' : 'Front'}" ${imgAttrs(opts)}></figure>`
             : '';
         const textBlock = hasText
             ? `<div class="flashcard-text flashcard-text-${isBack ? 'back' : 'front'}${imageUrl ? ' has-image' : ''}">${text}</div>`
             : '';
         return img || textBlock ? `${img}${textBlock}` : '<p class="flashcard-empty">Пустая карточка</p>';
+    }
+
+    function preloadUrl(url) {
+        const src = String(url || '').trim();
+        if (!src) return;
+        const img = new Image();
+        img.decoding = 'async';
+        img.src = src;
+    }
+
+    /** Warm cache for flip side + next card so study feels instant. */
+    function preloadNearbySessionImages() {
+        const card = studyCards[studyIndex];
+        if (!card) return;
+        if (!showBack) preloadUrl(card.backImageUrl);
+        else preloadUrl(card.frontImageUrl);
+        const next = studyCards[studyIndex + 1];
+        if (next) {
+            preloadUrl(next.frontImageUrl);
+            preloadUrl(next.backImageUrl);
+        }
     }
 
     function renderBrowse() {
@@ -209,7 +237,7 @@
             const cardsHtml = preview.map((card) => {
                 const hasImage = Boolean(String(card.frontImageUrl || '').trim());
                 const body = hasImage
-                    ? `<img class="fc-deck-card-img" src="${esc(card.frontImageUrl)}" alt="" loading="lazy">`
+                    ? `<img class="fc-deck-card-img" src="${esc(card.frontImageUrl)}" alt="" loading="lazy" decoding="async">`
                     : `<div class="fc-deck-card-text">${esc(previewText(card.frontText))}</div>`;
                 return `
                     <button type="button" class="fc-deck-card" data-card-id="${card.id}" data-topic-key="${esc(group.key)}">
@@ -326,9 +354,10 @@
         }
 
         const imageUrl = String(showBack ? (card.backImageUrl || '') : (card.frontImageUrl || '')).trim();
-        body.innerHTML = sideHtml(card, showBack ? 'back' : 'front');
+        body.innerHTML = sideHtml(card, showBack ? 'back' : 'front', { eager: true });
         body.scrollTop = 0;
         if (shell) shell.classList.toggle('has-media', Boolean(imageUrl));
+        preloadNearbySessionImages();
 
         if (showBack) {
             footerFront?.classList.add('hidden');

@@ -201,6 +201,13 @@ app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res, filePath) => {
     // Безопасные заголовки для статических файлов
     res.set('X-Content-Type-Options', 'nosniff');
+
+    // Uploads: filenames are unique (timestamp); allow long browser/CDN cache
+    const normalized = String(filePath || '').replace(/\\/g, '/');
+    if (normalized.includes('/uploads/')) {
+      res.set('Cache-Control', 'public, max-age=31536000, immutable');
+      return;
+    }
     
     // Отключаем кеширование для app.js и admin.js, чтобы всегда получать свежие версии
     if (filePath.includes('app.js') || filePath.includes('admin.js') || filePath.includes('redact.js') || filePath.includes('question-image-form.js') || filePath.includes('redact-login.css')) {
