@@ -4717,7 +4717,7 @@ async function loadUsmleTestsAdmin() {
                 saList.innerHTML = saTests.map(test => {
                     const isNbme = isUsmleNbmeTest(test);
                     const badge = isNbme
-                        ? '<span style="background:#0e7490;color:white;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.75rem;margin-left:0.5rem;">NBME · 4×40 · 60 мин</span>'
+                        ? '<span style="background:#0e7490;color:white;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.75rem;margin-left:0.5rem;">NBME · 4×50 · 60 мин</span>'
                         : '<span style="background:#1d4ed8;color:white;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.75rem;margin-left:0.5rem;">Self-Assessment · 4×40 · 60 мин</span>';
                     return `
             <div class="admin-list-item">
@@ -4847,9 +4847,10 @@ async function loadUsmleSaBlocksAdmin(testId) {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || 'Ошибка');
+        window.__usmleSaQuestionsPerAttempt = data.questionsPerAttempt || data.questionsPerBlock || 40;
         body.innerHTML = (data.blocks || []).map((b) => {
             const pool = b.poolCount ?? b.questionCount ?? 0;
-            const perAttempt = b.questionsPerAttempt || b.questionsPerBlock || 40;
+            const perAttempt = b.questionsPerAttempt || b.questionsPerBlock || window.__usmleSaQuestionsPerAttempt || 40;
             const status = b.ready
                 ? `<span style="color:#16a34a;font-weight:700;">Ready · пул ${pool}</span>`
                 : `<span style="color:var(--text-muted);">Пул ${pool} / мин. ${perAttempt}</span>`;
@@ -4880,7 +4881,10 @@ async function loadUsmleSaBlockQuestions(testId, blockIndex) {
     usmleSaActiveBlockIndex = blockIndex;
     if (blocksPanel) blocksPanel.style.display = 'none';
     if (blockQPanel) blockQPanel.style.display = '';
-    if (title) title.textContent = `Block - #${blockIndex} · пул без лимита · на попытку 40 · 60 мин`;
+    if (title) {
+        const perAttempt = window.__usmleSaQuestionsPerAttempt || 40;
+        title.textContent = `Block - #${blockIndex} · пул без лимита · на попытку ${perAttempt} · 60 мин`;
+    }
     if (!list) return;
 
     list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1rem;">Загрузка…</p>';

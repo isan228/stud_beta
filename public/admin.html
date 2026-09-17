@@ -1000,7 +1000,7 @@
                                 <button type="button" class="btn btn-secondary btn-sm" id="usmleSaBlocksRefreshBtn">Обновить блоки</button>
                             </div>
                         </div>
-                        <p class="page-description" style="margin:0 0 1rem;">4 блока. В каждый можно загрузить сколько угодно вопросов; студенту на попытку выдаётся <strong>40 случайных</strong>, таймер Standard (60 min). У вопросов SA только текст, ответы и объяснение — без Subject/System.</p>
+                        <p class="page-description" style="margin:0 0 1rem;">4 блока. В каждый можно загрузить сколько угодно вопросов; студенту на попытку выдаётся <strong>40 случайных (SA)</strong> или <strong>50 случайных (NBME)</strong>, таймер Standard (60 min). У вопросов SA/NBME только текст, ответы и объяснение — без Subject/System.</p>
 
                         <div id="usmleSaTestsList" class="admin-list" style="margin-bottom:1.25rem;"></div>
 
@@ -1405,7 +1405,7 @@
                     </label>
                     <label style="display:flex; align-items:center; gap:0.5rem; margin-top:0.5rem;">
                         <input type="checkbox" id="testIsNbme">
-                        <span>NBME form (то же: 4 блока × 40 случайных, 60 мин)</span>
+                        <span>NBME form (4 блока, пул без лимита → 50 случайных на попытку, 60 мин)</span>
                     </label>
                 </div>
                 <button type="submit" class="btn btn-primary">Сохранить</button>
@@ -1671,7 +1671,7 @@
 "Correct":"1";
 "E":"Объяснение";</pre>
                         <p style="margin: 0.75rem 0 0; font-size: 0.85rem; color: var(--text-muted);">
-                            Без Subject/System — только вопрос, ответы и объяснение. Можно связанные (с <strong>GroupID</strong>) и одиночные. В пул блока можно загрузить сколько угодно вопросов; на попытке студенту выдаётся <strong>40 случайных</strong>. Таймер блока — <strong>60 мин</strong>.
+                            Без Subject/System — только вопрос, ответы и объяснение. Можно связанные (с <strong>GroupID</strong>) и одиночные. В пул блока можно загрузить сколько угодно вопросов; на попытке студенту выдаётся <strong>40 (SA)</strong> или <strong>50 (NBME)</strong> случайных. Таймер блока — <strong>60 мин</strong>.
                         </p>
                     </div>
                 </div>
@@ -1976,10 +1976,10 @@
                     <label for="questionSaBlockIndex">Self-Assessment блок</label>
                     <select id="questionSaBlockIndex">
                         <option value="">Без блока</option>
-                        <option value="1">Block - #1 (пул → 40 на попытку, 60 мин)</option>
-                        <option value="2">Block - #2 (пул → 40 на попытку, 60 мин)</option>
-                        <option value="3">Block - #3 (пул → 40 на попытку, 60 мин)</option>
-                        <option value="4">Block - #4 (пул → 40 на попытку, 60 мин)</option>
+                        <option value="1">Block - #1 (пул → 40/50 на попытку, 60 мин)</option>
+                        <option value="2">Block - #2 (пул → 40/50 на попытку, 60 мин)</option>
+                        <option value="3">Block - #3 (пул → 40/50 на попытку, 60 мин)</option>
+                        <option value="4">Block - #4 (пул → 40/50 на попытку, 60 мин)</option>
                     </select>
                 </div>
                 <div class="form-group" id="questionUsmleTagsGroup">

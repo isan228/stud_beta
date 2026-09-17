@@ -3376,10 +3376,10 @@ router.get('/tests/:id/self-assessment/blocks', adminAuth, async (req, res) => {
   try {
     const {
       SA_BLOCK_COUNT,
-      SA_QUESTIONS_PER_BLOCK,
       SA_TIMER_MINUTES,
       isBlockExamTest,
       getBlockExamKind,
+      getQuestionsPerBlock,
       countQuestionsInSaBlock
     } = require('../utils/usmleSelfAssessment');
 
@@ -3389,18 +3389,19 @@ router.get('/tests/:id/self-assessment/blocks', adminAuth, async (req, res) => {
       return res.status(400).json({ error: 'Это не Self-Assessment / NBME тест' });
     }
 
+    const perBlock = getQuestionsPerBlock(test);
     const blocks = [];
     for (let i = 1; i <= SA_BLOCK_COUNT; i++) {
-      const count = await countQuestionsInSaBlock(Question, test.id, i);
+      const count = await countQuestionsInSaBlock(Question, test.id, i, perBlock);
       blocks.push({
         blockIndex: i,
         blockId: `Block - #${i}`,
         questionCount: count,
         poolCount: count,
-        questionsPerBlock: SA_QUESTIONS_PER_BLOCK,
-        questionsPerAttempt: SA_QUESTIONS_PER_BLOCK,
-        remaining: Math.max(0, SA_QUESTIONS_PER_BLOCK - count),
-        ready: count >= SA_QUESTIONS_PER_BLOCK,
+        questionsPerBlock: perBlock,
+        questionsPerAttempt: perBlock,
+        remaining: Math.max(0, perBlock - count),
+        ready: count >= perBlock,
         timeAllowedMinutes: SA_TIMER_MINUTES,
         timeAllowedLabel: `Standard (${SA_TIMER_MINUTES} min)`
       });
@@ -3411,8 +3412,8 @@ router.get('/tests/:id/self-assessment/blocks', adminAuth, async (req, res) => {
       testName: test.name,
       testKind: getBlockExamKind(test),
       blockCount: SA_BLOCK_COUNT,
-      questionsPerBlock: SA_QUESTIONS_PER_BLOCK,
-      questionsPerAttempt: SA_QUESTIONS_PER_BLOCK,
+      questionsPerBlock: perBlock,
+      questionsPerAttempt: perBlock,
       timerMinutes: SA_TIMER_MINUTES,
       blocks
     });

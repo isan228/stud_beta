@@ -1,5 +1,6 @@
 const SA_BLOCK_COUNT = 4;
 const SA_QUESTIONS_PER_BLOCK = 40;
+const NBME_QUESTIONS_PER_BLOCK = 50;
 const SA_TIMER_MINUTES = 60;
 const SA_TIMER_SECONDS = SA_TIMER_MINUTES * 60;
 const SA_META_KEY = '__meta';
@@ -38,6 +39,16 @@ function getBlockExamKind(test) {
   return 'standard';
 }
 
+/** Сколько вопросов выдаётся на попытку блока (SA=40, NBME=50). */
+function getQuestionsPerBlock(testOrKind) {
+  if (typeof testOrKind === 'string') {
+    return String(testOrKind).toLowerCase() === 'nbme'
+      ? NBME_QUESTIONS_PER_BLOCK
+      : SA_QUESTIONS_PER_BLOCK;
+  }
+  return isNbmeTest(testOrKind) ? NBME_QUESTIONS_PER_BLOCK : SA_QUESTIONS_PER_BLOCK;
+}
+
 function extractBlockMeta(answers) {
   if (!answers || typeof answers !== 'object') return null;
   const meta = answers[SA_META_KEY];
@@ -61,13 +72,14 @@ function withBlockMeta(answers, blockIndex, kind = 'self_assessment') {
   return base;
 }
 
-function blockSliceBounds(blockIndex) {
+function blockSliceBounds(blockIndex, questionsPerBlock = SA_QUESTIONS_PER_BLOCK) {
   const idx = parseInt(blockIndex, 10);
-  const start = (idx - 1) * SA_QUESTIONS_PER_BLOCK;
-  return { start, end: start + SA_QUESTIONS_PER_BLOCK, blockIndex: idx };
+  const size = Number(questionsPerBlock) > 0 ? Number(questionsPerBlock) : SA_QUESTIONS_PER_BLOCK;
+  const start = (idx - 1) * size;
+  return { start, end: start + size, blockIndex: idx };
 }
 
-async function countQuestionsInSaBlock(QuestionModel, testId, blockIndex) {
+async function countQuestionsInSaBlock(QuestionModel, testId, blockIndex, questionsPerBlock = SA_QUESTIONS_PER_BLOCK) {
   const idx = parseInt(blockIndex, 10);
   try {
     const tagged = await QuestionModel.count({
@@ -81,11 +93,17 @@ async function countQuestionsInSaBlock(QuestionModel, testId, blockIndex) {
     attributes: ['id'],
     order: [['createdAt', 'ASC'], ['id', 'ASC']]
   });
-  const { start, end } = blockSliceBounds(idx);
+  const { start, end } = blockSliceBounds(idx, questionsPerBlock);
   return all.slice(start, end).length;
 }
 
-async function loadSaBlockQuestionRows(QuestionModel, testId, blockIndex, attributes = ['id', 'text', 'createdAt', 'saBlockIndex']) {
+async function loadSaBlockQuestionRows(
+  QuestionModel,
+  testId,
+  blockIndex,
+  attributes = ['id', 'text', 'createdAt', 'saBlockIndex'],
+  questionsPerBlock = SA_QUESTIONS_PER_BLOCK
+) {
   const idx = parseInt(blockIndex, 10);
   const findOpts = {
     where: { testId, saBlockIndex: idx },
@@ -107,13 +125,14 @@ async function loadSaBlockQuestionRows(QuestionModel, testId, blockIndex, attrib
   };
   if (attributes) allOpts.attributes = attributes;
   const all = await QuestionModel.findAll(allOpts);
-  const { start, end } = blockSliceBounds(idx);
+  const { start, end } = blockSliceBounds(idx, questionsPerBlock);
   return all.slice(start, end);
 }
 
 module.exports = {
   SA_BLOCK_COUNT,
   SA_QUESTIONS_PER_BLOCK,
+  NBME_QUESTIONS_PER_BLOCK,
   SA_TIMER_MINUTES,
   SA_TIMER_SECONDS,
   SA_META_KEY,
@@ -123,6 +142,7 @@ module.exports = {
   isNbmeTest,
   isBlockExamTest,
   getBlockExamKind,
+  getQuestionsPerBlock,
   extractBlockMeta,
   withBlockMeta,
   blockSliceBounds,

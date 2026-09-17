@@ -15,6 +15,7 @@ const {
   isNbmeTest,
   isBlockExamTest,
   getBlockExamKind,
+  getQuestionsPerBlock,
   extractBlockMeta,
   blockSliceBounds,
   countQuestionsInSaBlock,
@@ -1346,8 +1347,9 @@ async function handleBlockExamBlocks(req, res, expectedKind) {
     return res.status(bankAccess.status).json({ error: bankAccess.error, code: bankAccess.code });
   }
 
+  const perBlock = getQuestionsPerBlock(test);
   const totalQuestions = await Question.count({ where: { testId } });
-  const minPoolTotal = SA_BLOCK_COUNT * SA_QUESTIONS_PER_BLOCK;
+  const minPoolTotal = SA_BLOCK_COUNT * perBlock;
 
   const latestByBlock = new Map();
   const rows = await TestResult.findAll({
@@ -1363,16 +1365,16 @@ async function handleBlockExamBlocks(req, res, expectedKind) {
 
   const blocks = [];
   for (let i = 1; i <= SA_BLOCK_COUNT; i++) {
-    const available = await countQuestionsInSaBlock(Question, testId, i);
+    const available = await countQuestionsInSaBlock(Question, testId, i, perBlock);
     const row = latestByBlock.get(i) || null;
     const complete = Boolean(row);
     blocks.push({
       blockIndex: i,
       blockId: `Block - #${i}`,
-      questionCount: SA_QUESTIONS_PER_BLOCK,
+      questionCount: perBlock,
       availableQuestions: available,
       poolCount: available,
-      ready: available >= SA_QUESTIONS_PER_BLOCK,
+      ready: available >= perBlock,
       timeAllowedMinutes: SA_TIMER_MINUTES,
       timeAllowedLabel: `Standard (${SA_TIMER_MINUTES} min)`,
       status: complete ? 'complete' : 'not_started',
@@ -1390,12 +1392,12 @@ async function handleBlockExamBlocks(req, res, expectedKind) {
     testName: test.name,
     testKind: kind,
     blockCount: SA_BLOCK_COUNT,
-    questionsPerBlock: SA_QUESTIONS_PER_BLOCK,
-    questionsPerAttempt: SA_QUESTIONS_PER_BLOCK,
+    questionsPerBlock: perBlock,
+    questionsPerAttempt: perBlock,
     timerMinutes: SA_TIMER_MINUTES,
     totalQuestions,
     expectedTotal: minPoolTotal,
-    minPoolPerBlock: SA_QUESTIONS_PER_BLOCK,
+    minPoolPerBlock: perBlock,
     blocks
   });
 }
@@ -1447,16 +1449,23 @@ async function handleBlockExamStart(req, res, expectedKind) {
     });
   }
 
-  const slice = await loadSaBlockQuestionRows(Question, testId, blockIndex, ['id', 'text', 'createdAt', 'saBlockIndex']);
-  if (slice.length < SA_QUESTIONS_PER_BLOCK) {
+  const perBlock = getQuestionsPerBlock(test);
+  const slice = await loadSaBlockQuestionRows(
+    Question,
+    testId,
+    blockIndex,
+    ['id', 'text', 'createdAt', 'saBlockIndex'],
+    perBlock
+  );
+  if (slice.length < perBlock) {
     return res.status(400).json({
-      error: `В блоке #${blockIndex} недостаточно вопросов в пуле (нужно минимум ${SA_QUESTIONS_PER_BLOCK}, есть ${slice.length}). Загрузите больше вопросов в этот блок в админке.`,
+      error: `В блоке #${blockIndex} недостаточно вопросов в пуле (нужно минимум ${perBlock}, есть ${slice.length}). Загрузите больше вопросов в этот блок в админке.`,
       available: slice.length,
-      required: SA_QUESTIONS_PER_BLOCK
+      required: perBlock
     });
   }
 
-  const ordered = pickQuestionsKeepingLinkedOrder(slice, SA_QUESTIONS_PER_BLOCK, { shuffleGroups: true });
+  const ordered = pickQuestionsKeepingLinkedOrder(slice, perBlock, { shuffleGroups: true });
   const ids = ordered.map((q) => q.id);
 
   const questions = await Question.findAll({

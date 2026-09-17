@@ -19,7 +19,7 @@ const NBME_STEP1_NAMES = [
 
 /**
  * Гарантирует NBME-формы (Step 1) на /usmle.
- * Логика как у Self-Assessment: 4 блока × пул → 40 случайных, 60 мин.
+ * Логика как у Self-Assessment: 4 блока × пул → 50 случайных, 60 мин.
  */
 async function ensureUsmleNbme() {
   let subject = await Subject.findOne({
@@ -65,7 +65,7 @@ async function ensureUsmleNbme() {
     if (!test) {
       const payload = {
         name,
-        description: 'NBME form: 4 блока × 40 вопросов, таймер 60 минут на блок',
+        description: 'NBME form: 4 блока × 50 вопросов, таймер 60 минут на блок',
         subjectId: subject.id,
         universityId: null,
         programType: 'usmle',

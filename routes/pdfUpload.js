@@ -10,6 +10,7 @@ const {
   SA_QUESTIONS_PER_BLOCK,
   SA_TIMER_MINUTES,
   isBlockExamTest,
+  getQuestionsPerBlock,
   loadSaBlockQuestionRows,
   countQuestionsInSaBlock
 } = require('../utils/usmleSelfAssessment');
@@ -718,8 +719,9 @@ router.post('/upload-txt-mixed', adminAuth, upload.single('pdf'), async (req, re
 });
 
 /**
- * Self-Assessment: TXT в конкретный блок (1–4).
- * В блок можно загрузить сколько угодно вопросов; на попытке студенту выдаётся случайные 40.
+ * Self-Assessment / NBME: TXT в конкретный блок (1–4).
+ * В блок можно загрузить сколько угодно вопросов; на попытке студенту выдаётся
+ * случайные 40 (SA) или 50 (NBME).
  * Body: testId, blockIndex, replace=1|0
  */
 async function handleSaBlockTxtUpload(req, res) {
@@ -751,6 +753,7 @@ async function handleSaBlockTxtUpload(req, res) {
     return;
   }
 
+  const perAttempt = getQuestionsPerBlock(test);
   const { syncTestHasExplanations } = require('../utils/syncTestExplanations');
   await syncTestHasExplanations(test.id, true);
 
@@ -773,7 +776,7 @@ async function handleSaBlockTxtUpload(req, res) {
   }
 
   if (replace) {
-    const existing = await loadSaBlockQuestionRows(Question, testId, blockIndex, ['id', 'saBlockIndex']);
+    const existing = await loadSaBlockQuestionRows(Question, testId, blockIndex, ['id', 'saBlockIndex'], perAttempt);
     const ids = existing.map((q) => q.id);
     if (ids.length) {
       await Answer.destroy({ where: { questionId: { [Op.in]: ids } } });
@@ -787,14 +790,14 @@ async function handleSaBlockTxtUpload(req, res) {
     saBlockIndex: blockIndex
   });
 
-  const poolCount = await countQuestionsInSaBlock(Question, testId, blockIndex);
+  const poolCount = await countQuestionsInSaBlock(Question, testId, blockIndex, perAttempt);
 
   res.json({
-    message: `Block #${blockIndex}: загружено ${createdQuestions.length} вопросов (в пуле блока ${poolCount}; на попытку — ${SA_QUESTIONS_PER_BLOCK} случайных, таймер ${SA_TIMER_MINUTES} мин)`,
+    message: `Block #${blockIndex}: загружено ${createdQuestions.length} вопросов (в пуле блока ${poolCount}; на попытку — ${perAttempt} случайных, таймер ${SA_TIMER_MINUTES} мин)`,
     blockIndex,
     poolCount,
-    questionsPerAttempt: SA_QUESTIONS_PER_BLOCK,
-    questionsPerBlock: SA_QUESTIONS_PER_BLOCK,
+    questionsPerAttempt: perAttempt,
+    questionsPerBlock: perAttempt,
     timerMinutes: SA_TIMER_MINUTES,
     questions: createdQuestions
   });
