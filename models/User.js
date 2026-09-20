@@ -37,6 +37,12 @@ const User = sequelize.define('User', {
     defaultValue: 'pending',
     allowNull: false
   },
+  isUgc: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    allowNull: false,
+    comment: 'UGC-аккаунт: рефералки + полный доступ к контенту'
+  },
   referralCode: {
     type: DataTypes.STRING(20),
     unique: true,

@@ -22,7 +22,7 @@ async function requireUsmleSubscription(req, res, next) {
     }
 
     const user = await User.findByPk(decoded.userId, {
-      attributes: ['id', 'email', 'username', 'usmleSubscriptionEndDate']
+      attributes: ['id', 'email', 'username', 'usmleSubscriptionEndDate', 'isUgc']
     });
     if (!user) return next();
 

@@ -498,14 +498,14 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     function userNeedsUniversity() {
         if (!currentUser) return false;
-        if (currentUser.isAdminAccount === true) return false;
+        if (currentUser.isAdminAccount === true || currentUser.isUgc === true) return false;
         const uniId = currentUser.universityId || currentUser.University?.id;
         return !(uniId && Number(uniId) > 0);
     }
 
     function userNeedsDirection() {
         if (!currentUser) return false;
-        if (currentUser.isAdminAccount === true) return false;
+        if (currentUser.isAdminAccount === true || currentUser.isUgc === true) return false;
         if (userNeedsUniversity()) return false;
 
         const hasFaculty = !!(currentUser.facultyId && Number(currentUser.facultyId) > 0);
@@ -2031,13 +2031,13 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     function hasActiveSubscription() {
         if (!currentUser) return false;
-        if (currentUser.isAdminAccount === true || currentUser.subscriptionActive === true) return true;
+        if (currentUser.isUgc === true || currentUser.isAdminAccount === true || currentUser.subscriptionActive === true) return true;
         return !!(currentUser.subscriptionEndDate && new Date(currentUser.subscriptionEndDate) > new Date());
     }
 
     function hasActiveUsmleSubscription() {
         if (!currentUser) return false;
-        if (currentUser.isAdminAccount === true || currentUser.usmleSubscriptionActive === true) return true;
+        if (currentUser.isUgc === true || currentUser.isAdminAccount === true || currentUser.usmleSubscriptionActive === true) return true;
         return !!(currentUser.usmleSubscriptionEndDate && new Date(currentUser.usmleSubscriptionEndDate) > new Date());
     }
 
@@ -5203,6 +5203,65 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             return;
         }
 
+        async function loadProfileReferrals(user) {
+            const block = document.getElementById('ugcReferralsBlock');
+            const countEl = document.getElementById('ugcReferralCount');
+            const listEl = document.getElementById('ugcReferralsProfileList');
+            const helpEl = document.getElementById('referralHelpText');
+            if (!block) return;
+
+            // Показываем блок рефералов для UGC (и если уже есть приглашённые)
+            const showBlock = user.isUgc === true || (user.referralCount && user.referralCount > 0);
+            if (!showBlock) {
+                block.style.display = 'none';
+                return;
+            }
+            block.style.display = 'block';
+            if (helpEl && user.isUgc) {
+                helpEl.textContent = 'UGC-аккаунт: полный доступ к платформе. Делитесь ссылкой — приглашённые пользователи отображаются ниже.';
+            }
+            if (countEl) countEl.textContent = user.referralCount != null ? user.referralCount : '…';
+
+            try {
+                const res = await fetch(`${API_URL}/auth/referrals`, {
+                    headers: { 'Authorization': `Bearer ${currentToken}` }
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (countEl) countEl.textContent = data.count || 0;
+                if (!listEl) return;
+                const rows = data.referrals || [];
+                if (!rows.length) {
+                    listEl.innerHTML = '<p style="color: var(--text-secondary); margin: 0;">Пока никто не зарегистрировался по вашей ссылке</p>';
+                    return;
+                }
+                listEl.innerHTML = `
+                    <table class="admin-table" style="width:100%; font-size: 0.9rem;">
+                        <thead>
+                            <tr>
+                                <th>Никнейм</th>
+                                <th>Email</th>
+                                <th>Регистрация</th>
+                                <th>Подписка</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows.map((r) => `
+                                <tr>
+                                    <td>${r.username || '—'}</td>
+                                    <td>${r.email || '—'}</td>
+                                    <td>${r.createdAt ? new Date(r.createdAt).toLocaleDateString('ru-RU') : '—'}</td>
+                                    <td>${r.hasActiveSubscription ? 'Активна' : (r.subscriptionEndDate ? new Date(r.subscriptionEndDate).toLocaleDateString('ru-RU') : 'Нет')}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (e) {
+                console.warn('Не удалось загрузить рефералов:', e);
+            }
+        }
+
         try {
             // Загружаем информацию о пользователе
             const userResponse = await fetch(`${API_URL}/auth/me`, {
@@ -5370,6 +5429,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                         }
                     });
                 }
+
+                // UGC: список и количество приглашённых
+                await loadProfileReferrals(user);
             }
 
             // Загружаем статистику

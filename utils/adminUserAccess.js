@@ -24,18 +24,25 @@ async function isAdminLinkedUser(user) {
   return !!admin;
 }
 
+function isUgcAccount(user) {
+  return !!(user && (user.isUgc === true || user.isUgc === 1 || user.isUgc === 'true'));
+}
+
 async function userHasUniversityAccess(user) {
+  if (isUgcAccount(user)) return true;
   if (await isAdminLinkedUser(user)) return true;
   return isSubscriptionActive(user?.subscriptionEndDate);
 }
 
 async function userHasUsmleAccess(user) {
+  if (isUgcAccount(user)) return true;
   if (await isAdminLinkedUser(user)) return true;
   return isSubscriptionActive(user?.usmleSubscriptionEndDate);
 }
 
 module.exports = {
   isAdminLinkedUser,
+  isUgcAccount,
   userHasUniversityAccess,
   userHasUsmleAccess
 };

@@ -184,8 +184,14 @@
                                 <button class="btn btn-secondary" id="copyReferralLink"
                                     style="min-width: auto; padding: 0.75rem 1rem;">Копировать</button>
                             </div>
-                            <small>Поделитесь этой ссылкой с друзьями. За каждого зарегистрированного друга вы получите
+                            <small id="referralHelpText">Поделитесь этой ссылкой с друзьями. За каждого зарегистрированного друга вы получите
                                 50 монеток, а ваш друг тоже получит 50 монеток при регистрации!</small>
+                        </div>
+                        <div id="ugcReferralsBlock" style="display: none; margin-top: 1.25rem;">
+                            <p style="margin: 0 0 0.75rem; font-weight: 600;">
+                                Приглашено по вашей ссылке: <span id="ugcReferralCount">0</span>
+                            </p>
+                            <div id="ugcReferralsProfileList" class="admin-table-container" style="overflow-x: auto;"></div>
                         </div>
                         <div
                             style="margin-top: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: var(--radius); border-left: 4px solid var(--primary-color);">

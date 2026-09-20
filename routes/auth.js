@@ -8,10 +8,10 @@ const { User, UserStats, UserDeviceAlert, UserBroadcastNotification, BroadcastMe
 const { ALLOWED_COURSES, ensureLechfakForUniversity } = require('../utils/ensureFaculties');
 const { fetchKgmaMeta, listKgmaGroups } = require('../utils/kgmaSchedule');
 const { isSubscriptionActive } = require('../utils/subscriptionPlans');
-const { isAdminLinkedUser } = require('../utils/adminUserAccess');
+const { isAdminLinkedUser, isUgcAccount } = require('../utils/adminUserAccess');
 
 const USER_PROFILE_ATTRIBUTES = [
-  'id', 'username', 'email', 'createdAt', 'referralCode', 'coins',
+  'id', 'username', 'email', 'createdAt', 'referralCode', 'coins', 'isUgc',
   'subscriptionEndDate', 'usmleSubscriptionEndDate',
   'universityId', 'facultyId', 'course', 'groupName', 'kgmaGroupId', 'scheduleRemindersEnabled'
 ];
@@ -164,7 +164,8 @@ router.post('/login', [
       user: {
         id: user.id,
         username: user.username,
-        email: user.email
+        email: user.email,
+        isUgc: !!user.isUgc
       }
     });
   } catch (error) {
@@ -364,12 +365,45 @@ router.get('/me', require('../middleware/auth'), async (req, res) => {
     
     const payload = user.toJSON();
     const adminLinked = await isAdminLinkedUser(user);
+    const ugc = isUgcAccount(user);
     payload.isAdminAccount = adminLinked;
-    payload.subscriptionActive = adminLinked || isSubscriptionActive(user.subscriptionEndDate);
-    payload.usmleSubscriptionActive = adminLinked || isSubscriptionActive(user.usmleSubscriptionEndDate);
+    payload.isUgc = ugc;
+    payload.subscriptionActive = ugc || adminLinked || isSubscriptionActive(user.subscriptionEndDate);
+    payload.usmleSubscriptionActive = ugc || adminLinked || isSubscriptionActive(user.usmleSubscriptionEndDate);
+
+    // Для UGC (и любого пользователя с рефералами) — количество приглашённых
+    const referralCount = await User.count({ where: { referredBy: user.id } });
+    payload.referralCount = referralCount;
+
     res.json({ user: payload });
   } catch (error) {
     console.error('Ошибка получения пользователя:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Список приглашённых по рефералке текущего пользователя (для UGC и обычных)
+router.get('/referrals', require('../middleware/auth'), async (req, res) => {
+  try {
+    const referrals = await User.findAll({
+      where: { referredBy: req.user.id },
+      attributes: ['id', 'username', 'email', 'createdAt', 'subscriptionEndDate', 'status'],
+      order: [['createdAt', 'DESC']]
+    });
+    res.json({
+      count: referrals.length,
+      referrals: referrals.map((u) => ({
+        id: u.id,
+        username: u.username,
+        email: u.email,
+        createdAt: u.createdAt,
+        subscriptionEndDate: u.subscriptionEndDate,
+        status: u.status,
+        hasActiveSubscription: isSubscriptionActive(u.subscriptionEndDate)
+      }))
+    });
+  } catch (error) {
+    console.error('Ошибка получения рефералов:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

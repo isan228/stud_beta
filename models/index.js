@@ -147,6 +147,10 @@ Favorite.belongsTo(User, { foreignKey: 'userId', as: 'User' });
 User.hasMany(Transaction, { foreignKey: 'userId', as: 'Transactions' });
 Transaction.belongsTo(User, { foreignKey: 'userId', as: 'User' });
 
+// Рефералы: кто пригласил / кого пригласили
+User.hasMany(User, { foreignKey: 'referredBy', as: 'Referrals' });
+User.belongsTo(User, { foreignKey: 'referredBy', as: 'Referrer' });
+
 // Связи для уведомлений о входе с нового устройства
 User.hasMany(UserDeviceAlert, { foreignKey: 'userId', as: 'DeviceAlerts' });
 UserDeviceAlert.belongsTo(User, { foreignKey: 'userId', as: 'User' });

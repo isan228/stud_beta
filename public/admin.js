@@ -1074,7 +1074,7 @@ async function loadUsers(page = 1) {
                             return `
                                 <tr>
                                     <td>${user.id}</td>
-                                    <td>${user.username}</td>
+                                    <td>${user.username}${user.isUgc ? ' <span style="background:#6366f1;color:#fff;padding:0.1rem 0.4rem;border-radius:4px;font-size:0.7rem;">UGC</span>' : ''}</td>
                                     <td>${user.email}</td>
                                     <td>${uniLabel}</td>
                                     <td>${user.coins || 0}</td>
@@ -1109,6 +1109,161 @@ async function loadUsers(page = 1) {
     } catch (error) {
         console.error('Ошибка загрузки пользователей:', error);
         showNotification('Ошибка загрузки пользователей', 'error');
+    }
+}
+
+async function loadUgcUsers() {
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/users/ugc`, {
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+        });
+        if (!response.ok) throw new Error('Ошибка загрузки UGC');
+        const data = await response.json();
+        const listEl = document.getElementById('ugcList');
+        if (!listEl) return;
+
+        const users = data.users || [];
+        if (!users.length) {
+            listEl.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 2rem;">UGC-аккаунтов пока нет</p>';
+            return;
+        }
+
+        const origin = window.location.origin;
+        listEl.innerHTML = `
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Никнейм</th>
+                        <th>Email</th>
+                        <th>Реферальный код</th>
+                        <th>Приглашено</th>
+                        <th>Создан</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${users.map((u) => {
+                        const date = u.createdAt ? new Date(u.createdAt).toLocaleDateString('ru-RU') : '—';
+                        const code = u.referralCode || '—';
+                        const link = u.referralCode ? `${origin}/register?ref=${u.referralCode}` : '';
+                        return `
+                            <tr>
+                                <td>${u.id}</td>
+                                <td>${escapeHtml(u.username)} <span style="background:#6366f1;color:#fff;padding:0.1rem 0.4rem;border-radius:4px;font-size:0.7rem;">UGC</span></td>
+                                <td>${escapeHtml(u.email)}</td>
+                                <td>
+                                    <code>${escapeHtml(code)}</code>
+                                    ${link ? `<button type="button" class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText('${link}');showNotification('Ссылка скопирована','success')">Копировать ссылку</button>` : ''}
+                                </td>
+                                <td><strong>${u.referralCount || 0}</strong></td>
+                                <td>${date}</td>
+                                <td>
+                                    <button type="button" class="btn btn-primary btn-sm" onclick="viewUgcReferrals(${u.id}, '${String(u.username).replace(/'/g, "\\'")}')">Рефералы</button>
+                                    <button type="button" class="btn btn-secondary btn-sm" onclick="openResetPasswordModal(${u.id}, '${String(u.username).replace(/'/g, "\\'")}')">Сменить пароль</button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            </table>
+        `;
+    } catch (error) {
+        console.error('Ошибка загрузки UGC:', error);
+        showNotification('Ошибка загрузки UGC', 'error');
+    }
+}
+
+function escapeHtml(str) {
+    return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+async function viewUgcReferrals(userId, username) {
+    const modal = document.getElementById('ugcReferralsModal');
+    const title = document.getElementById('ugcReferralsTitle');
+    const countEl = document.getElementById('ugcReferralsCount');
+    const listEl = document.getElementById('ugcReferralsList');
+    if (!modal || !listEl) return;
+    if (title) title.textContent = `Рефералы: ${username || userId}`;
+    if (countEl) countEl.textContent = 'Загрузка...';
+    listEl.innerHTML = '';
+    modal.style.display = 'block';
+
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/users/${userId}/referrals`, {
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Ошибка');
+
+        if (countEl) countEl.textContent = `Всего приглашено: ${data.count || 0}`;
+        const rows = data.referrals || [];
+        if (!rows.length) {
+            listEl.innerHTML = '<p style="color: var(--text-muted); padding: 1rem;">Пока никто не зарегистрировался по этой ссылке</p>';
+            return;
+        }
+        listEl.innerHTML = `
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Никнейм</th>
+                        <th>Email</th>
+                        <th>Университет</th>
+                        <th>Подписка до</th>
+                        <th>Регистрация</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows.map((r) => `
+                        <tr>
+                            <td>${r.id}</td>
+                            <td>${escapeHtml(r.username)}</td>
+                            <td>${escapeHtml(r.email)}</td>
+                            <td>${escapeHtml(r.University?.shortName || '—')}</td>
+                            <td>${r.subscriptionEndDate ? new Date(r.subscriptionEndDate).toLocaleDateString('ru-RU') : '—'}</td>
+                            <td>${r.createdAt ? new Date(r.createdAt).toLocaleDateString('ru-RU') : '—'}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    } catch (error) {
+        console.error(error);
+        if (countEl) countEl.textContent = 'Ошибка загрузки';
+        showNotification(error.message || 'Ошибка загрузки рефералов', 'error');
+    }
+}
+
+async function createUgcAccount(e) {
+    e.preventDefault();
+    const username = document.getElementById('ugcUsername')?.value?.trim();
+    const email = document.getElementById('ugcEmail')?.value?.trim();
+    const password = document.getElementById('ugcPassword')?.value;
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/users/ugc`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentAdminToken}`
+            },
+            body: JSON.stringify({ username, email, password })
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || (data.errors && data.errors[0]?.msg) || 'Ошибка создания');
+        }
+        showNotification('UGC-аккаунт создан', 'success');
+        const modal = document.getElementById('ugcCreateModal');
+        if (modal) modal.style.display = 'none';
+        document.getElementById('ugcCreateForm')?.reset();
+        loadUgcUsers();
+    } catch (error) {
+        showNotification(error.message || 'Ошибка создания UGC', 'error');
     }
 }
 
@@ -3830,6 +3985,19 @@ function setupAdminEventListeners() {
     const editorForm = document.getElementById('editorForm');
     if (editorForm) {
         editorForm.addEventListener('submit', saveEditorAccount);
+    }
+
+    const addUgcBtn = document.getElementById('addUgcBtn');
+    if (addUgcBtn) {
+        addUgcBtn.addEventListener('click', () => {
+            document.getElementById('ugcCreateForm')?.reset();
+            const modal = document.getElementById('ugcCreateModal');
+            if (modal) modal.style.display = 'block';
+        });
+    }
+    const ugcCreateForm = document.getElementById('ugcCreateForm');
+    if (ugcCreateForm) {
+        ugcCreateForm.addEventListener('submit', createUgcAccount);
     }
 
     setupAuditEventListeners();
@@ -7965,6 +8133,9 @@ function switchTab(tabName, usmleSection) {
             loadUsers();
             loadUniversitiesForUsersFilter();
             break;
+        case 'ugc':
+            loadUgcUsers();
+            break;
         case 'devices':
             loadDeviceAlerts(50);
             break;
@@ -9127,6 +9298,8 @@ window.editNews = editNews;
 window.editScheduleEntry = editScheduleEntry;
 window.deleteScheduleEntry = deleteScheduleEntry;
 window.loadUsers = loadUsers;
+window.loadUgcUsers = loadUgcUsers;
+window.viewUgcReferrals = viewUgcReferrals;
 window.addAnswer = addAnswer;
 window.loadMessages = loadMessages;
 window.viewMessage = viewMessage;

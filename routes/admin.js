@@ -1306,6 +1306,9 @@ router.get('/users', adminAuth, requireFullAdmin, async (req, res) => {
     if (req.query.universityId) {
       where.universityId = req.query.universityId;
     }
+    if (req.query.isUgc === 'true' || req.query.isUgc === '1') {
+      where.isUgc = true;
+    }
 
     const { count, rows: users } = await User.findAndCountAll({
       where,
@@ -1336,6 +1339,127 @@ router.get('/users', adminAuth, requireFullAdmin, async (req, res) => {
     });
   } catch (error) {
     console.error('Ошибка получения пользователей:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Список UGC-аккаунтов с количеством рефералов
+router.get('/users/ugc', adminAuth, requireFullAdmin, async (req, res) => {
+  try {
+    const ugcUsers = await User.findAll({
+      where: { isUgc: true },
+      attributes: { exclude: ['password'] },
+      order: [['createdAt', 'DESC']]
+    });
+
+    const withCounts = await Promise.all(ugcUsers.map(async (u) => {
+      const referralCount = await User.count({ where: { referredBy: u.id } });
+      const json = u.toJSON();
+      return {
+        ...json,
+        referralCount,
+        referralLink: json.referralCode ? `/register?ref=${json.referralCode}` : null
+      };
+    }));
+
+    res.json({
+      count: withCounts.length,
+      users: withCounts
+    });
+  } catch (error) {
+    console.error('Ошибка получения UGC:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Создать UGC-аккаунт (полный доступ + рефералка)
+router.post('/users/ugc', adminAuth, requireFullAdmin, [
+  body('username').trim().isLength({ min: 3, max: 50 }).withMessage('Никнейм от 3 до 50 символов'),
+  body('email').isEmail().withMessage('Некорректный email'),
+  body('password').isLength({ min: 6 }).withMessage('Пароль минимум 6 символов')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { username, email, password } = req.body;
+    const existing = await User.findOne({
+      where: {
+        [Op.or]: [
+          { email: email.trim().toLowerCase() },
+          Sequelize.where(Sequelize.fn('LOWER', Sequelize.col('username')), username.trim().toLowerCase())
+        ]
+      }
+    });
+    if (existing) {
+      return res.status(400).json({ error: 'Пользователь с таким email или никнеймом уже существует' });
+    }
+
+    const user = await User.create({
+      username: username.trim(),
+      email: email.trim().toLowerCase(),
+      password,
+      status: 'approved',
+      isUgc: true,
+      coins: 0
+    });
+
+    await UserStats.findOrCreate({ where: { userId: user.id } });
+
+    const safe = user.toJSON();
+    delete safe.password;
+
+    res.status(201).json({
+      message: 'UGC-аккаунт создан',
+      user: {
+        ...safe,
+        referralCount: 0,
+        referralLink: safe.referralCode ? `/register?ref=${safe.referralCode}` : null
+      }
+    });
+  } catch (error) {
+    console.error('Ошибка создания UGC:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Рефералы конкретного UGC (или любого пользователя)
+router.get('/users/:id/referrals', adminAuth, requireFullAdmin, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.params.id, {
+      attributes: ['id', 'username', 'email', 'isUgc', 'referralCode']
+    });
+    if (!user) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+
+    const referrals = await User.findAll({
+      where: { referredBy: user.id },
+      attributes: ['id', 'username', 'email', 'createdAt', 'subscriptionEndDate', 'status', 'coins'],
+      include: [{
+        model: University,
+        as: 'University',
+        attributes: ['id', 'name', 'shortName'],
+        required: false
+      }],
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.json({
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        isUgc: user.isUgc,
+        referralCode: user.referralCode
+      },
+      count: referrals.length,
+      referrals
+    });
+  } catch (error) {
+    console.error('Ошибка получения рефералов пользователя:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

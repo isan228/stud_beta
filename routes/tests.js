@@ -35,7 +35,7 @@ async function requestHasUsmleSubscription(req) {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findByPk(decoded.userId, {
-      attributes: ['id', 'email', 'username', 'usmleSubscriptionEndDate']
+      attributes: ['id', 'email', 'username', 'usmleSubscriptionEndDate', 'isUgc']
     });
     if (!user) return false;
     return !!(await userHasUsmleAccess(user));
@@ -70,7 +70,7 @@ router.get('/flashcards', async (req, res) => {
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         user = await User.findByPk(decoded.userId, {
-          attributes: ['id', 'universityId', 'subscriptionEndDate', 'email', 'username']
+          attributes: ['id', 'universityId', 'subscriptionEndDate', 'email', 'username', 'isUgc']
         });
       } catch {
         user = null;
@@ -238,7 +238,7 @@ async function requestHasUniversitySubscription(req) {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findByPk(decoded.userId, {
-      attributes: ['id', 'email', 'username', 'subscriptionEndDate']
+      attributes: ['id', 'email', 'username', 'subscriptionEndDate', 'isUgc']
     });
     if (!user) return false;
     return !!(await userHasUniversityAccess(user));
@@ -1102,7 +1102,7 @@ router.post('/usmle/custom-test/questions', async (req, res) => {
     }
 
     const user = await User.findByPk(userId, {
-      attributes: ['id', 'email', 'username', 'usmleSubscriptionEndDate']
+      attributes: ['id', 'email', 'username', 'usmleSubscriptionEndDate', 'isUgc']
     });
     if (!user) {
       return res.status(401).json({ error: 'Пользователь не найден' });
@@ -1412,7 +1412,7 @@ async function handleBlockExamStart(req, res, expectedKind) {
   }
 
   const user = await User.findByPk(userId, {
-    attributes: ['id', 'email', 'username', 'usmleSubscriptionEndDate']
+    attributes: ['id', 'email', 'username', 'usmleSubscriptionEndDate', 'isUgc']
   });
   if (!user) {
     return res.status(401).json({ error: 'Пользователь не найден' });
