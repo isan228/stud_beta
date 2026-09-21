@@ -2366,6 +2366,11 @@ body.usmle-test-session.has-uworld-footer .test-session-main {
     padding-bottom: 5.5rem;
 }
 
+body.test-exam-page.has-uworld-footer .test-session-main,
+body.usmle-test-session.has-uworld-footer .test-session-main {
+    padding-bottom: 5.5rem;
+}
+
 body.usmle-test-session .question-item h3,
 body.usmle-test-session .question-text,
 body.usmle-test-session .usmle-question-stem {
@@ -2403,6 +2408,40 @@ body.usmle-test-session .answer-option-text {
     box-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
 }
 
+/* Страница /test: без шапки сайта */
+body.test-exam-page .navbar {
+    display: none !important;
+}
+
+body.test-exam-page.uni-test-session {
+    background: var(--bg-color, #f5f7fb);
+}
+
+body.test-exam-page.uni-test-session .main-content {
+    padding-top: 1rem;
+    padding-bottom: 2rem;
+    min-height: 100dvh;
+}
+
+body.test-exam-page .uni-test-header-tools {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+body.usmle-test-session #uniTestHeader {
+    display: none !important;
+}
+
+body.uni-test-session #usmleSessionTopbar,
+body.uni-test-session #usmleSessionFooter,
+body.uni-test-session #usmleQuestionNav,
+body.uni-test-session #usmleQuestionMeta,
+body.uni-test-session #usmleMarkerPalette {
+    display: none !important;
+}
+
 /* display:flex выше перебивает нативный [hidden] — без этого кнопки видны, но без обработчиков */
 .uworld-session-topbar[hidden],
 .usmle-qnav[hidden],
@@ -2411,7 +2450,6 @@ body.usmle-test-session .answer-option-text {
     display: none !important;
 }
 
-/* Страница /test: без шапки сайта, иммерсивный режим как USMLE/UWorld */
 body.usmle-exam-page .navbar {
     display: none !important;
 }

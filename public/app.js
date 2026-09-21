@@ -114,10 +114,6 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     ]);
 
     function isUsmleTestSession() {
-        // Страница /test всегда в режиме USMLE/UWorld chrome
-        if (typeof document !== 'undefined' && document.body?.classList.contains('usmle-exam-page')) {
-            return true;
-        }
         if (getProgramType() === 'usmle') return true;
         try {
             const raw = sessionStorage.getItem('testData');
@@ -2573,14 +2569,21 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     function startTimer(seconds) {
         const timerDisplayEl = document.getElementById('timerDisplay');
         const usmleTimerDisplayEl = document.getElementById('usmleTbTimerDisplay');
-        // Таймер сверху скрыт — считаем в фоне (автозавершение по времени)
         const timerEl = document.getElementById('testTimer');
         const usmleTimerEl = document.getElementById('usmleTbTimer');
+        const showUniTimer = !isUsmleTestSession();
+
         if (timerEl) {
-            timerEl.style.display = 'none';
-            timerEl.hidden = true;
+            if (showUniTimer) {
+                timerEl.style.display = 'flex';
+                timerEl.hidden = false;
+            } else {
+                timerEl.style.display = 'none';
+                timerEl.hidden = true;
+            }
         }
         if (usmleTimerEl) {
+            // В USMLE таймер блока в футере; верхний countdown скрыт
             usmleTimerEl.style.display = 'none';
             usmleTimerEl.hidden = true;
         }
@@ -3155,13 +3158,29 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const topbar = document.getElementById('usmleSessionTopbar');
         const uniHeader = document.getElementById('uniTestHeader');
         const uniActions = document.getElementById('uniTestActions');
+        const favoriteContainer = document.getElementById('favoriteContainer');
+        const reportBtn = document.getElementById('reportQuestionErrorBtn');
         const active = !!isUsmle;
         document.body.classList.toggle('usmle-test-session', active);
+        document.body.classList.toggle('uni-test-session', !active);
         if (topbar) topbar.hidden = !active;
-        // Старый uni-хедер (прогресс/таймер/флажок/ошибка) больше не показываем
-        if (uniHeader) uniHeader.hidden = true;
+        if (uniHeader) uniHeader.hidden = active;
         if (uniActions) uniActions.classList.toggle('is-usmle-hidden', active);
-        // Всегда вешаем обработчики, когда USMLE-панель активна (и при повторном showQuestion)
+        if (favoriteContainer) {
+            favoriteContainer.hidden = active;
+            favoriteContainer.setAttribute('aria-hidden', active ? 'true' : 'false');
+        }
+        if (reportBtn) {
+            if (active) {
+                reportBtn.hidden = true;
+                reportBtn.setAttribute('aria-hidden', 'true');
+                reportBtn.tabIndex = -1;
+            } else {
+                reportBtn.hidden = false;
+                reportBtn.removeAttribute('aria-hidden');
+                reportBtn.tabIndex = 0;
+            }
+        }
         if (active) {
             ensureUsmleToolbarBound();
             ensureUsmleFooterBound();
@@ -3175,6 +3194,16 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             }
         } else {
             updateUsmleSessionFooter();
+            // Таймер университетского теста — в русском хедере
+            const uniTimer = document.getElementById('testTimer');
+            const usmleTimer = document.getElementById('usmleTbTimer');
+            if (usmleTimer) {
+                usmleTimer.style.display = 'none';
+                usmleTimer.hidden = true;
+            }
+            if (uniTimer && uniTimer.style.display === 'block') {
+                uniTimer.hidden = false;
+            }
         }
     }
 
@@ -3931,9 +3960,19 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             return;
         }
 
-        // Избранное: в USMLE — через Mark в topbar; сверху флажок/звезду не показываем
+        // Избранное: в USMLE — Mark в topbar; в обычных тестах — флажок в русском хедере
         const favoriteContainer = document.getElementById('favoriteContainer');
-        if (favoriteContainer) favoriteContainer.innerHTML = '';
+        if (favoriteContainer) {
+            if (isUsmleSession || !currentUser) {
+                favoriteContainer.innerHTML = '';
+            } else {
+                favoriteContainer.innerHTML = `
+            <button class="favorite-icon-btn" onclick="toggleFavorite(${question.id})" id="favoriteBtn${question.id}" title="Добавить в избранное">
+                <span id="favoriteIcon${question.id}">☆</span>
+            </button>
+        `;
+            }
+        }
 
         if (isUsmleTestSession() && currentUser && !sessionFavoritesSyncStarted) {
             sessionFavoritesSyncStarted = true;

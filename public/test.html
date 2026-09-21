@@ -19,21 +19,28 @@
     <title>Прохождение теста - stud.kg</title>
     <link rel="stylesheet" href="styles.css">
 </head>
-<body class="usmle-exam-page">
+<body class="test-exam-page">
     <main class="main-content">
         <div class="container test-session-container">
-            <!-- Обычный хедер (университетские тесты) — прогресс/таймер/флажок/ошибка убраны -->
-            <div class="test-header" id="uniTestHeader" hidden></div>
-            <!-- Скрытая кнопка для Feedback / модалки ошибки -->
-            <button type="button" id="reportQuestionErrorBtn" hidden aria-hidden="true" tabindex="-1">Report</button>
-            <div id="favoriteContainer" hidden aria-hidden="true"></div>
-            <div class="test-timer" id="testTimer" style="display: none;" hidden aria-hidden="true">
-                <span id="timerDisplay">30:00</span>
+            <!-- Русский хедер для обычных (университетских) тестов -->
+            <div class="test-header" id="uniTestHeader">
+                <div class="test-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <span id="progressText">Вопрос 1 из 10</span>
+                </div>
+                <div class="uni-test-header-tools">
+                    <div class="test-timer" id="testTimer" style="display: none;">
+                        <span id="timerDisplay">30:00</span>
+                    </div>
+                    <div class="question-help-wrapper">
+                        <button class="question-help-btn" id="reportQuestionErrorBtn" type="button" title="Сообщить об ошибке в вопросе" aria-label="Сообщить об ошибке в вопросе">?</button>
+                        <span class="question-help-text">Нашли ошибку? Сообщите нам</span>
+                    </div>
+                    <div id="favoriteContainer"></div>
+                </div>
             </div>
-            <div class="progress-bar" hidden aria-hidden="true">
-                <div class="progress-fill" id="progressFill"></div>
-            </div>
-            <span id="progressText" hidden aria-hidden="true"></span>
 
             <!-- UWorld-меню для USMLE -->
             <header class="uworld-session-topbar" id="usmleSessionTopbar" hidden>
@@ -309,20 +316,25 @@
                     }
                     
                     console.log(`Загружен тест: ${data.questions.length} вопросов, индекс: ${data.questionIndex}`);
-                    
-                    // Запускаем таймер, если есть
-                    if (data.timer && typeof window.startTimer === 'function') {
-                        window.startTimer(data.timer);
-                    }
-                    
-                    // Помечаем USMLE-сессию ДО showQuestion (иначе топбар виден без обработчиков кнопок)
-                    if (data.isCustomUsmle || data.programType === 'usmle') {
+
+                    // Тип программы — до таймера и showQuestion
+                    const isUsmle = !!(data.isCustomUsmle || data.programType === 'usmle');
+                    if (isUsmle) {
                         try { sessionStorage.setItem('programType', 'usmle'); } catch (_) {}
                         if (typeof window.setProgramType === 'function') window.setProgramType('usmle');
                         document.body.classList.add('usmle-test-session');
+                        document.body.classList.remove('uni-test-session');
+                    } else {
+                        try { sessionStorage.setItem('programType', 'university'); } catch (_) {}
+                        if (typeof window.setProgramType === 'function') window.setProgramType('university');
+                        document.body.classList.add('uni-test-session');
+                        document.body.classList.remove('usmle-test-session');
                     }
 
-                    // Показываем первый вопрос
+                    if (data.timer && typeof window.startTimer === 'function') {
+                        window.startTimer(data.timer);
+                    }
+
                     setTimeout(() => {
                         if (typeof window.showQuestion === 'function') {
                             window.showQuestion();
