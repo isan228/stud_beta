@@ -2305,6 +2305,13 @@ body.usmle-test-session {
     --exam-stem: 1.05rem;
     --exam-answer: 1rem;
     background: #e8eaf0;
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
 }
 
 body.usmle-test-session .navbar {
@@ -2313,14 +2320,31 @@ body.usmle-test-session .navbar {
 
 body.usmle-test-session .main-content {
     padding: 0;
-    height: 100dvh;
-    max-height: 100dvh;
+    flex: 1 1 auto;
+    height: auto;
+    max-height: none;
     min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
     box-sizing: border-box;
-    padding-bottom: calc(var(--exam-footer-h) + env(safe-area-inset-bottom));
+}
+
+/* Футер в потоке страницы — всегда целиком внизу экрана (не fixed) */
+body.usmle-test-session .uworld-session-footer {
+    position: relative;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    flex: 0 0 auto;
+    width: 100%;
+    height: auto;
+    min-height: calc(var(--exam-footer-h) + env(safe-area-inset-bottom, 0px));
+    max-height: none;
+    padding: 0 0.85rem;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-sizing: border-box;
+    z-index: 3300;
 }
 
 body.usmle-test-session .test-session-container.container,
@@ -2836,11 +2860,15 @@ body.uworld-review-page .uworld-review-shell {
     body.usmle-test-session .uworld-session-footer {
         flex-wrap: nowrap;
         align-items: center;
-        height: calc(var(--exam-footer-h, 54px) + env(safe-area-inset-bottom));
-        min-height: calc(var(--exam-footer-h, 54px) + env(safe-area-inset-bottom));
-        max-height: calc(var(--exam-footer-h, 54px) + env(safe-area-inset-bottom));
-        padding: 0 0.4rem;
-        padding-bottom: env(safe-area-inset-bottom);
+        position: relative;
+        left: auto;
+        right: auto;
+        bottom: auto;
+        height: auto;
+        min-height: calc(var(--exam-footer-h, 54px) + env(safe-area-inset-bottom, 0px));
+        max-height: none;
+        padding: 0.2rem 0.4rem;
+        padding-bottom: max(0.35rem, env(safe-area-inset-bottom, 0px));
         gap: 0.35rem;
     }
 
@@ -2931,6 +2959,17 @@ body.uworld-review-page .uworld-review-shell {
         gap: 0.3rem;
     }
 
+    body.usmle-test-session .uworld-session-footer {
+        position: relative;
+        bottom: auto;
+        height: auto;
+        min-height: calc(var(--exam-footer-h, 54px) + env(safe-area-inset-bottom, 0px));
+        max-height: none;
+        padding: 0.2rem 0.35rem;
+        padding-bottom: max(0.4rem, env(safe-area-inset-bottom, 0px));
+        flex-wrap: nowrap;
+    }
+
     .uworld-sf-left {
         gap: 0.25rem 0.75rem;
     }
@@ -2950,6 +2989,14 @@ body.uworld-review-page .uworld-review-shell {
     .uworld-sf-tool {
         min-height: 50px;
         padding: 0.35rem 0.15rem;
+    }
+
+    body.usmle-test-session .uworld-sf-tool {
+        min-height: 40px;
+        height: 40px;
+        min-width: 40px;
+        width: 40px;
+        padding: 0.1rem;
     }
 
     .uworld-sf-tool span {
@@ -4388,10 +4435,12 @@ body.dark-theme .usmle-edu-objective-text {
     }
 
     body.usmle-test-session .main-content {
-        height: 100dvh;
-        max-height: 100dvh;
+        height: auto;
+        max-height: none;
         overflow: hidden;
-        padding-bottom: calc(var(--exam-footer-h) + env(safe-area-inset-bottom));
+        padding-bottom: 0;
+        flex: 1 1 auto;
+        min-height: 0;
     }
 
     /* Одна компактная строка сверху — без переноса инструментов на 2-й ряд */
@@ -4495,16 +4544,23 @@ body.dark-theme .usmle-edu-objective-text {
         height: 18px;
     }
 
-    /* Футер — одна строка */
+    /* Футер — одна строка, всегда целиком видна внизу (в потоке body) */
     body.usmle-test-session .uworld-session-footer {
+        position: relative;
+        left: auto;
+        right: auto;
+        bottom: auto;
+        flex: 0 0 auto;
         flex-wrap: nowrap;
         align-items: center;
-        height: calc(var(--exam-footer-h) + env(safe-area-inset-bottom));
-        min-height: calc(var(--exam-footer-h) + env(safe-area-inset-bottom));
-        max-height: calc(var(--exam-footer-h) + env(safe-area-inset-bottom));
-        padding: 0 0.4rem;
-        padding-bottom: env(safe-area-inset-bottom);
+        width: 100%;
+        height: auto;
+        min-height: calc(var(--exam-footer-h) + env(safe-area-inset-bottom, 0px));
+        max-height: none;
+        padding: 0.2rem 0.4rem;
+        padding-bottom: max(0.35rem, env(safe-area-inset-bottom, 0px));
         gap: 0.35rem;
+        box-sizing: border-box;
     }
 
     body.usmle-test-session .uworld-sf-left {
@@ -9290,9 +9346,9 @@ svg {
         padding-bottom: 2rem;
     }
 
-    /* Exam session: место под fixed footer, не общий 2rem */
+    /* Exam session: футер в потоке — без запасного padding */
     body.usmle-test-session .main-content {
-        padding-bottom: calc(var(--exam-footer-h, 54px) + env(safe-area-inset-bottom));
+        padding-bottom: 0;
     }
 }
 
@@ -9327,3 +9383,39 @@ svg {
     }
 }
 
+
+/* Exam footer: always fully visible on phones (in-flow, not clipped by browser chrome) */
+@media (max-width: 900px) {
+    body.usmle-test-session {
+        display: flex !important;
+        flex-direction: column !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        overflow: hidden !important;
+    }
+
+    body.usmle-test-session .main-content {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        height: auto !important;
+        max-height: none !important;
+        padding-bottom: 0 !important;
+    }
+
+    body.usmle-test-session .uworld-session-footer:not([hidden]) {
+        position: relative !important;
+        left: auto !important;
+        right: auto !important;
+        bottom: auto !important;
+        flex: 0 0 auto !important;
+        display: flex !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: calc(var(--exam-footer-h, 54px) + env(safe-area-inset-bottom, 0px)) !important;
+        max-height: none !important;
+        padding-bottom: max(0.4rem, env(safe-area-inset-bottom, 0px)) !important;
+        box-sizing: border-box !important;
+        z-index: 3300 !important;
+        transform: none !important;
+    }
+}
