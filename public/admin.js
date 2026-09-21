@@ -4062,7 +4062,7 @@ function setupAdminEventListeners() {
             if (!modal) return;
             modal.style.display = 'none';
             if (modal.id === 'uploadPreviewModal') {
-                refreshQuestionsAfterUpload();
+                dismissUploadPreview();
             }
         });
     });
@@ -5163,15 +5163,23 @@ async function handleTxtSaBlockUpload(e) {
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error || 'Ошибка загрузки');
         if (progressBar) progressBar.style.width = '100%';
-        showNotification(result.message || 'Загружено', 'success');
+        if (statusText) statusText.textContent = 'Предпросмотр…';
         document.getElementById('txtSaBlockUploadModal').style.display = 'none';
         usmleSaActiveBlockIndex = Number(blockIndex);
-        await loadUsmleSaBlockQuestions(testId, Number(blockIndex));
         if (typeof openUploadPreview === 'function' && result.questions?.length) {
             openUploadPreview(result.questions, {
                 title: `Block #${blockIndex}: ${result.questions.length} вопросов`,
-                withExplanations: true
+                withExplanations: true,
+                testId,
+                source: 'usmle',
+                successMessage: result.message || `Загружено в блок #${blockIndex}: ${result.questions.length} вопросов`,
+                onDone: () => {
+                    loadUsmleSaBlockQuestions(testId, Number(blockIndex));
+                }
             });
+        } else {
+            showNotification(result.message || 'Загружено', 'success');
+            await loadUsmleSaBlockQuestions(testId, Number(blockIndex));
         }
     } catch (err) {
         showNotification(err.message || 'Ошибка', 'error');
@@ -5257,6 +5265,8 @@ async function openAddUsmleQuestionModal(opts = {}) {
 
 let adminQuestionUploadSource = 'questions'; // 'questions' | 'usmle'
 let lastQuestionUploadTestId = null;
+/** Отложенное завершение загрузки — только по кнопке «Готово» в предпросмотре */
+let pendingUploadFinish = null;
 
 async function fetchUsmleTestsCompact() {
     const response = await fetch(`${ADMIN_API_URL}/tests?programType=usmle&compact=1`, {
@@ -6897,14 +6907,9 @@ async function handlePdfUpload(e) {
         
         if (response.ok) {
             if (progressBar) progressBar.style.width = '100%';
-            if (statusText) statusText.textContent = 'Готово!';
+            if (statusText) statusText.textContent = 'Предпросмотр…';
             
             setTimeout(() => {
-                if (typeof showNotification === 'function') {
-                    showNotification(`Успешно загружено ${result.questions.length} вопросов`, 'success');
-                } else {
-                    alert(`Успешно загружено ${result.questions.length} вопросов`);
-                }
                 lastQuestionUploadTestId = testId;
                 const questionsFilter = document.getElementById('questionsTestFilter');
                 if (questionsFilter) questionsFilter.value = String(testId);
@@ -6917,9 +6922,12 @@ async function handlePdfUpload(e) {
 
                 openUploadPreview(result.questions || [], {
                     title: `Загружено ${result.questions.length} вопросов`,
-                    withExplanations: false
+                    withExplanations: false,
+                    testId,
+                    source: 'questions',
+                    successMessage: `Успешно загружено ${result.questions.length} вопросов`
                 });
-            }, 500);
+            }, 300);
         } else {
             throw new Error(result.error || 'Ошибка загрузки TXT');
         }
@@ -6995,9 +7003,8 @@ async function handleTxtExplainedPlainUpload(e) {
 
         if (response.ok) {
             if (progressBar) progressBar.style.width = '100%';
-            if (statusText) statusText.textContent = 'Готово!';
+            if (statusText) statusText.textContent = 'Предпросмотр…';
             setTimeout(() => {
-                showNotification(`Загружено ${result.questions.length} вопросов с объяснениями`, 'success');
                 lastQuestionUploadTestId = testId;
                 adminQuestionUploadSource = 'questions';
                 const questionsFilter = document.getElementById('questionsTestFilter');
@@ -7011,10 +7018,12 @@ async function handleTxtExplainedPlainUpload(e) {
 
                 openUploadPreview(result.questions || [], {
                     title: `Загружено ${result.questions.length} вопросов с объяснениями`,
-                    withExplanations: true
+                    withExplanations: true,
+                    testId,
+                    source: 'questions',
+                    successMessage: `Загружено ${result.questions.length} вопросов с объяснениями`
                 });
-                if (typeof loadQuestions === 'function') loadQuestions();
-            }, 500);
+            }, 300);
         } else {
             throw new Error(result.error || 'Ошибка загрузки TXT');
         }
@@ -7067,9 +7076,8 @@ async function handleTxtExplainedUpload(e) {
 
         if (response.ok) {
             if (progressBar) progressBar.style.width = '100%';
-            if (statusText) statusText.textContent = 'Готово!';
+            if (statusText) statusText.textContent = 'Предпросмотр…';
             setTimeout(() => {
-                showNotification(`Загружено ${result.questions.length} вопросов с объяснениями и тегами`, 'success');
                 lastQuestionUploadTestId = testId;
                 adminQuestionUploadSource = 'usmle';
                 const questionsFilter = document.getElementById('questionsTestFilter');
@@ -7091,9 +7099,12 @@ async function handleTxtExplainedUpload(e) {
 
                 openUploadPreview(result.questions || [], {
                     title: `Загружено ${result.questions.length} вопросов с объяснениями и тегами`,
-                    withExplanations: true
+                    withExplanations: true,
+                    testId,
+                    source: 'usmle',
+                    successMessage: `Загружено ${result.questions.length} вопросов с объяснениями и тегами`
                 });
-            }, 500);
+            }, 300);
         } else {
             throw new Error(result.error || 'Ошибка загрузки TXT');
         }
@@ -7145,9 +7156,8 @@ async function handleTxtLinkedUpload(e) {
 
         if (response.ok) {
             if (progressBar) progressBar.style.width = '100%';
-            if (statusText) statusText.textContent = 'Готово!';
+            if (statusText) statusText.textContent = 'Предпросмотр…';
             setTimeout(() => {
-                showNotification(`Загружено ${result.questions.length} связанных USMLE вопросов`, 'success');
                 lastQuestionUploadTestId = testId;
                 adminQuestionUploadSource = 'usmle';
                 const questionsFilter = document.getElementById('questionsTestFilter');
@@ -7169,9 +7179,12 @@ async function handleTxtLinkedUpload(e) {
 
                 openUploadPreview(result.questions || [], {
                     title: `Загружено ${result.questions.length} связанных USMLE вопросов`,
-                    withExplanations: true
+                    withExplanations: true,
+                    testId,
+                    source: 'usmle',
+                    successMessage: `Загружено ${result.questions.length} связанных USMLE вопросов`
                 });
-            }, 500);
+            }, 300);
         } else {
             throw new Error(result.error || 'Ошибка загрузки TXT');
         }
@@ -7223,14 +7236,10 @@ async function handleTxtMixedUpload(e) {
 
         if (response.ok) {
             if (progressBar) progressBar.style.width = '100%';
-            if (statusText) statusText.textContent = 'Готово!';
+            if (statusText) statusText.textContent = 'Предпросмотр…';
             setTimeout(() => {
                 const linked = result.linkedCount ?? 0;
                 const singles = result.singlesCount ?? 0;
-                showNotification(
-                    `Загружено ${result.questions.length} вопросов (связанных: ${linked}, одиночных: ${singles})`,
-                    'success'
-                );
                 lastQuestionUploadTestId = testId;
                 adminQuestionUploadSource = 'usmle';
                 const questionsFilter = document.getElementById('questionsTestFilter');
@@ -7252,9 +7261,12 @@ async function handleTxtMixedUpload(e) {
 
                 openUploadPreview(result.questions || [], {
                     title: `Загружено ${result.questions.length} (связанных: ${linked}, одиночных: ${singles})`,
-                    withExplanations: true
+                    withExplanations: true,
+                    testId,
+                    source: 'usmle',
+                    successMessage: `Загружено ${result.questions.length} вопросов (связанных: ${linked}, одиночных: ${singles})`
                 });
-            }, 500);
+            }, 300);
         } else {
             throw new Error(result.error || 'Ошибка загрузки TXT');
         }
@@ -7374,10 +7386,22 @@ function openUploadPreview(questions, options = {}) {
     const modal = document.getElementById('uploadPreviewModal');
     const list = document.getElementById('uploadPreviewList');
     const title = document.getElementById('uploadPreviewTitle');
+    const hint = document.getElementById('uploadPreviewHint');
     if (!modal || !list) return;
+
+    pendingUploadFinish = {
+        message: options.successMessage || null,
+        testId: options.testId != null ? options.testId : lastQuestionUploadTestId,
+        source: options.source || adminQuestionUploadSource,
+        onDone: typeof options.onDone === 'function' ? options.onDone : null
+    };
 
     if (title) {
         title.textContent = options.title || 'Предпросмотр загруженных вопросов';
+    }
+    if (hint) {
+        hint.textContent = options.hint
+            || 'Проверьте вопросы, объяснения и теги. При желании добавьте фото. Завершите загрузку кнопкой «Готово» — до этого список не обновляется.';
     }
 
     if (!Array.isArray(questions) || questions.length === 0) {
@@ -7705,10 +7729,31 @@ async function removePreviewAnswerImage(answerId, btn) {
     showNotification('Фото ответа удалено', 'success');
 }
 
+function dismissUploadPreview() {
+    const modal = document.getElementById('uploadPreviewModal');
+    if (modal) modal.style.display = 'none';
+    // Крестик / отмена — без обновления списка и без «Готово»
+    pendingUploadFinish = null;
+}
+
 function closeUploadPreview() {
     const modal = document.getElementById('uploadPreviewModal');
     if (modal) modal.style.display = 'none';
+
+    const pending = pendingUploadFinish;
+    pendingUploadFinish = null;
+
+    if (pending?.testId != null) lastQuestionUploadTestId = pending.testId;
+    if (pending?.source) adminQuestionUploadSource = pending.source;
+    if (pending?.message) showNotification(pending.message, 'success');
+
     refreshQuestionsAfterUpload();
+
+    if (typeof pending?.onDone === 'function') {
+        try { pending.onDone(); } catch (e) {
+            console.error('Ошибка onDone после предпросмотра:', e);
+        }
+    }
 }
 
 // Редакторы вопросов
