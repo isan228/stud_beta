@@ -313,6 +313,22 @@
                         window.testStartTime = data.startTime || Date.now();
                         window.instantFeedbackMode = !!data.instantFeedbackMode;
                         window.instantFeedbackLockedQuestions = data.instantFeedbackLockedQuestions || {};
+
+                        try {
+                            const progressRaw = sessionStorage.getItem('testSessionProgress');
+                            if (progressRaw) {
+                                const progress = JSON.parse(progressRaw);
+                                if (progress && typeof progress === 'object') {
+                                    if (progress.answers) window.currentAnswers = progress.answers;
+                                    if (progress.instantFeedbackLockedQuestions) {
+                                        window.instantFeedbackLockedQuestions = progress.instantFeedbackLockedQuestions;
+                                    }
+                                    if (Number.isFinite(progress.questionIndex)) {
+                                        window.currentQuestionIndex = progress.questionIndex;
+                                    }
+                                }
+                            }
+                        } catch (_) { /* ignore */ }
                     }
                     
                     console.log(`Загружен тест: ${data.questions.length} вопросов, индекс: ${data.questionIndex}`);

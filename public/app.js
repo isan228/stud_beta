@@ -133,8 +133,11 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         return isUsmleTestSession();
     }
 
-    function applyExamChromeLocale() {
+    function applyExamChromeLocale(force = false) {
         const en = isUsmleTestSession();
+        const localeKey = en ? 'en' : 'ru';
+        if (!force && window.__examChromeLocaleKey === localeKey) return;
+        window.__examChromeLocaleKey = localeKey;
         const setText = (sel, full, short) => {
             const el = document.querySelector(sel);
             if (!el) return;
@@ -572,6 +575,20 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     function ensureUserChatVisibility() {
         const dock = document.getElementById('userChatFabDock');
         const chatButton = document.getElementById('userChatToggle');
+        const onExamPage = document.body?.classList.contains('test-exam-page')
+            || window.location.pathname === '/test'
+            || window.location.pathname === '/test-review';
+
+        if (onExamPage) {
+            if (dock) dock.style.display = 'none';
+            if (chatButton) chatButton.style.display = 'none';
+            const chatStack = document.getElementById('userChatStack');
+            if (chatStack) chatStack.style.display = 'none';
+            stopChatPolling();
+            isChatOpen = false;
+            return;
+        }
+
         if (dock) dock.style.display = currentUser ? 'flex' : 'none';
         if (chatButton) chatButton.style.display = currentUser ? 'flex' : 'none';
 
@@ -1783,14 +1800,26 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     function startChatPolling() {
         if (chatPollInterval) return;
-        chatPollInterval = setInterval(async () => {
+        const tick = async () => {
             if (!currentUser || !currentToken) return;
-            await refreshAccountSecurityAlerts();
-            await updateChatUnreadBadge();
-            if (isChatOpen) {
-                await loadUserChatMessages();
-            }
-        }, 3000);
+            if (document.hidden) return;
+            const onExamPage = document.body?.classList.contains('test-exam-page')
+                || window.location.pathname === '/test'
+                || window.location.pathname === '/test-review';
+            try {
+                if (onExamPage) {
+                    // На тесте — минимум сетевой нагрузки
+                    await updateChatUnreadBadge();
+                    return;
+                }
+                await refreshAccountSecurityAlerts();
+                await updateChatUnreadBadge();
+                if (isChatOpen) await loadUserChatMessages();
+            } catch (_) { /* ignore poll errors */ }
+        };
+        const onExamPage = document.body?.classList.contains('test-exam-page')
+            || window.location.pathname === '/test';
+        chatPollInterval = setInterval(tick, onExamPage ? 20000 : (isChatOpen ? 4000 : 10000));
     }
 
     function stopChatPolling() {
@@ -1812,7 +1841,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         setupEventListeners();
         initUserChatWidget();
         ensureUserChatVisibility();
-        initScrollAnimations();
+        if (!document.body?.classList.contains('test-exam-page') && window.location.pathname !== '/test') {
+            initScrollAnimations();
+        }
         initDocLinks();
 
         // Обработка текущего маршрута при загрузке для загрузки данных
@@ -2577,6 +2608,30 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         if (modeFavoritesCount) modeFavoritesCount.textContent = String(favorites);
     }
 
+    /** Урезаем payload в sessionStorage — меньше зависаний при старте теста */
+    function leanQuestionsForStorage(questions) {
+        return (questions || []).map((q) => ({
+            id: q.id,
+            text: q.text,
+            imageUrl: q.imageUrl || null,
+            imageUrls: q.imageUrls || null,
+            explanation: q.explanation || null,
+            explanationImageUrl: q.explanationImageUrl || null,
+            explanationImageUrls: q.explanationImageUrls || null,
+            Answers: (q.Answers || []).map((a) => ({
+                id: a.id,
+                text: a.text,
+                isCorrect: a.isCorrect,
+                imageUrl: a.imageUrl || null,
+                imageUrls: a.imageUrls || null
+            })),
+            Tags: (q.Tags || []).map((t) => ({
+                id: t.id,
+                name: t.name
+            }))
+        }));
+    }
+
     async function startTest() {
         let testMeta = subjectTestsCache.find((t) => Number(t.id) === Number(currentTestId)) || null;
         try {
@@ -2678,6 +2733,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             }
 
             console.log(`Загружено вопросов: ${currentQuestions.length}`);
+            _usmleQnavFlagsLen = -1;
+            _usmleQnavFlagsCache = null;
             currentAnswers = {};
             currentQuestionIndex = 0;
             instantFeedbackMode = instantMode;
@@ -2689,7 +2746,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             // Сохраняем данные теста в sessionStorage для загрузки на странице теста
             sessionStorage.setItem('testData', JSON.stringify({
                 testId: currentTestId,
-                questions: currentQuestions,
+                questions: leanQuestionsForStorage(currentQuestions),
                 answers: currentAnswers,
                 questionIndex: currentQuestionIndex,
                 startTime: testStartTime,
@@ -2799,8 +2856,11 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     function linkifyMedicalTerms(html, keywords) {
         if (!keywords || !keywords.length) return html;
-        // Сортируем по длине убывая (длинные фразы первыми)
-        const sorted = [...keywords].sort((a, b) => b.keyword.length - a.keyword.length);
+        // Сортируем один раз и кэшируем
+        if (!keywords.__sortedByLen) {
+            keywords.__sortedByLen = [...keywords].sort((a, b) => b.keyword.length - a.keyword.length);
+        }
+        const sorted = keywords.__sortedByLen;
         let result = html;
         for (const { keyword, imageUrl, videoUrl, title, id, mediaType } of sorted) {
             if (!keyword) continue;
@@ -3120,6 +3180,69 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             i = j;
         }
         return flags;
+    }
+
+    let _usmleQnavFlagsCache = null;
+    let _usmleQnavFlagsLen = -1;
+    let _usmleQnavDelegated = false;
+
+    function getCachedUsmleNavLinkFlags(questions) {
+        const len = questions?.length || 0;
+        if (_usmleQnavFlagsCache && _usmleQnavFlagsLen === len) return _usmleQnavFlagsCache;
+        _usmleQnavFlagsCache = getUsmleNavLinkFlags(questions);
+        _usmleQnavFlagsLen = len;
+        return _usmleQnavFlagsCache;
+    }
+
+    function ensureUsmleQnavDelegation() {
+        if (_usmleQnavDelegated) return;
+        const list = document.getElementById('usmleQuestionNavList');
+        if (!list) return;
+        _usmleQnavDelegated = true;
+        list.addEventListener('click', (e) => {
+            const btn = e.target.closest?.('.usmle-qnav-btn');
+            if (!btn || !list.contains(btn)) return;
+            const idx = parseInt(btn.getAttribute('data-q-index'), 10);
+            if (Number.isFinite(idx)) goToQuestion(idx);
+        });
+    }
+
+    /** Быстрое обновление классов без пересборки всего списка */
+    function patchUsmleQuestionNav() {
+        const list = document.getElementById('usmleQuestionNavList');
+        if (!list || !currentQuestions?.length) return false;
+        if (list.children.length !== currentQuestions.length) return false;
+
+        for (let index = 0; index < currentQuestions.length; index++) {
+            const q = currentQuestions[index];
+            const li = list.children[index];
+            if (!li) return false;
+            const answered = currentAnswers[q.id] != null;
+            const locked = !!(instantFeedbackMode && instantFeedbackLockedQuestions[q.id]);
+            const active = index === currentQuestionIndex;
+            const isFav = sessionFavoriteIds.has(Number(q.id));
+
+            li.classList.toggle('is-active', active);
+            li.classList.toggle('is-answered', answered);
+            li.classList.toggle('is-reviewed', locked);
+            li.classList.toggle('is-favorite', isFav);
+
+            const btn = li.querySelector('.usmle-qnav-btn');
+            if (!btn) continue;
+            btn.setAttribute('aria-current', active ? 'true' : 'false');
+            btn.title = `Вопрос ${index + 1}${isFav ? ' · флажок' : ''}`;
+
+            let flag = btn.querySelector('.usmle-qnav-flag');
+            if (isFav && !flag) {
+                btn.insertAdjacentHTML(
+                    'beforeend',
+                    `<span class="usmle-qnav-flag" title="Отмечено флажком">${favoriteFlagSvg(true)}</span>`
+                );
+            } else if (!isFav && flag) {
+                flag.remove();
+            }
+        }
+        return true;
     }
 
     let usmleMarkerOn = false;
@@ -3992,7 +4115,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         });
     }
 
-    function renderUsmleQuestionNav() {
+    function renderUsmleQuestionNav(forceRebuild = false) {
         const nav = document.getElementById('usmleQuestionNav');
         const list = document.getElementById('usmleQuestionNavList');
         const layout = document.getElementById('testSessionLayout');
@@ -4002,7 +4125,6 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const chrome = usesExamChrome();
         document.body.classList.toggle('usmle-test-session', chrome);
         if (layout) layout.classList.toggle('has-usmle-qnav', chrome);
-        syncUsmleSessionChrome(isUsmle);
 
         if (!chrome || !currentQuestions || !currentQuestions.length) {
             nav.hidden = true;
@@ -4013,8 +4135,19 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         nav.hidden = false;
         const qnavTitle = nav.querySelector('.usmle-qnav-title');
         if (qnavTitle) qnavTitle.textContent = isUsmle ? 'Items' : 'Вопросы';
-        const flags = getUsmleNavLinkFlags(currentQuestions);
-        list.innerHTML = currentQuestions.map((q, index) => {
+
+        // Частый случай: только смена ответа / активного пункта
+        if (!forceRebuild && patchUsmleQuestionNav()) {
+            ensureUsmleQnavDelegation();
+            return;
+        }
+
+        syncUsmleSessionChrome(isUsmle);
+
+        const flags = getCachedUsmleNavLinkFlags(currentQuestions);
+        const parts = new Array(currentQuestions.length);
+        for (let index = 0; index < currentQuestions.length; index++) {
+            const q = currentQuestions[index];
             const f = flags[index] || {};
             const answered = currentAnswers[q.id] != null;
             const locked = !!(instantFeedbackMode && instantFeedbackLockedQuestions[q.id]);
@@ -4036,7 +4169,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 ? `<span class="usmle-qnav-flag" title="Отмечено флажком">${favoriteFlagSvg(true)}</span>`
                 : '';
 
-            return `
+            parts[index] = `
                 <li class="${classes}">
                     <button type="button" class="usmle-qnav-btn" data-q-index="${index}" aria-current="${active ? 'true' : 'false'}" title="Вопрос ${index + 1}${isFav ? ' · флажок' : ''}">
                         <span class="usmle-qnav-rail" aria-hidden="true">
@@ -4047,14 +4180,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                     </button>
                 </li>
             `;
-        }).join('');
-
-        list.querySelectorAll('.usmle-qnav-btn').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                const idx = parseInt(btn.getAttribute('data-q-index'), 10);
-                if (Number.isFinite(idx)) goToQuestion(idx);
-            });
-        });
+        }
+        list.innerHTML = parts.join('');
+        ensureUsmleQnavDelegation();
     }
 
     function goToQuestion(index) {
@@ -4175,7 +4303,6 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     `;
 
         renderUsmleQuestionNav();
-        applyMedicalLinkify();
 
         const errorQuestionIdEl = document.getElementById('errorQuestionId');
         const errorTestIdEl = document.getElementById('errorTestId');
@@ -4190,8 +4317,8 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             errorQuestionPreviewEl.value = question.text || '';
         }
 
-        // Проверяем, в избранном ли вопрос
-        if (currentUser) {
+        // В exam-chrome избранное уже в sessionFavoriteIds — без лишнего запроса на каждый вопрос
+        if (currentUser && !examChrome) {
             checkFavoriteStatus(question.id);
         }
 
@@ -4231,7 +4358,6 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             finishBtn.style.display = (!examChrome && currentQuestions.length > 0) ? 'block' : 'none';
         }
         if (examChrome) {
-            updateUsmleToolbarChrome(question);
             restoreUsmleHighlights(question.id);
             reloadUsmleNotesModalIfOpen(question);
         }
@@ -4266,15 +4392,16 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             });
             instantFeedbackLockedQuestions[question.id] = true;
             refreshQuestionExplanationSlot(question);
-            try {
-                const testDataRaw = sessionStorage.getItem('testData');
-                if (testDataRaw) {
-                    const testData = JSON.parse(testDataRaw);
-                    testData.instantFeedbackLockedQuestions = instantFeedbackLockedQuestions;
-                    sessionStorage.setItem('testData', JSON.stringify(testData));
-                }
-            } catch (e) { /* ignore */ }
         }
+
+        try {
+            sessionStorage.setItem('testSessionProgress', JSON.stringify({
+                answers: currentAnswers,
+                instantFeedbackLockedQuestions,
+                questionIndex: currentQuestionIndex
+            }));
+        } catch (e) { /* ignore */ }
+
         renderUsmleQuestionNav();
     }
 
@@ -5080,7 +5207,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             // Сохраняем данные теста в sessionStorage для загрузки на странице теста
             sessionStorage.setItem('testData', JSON.stringify({
                 testId: null, // Специальный тест из избранного
-                questions: currentQuestions,
+                questions: leanQuestionsForStorage(currentQuestions),
                 answers: currentAnswers,
                 questionIndex: currentQuestionIndex,
                 startTime: testStartTime,
@@ -5985,6 +6112,10 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     }
 
     async function checkFavoriteStatus(questionId) {
+        if (usesExamChrome()) {
+            updateFavoriteButton(questionId, sessionFavoriteIds.has(Number(questionId)));
+            return;
+        }
         try {
             const response = await fetch(`${API_URL}/questions/${questionId}/favorite`, {
                 headers: {
@@ -5995,7 +6126,6 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             if (data.isFavorite) sessionFavoriteIds.add(Number(questionId));
             else sessionFavoriteIds.delete(Number(questionId));
             updateFavoriteButton(questionId, data.isFavorite);
-            if (usesExamChrome()) renderUsmleQuestionNav();
         } catch (error) {
             console.error('Ошибка проверки избранного:', error);
         }
