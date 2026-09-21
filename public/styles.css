@@ -178,12 +178,7 @@ html[data-theme="dark"] .navbar {
 }
 
 .nav-logo {
-    width: 40px;
-    height: 40px;
-    object-fit: contain;
-    flex-shrink: 0;
-    display: block;
-    border-radius: 10px;
+    display: none !important;
 }
 
 .nav-brand h1 {

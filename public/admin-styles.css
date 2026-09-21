@@ -58,13 +58,7 @@ body.admin-app-mode .main-content {
 }
 
 .admin-sidebar-logo {
-    width: 40px;
-    height: 40px;
-    object-fit: contain;
-    border-radius: 10px;
-    flex-shrink: 0;
-    display: block;
-    background: rgba(15, 23, 42, 0.35);
+    display: none !important;
 }
 
 .admin-sidebar-mark {
