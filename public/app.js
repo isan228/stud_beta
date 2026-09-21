@@ -3691,6 +3691,31 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             toggleUsmleQuestionNav();
         });
 
+        document.getElementById('testSessionLayout')?.addEventListener('click', (e) => {
+            if (!isUsmleQnavMobile()) return;
+            const layout = document.getElementById('testSessionLayout');
+            if (!layout?.classList.contains('qnav-drawer-open')) return;
+            if (e.target.closest('.usmle-qnav')) return;
+            closeUsmleQuestionNavDrawer();
+        });
+
+        const qnavMq = window.matchMedia('(max-width: 900px)');
+        const onQnavMq = () => {
+            if (!document.body.classList.contains('usmle-test-session')) return;
+            const layout = document.getElementById('testSessionLayout');
+            const nav = document.getElementById('usmleQuestionNav');
+            if (qnavMq.matches) {
+                layout?.classList.remove('qnav-collapsed');
+                closeUsmleQuestionNavDrawer();
+            } else {
+                nav?.classList.remove('is-drawer-open');
+                layout?.classList.remove('qnav-drawer-open');
+                syncUsmleQnavMenuButton(!layout?.classList.contains('qnav-collapsed'));
+            }
+        };
+        if (typeof qnavMq.addEventListener === 'function') qnavMq.addEventListener('change', onQnavMq);
+        else if (typeof qnavMq.addListener === 'function') qnavMq.addListener(onQnavMq);
+
         document.getElementById('usmleTbMark')?.addEventListener('click', () => {
             const q = currentQuestions?.[currentQuestionIndex];
             if (q?.id != null) toggleFavorite(q.id);

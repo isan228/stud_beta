@@ -2833,6 +2833,17 @@ body.uworld-review-page .uworld-review-shell {
         padding-bottom: max(0.45rem, env(safe-area-inset-bottom));
     }
 
+    body.usmle-test-session .uworld-session-footer {
+        flex-wrap: nowrap;
+        align-items: center;
+        height: calc(var(--exam-footer-h, 54px) + env(safe-area-inset-bottom));
+        min-height: calc(var(--exam-footer-h, 54px) + env(safe-area-inset-bottom));
+        max-height: calc(var(--exam-footer-h, 54px) + env(safe-area-inset-bottom));
+        padding: 0 0.4rem;
+        padding-bottom: env(safe-area-inset-bottom);
+        gap: 0.35rem;
+    }
+
     .uworld-sf-left {
         flex: 1 1 100%;
         flex-direction: row;
@@ -2841,6 +2852,16 @@ body.uworld-review-page .uworld-review-shell {
         gap: 0.35rem 1.1rem;
         padding: 0.1rem 0.15rem 0.2rem;
         border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    body.usmle-test-session .uworld-sf-left {
+        flex: 0 1 auto;
+        flex-direction: column;
+        flex-wrap: nowrap;
+        gap: 0.05rem;
+        padding: 0 0.2rem;
+        border-bottom: none;
+        max-width: 42%;
     }
 
     .uworld-sf-v {
@@ -3666,15 +3687,34 @@ body.usmle-lab-open .uworld-lab-dock {
         padding: 0.25rem 0.35rem 0.35rem;
     }
 
+    /* В режиме теста — только одна строка (переопределяет wrap выше) */
+    body.usmle-test-session .uworld-session-topbar {
+        flex-wrap: nowrap;
+        height: var(--exam-topbar-h, 48px);
+        min-height: var(--exam-topbar-h, 48px);
+        max-height: var(--exam-topbar-h, 48px);
+        padding: 0 0.35rem;
+        row-gap: 0;
+    }
+
     .uworld-tb-left {
         order: 1;
         flex: 1 1 auto;
         min-width: 0;
     }
 
+    body.usmle-test-session .uworld-tb-left {
+        order: 0;
+    }
+
     .uworld-tb-nav {
         order: 2;
         margin-left: auto;
+    }
+
+    body.usmle-test-session .uworld-tb-nav {
+        order: 0;
+        margin-left: 0;
     }
 
     .uworld-tb-tools {
@@ -3685,6 +3725,17 @@ body.usmle-lab-open .uworld-lab-dock {
         padding: 0.15rem 0 0.05rem;
         gap: 0.15rem;
         overflow-x: visible;
+    }
+
+    body.usmle-test-session .uworld-tb-tools {
+        order: 0;
+        flex: 1 1 auto;
+        justify-content: flex-start;
+        align-items: center;
+        padding: 0;
+        gap: 0;
+        overflow-x: auto;
+        overflow-y: hidden;
     }
 
     .uworld-tb-tool {
@@ -4324,188 +4375,384 @@ body.dark-theme .usmle-edu-objective-text {
     color: var(--text-secondary);
 }
 
-@media (max-width: 768px) {
+/* ===== Mobile exam session (phones / narrow tablets) ===== */
+@media (max-width: 900px) {
     body.usmle-test-session {
         --exam-topbar-h: 48px;
-        --exam-footer-h: 52px;
-        --exam-pad-x: 0.5rem;
+        --exam-footer-h: 54px;
+        --exam-pad-x: 0.55rem;
         --exam-content-max: 100%;
+        --exam-stem: 1.02rem;
+        --exam-answer: 0.98rem;
+        --exam-font: 0.98rem;
     }
 
-    body.usmle-test-session .test-session-container.container,
-    body.usmle-test-session .test-session-container {
-        padding-left: 0;
-        padding-right: 0;
+    body.usmle-test-session .main-content {
+        height: 100dvh;
+        max-height: 100dvh;
+        overflow: hidden;
+        padding-bottom: calc(var(--exam-footer-h) + env(safe-area-inset-bottom));
     }
 
-    body.usmle-test-session .test-session-layout.has-usmle-qnav {
-        grid-template-columns: 1fr;
-        height: auto;
-        max-height: none;
-        padding: 0.4rem var(--exam-pad-x) 0.35rem;
+    /* Одна компактная строка сверху — без переноса инструментов на 2-й ряд */
+    body.usmle-test-session .uworld-session-topbar {
+        flex-wrap: nowrap;
+        align-items: center;
+        height: var(--exam-topbar-h);
+        min-height: var(--exam-topbar-h);
+        max-height: var(--exam-topbar-h);
+        padding: 0 0.35rem;
+        gap: 0.2rem;
+        overflow: hidden;
+    }
+
+    body.usmle-test-session .uworld-tb-left {
+        order: 0;
+        flex: 0 1 auto;
+        min-width: 0;
+        gap: 0.25rem;
+    }
+
+    body.usmle-test-session .uworld-tb-tools {
+        order: 0;
+        flex: 1 1 auto;
+        justify-content: flex-start;
+        gap: 0;
+        padding: 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    body.usmle-test-session .uworld-tb-tools::-webkit-scrollbar {
+        display: none;
+    }
+
+    body.usmle-test-session .uworld-tb-nav {
+        order: 0;
+        margin-left: 0;
+        flex: 0 0 auto;
         gap: 0;
     }
 
-    body.usmle-test-session .test-content {
-        min-height: 0;
-        max-width: none;
-        padding: 0.95rem 0.85rem 1.1rem;
-        overflow-y: auto;
+    body.usmle-test-session .uworld-tb-icon-btn,
+    body.usmle-test-session .uworld-tb-tool,
+    body.usmle-test-session .uworld-tb-nav-btn {
+        flex: 0 0 auto;
+        min-width: 40px;
+        width: 40px;
+        min-height: 40px;
+        height: 40px;
+        padding: 0.1rem;
+        gap: 0;
     }
 
-    body.usmle-test-session .usmle-question-meta {
-        margin: 0.35rem var(--exam-pad-x) 0.25rem;
-        padding: 0.4rem 0.55rem;
-    }
-}
-
-    body.usmle-test-session .usmle-meta-row {
-        gap: 0.45rem;
-    }
-
-    body.usmle-test-session .usmle-meta-chip {
-        max-width: 100%;
-        white-space: normal;
-        line-height: 1.35;
-        word-break: break-word;
-        overflow-wrap: anywhere;
-        font-size: 0.84rem;
-        padding: 0.35rem 0.65rem;
-    }
-
-    body.usmle-test-session .question-item {
-        margin-bottom: 1.25rem;
-    }
-
-    body.usmle-test-session .question-item h3,
-    body.usmle-test-session .question-text,
-    body.usmle-test-session .usmle-question-stem {
-        font-size: calc(1.1rem * var(--usmle-font-scale, 1));
-        line-height: 1.7;
-        word-break: break-word;
-        overflow-wrap: anywhere;
-        padding-left: 0.7rem;
-        margin-bottom: 1.25rem;
-    }
-
-    body.usmle-test-session .answers-list {
-        gap: 0.95rem;
-    }
-
-    body.usmle-test-session .answer-item {
-        padding: 1.05rem 1.1rem;
-        gap: 0.8rem;
-        align-items: flex-start;
-        min-height: 56px;
-        overflow: visible;
-        font-size: calc(1.05rem * var(--usmle-font-scale, 1));
-    }
-
-    body.usmle-test-session .answer-option-letter {
-        width: 1.75rem;
-        height: 1.75rem;
-        font-size: 0.9rem;
-        margin-top: 0.1rem;
-        flex-shrink: 0;
-    }
-
-    body.usmle-test-session .answer-option-text {
-        font-size: calc(1.06rem * var(--usmle-font-scale, 1));
-        line-height: 1.6;
-        word-break: break-word;
-        overflow-wrap: anywhere;
-        white-space: normal;
-    }
-
-    body.usmle-test-session .question-explanation-box.usmle-explanation-box,
-    body.usmle-test-session .usmle-explanation-box {
-        padding: 1rem 0.85rem 1.25rem;
-        margin-top: 1.1rem;
-    }
-
-    body.usmle-test-session .usmle-explanation-body,
-    body.usmle-test-session .question-explanation-text,
-    body.usmle-test-session .usmle-choice-block,
-    body.usmle-test-session .usmle-edu-objective-text {
-        font-size: calc(0.98rem * var(--usmle-font-scale, 1));
-        line-height: 1.65;
-        word-break: break-word;
-        overflow-wrap: anywhere;
-    }
-
-    body.usmle-test-session .usmle-choice-explanations {
-        gap: 1rem;
-    }
-
-    body.usmle-test-session .usmle-edu-objective-label {
-        font-size: 1rem;
-        line-height: 1.4;
-        margin-bottom: 0.65rem;
-    }
-
-    .test-session-layout.has-usmle-qnav {
-        grid-template-columns: 1fr;
-        gap: 0.5rem;
-    }
-
-    .usmle-qnav-btn {
-        min-width: 2.5rem;
-        min-height: 2.5rem;
-        padding: 0.3rem 0.3rem;
-    }
-
-    .uworld-tb-tool span,
-    .uworld-tb-nav-btn span {
-        display: block;
-    }
-
-    .uworld-tb-tool {
-        min-width: 0;
-        min-height: 52px;
-    }
-
-    .uworld-tb-nav-btn {
-        min-width: 42px;
-        min-height: var(--tap-min);
-    }
-
-    .uworld-tb-mark-text {
+    body.usmle-test-session .uworld-tb-tool span,
+    body.usmle-test-session .uworld-tb-nav-btn span {
         display: none;
     }
-}
 
-@media (max-width: 420px) {
-    .uworld-tb-item-label {
-        font-size: 0.72rem;
+    body.usmle-test-session .uworld-tb-tool-full,
+    body.usmle-test-session .uworld-tb-tool-short {
+        display: none !important;
     }
 
-    .uworld-tb-qid {
-        max-width: 9rem;
+    body.usmle-test-session .uworld-tb-mark {
+        flex-direction: row;
+        min-width: 36px;
+        width: auto;
+        height: 34px;
+        min-height: 34px;
+        padding: 0 0.4rem;
+    }
+
+    body.usmle-test-session .uworld-tb-mark-text {
+        display: none;
+    }
+
+    body.usmle-test-session .uworld-tb-item-info {
+        min-width: 0;
+        max-width: 7.5rem;
+    }
+
+    body.usmle-test-session .uworld-tb-item-label {
+        font-size: 0.7rem;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
 
+    body.usmle-test-session .uworld-tb-qid {
+        display: none;
+    }
+
+    body.usmle-test-session .uworld-tb-icon-btn svg,
+    body.usmle-test-session .uworld-tb-tool svg,
+    body.usmle-test-session .uworld-tb-nav-btn svg,
+    body.usmle-test-session .uworld-tb-mark-icon svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    /* Футер — одна строка */
+    body.usmle-test-session .uworld-session-footer {
+        flex-wrap: nowrap;
+        align-items: center;
+        height: calc(var(--exam-footer-h) + env(safe-area-inset-bottom));
+        min-height: calc(var(--exam-footer-h) + env(safe-area-inset-bottom));
+        max-height: calc(var(--exam-footer-h) + env(safe-area-inset-bottom));
+        padding: 0 0.4rem;
+        padding-bottom: env(safe-area-inset-bottom);
+        gap: 0.35rem;
+    }
+
+    body.usmle-test-session .uworld-sf-left {
+        flex: 0 1 auto;
+        flex-direction: column;
+        flex-wrap: nowrap;
+        gap: 0.05rem;
+        padding: 0 0.2rem;
+        border-bottom: none;
+        min-width: 0;
+        max-width: 42%;
+    }
+
+    body.usmle-test-session .uworld-sf-meta {
+        gap: 0.3rem;
+    }
+
+    body.usmle-test-session .uworld-sf-k,
+    body.usmle-test-session .uworld-sf-v,
+    body.usmle-test-session .uworld-sf-time {
+        font-size: 0.68rem;
+    }
+
+    body.usmle-test-session .uworld-sf-tools {
+        flex: 1 1 auto;
+        justify-content: flex-end;
+        gap: 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    body.usmle-test-session .uworld-sf-tools::-webkit-scrollbar {
+        display: none;
+    }
+
+    body.usmle-test-session .uworld-sf-tool {
+        flex: 0 0 auto;
+        min-width: 40px;
+        width: 40px;
+        min-height: 40px;
+        height: 40px;
+        padding: 0.1rem;
+        gap: 0;
+    }
+
+    body.usmle-test-session .uworld-sf-tool span,
+    body.usmle-test-session .uworld-sf-tool-full,
+    body.usmle-test-session .uworld-sf-tool-short {
+        display: none !important;
+    }
+
+    body.usmle-test-session .uworld-sf-tool svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    body.usmle-test-session .uworld-sf-end {
+        min-width: 44px;
+        width: 44px;
+    }
+
+    /* Контент занимает оставшееся место и скроллится */
+    body.usmle-test-session .test-session-layout.has-usmle-qnav {
+        grid-template-columns: 1fr;
+        flex: 1 1 auto;
+        min-height: 0;
+        height: auto;
+        max-height: none;
+        padding: 0.35rem var(--exam-pad-x) 0.4rem;
+        gap: 0;
+        overflow: hidden;
+    }
+
+    body.usmle-test-session .test-session-main {
+        min-height: 0;
+        overflow: hidden;
+    }
+
     body.usmle-test-session .test-content {
-        padding: 1rem 0.85rem 1.35rem;
+        flex: 1 1 auto;
+        min-height: 0;
+        max-width: none;
+        margin: 0;
+        padding: 0.85rem 0.75rem 1rem;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 0.5rem;
+    }
+
+    body.usmle-test-session .question-item {
+        margin-bottom: 0;
     }
 
     body.usmle-test-session .question-item h3,
     body.usmle-test-session .question-text,
     body.usmle-test-session .usmle-question-stem {
-        font-size: calc(1.06rem * var(--usmle-font-scale, 1));
-        line-height: 1.68;
+        font-size: calc(var(--exam-stem) * var(--usmle-font-scale, 1));
+        line-height: 1.5;
+        margin-bottom: 0.75rem;
         padding-left: 0.55rem;
     }
 
+    body.usmle-test-session .answers-list {
+        gap: 0.5rem;
+    }
+
     body.usmle-test-session .answer-item {
-        padding: 0.95rem 1rem;
-        font-size: calc(1.04rem * var(--usmle-font-scale, 1));
+        padding: 0.75rem 0.8rem;
+        gap: 0.65rem;
+        min-height: 48px;
+        align-items: flex-start;
+    }
+
+    body.usmle-test-session .answer-option-letter {
+        width: 1.55rem;
+        height: 1.55rem;
+        font-size: 0.8rem;
+        margin-top: 0.05rem;
     }
 
     body.usmle-test-session .answer-option-text {
-        font-size: calc(1.04rem * var(--usmle-font-scale, 1));
-        line-height: 1.58;
+        font-size: calc(var(--exam-answer) * var(--usmle-font-scale, 1));
+        line-height: 1.45;
+    }
+
+    body.usmle-test-session .usmle-question-meta:not([hidden]) {
+        margin: 0.25rem var(--exam-pad-x) 0;
+        padding: 0.35rem 0.5rem;
+    }
+
+    body.usmle-test-session .usmle-meta-chip {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        white-space: normal;
+        max-width: 100%;
+    }
+
+    /* Боковой список — выезжающая панель */
+    body.usmle-test-session .usmle-qnav {
+        position: fixed;
+        left: 0;
+        top: var(--exam-topbar-h);
+        bottom: calc(var(--exam-footer-h) + env(safe-area-inset-bottom));
+        z-index: 200;
+        width: min(84px, 28vw);
+        height: auto;
+        max-height: none;
+        margin: 0;
+        border-radius: 0;
+        transform: translateX(-105%);
+        transition: transform 0.2s ease;
+        box-shadow: 6px 0 20px rgba(0, 0, 0, 0.18);
+        background: var(--card-bg, #fff);
+    }
+
+    body.usmle-test-session .usmle-qnav.is-drawer-open {
+        transform: translateX(0);
+    }
+
+    body.usmle-test-session .test-session-layout.qnav-collapsed > .usmle-qnav {
+        display: block;
+    }
+
+    body.usmle-test-session #usmleTbShortcuts {
+        display: none !important;
+    }
+
+    /* Затемнение при открытом списке вопросов */
+    body.usmle-test-session .test-session-layout.has-usmle-qnav.qnav-drawer-open::before {
+        content: '';
+        position: fixed;
+        left: 0;
+        right: 0;
+        top: var(--exam-topbar-h);
+        bottom: calc(var(--exam-footer-h) + env(safe-area-inset-bottom));
+        z-index: 180;
+        background: rgba(15, 23, 42, 0.38);
+        pointer-events: auto;
+    }
+
+    body.usmle-test-session .usmle-qnav {
+        z-index: 200;
+        width: min(92px, 32vw);
+        padding-top: 0.35rem;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+    }
+
+    body.usmle-test-session .usmle-qnav-btn {
+        min-height: 40px;
+        padding: 0.35rem 0.1rem;
+    }
+
+    body.usmle-test-session .question-image-wrap {
+        margin-left: 0;
+        margin-right: 0;
+        max-width: 100%;
+    }
+
+    body.usmle-test-session .question-image {
+        max-width: 100%;
+        max-height: min(240px, 40vh);
+        width: auto;
+        height: auto;
+        object-fit: contain;
+    }
+
+    body.usmle-test-session .uworld-session-topbar {
+        position: relative;
+        top: auto;
+        flex-shrink: 0;
+    }
+}
+
+@media (max-width: 420px) {
+    body.usmle-test-session {
+        --exam-pad-x: 0.4rem;
+    }
+
+    body.usmle-test-session .uworld-tb-item-info {
+        max-width: 5.5rem;
+    }
+
+    body.usmle-test-session .uworld-tb-item-label {
+        font-size: 0.65rem;
+    }
+
+    body.usmle-test-session .test-content {
+        padding: 0.75rem 0.65rem 0.9rem;
+    }
+
+    body.usmle-test-session .uworld-sf-left {
+        max-width: 38%;
+    }
+
+    body.usmle-test-session .uworld-sf-left > .uworld-sf-meta:first-child {
+        display: none;
+    }
+
+    body.usmle-test-session .uworld-sf-k-full {
+        display: none !important;
+    }
+
+    body.usmle-test-session .uworld-sf-k-short {
+        display: inline !important;
     }
 }
 
@@ -7612,30 +7859,32 @@ body.dark-theme .test-review-explanation-wrap {
         font-size: 0.9rem;
     }
 
+    /* Не перебивать мобильный exam-layout (скролл в .test-content) */
     body.usmle-test-session .test-content {
-        padding: 1rem 0.85rem 1.4rem;
-        overflow: visible;
-        font-size: calc(1.06rem * var(--usmle-font-scale, 1));
+        padding: 0.75rem 0.65rem 0.9rem;
+        overflow-x: hidden;
+        overflow-y: auto;
+        font-size: calc(var(--exam-font, 0.98rem) * var(--usmle-font-scale, 1));
     }
 
     body.usmle-test-session .question-item h3,
     body.usmle-test-session .question-text,
     body.usmle-test-session .usmle-question-stem {
-        font-size: calc(1.08rem * var(--usmle-font-scale, 1));
-        line-height: 1.68;
+        font-size: calc(var(--exam-stem, 1.02rem) * var(--usmle-font-scale, 1));
+        line-height: 1.5;
     }
 
     body.usmle-test-session .answer-item {
-        padding: 1rem 1.05rem;
-        font-size: calc(1.05rem * var(--usmle-font-scale, 1));
+        padding: 0.75rem 0.8rem;
+        font-size: calc(var(--exam-answer, 0.98rem) * var(--usmle-font-scale, 1));
         overflow: visible;
         align-items: flex-start;
-        min-height: 56px;
+        min-height: 48px;
     }
 
     body.usmle-test-session .answer-option-text {
-        font-size: calc(1.05rem * var(--usmle-font-scale, 1));
-        line-height: 1.58;
+        font-size: calc(var(--exam-answer, 0.98rem) * var(--usmle-font-scale, 1));
+        line-height: 1.45;
         white-space: normal;
         word-break: break-word;
         overflow-wrap: anywhere;
@@ -9037,9 +9286,13 @@ svg {
         padding-bottom: max(1.5rem, var(--safe-bottom));
     }
 
-    body.usmle-test-session .main-content,
     body.uworld-review-page .main-content {
         padding-bottom: 2rem;
+    }
+
+    /* Exam session: место под fixed footer, не общий 2rem */
+    body.usmle-test-session .main-content {
+        padding-bottom: calc(var(--exam-footer-h, 54px) + env(safe-area-inset-bottom));
     }
 }
 
