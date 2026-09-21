@@ -317,19 +317,18 @@
                     
                     console.log(`Загружен тест: ${data.questions.length} вопросов, индекс: ${data.questionIndex}`);
 
-                    // Тип программы — до таймера и showQuestion
+                    // На /test всегда панель как в USMLE; язык — по типу программы
                     const isUsmle = !!(data.isCustomUsmle || data.programType === 'usmle');
                     if (isUsmle) {
                         try { sessionStorage.setItem('programType', 'usmle'); } catch (_) {}
                         if (typeof window.setProgramType === 'function') window.setProgramType('usmle');
-                        document.body.classList.add('usmle-test-session');
-                        document.body.classList.remove('uni-test-session');
                     } else {
                         try { sessionStorage.setItem('programType', 'university'); } catch (_) {}
                         if (typeof window.setProgramType === 'function') window.setProgramType('university');
-                        document.body.classList.add('uni-test-session');
-                        document.body.classList.remove('usmle-test-session');
                     }
+                    document.body.classList.add('usmle-test-session');
+                    document.body.classList.remove('uni-test-session');
+                    if (!isUsmle) document.body.classList.add('exam-chrome-ru');
 
                     if (data.timer && typeof window.startTimer === 'function') {
                         window.startTimer(data.timer);

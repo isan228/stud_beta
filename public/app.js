@@ -125,6 +125,147 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
     }
 
+    /** Панель инструментов + боковая таблица вопросов (как UWorld) — для USMLE и обычных тестов на /test */
+    function usesExamChrome() {
+        if (typeof document !== 'undefined' && document.body?.classList.contains('test-exam-page')) {
+            return true;
+        }
+        return isUsmleTestSession();
+    }
+
+    function applyExamChromeLocale() {
+        const en = isUsmleTestSession();
+        const setText = (sel, full, short) => {
+            const el = document.querySelector(sel);
+            if (!el) return;
+            const fullEl = el.querySelector('.uworld-tb-tool-full, .uworld-sf-tool-full, .uworld-sf-k-full');
+            const shortEl = el.querySelector('.uworld-tb-tool-short, .uworld-sf-tool-short, .uworld-sf-k-short');
+            if (fullEl || shortEl) {
+                if (fullEl) fullEl.textContent = full;
+                if (shortEl) shortEl.textContent = short || full;
+            } else if (el.tagName === 'SPAN' || el.classList.contains('uworld-tb-mark-text') || el.classList.contains('usmle-qnav-title')) {
+                el.textContent = full;
+            } else {
+                const span = el.querySelector('span:not(.uworld-tb-tool-full):not(.uworld-tb-tool-short):not(.uworld-sf-tool-full):not(.uworld-sf-tool-short)');
+                if (span && !span.classList.contains('uworld-tb-mark-icon')) span.textContent = full;
+            }
+        };
+
+        // Topbar tools
+        setText('#usmleTbMark .uworld-tb-mark-text', en ? 'Mark' : 'Отметить');
+        const markBtn = document.getElementById('usmleTbMark');
+        if (markBtn) markBtn.title = en ? 'Mark' : 'Отметить';
+
+        const toolMap = [
+            ['#usmleTbShortcuts', en ? 'Shortcuts' : 'Горячие клавиши', en ? 'Keys' : 'Клавиши'],
+            ['#usmleTbFullscreen', en ? 'Full Screen' : 'На весь экран', en ? 'Full' : 'Экран'],
+            ['#usmleTbMarker', en ? 'Marker' : 'Маркер', en ? 'Marker' : 'Маркер'],
+            ['#usmleTbLab', en ? 'Lab Values' : 'Лаб. значения', en ? 'Labs' : 'Лабы'],
+            ['#usmleTbNotes', en ? 'Notes' : 'Заметки', en ? 'Notes' : 'Заметки'],
+            ['#usmleTbCalc', en ? 'Calculator' : 'Калькулятор', en ? 'Calc' : 'Кальк.'],
+            ['#usmleTbSettings', en ? 'Settings' : 'Настройки', en ? 'More' : 'Ещё']
+        ];
+        toolMap.forEach(([sel, full, short]) => {
+            const btn = document.querySelector(sel);
+            if (!btn) return;
+            btn.title = full;
+            const f = btn.querySelector('.uworld-tb-tool-full');
+            const s = btn.querySelector('.uworld-tb-tool-short');
+            if (f) f.textContent = full;
+            if (s) s.textContent = short;
+            else if (!f) {
+                const only = btn.querySelector('span:not([class*="svg"])');
+                // last text span
+                const spans = [...btn.querySelectorAll('span')].filter((x) => !x.querySelector('svg') && !x.classList.contains('uworld-tb-mark-icon'));
+                const textSpan = spans[spans.length - 1];
+                if (textSpan && !textSpan.classList.contains('uworld-tb-tool-full') && !textSpan.classList.contains('uworld-tb-tool-short')) {
+                    textSpan.textContent = full;
+                }
+            }
+        });
+
+        const prev = document.getElementById('usmleTbPrev');
+        const next = document.getElementById('usmleTbNext');
+        if (prev) {
+            prev.title = en ? 'Previous' : 'Назад';
+            const ps = prev.querySelector('span');
+            if (ps) ps.textContent = en ? 'Previous' : 'Назад';
+        }
+        if (next) {
+            const isLast = currentQuestionIndex >= (currentQuestions?.length || 1) - 1;
+            next.title = en ? (isLast ? 'End' : 'Next') : (isLast ? 'Завершить' : 'Далее');
+            const ns = next.querySelector('span');
+            if (ns) ns.textContent = en ? (isLast ? 'End' : 'Next') : (isLast ? 'Завершить' : 'Далее');
+        }
+
+        const qnavTitle = document.querySelector('.usmle-qnav-title');
+        if (qnavTitle) qnavTitle.textContent = en ? 'Items' : 'Вопросы';
+
+        // Footer
+        const footerKeys = document.querySelectorAll('#usmleSfElapsedLine .uworld-sf-k-full, #usmleSessionFooter .uworld-sf-k');
+        const testIdK = document.querySelector('#usmleSessionFooter .uworld-sf-meta:first-child .uworld-sf-k');
+        if (testIdK) testIdK.textContent = en ? 'Test ID' : 'ID теста';
+        const elapsedFull = document.querySelector('#usmleSfElapsedLine .uworld-sf-k-full');
+        const elapsedShort = document.querySelector('#usmleSfElapsedLine .uworld-sf-k-short');
+        if (elapsedFull) elapsedFull.textContent = en ? 'Block Time Elapsed' : 'Время блока';
+        if (elapsedShort) elapsedShort.textContent = en ? 'Elapsed' : 'Время';
+
+        const sfMap = [
+            ['#usmleSfLibrary', en ? 'Medical Library' : 'Библиотека', en ? 'Library' : 'Библ.'],
+            ['#usmleSfNotebook', en ? 'Notebook' : 'Блокнот', en ? 'Notebook' : 'Блокнот'],
+            ['#usmleSfFlashcards', en ? 'Flashcards' : 'Карточки', en ? 'Cards' : 'Карты'],
+            ['#usmleSfFeedback', en ? 'Feedback' : 'Отзыв', en ? 'Feedback' : 'Отзыв'],
+            ['#usmleSfEnd', en ? 'End Block' : 'Завершить', en ? 'End' : 'Конец']
+        ];
+        sfMap.forEach(([sel, full, short]) => {
+            const btn = document.querySelector(sel);
+            if (!btn) return;
+            btn.title = full;
+            const f = btn.querySelector('.uworld-sf-tool-full');
+            const s = btn.querySelector('.uworld-sf-tool-short');
+            if (f) f.textContent = full;
+            if (s) s.textContent = short;
+            else {
+                const spans = [...btn.querySelectorAll('span')].filter((x) => !x.querySelector('svg'));
+                const textSpan = spans.find((x) => !x.classList.contains('uworld-sf-tool-full') && !x.classList.contains('uworld-sf-tool-short')) || spans[0];
+                if (textSpan && !f) textSpan.textContent = full;
+            }
+        });
+
+        const menuBtn = document.getElementById('usmleTbMenu');
+        if (menuBtn) {
+            menuBtn.title = en ? 'Hide question list' : 'Скрыть список вопросов';
+            menuBtn.setAttribute('aria-label', menuBtn.title);
+        }
+        const toolsBar = document.querySelector('.uworld-tb-tools');
+        if (toolsBar) toolsBar.setAttribute('aria-label', en ? 'USMLE tools' : 'Инструменты теста');
+
+        const settingsTitle = document.querySelector('#usmleSettingsModal h2');
+        if (settingsTitle) settingsTitle.textContent = en ? 'Settings' : 'Настройки';
+        const notesTitle = document.querySelector('#usmleNotesModal h2');
+        if (notesTitle) notesTitle.textContent = en ? 'Notes' : 'Заметки';
+        const notesHint = document.querySelector('#usmleNotesModal .uworld-tool-hint');
+        if (notesHint) {
+            notesHint.textContent = en
+                ? 'Notes are saved locally for this question.'
+                : 'Заметки сохраняются локально для этого вопроса.';
+        }
+        const notesSave = document.getElementById('usmleNotesSaveBtn');
+        if (notesSave) notesSave.textContent = en ? 'Save' : 'Сохранить';
+        const reportBtnSet = document.getElementById('usmleSettingsReportBtn');
+        if (reportBtnSet) reportBtnSet.textContent = en ? 'Report a question error' : 'Сообщить об ошибке в вопросе';
+        const fontUp = document.getElementById('usmleSettingsFontUp');
+        if (fontUp) fontUp.textContent = en ? 'Increase font' : 'Увеличить шрифт';
+        const fontDown = document.getElementById('usmleSettingsFontDown');
+        if (fontDown) fontDown.textContent = en ? 'Decrease font' : 'Уменьшить шрифт';
+        const finishSet = document.getElementById('usmleSettingsFinishBtn');
+        if (finishSet) finishSet.textContent = en ? 'End test' : 'Завершить тест';
+        const calcTitle = document.querySelector('#usmleCalcModal h2');
+        if (calcTitle) calcTitle.textContent = en ? 'Calculator' : 'Калькулятор';
+        const shortcutsTitle = document.getElementById('usmleShortcutsTitle');
+        if (shortcutsTitle) shortcutsTitle.textContent = en ? 'Keyboard Shortcuts' : 'Горячие клавиши';
+    }
+
     function favoriteFlagSvg(filled) {
         // Крупный красный флажок. filled — заливка, иначе жирный контур.
         if (filled) {
@@ -3047,27 +3188,35 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const key = USMLE_MARKER_COLORS[colorKey] !== undefined ? colorKey : 'yellow';
         usmleMarkerColor = key;
         usmleMarkerOn = key !== 'none';
-        document.body.classList.toggle('usmle-marker-on', usmleMarkerOn && isUsmleTestSession());
+        document.body.classList.toggle('usmle-marker-on', usmleMarkerOn && usesExamChrome());
         document.documentElement.style.setProperty(
             '--usmle-marker-color',
             USMLE_MARKER_COLORS[key] || '#ffe566'
         );
         updateUsmleToolbarChrome(currentQuestions?.[currentQuestionIndex]);
         syncUsmleMarkerPalette();
-        const names = {
-            none: 'Marker off',
-            yellow: 'Marker: Yellow',
-            green: 'Marker: Green',
-            cyan: 'Marker: Cyan',
-            red: 'Marker: Red'
-        };
-        showNotification(names[key] || 'Marker', 'info');
+        const names = isUsmleTestSession()
+            ? {
+                none: 'Marker off',
+                yellow: 'Marker: Yellow',
+                green: 'Marker: Green',
+                cyan: 'Marker: Cyan',
+                red: 'Marker: Red'
+            }
+            : {
+                none: 'Маркер выкл.',
+                yellow: 'Маркер: жёлтый',
+                green: 'Маркер: зелёный',
+                cyan: 'Маркер: голубой',
+                red: 'Маркер: красный'
+            };
+        showNotification(names[key] || (isUsmleTestSession() ? 'Marker' : 'Маркер'), 'info');
     }
 
     function syncUsmleMarkerPalette() {
         const palette = document.getElementById('usmleMarkerPalette');
         if (!palette) return;
-        const show = usmleMarkerOn && isUsmleTestSession();
+        const show = usmleMarkerOn && usesExamChrome();
         palette.hidden = !show;
         palette.querySelectorAll('[data-marker-color]').forEach((btn) => {
             btn.classList.toggle('is-active', btn.getAttribute('data-marker-color') === usmleMarkerColor);
@@ -3114,10 +3263,10 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     function updateUsmleSessionFooter() {
         const footer = document.getElementById('usmleSessionFooter');
         if (!footer) return;
-        const show = isUsmleTestSession();
-        footer.hidden = !show;
-        document.body.classList.toggle('has-uworld-footer', show);
-        if (!show) {
+        const chrome = usesExamChrome();
+        footer.hidden = !chrome;
+        document.body.classList.toggle('has-uworld-footer', chrome);
+        if (!chrome) {
             if (usmleBlockElapsedTimer) {
                 clearInterval(usmleBlockElapsedTimer);
                 usmleBlockElapsedTimer = null;
@@ -3160,28 +3309,28 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const uniActions = document.getElementById('uniTestActions');
         const favoriteContainer = document.getElementById('favoriteContainer');
         const reportBtn = document.getElementById('reportQuestionErrorBtn');
-        const active = !!isUsmle;
-        document.body.classList.toggle('usmle-test-session', active);
-        document.body.classList.toggle('uni-test-session', !active);
-        if (topbar) topbar.hidden = !active;
-        if (uniHeader) uniHeader.hidden = active;
-        if (uniActions) uniActions.classList.toggle('is-usmle-hidden', active);
+        // Панель как в USMLE для всех тестов на /test; isUsmle — только язык/мета
+        const chrome = usesExamChrome();
+        const usmle = !!isUsmle;
+        document.body.classList.toggle('usmle-test-session', chrome);
+        document.body.classList.toggle('uni-test-session', !chrome);
+        document.body.classList.toggle('exam-chrome-ru', chrome && !usmle);
+        if (topbar) topbar.hidden = !chrome;
+        if (uniHeader) uniHeader.hidden = chrome;
+        if (uniActions) uniActions.classList.toggle('is-usmle-hidden', chrome);
         if (favoriteContainer) {
-            favoriteContainer.hidden = active;
-            favoriteContainer.setAttribute('aria-hidden', active ? 'true' : 'false');
+            favoriteContainer.hidden = true;
+            favoriteContainer.setAttribute('aria-hidden', 'true');
+            favoriteContainer.innerHTML = '';
         }
         if (reportBtn) {
-            if (active) {
-                reportBtn.hidden = true;
-                reportBtn.setAttribute('aria-hidden', 'true');
-                reportBtn.tabIndex = -1;
-            } else {
-                reportBtn.hidden = false;
-                reportBtn.removeAttribute('aria-hidden');
-                reportBtn.tabIndex = 0;
-            }
+            // Ошибка — через Settings / Feedback в панели
+            reportBtn.hidden = true;
+            reportBtn.setAttribute('aria-hidden', 'true');
+            reportBtn.tabIndex = -1;
         }
-        if (active) {
+        if (chrome) {
+            applyExamChromeLocale();
             ensureUsmleToolbarBound();
             ensureUsmleFooterBound();
             updateUsmleSessionFooter();
@@ -3194,21 +3343,12 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             }
         } else {
             updateUsmleSessionFooter();
-            // Таймер университетского теста — в русском хедере
-            const uniTimer = document.getElementById('testTimer');
-            const usmleTimer = document.getElementById('usmleTbTimer');
-            if (usmleTimer) {
-                usmleTimer.style.display = 'none';
-                usmleTimer.hidden = true;
-            }
-            if (uniTimer && uniTimer.style.display === 'block') {
-                uniTimer.hidden = false;
-            }
         }
     }
 
     function updateUsmleToolbarChrome(question) {
-        if (!isUsmleTestSession()) return;
+        if (!usesExamChrome()) return;
+        const en = isUsmleTestSession();
         const itemLabel = document.getElementById('usmleTbItemLabel');
         const qidEl = document.getElementById('usmleTbQuestionId');
         const markBtn = document.getElementById('usmleTbMark');
@@ -3217,10 +3357,14 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const nextBtn = document.getElementById('usmleTbNext');
 
         if (itemLabel) {
-            itemLabel.textContent = `Item ${currentQuestionIndex + 1} of ${currentQuestions.length}`;
+            itemLabel.textContent = en
+                ? `Item ${currentQuestionIndex + 1} of ${currentQuestions.length}`
+                : `Вопрос ${currentQuestionIndex + 1} из ${currentQuestions.length}`;
         }
         if (qidEl) {
-            qidEl.textContent = `Question Id: ${question?.id ?? '—'}`;
+            qidEl.textContent = en
+                ? `Question Id: ${question?.id ?? '—'}`
+                : `ID вопроса: ${question?.id ?? '—'}`;
         }
 
         const isFav = question ? sessionFavoriteIds.has(Number(question.id)) : false;
@@ -3235,12 +3379,17 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             nextBtn.disabled = false;
             nextBtn.classList.toggle('is-finish', isLast);
             const label = nextBtn.querySelector('span');
-            if (label) label.textContent = isLast ? 'End' : 'Next';
+            if (label) {
+                label.textContent = en
+                    ? (isLast ? 'End' : 'Next')
+                    : (isLast ? 'Завершить' : 'Далее');
+            }
+            nextBtn.title = label?.textContent || '';
         }
 
         const markerBtn = document.getElementById('usmleTbMarker');
         if (markerBtn) markerBtn.classList.toggle('is-active', usmleMarkerOn);
-        document.body.classList.toggle('usmle-marker-on', usmleMarkerOn && isUsmleTestSession());
+        document.body.classList.toggle('usmle-marker-on', usmleMarkerOn && usesExamChrome());
         if (USMLE_MARKER_COLORS[usmleMarkerColor]) {
             document.documentElement.style.setProperty('--usmle-marker-color', USMLE_MARKER_COLORS[usmleMarkerColor]);
         }
@@ -3284,7 +3433,9 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             window.UsmleAnnotations?.hasNotes?.(question.id) || !!String(loadUsmleNote(question.id) || '').trim()
         );
         btn.classList.toggle('has-note', !!has);
-        btn.title = has ? 'Notes (есть заметка)' : 'Notes';
+        btn.title = has
+            ? (isUsmleTestSession() ? 'Notes (есть заметка)' : 'Заметки (есть заметка)')
+            : (isUsmleTestSession() ? 'Notes' : 'Заметки');
     }
 
     function persistCurrentUsmleNoteFromModal(force) {
@@ -3315,12 +3466,12 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     function persistUsmleHighlights() {
         const q = currentQuestions?.[currentQuestionIndex];
-        if (!q || !isUsmleTestSession()) return;
+        if (!q || !usesExamChrome()) return;
         window.UsmleAnnotations?.saveMarksFromRoot?.(q.id, getUsmleHighlightRoot());
     }
 
     function restoreUsmleHighlights(questionId) {
-        if (questionId == null || !isUsmleTestSession()) return;
+        if (questionId == null || !usesExamChrome()) return;
         window.UsmleAnnotations?.restoreMarksToRoot?.(questionId, getUsmleHighlightRoot());
     }
 
@@ -3434,7 +3585,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     }
 
     function applyUsmleMarkerSelection() {
-        if (!usmleMarkerOn || !isUsmleTestSession()) return;
+        if (!usmleMarkerOn || !usesExamChrome()) return;
         const color = USMLE_MARKER_COLORS[usmleMarkerColor];
         if (!color) return;
         const root = getUsmleHighlightRoot();
@@ -3449,7 +3600,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     }
 
     function applyUsmleMarkerAtPoint(clientX, clientY) {
-        if (!usmleMarkerOn || !isUsmleTestSession()) return false;
+        if (!usmleMarkerOn || !usesExamChrome()) return false;
         const color = USMLE_MARKER_COLORS[usmleMarkerColor];
         if (!color) return false;
         const root = getUsmleHighlightRoot();
@@ -3675,7 +3826,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         if (!window.__usmleMarkerTapBound) {
             window.__usmleMarkerTapBound = true;
             document.addEventListener('click', (e) => {
-                if (!usmleMarkerOn || !isUsmleTestSession() || !isUsmleMarkerTapMode()) return;
+                if (!usmleMarkerOn || !usesExamChrome() || !isUsmleMarkerTapMode()) return;
                 const root = getUsmleHighlightRoot();
                 if (!root || !root.contains(e.target)) return;
                 if (e.target.closest?.('a, button, input, textarea, .answer-option-letter')) return;
@@ -3705,7 +3856,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         if (!window.__usmleShortcutKeysBound) {
             window.__usmleShortcutKeysBound = true;
             document.addEventListener('keydown', (e) => {
-                if (!isUsmleTestSession()) return;
+                if (!usesExamChrome()) return;
                 const tag = String(e.target?.tagName || '').toLowerCase();
                 if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable) return;
 
@@ -3823,17 +3974,20 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         if (!nav || !list) return;
 
         const isUsmle = isUsmleTestSession();
-        document.body.classList.toggle('usmle-test-session', isUsmle);
-        if (layout) layout.classList.toggle('has-usmle-qnav', isUsmle);
+        const chrome = usesExamChrome();
+        document.body.classList.toggle('usmle-test-session', chrome);
+        if (layout) layout.classList.toggle('has-usmle-qnav', chrome);
         syncUsmleSessionChrome(isUsmle);
 
-        if (!isUsmle || !currentQuestions || !currentQuestions.length) {
+        if (!chrome || !currentQuestions || !currentQuestions.length) {
             nav.hidden = true;
             list.innerHTML = '';
             return;
         }
 
         nav.hidden = false;
+        const qnavTitle = nav.querySelector('.usmle-qnav-title');
+        if (qnavTitle) qnavTitle.textContent = isUsmle ? 'Items' : 'Вопросы';
         const flags = getUsmleNavLinkFlags(currentQuestions);
         list.innerHTML = currentQuestions.map((q, index) => {
             const f = flags[index] || {};
@@ -3942,6 +4096,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         }
 
         const isUsmleSession = isUsmleTestSession();
+        const examChrome = usesExamChrome();
         if (progressFillEl) progressFillEl.style.width = `${progress}%`;
         if (progressTextEl) {
             progressTextEl.textContent = isUsmleSession
@@ -3960,27 +4115,15 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             return;
         }
 
-        // Избранное: в USMLE — Mark в topbar; в обычных тестах — флажок в русском хедере
+        // Избранное — через Mark в верхней панели
         const favoriteContainer = document.getElementById('favoriteContainer');
-        if (favoriteContainer) {
-            if (isUsmleSession || !currentUser) {
-                favoriteContainer.innerHTML = '';
-            } else {
-                favoriteContainer.innerHTML = `
-            <button class="favorite-icon-btn" onclick="toggleFavorite(${question.id})" id="favoriteBtn${question.id}" title="Добавить в избранное">
-                <span id="favoriteIcon${question.id}">☆</span>
-            </button>
-        `;
-            }
-        }
+        if (favoriteContainer) favoriteContainer.innerHTML = '';
 
-        if (isUsmleTestSession() && currentUser && !sessionFavoritesSyncStarted) {
+        if (examChrome && currentUser && !sessionFavoritesSyncStarted) {
             sessionFavoritesSyncStarted = true;
             syncSessionFavorites().then(() => {
                 renderUsmleQuestionNav();
-                if (currentQuestions[currentQuestionIndex]) {
-                    updateFavoriteButton(currentQuestions[currentQuestionIndex].id, sessionFavoriteIds.has(Number(currentQuestions[currentQuestionIndex].id)));
-                }
+                updateUsmleToolbarChrome(currentQuestions[currentQuestionIndex]);
             });
         }
 
@@ -3996,7 +4139,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             <div class="answers-list">
                 ${question.Answers.map((answer, answerIndex) => `
                     <div class="answer-item" data-answer-id="${answer.id}" onclick="selectAnswer(${answer.id})">
-                        ${isUsmleSession ? `<span class="answer-option-letter" aria-hidden="true">${answerLetters[answerIndex] || (answerIndex + 1)}</span>` : ''}
+                        ${examChrome ? `<span class="answer-option-letter" aria-hidden="true">${answerLetters[answerIndex] || (answerIndex + 1)}</span>` : ''}
                         <span class="answer-option-text">${answer.text}</span>
                         ${renderImageGalleryHtml(answer.imageUrls || answer.imageUrl, 'Иллюстрация к ответу', 'answer-option-image-wrap')}
                     </div>
@@ -4048,21 +4191,21 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
         refreshQuestionExplanationSlot(question);
 
-        // Кнопки навигации
+        // Кнопки навигации (скрыты при exam chrome — навигация в верхней панели)
         const prevBtn = document.getElementById('prevQuestion');
         const nextBtn = document.getElementById('nextQuestion');
         const finishBtn = document.getElementById('finishTest');
 
         if (prevBtn) {
-            prevBtn.style.display = (!isUsmleSession && currentQuestionIndex > 0) ? 'block' : 'none';
+            prevBtn.style.display = (!examChrome && currentQuestionIndex > 0) ? 'block' : 'none';
         }
         if (nextBtn) {
-            nextBtn.style.display = (!isUsmleSession && currentQuestionIndex < currentQuestions.length - 1) ? 'block' : 'none';
+            nextBtn.style.display = (!examChrome && currentQuestionIndex < currentQuestions.length - 1) ? 'block' : 'none';
         }
         if (finishBtn) {
-            finishBtn.style.display = (!isUsmleSession && currentQuestions.length > 0) ? 'block' : 'none';
+            finishBtn.style.display = (!examChrome && currentQuestions.length > 0) ? 'block' : 'none';
         }
-        if (isUsmleSession) {
+        if (examChrome) {
             updateUsmleToolbarChrome(question);
             restoreUsmleHighlights(question.id);
             reloadUsmleNotesModalIfOpen(question);
@@ -4070,7 +4213,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     }
 
     function selectAnswer(answerId) {
-        if (usmleMarkerOn && isUsmleTestSession() && typeof isUsmleMarkerTapMode === 'function' && isUsmleMarkerTapMode()) {
+        if (usmleMarkerOn && usesExamChrome() && typeof isUsmleMarkerTapMode === 'function' && isUsmleMarkerTapMode()) {
             return;
         }
         const question = currentQuestions[currentQuestionIndex];
@@ -5808,7 +5951,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 if (nextFav) sessionFavoriteIds.add(Number(questionId));
                 else sessionFavoriteIds.delete(Number(questionId));
                 updateFavoriteButton(questionId, nextFav);
-                if (isUsmleTestSession()) renderUsmleQuestionNav();
+                if (usesExamChrome()) renderUsmleQuestionNav();
             }
         } catch (error) {
             console.error('Ошибка изменения избранного:', error);
@@ -5827,7 +5970,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             if (data.isFavorite) sessionFavoriteIds.add(Number(questionId));
             else sessionFavoriteIds.delete(Number(questionId));
             updateFavoriteButton(questionId, data.isFavorite);
-            if (isUsmleTestSession()) renderUsmleQuestionNav();
+            if (usesExamChrome()) renderUsmleQuestionNav();
         } catch (error) {
             console.error('Ошибка проверки избранного:', error);
         }
@@ -5843,7 +5986,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const btn = document.getElementById(`favoriteBtn${questionId}`);
         const icon = document.getElementById(`favoriteIcon${questionId}`);
         if (btn && icon) {
-            const usmleFav = isUsmleTestSession() || btn.classList.contains('usmle-flag-btn');
+            const usmleFav = usesExamChrome() || btn.classList.contains('usmle-flag-btn');
             if (usmleFav) {
                 btn.classList.add('usmle-flag-btn');
                 icon.innerHTML = favoriteFlagSvg(!!isFavorite);
@@ -5856,7 +5999,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             else btn.classList.remove('favorite-active');
         }
 
-        if (isUsmleTestSession()) {
+        if (usesExamChrome()) {
             updateUsmleToolbarChrome(currentQuestions?.[currentQuestionIndex]);
             renderUsmleQuestionNav();
         }
