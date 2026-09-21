@@ -2356,8 +2356,14 @@ body.usmle-test-session .test-content {
     overflow-wrap: anywhere;
 }
 
+body.usmle-exam-page .test-actions.is-usmle-hidden,
 body.usmle-test-session .test-actions.is-usmle-hidden {
     display: none !important;
+}
+
+body.usmle-exam-page.has-uworld-footer .test-session-main,
+body.usmle-test-session.has-uworld-footer .test-session-main {
+    padding-bottom: 5.5rem;
 }
 
 body.usmle-test-session .question-item h3,
@@ -2395,6 +2401,28 @@ body.usmle-test-session .answer-option-text {
     top: 0;
     z-index: 80;
     box-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
+}
+
+/* display:flex выше перебивает нативный [hidden] — без этого кнопки видны, но без обработчиков */
+.uworld-session-topbar[hidden],
+.usmle-qnav[hidden],
+.usmle-question-meta[hidden],
+.usmle-marker-palette[hidden] {
+    display: none !important;
+}
+
+/* Страница /test: без шапки сайта, иммерсивный режим как USMLE/UWorld */
+body.usmle-exam-page .navbar {
+    display: none !important;
+}
+
+body.usmle-exam-page {
+    background: #e8eaf0;
+}
+
+body.usmle-exam-page .main-content {
+    padding: 0;
+    min-height: 100dvh;
 }
 
 .uworld-tb-left,

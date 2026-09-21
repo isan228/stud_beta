@@ -19,15 +19,7 @@
     <title>Прохождение теста - stud.kg</title>
     <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-    <nav class="navbar">
-        <div class="container">
-            <div class="nav-brand">
-                <a href="/" class="nav-brand-link"><img src="/img/logo.png" alt="" class="nav-logo" width="40" height="40"><h1>stud.kg</h1></a>
-            </div>
-        </div>
-    </nav>
-
+<body class="usmle-exam-page">
     <main class="main-content">
         <div class="container test-session-container">
             <!-- Обычный хедер (университетские тесты) — прогресс/таймер/флажок/ошибка убраны -->
@@ -323,14 +315,14 @@
                         window.startTimer(data.timer);
                     }
                     
-                    // Помечаем USMLE-сессию для мета-бара (Subject / System / время)
+                    // Помечаем USMLE-сессию ДО showQuestion (иначе топбар виден без обработчиков кнопок)
                     if (data.isCustomUsmle || data.programType === 'usmle') {
                         try { sessionStorage.setItem('programType', 'usmle'); } catch (_) {}
                         if (typeof window.setProgramType === 'function') window.setProgramType('usmle');
+                        document.body.classList.add('usmle-test-session');
                     }
 
                     // Показываем первый вопрос
-                    // Небольшая задержка, чтобы убедиться, что все функции загружены
                     setTimeout(() => {
                         if (typeof window.showQuestion === 'function') {
                             window.showQuestion();

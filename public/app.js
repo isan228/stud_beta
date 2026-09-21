@@ -114,6 +114,10 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
     ]);
 
     function isUsmleTestSession() {
+        // Страница /test всегда в режиме USMLE/UWorld chrome
+        if (typeof document !== 'undefined' && document.body?.classList.contains('usmle-exam-page')) {
+            return true;
+        }
         if (getProgramType() === 'usmle') return true;
         try {
             const raw = sessionStorage.getItem('testData');
@@ -3151,11 +3155,14 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const topbar = document.getElementById('usmleSessionTopbar');
         const uniHeader = document.getElementById('uniTestHeader');
         const uniActions = document.getElementById('uniTestActions');
-        if (topbar) topbar.hidden = !isUsmle;
+        const active = !!isUsmle;
+        document.body.classList.toggle('usmle-test-session', active);
+        if (topbar) topbar.hidden = !active;
         // Старый uni-хедер (прогресс/таймер/флажок/ошибка) больше не показываем
         if (uniHeader) uniHeader.hidden = true;
-        if (uniActions) uniActions.classList.toggle('is-usmle-hidden', !!isUsmle);
-        if (isUsmle) {
+        if (uniActions) uniActions.classList.toggle('is-usmle-hidden', active);
+        // Всегда вешаем обработчики, когда USMLE-панель активна (и при повторном showQuestion)
+        if (active) {
             ensureUsmleToolbarBound();
             ensureUsmleFooterBound();
             updateUsmleSessionFooter();
@@ -3786,7 +3793,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const layout = document.getElementById('testSessionLayout');
         if (!nav || !list) return;
 
-        const isUsmle = getProgramType() === 'usmle';
+        const isUsmle = isUsmleTestSession();
         document.body.classList.toggle('usmle-test-session', isUsmle);
         if (layout) layout.classList.toggle('has-usmle-qnav', isUsmle);
         syncUsmleSessionChrome(isUsmle);
@@ -3905,7 +3912,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             return;
         }
 
-        const isUsmleSession = getProgramType() === 'usmle';
+        const isUsmleSession = isUsmleTestSession();
         if (progressFillEl) progressFillEl.style.width = `${progress}%`;
         if (progressTextEl) {
             progressTextEl.textContent = isUsmleSession
