@@ -61,7 +61,7 @@ async function assertUsmleBankAccess(test, req) {
   };
 }
 
-/** Университетские flashcards — гости/без подписки видят бесплатные; с подпиской — все */
+/** Университетские flashcards — общие для всех вузов; гости/без подписки видят бесплатные; с подпиской — все */
 router.get('/flashcards', async (req, res) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -79,28 +79,20 @@ router.get('/flashcards', async (req, res) => {
 
     const subjectId = parseInt(req.query.subjectId, 10);
     const topicId = parseInt(req.query.topicId, 10);
-    const universityIdQuery = parseInt(req.query.universityId, 10);
-    const universityId = (Number.isFinite(universityIdQuery) && universityIdQuery > 0)
-      ? universityIdQuery
-      : (user?.universityId || null);
 
     const hasPaid = user ? await userHasUniversityAccess(user) : false;
     const where = {
       isActive: true,
       programType: 'university'
     };
-    if (universityId) {
-      where.universityId = Number(universityId);
-    }
 
+    // Карточки университетов доступны всем вузам — не фильтруем по universityId
     if (!hasPaid) {
-      const freeTopicWhere = {
-        isActive: true,
-        isFree: true
-      };
-      if (universityId) freeTopicWhere.universityId = Number(universityId);
       const freeTopics = await FlashcardTopic.findAll({
-        where: freeTopicWhere,
+        where: {
+          isActive: true,
+          isFree: true
+        },
         attributes: ['id']
       });
       const freeTopicIds = freeTopics.map((t) => t.id);

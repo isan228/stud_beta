@@ -444,11 +444,6 @@
 
         try {
             let url = API;
-            if (isGuest) {
-                // Гость: все бесплатные; можно уточнить вуз через ?universityId=
-                const uniId = new URLSearchParams(window.location.search).get('universityId');
-                if (uniId) url += `?universityId=${encodeURIComponent(uniId)}`;
-            }
             const res = await fetch(url, { headers: authHeaders() });
             if (res.status === 401) {
                 window.location.href = '/login';
@@ -460,8 +455,8 @@
 
             if (!allCards.length) {
                 const emptyMsg = isGuest
-                    ? 'Пока нет бесплатных карточек. Войдите, чтобы увидеть колоды вашего университета, или дождитесь, пока администратор откроет доступ.'
-                    : 'Пока нет карточек для вашего университета. Их добавляет администратор.';
+                    ? 'Пока нет бесплатных карточек. Войдите, чтобы открыть полный доступ, или дождитесь, пока администратор добавит колоды.'
+                    : 'Пока нет университетских карточек. Их добавляет администратор.';
                 if (browse) browse.innerHTML = `<p class="flashcard-empty">${emptyMsg}</p>`;
                 if (studyBody) {
                     studyBody.innerHTML = `<tr><td colspan="6" class="flashcard-empty">${emptyMsg}</td></tr>`;
