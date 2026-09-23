@@ -462,6 +462,8 @@ router.get('/subjects', async (req, res) => {
     const where = { programType };
     let facultyId = parseInt(req.query.facultyId, 10);
     let course = parseInt(req.query.course, 10);
+    // ?all=1 — все предметы вуза без фильтра по направлению
+    const wantAll = String(req.query.all || '') === '1' || String(req.query.all || '') === 'true';
 
     if (programType === 'university') {
       const universityId = await resolveUserUniversityId(req);
@@ -469,16 +471,33 @@ router.get('/subjects', async (req, res) => {
         where.universityId = universityId;
       }
 
-      // faculty/course — только если явно переданы в query.
-      // На странице «Тесты» показываем все предметы университета, без автофильтра по направлению.
+      // Если направление не передано в query — берём из профиля пользователя
+      if (!wantAll) {
+        const userId = tryGetUserIdFromRequest(req);
+        if (userId) {
+          const profile = await User.findByPk(userId, { attributes: ['facultyId', 'course'] });
+          if (profile) {
+            if (!Number.isFinite(facultyId) || facultyId <= 0) {
+              facultyId = parseInt(profile.facultyId, 10);
+            }
+            if (!Number.isFinite(course) || !ALLOWED_COURSES.includes(course)) {
+              course = parseInt(profile.course, 10);
+            }
+          }
+        }
+      } else {
+        facultyId = NaN;
+        course = NaN;
+      }
     } else {
       where.universityId = null;
     }
 
     const include = [universityInclude()];
     if (programType === 'university') {
-      include.push(facultyInclude(facultyId));
-      include.push(courseInclude(course));
+      // required: false — потом мягко фильтруем (предметы без привязки видны всем)
+      include.push(facultyInclude());
+      include.push(courseInclude());
     }
 
     let subjects = await Subject.findAll({
@@ -487,6 +506,23 @@ router.get('/subjects', async (req, res) => {
       include,
       distinct: true
     });
+
+    if (programType === 'university' && !wantAll) {
+      if (Number.isFinite(facultyId) && facultyId > 0) {
+        subjects = subjects.filter((s) => {
+          const facs = s.Faculties || [];
+          if (!facs.length) return true;
+          return facs.some((f) => Number(f.id) === Number(facultyId));
+        });
+      }
+      if (Number.isFinite(course) && ALLOWED_COURSES.includes(course)) {
+        subjects = subjects.filter((s) => {
+          const courses = s.Courses || [];
+          if (!courses.length) return true;
+          return courses.some((c) => Number(c.course) === Number(course));
+        });
+      }
+    }
 
     const wantsFree = req.query.free === 'true';
     const hasPaid = programType === 'university'

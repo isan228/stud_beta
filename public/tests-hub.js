@@ -7,6 +7,7 @@
   let favSubjectIds = new Set();
   let favTestIds = new Set();
   let currentFavSub = 'subjects';
+  let showAllSubjects = false;
 
   function token() {
     return localStorage.getItem('token') || '';
@@ -51,12 +52,16 @@
     const facEl = document.getElementById('directionFaculty');
     const courseEl = document.getElementById('directionCourse');
     const link = document.getElementById('directionChangeLink');
+    const hint = document.querySelector('.tests-direction-hint');
     if (!user) {
       if (facEl) facEl.textContent = 'Войдите в аккаунт';
       if (courseEl) courseEl.textContent = '—';
       if (link) {
         link.href = '/login';
         link.textContent = 'Войти, чтобы выбрать направление';
+      }
+      if (hint) {
+        hint.textContent = 'Войдите и укажите факультет и курс — тогда на странице останутся предметы вашего направления.';
       }
       return;
     }
@@ -67,6 +72,16 @@
     if (link) {
       link.href = '/profile#direction';
       link.innerHTML = 'Изменить направление <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+    }
+    const hasDir = !!(user.facultyId && user.course);
+    if (hint) {
+      if (showAllSubjects) {
+        hint.innerHTML = 'Показаны <strong>все</strong> предметы университета. <button type="button" class="tests-direction-all-toggle" id="testsShowFilteredBtn">Вернуть фильтр по направлению</button>';
+      } else if (hasDir) {
+        hint.innerHTML = `Показаны предметы для <strong>${escapeHtml(facName)}</strong>, <strong>${escapeHtml(course)}</strong>. <button type="button" class="tests-direction-all-toggle" id="testsShowAllBtn">Показать все предметы вуза</button>`;
+      } else {
+        hint.innerHTML = 'Укажите факультет и курс в профиле — список предметов отфильтруется под ваше направление. <a href="/profile#direction">Выбрать направление</a>';
+      }
     }
   }
 
@@ -99,7 +114,11 @@
     const box = document.getElementById('subjectsList');
     if (!box) return;
     if (!list.length) {
-      box.innerHTML = '<div class="tests-hub-empty">Предметы университета пока не найдены</div>';
+      const user = window.currentUser;
+      const hasDir = !!(user?.facultyId && user?.course);
+      box.innerHTML = hasDir && !showAllSubjects
+        ? '<div class="tests-hub-empty">Нет предметов для вашего факультета и курса. <button type="button" class="tests-direction-all-toggle" id="testsShowAllBtnEmpty">Показать все предметы вуза</button></div>'
+        : '<div class="tests-hub-empty">Предметы университета пока не найдены</div>';
       return;
     }
     box.innerHTML = list.map((s) => subjectCardHtml(s)).join('');
@@ -109,7 +128,15 @@
     const box = document.getElementById('subjectsList');
     if (box) box.innerHTML = '<div class="tests-hub-loading">Загрузка предметов...</div>';
     try {
-      const res = await fetch(`${API}/tests/subjects?program=university`, {
+      const params = new URLSearchParams({ program: 'university' });
+      const user = window.currentUser;
+      if (showAllSubjects) {
+        params.set('all', '1');
+      } else {
+        if (user?.facultyId) params.set('facultyId', String(user.facultyId));
+        if (user?.course) params.set('course', String(user.course));
+      }
+      const res = await fetch(`${API}/tests/subjects?${params}`, {
         headers: authHeaders()
       });
       if (!res.ok) throw new Error('Ошибка загрузки');
@@ -117,6 +144,7 @@
       allSubjects.forEach((s) => {
         if (s.isFavorite) favSubjectIds.add(Number(s.id));
       });
+      renderDirection(user);
       const q = document.getElementById('subjectSearch')?.value || '';
       filterSubjects(q);
     } catch (e) {
@@ -310,6 +338,18 @@
     }
 
     document.addEventListener('click', (e) => {
+      if (e.target.closest('#testsShowAllBtn, #testsShowAllBtnEmpty')) {
+        e.preventDefault();
+        showAllSubjects = true;
+        loadSubjects();
+        return;
+      }
+      if (e.target.closest('#testsShowFilteredBtn')) {
+        e.preventDefault();
+        showAllSubjects = false;
+        loadSubjects();
+        return;
+      }
       const starSub = e.target.closest('[data-star-subject]');
       if (starSub) {
         e.preventDefault();
