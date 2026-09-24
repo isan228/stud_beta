@@ -167,9 +167,10 @@ function applyActorUiRestrictions() {
     const isEditor = currentActorType === 'editor';
     document.body.classList.toggle('admin-is-editor', isEditor);
 
+    // users + ugc: создание/управление аккаунтами (в т.ч. UGC) — только полный админ
     const fullAdminOnlyTabs = new Set([
         'dashboard', 'devices', 'analytics', 'audit', 'documents', 'schedule',
-        'users', 'subscriptions', 'promo', 'editors', 'news', 'messages', 'chats'
+        'users', 'ugc', 'subscriptions', 'promo', 'editors', 'news', 'messages', 'chats'
     ]);
     document.querySelectorAll('.admin-tab[data-tab]').forEach((btn) => {
         const tab = btn.getAttribute('data-tab');
@@ -210,6 +211,9 @@ function applyActorUiRestrictions() {
 
     const jumpUsers = document.querySelector('[data-tab-jump="users"]');
     if (jumpUsers) jumpUsers.style.display = isEditor ? 'none' : '';
+
+    const addUgcBtn = document.getElementById('addUgcBtn');
+    if (addUgcBtn) addUgcBtn.style.display = isEditor ? 'none' : '';
 
     const addUniversityBtn = document.getElementById('addUniversityBtn');
     if (addUniversityBtn) addUniversityBtn.style.display = isEditor ? 'none' : '';
@@ -1113,6 +1117,10 @@ async function loadUsers(page = 1) {
 }
 
 async function loadUgcUsers() {
+    if (currentActorType === 'editor') {
+        showNotification('UGC доступны только администратору', 'error');
+        return;
+    }
     try {
         const response = await fetch(`${ADMIN_API_URL}/users/ugc`, {
             headers: { 'Authorization': `Bearer ${currentAdminToken}` }
@@ -1241,6 +1249,10 @@ async function viewUgcReferrals(userId, username) {
 
 async function createUgcAccount(e) {
     e.preventDefault();
+    if (currentActorType === 'editor') {
+        showNotification('Создание UGC-аккаунтов доступно только администратору', 'error');
+        return;
+    }
     const username = document.getElementById('ugcUsername')?.value?.trim();
     const email = document.getElementById('ugcEmail')?.value?.trim();
     const password = document.getElementById('ugcPassword')?.value;
@@ -3990,6 +4002,10 @@ function setupAdminEventListeners() {
     const addUgcBtn = document.getElementById('addUgcBtn');
     if (addUgcBtn) {
         addUgcBtn.addEventListener('click', () => {
+            if (currentActorType === 'editor') {
+                showNotification('Создание UGC-аккаунтов доступно только администратору', 'error');
+                return;
+            }
             document.getElementById('ugcCreateForm')?.reset();
             const modal = document.getElementById('ugcCreateModal');
             if (modal) modal.style.display = 'block';

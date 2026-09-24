@@ -1372,7 +1372,7 @@ router.get('/users/ugc', adminAuth, requireFullAdmin, async (req, res) => {
   }
 });
 
-// Создать UGC-аккаунт (полный доступ + рефералка)
+// Создать UGC-аккаунт (полный доступ + рефералка). Только полный админ (requireFullAdmin) — редакторы не имеют доступа.
 router.post('/users/ugc', adminAuth, requireFullAdmin, [
   body('username').trim().isLength({ min: 3, max: 50 }).withMessage('Никнейм от 3 до 50 символов'),
   body('email').isEmail().withMessage('Некорректный email'),
