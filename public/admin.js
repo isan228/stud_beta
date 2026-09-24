@@ -9377,8 +9377,67 @@ window.deletePromoCode = deletePromoCode;
 
 let medicalImages = [];
 let editingMedicalImageId = null;
-let pendingMedicalImageFile = null;
+let pendingMedicalImageFiles = [];
+let medicalExistingImageUrls = [];
 let pendingMedicalVideoFile = null;
+
+function medicalImageUrlsOf(img) {
+    if (!img) return [];
+    if (Array.isArray(img.imageUrls) && img.imageUrls.length) {
+        return [...new Set(img.imageUrls.map((u) => String(u || '').trim()).filter(Boolean))];
+    }
+    return normalizePreviewImageUrls(img.imageUrl);
+}
+
+function revokeMedicalPendingPreviews() {
+    pendingMedicalImageFiles.forEach((item) => {
+        if (item && item.previewUrl) {
+            try { URL.revokeObjectURL(item.previewUrl); } catch (_) { /* ignore */ }
+        }
+    });
+}
+
+function renderMedicalImagePreviews() {
+    const wrap = document.getElementById('medicalImagePreviewWrap');
+    if (!wrap) return;
+    const parts = [];
+    medicalExistingImageUrls.forEach((url, index) => {
+        const safe = String(url).replace(/"/g, '&quot;');
+        parts.push(
+            `<div style="position:relative; display:inline-block;">
+                <img src="${safe}" alt="" style="width:88px; height:88px; object-fit:cover; border-radius:6px; display:block;">
+                <button type="button" class="btn btn-danger btn-sm" onclick="removeMedicalExistingImage(${index})"
+                    style="position:absolute; top:2px; right:2px; padding:0 0.35rem; font-size:0.7rem; line-height:1.2;" title="Убрать">×</button>
+            </div>`
+        );
+    });
+    pendingMedicalImageFiles.forEach((item, index) => {
+        const src = item.previewUrl || '';
+        parts.push(
+            `<div style="position:relative; display:inline-block;">
+                <img src="${src}" alt="" style="width:88px; height:88px; object-fit:cover; border-radius:6px; display:block; outline:2px solid var(--primary-color);">
+                <button type="button" class="btn btn-danger btn-sm" onclick="removeMedicalPendingImage(${index})"
+                    style="position:absolute; top:2px; right:2px; padding:0 0.35rem; font-size:0.7rem; line-height:1.2;" title="Убрать">×</button>
+            </div>`
+        );
+    });
+    wrap.innerHTML = parts.join('');
+}
+
+function removeMedicalExistingImage(index) {
+    medicalExistingImageUrls.splice(index, 1);
+    renderMedicalImagePreviews();
+}
+
+function removeMedicalPendingImage(index) {
+    const [removed] = pendingMedicalImageFiles.splice(index, 1);
+    if (removed?.previewUrl) {
+        try { URL.revokeObjectURL(removed.previewUrl); } catch (_) { /* ignore */ }
+    }
+    const fileInput = document.getElementById('medicalImageFile');
+    if (fileInput) fileInput.value = '';
+    renderMedicalImagePreviews();
+}
 
 async function loadMedicalImages() {
     try {
@@ -9401,10 +9460,14 @@ function renderMedicalImagesList() {
     container.innerHTML = medicalImages.map(img => {
         const kws = (img.keywords || []).slice(0, 3).join(', ');
         const more = img.keywords && img.keywords.length > 3 ? ` +${img.keywords.length - 3}` : '';
-        const thumb = img.imageUrl
-            ? `<img src="${img.imageUrl}" alt="" style="width:42px; height:42px; object-fit:cover; border-radius:6px; flex-shrink:0; cursor:pointer;" onclick="viewMedicalImage(${img.id})">`
+        const urls = medicalImageUrlsOf(img);
+        const thumb = urls.length
+            ? `<img src="${urls[0]}" alt="" style="width:42px; height:42px; object-fit:cover; border-radius:6px; flex-shrink:0; cursor:pointer;" onclick="viewMedicalImage(${img.id})">`
             : `<div onclick="viewMedicalImage(${img.id})" style="width:42px;height:42px;border-radius:6px;flex-shrink:0;background:var(--primary-color);color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;cursor:pointer;" title="Видео">▶</div>`;
-        const typeLabel = img.videoUrl ? (img.imageUrl ? 'фото+видео' : 'видео') : 'фото';
+        const photoLabel = urls.length > 1 ? `${urls.length} фото` : (urls.length ? 'фото' : '');
+        const typeLabel = img.videoUrl
+            ? (urls.length ? `${photoLabel}+видео` : 'видео')
+            : (photoLabel || 'фото');
         return `<div style="display:flex; align-items:center; gap:0.6rem; background:var(--bg-secondary); border-radius:8px; padding:0.5rem 0.6rem;">
             ${thumb}
             <div style="flex:1; min-width:0;">
@@ -9419,7 +9482,9 @@ function renderMedicalImagesList() {
 
 function openAddMedicalImageModal() {
     editingMedicalImageId = null;
-    pendingMedicalImageFile = null;
+    revokeMedicalPendingPreviews();
+    pendingMedicalImageFiles = [];
+    medicalExistingImageUrls = [];
     pendingMedicalVideoFile = null;
     document.getElementById('medicalImageModalTitle').textContent = 'Добавить в глоссарий';
     document.getElementById('medicalImageFile').value = '';
@@ -9428,7 +9493,7 @@ function openAddMedicalImageModal() {
     document.getElementById('medicalImageTitle').value = '';
     document.getElementById('medicalImageKeywords').value = '';
     document.getElementById('medicalImageDescription').value = '';
-    document.getElementById('medicalImagePreviewWrap').innerHTML = '';
+    renderMedicalImagePreviews();
     const videoPrev = document.getElementById('medicalVideoPreviewWrap');
     if (videoPrev) videoPrev.innerHTML = '';
     document.getElementById('medicalImageModal').style.display = 'flex';
@@ -9438,7 +9503,9 @@ function openEditMedicalImageModal(id) {
     const img = medicalImages.find(m => m.id === id);
     if (!img) return;
     editingMedicalImageId = id;
-    pendingMedicalImageFile = null;
+    revokeMedicalPendingPreviews();
+    pendingMedicalImageFiles = [];
+    medicalExistingImageUrls = medicalImageUrlsOf(img);
     pendingMedicalVideoFile = null;
     document.getElementById('medicalImageModalTitle').textContent = 'Редактировать запись';
     document.getElementById('medicalImageFile').value = '';
@@ -9447,9 +9514,7 @@ function openEditMedicalImageModal(id) {
     document.getElementById('medicalImageTitle').value = img.title || '';
     document.getElementById('medicalImageKeywords').value = (img.keywords || []).join(', ');
     document.getElementById('medicalImageDescription').value = img.description || '';
-    document.getElementById('medicalImagePreviewWrap').innerHTML = img.imageUrl
-        ? `<img src="${img.imageUrl}" alt="" style="max-height:120px; border-radius:6px; margin-bottom:0.4rem; display:block;">`
-        : '';
+    renderMedicalImagePreviews();
     const videoPrev = document.getElementById('medicalVideoPreviewWrap');
     if (videoPrev) {
         videoPrev.innerHTML = img.videoUrl
@@ -9463,13 +9528,16 @@ function openEditMedicalImageModal(id) {
 function closeMedicalImageModal() {
     document.getElementById('medicalImageModal').style.display = 'none';
     editingMedicalImageId = null;
-    pendingMedicalImageFile = null;
+    revokeMedicalPendingPreviews();
+    pendingMedicalImageFiles = [];
+    medicalExistingImageUrls = [];
     pendingMedicalVideoFile = null;
 }
 
 function viewMedicalImage(id) {
     const img = medicalImages.find(m => m.id === id);
     if (!img) return;
+    const urls = medicalImageUrlsOf(img);
     document.getElementById('medicalImageViewTitle').textContent = img.title || (img.videoUrl ? 'Видео' : 'Изображение');
     const media = document.getElementById('medicalImageViewMedia');
     let html = '';
@@ -9477,9 +9545,11 @@ function viewMedicalImage(id) {
         const v = String(img.videoUrl).replace(/"/g, '&quot;');
         html += `<video src="${v}" controls playsinline style="max-width:100%;max-height:70vh;border-radius:8px;background:#000;"></video>`;
     }
-    if (img.imageUrl) {
-        html += `<img src="${img.imageUrl}" alt="" style="max-width:100%; max-height:70vh; border-radius:8px; ${img.videoUrl ? 'margin-top:0.75rem;' : ''}">`;
-    }
+    urls.forEach((url, index) => {
+        const safe = String(url).replace(/"/g, '&quot;');
+        const mt = (img.videoUrl || index > 0) ? 'margin-top:0.75rem;' : '';
+        html += `<img src="${safe}" alt="" style="max-width:100%; max-height:70vh; border-radius:8px; ${mt}">`;
+    });
     media.innerHTML = html || '<p style="color:var(--text-muted);">Нет медиа</p>';
     document.getElementById('medicalImageViewDesc').textContent = img.description || '';
     document.getElementById('medicalImageViewModal').style.display = 'flex';
@@ -9489,18 +9559,19 @@ async function saveMedicalImage() {
     const title = document.getElementById('medicalImageTitle').value.trim();
     const kwRaw = document.getElementById('medicalImageKeywords').value.trim();
     const description = document.getElementById('medicalImageDescription').value.trim();
-    const fileInput = document.getElementById('medicalImageFile');
     const videoInput = document.getElementById('medicalVideoFile');
-    const file = fileInput.files[0] || pendingMedicalImageFile;
     const videoFile = (videoInput && videoInput.files[0]) || pendingMedicalVideoFile;
+    const pendingFiles = pendingMedicalImageFiles.map((item) => item.file).filter(Boolean);
     const existing = editingMedicalImageId
         ? medicalImages.find((m) => m.id === editingMedicalImageId)
         : null;
 
-    if (!editingMedicalImageId && !file && !videoFile) {
+    if (!editingMedicalImageId && !pendingFiles.length && !videoFile) {
         showNotification('Загрузите фото или видео с устройства', 'error'); return;
     }
-    if (editingMedicalImageId && !file && !videoFile && !(existing && (existing.imageUrl || existing.videoUrl))) {
+    if (editingMedicalImageId && !pendingFiles.length && !videoFile
+        && !medicalExistingImageUrls.length
+        && !(existing && existing.videoUrl)) {
         showNotification('Нужно фото или видео', 'error'); return;
     }
     if (!kwRaw) {
@@ -9509,11 +9580,14 @@ async function saveMedicalImage() {
 
     const keywords = kwRaw.split(',').map(s => s.trim()).filter(Boolean);
     const formData = new FormData();
-    if (file) formData.append('image', file);
+    pendingFiles.forEach((file) => formData.append('image', file));
     if (videoFile) formData.append('video', videoFile);
     formData.append('title', title);
     formData.append('description', description);
     formData.append('keywords', JSON.stringify(keywords));
+    if (editingMedicalImageId) {
+        formData.append('existingImageUrls', JSON.stringify(medicalExistingImageUrls));
+    }
 
     const btn = document.getElementById('saveMedicalImageBtn');
     btn.disabled = true;
@@ -9582,20 +9656,17 @@ function bindMedicalGlossaryFileInputs() {
     if (fileInput && !fileInput.dataset.glossaryBound) {
         fileInput.dataset.glossaryBound = '1';
         fileInput.addEventListener('change', () => {
-            const file = fileInput.files && fileInput.files[0];
-            if (!file) return;
-            pendingMedicalImageFile = file;
-            // Новая запись — всегда подставляем имя файла в название и ключевые слова
-            fillMedicalGlossaryFieldsFromFile(file, { force: !editingMedicalImageId });
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const wrap = document.getElementById('medicalImagePreviewWrap');
-                if (wrap) {
-                    wrap.innerHTML =
-                        `<img src="${e.target.result}" alt="" style="max-height:120px; border-radius:6px; margin-bottom:0.4rem; display:block;">`;
-                }
-            };
-            reader.readAsDataURL(file);
+            const files = Array.from(fileInput.files || []);
+            if (!files.length) return;
+            files.forEach((file) => {
+                pendingMedicalImageFiles.push({
+                    file,
+                    previewUrl: URL.createObjectURL(file)
+                });
+            });
+            fillMedicalGlossaryFieldsFromFile(files[0], { force: !editingMedicalImageId });
+            fileInput.value = '';
+            renderMedicalImagePreviews();
         });
     }
 
@@ -9636,6 +9707,8 @@ window.closeMedicalImageModal = closeMedicalImageModal;
 window.saveMedicalImage = saveMedicalImage;
 window.deleteMedicalImage = deleteMedicalImage;
 window.viewMedicalImage = viewMedicalImage;
+window.removeMedicalExistingImage = removeMedicalExistingImage;
+window.removeMedicalPendingImage = removeMedicalPendingImage;
 
 // Загрузка заявок на регистрацию
 

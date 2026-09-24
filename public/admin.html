@@ -2458,10 +2458,10 @@
             </div>
             <div class="modal-body">
                 <div style="margin-bottom:1rem;">
-                    <label style="display:block; margin-bottom:0.4rem; font-weight:600;">Фото (необязательно, если есть видео)</label>
-                    <input type="file" id="medicalImageFile" accept="image/jpeg,image/jpg,image/jfif,image/png,image/gif,image/webp,.jfif,.jpg,.jpeg" style="display:none;">
-                    <div id="medicalImagePreviewWrap" style="margin-bottom:0.5rem;"></div>
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('medicalImageFile').click()">Выбрать фото</button>
+                    <label style="display:block; margin-bottom:0.4rem; font-weight:600;">Фото (можно несколько; необязательно, если есть видео)</label>
+                    <input type="file" id="medicalImageFile" accept="image/jpeg,image/jpg,image/jfif,image/png,image/gif,image/webp,.jfif,.jpg,.jpeg" multiple style="display:none;">
+                    <div id="medicalImagePreviewWrap" style="display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.5rem;"></div>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('medicalImageFile').click()">Добавить фото</button>
                 </div>
                 <div style="margin-bottom:1rem;">
                     <label style="display:block; margin-bottom:0.4rem; font-weight:600;">Видео с устройства (необязательно, если есть фото)</label>

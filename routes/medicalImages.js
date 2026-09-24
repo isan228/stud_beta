@@ -4,6 +4,11 @@ const path = require('path');
 const fs = require('fs');
 const { MedicalImage } = require('../models');
 const { IMAGE_UPLOAD_MAX_BYTES } = require('../utils/uploadLimits');
+const {
+  parseImageUrls,
+  stringifyImageUrls,
+  firstImageUrl
+} = require('../utils/mediaField');
 
 const router = express.Router();
 
@@ -15,6 +20,7 @@ for (const dir of [MEDICAL_IMAGES_DIR, MEDICAL_VIDEOS_DIR]) {
 
 const ALLOWED_IMAGE = /\.(jpe?g|jfif|png|gif|webp)$/i;
 const ALLOWED_VIDEO = /\.(mp4|webm|ogg|mov|m4v)$/i;
+const MAX_IMAGES_PER_ENTRY = 20;
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -49,19 +55,25 @@ const upload = multer({
 });
 
 const uploadFields = upload.fields([
-  { name: 'image', maxCount: 1 },
+  { name: 'image', maxCount: MAX_IMAGES_PER_ENTRY },
   { name: 'video', maxCount: 1 }
 ]);
 
+function getImageUrls(img) {
+  return parseImageUrls(img?.imageUrl);
+}
+
 function serializeMedical(img) {
+  const imageUrls = getImageUrls(img);
   return {
     id: img.id,
-    imageUrl: img.imageUrl || null,
+    imageUrl: imageUrls[0] || null,
+    imageUrls,
     videoUrl: img.videoUrl || null,
     title: img.title,
     description: img.description,
     keywords: img.keywords,
-    mediaType: img.videoUrl ? (img.imageUrl ? 'both' : 'video') : 'image'
+    mediaType: img.videoUrl ? (imageUrls.length ? 'both' : 'video') : 'image'
   };
 }
 
@@ -82,8 +94,29 @@ function unlinkUpload(relUrl) {
   }
 }
 
+function unlinkImageUrls(value) {
+  for (const url of parseImageUrls(value)) unlinkUpload(url);
+}
+
 function getUploaded(req, field) {
   return req.files?.[field]?.[0] || null;
+}
+
+function getUploadedMany(req, field) {
+  return Array.isArray(req.files?.[field]) ? req.files[field] : [];
+}
+
+function pathsFromImageFiles(files) {
+  return files.map((f) => `/uploads/medical-images/${f.filename}`);
+}
+
+function parseExistingImageUrls(raw) {
+  if (raw == null || raw === '') return null;
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (Array.isArray(parsed)) return parseImageUrls(parsed);
+  } catch (_) { /* ignore */ }
+  return parseImageUrls(raw);
 }
 
 // GET /api/medical-images
@@ -104,15 +137,17 @@ router.get('/keywords', async (req, res) => {
     });
     const result = [];
     for (const img of images) {
+      const imageUrls = getImageUrls(img);
       for (const kw of img.keywords) {
         if (kw && kw.trim()) {
           result.push({
             keyword: kw.trim().toLowerCase(),
-            imageUrl: img.imageUrl || null,
+            imageUrl: imageUrls[0] || null,
+            imageUrls,
             videoUrl: img.videoUrl || null,
             title: img.title || kw,
             id: img.id,
-            mediaType: img.videoUrl ? (img.imageUrl ? 'both' : 'video') : 'image'
+            mediaType: img.videoUrl ? (imageUrls.length ? 'both' : 'video') : 'image'
           });
         }
       }
@@ -123,7 +158,7 @@ router.get('/keywords', async (req, res) => {
   }
 });
 
-// POST — фото и/или видео с устройства
+// POST — фото (одно или несколько) и/или видео с устройства
 router.post('/', (req, res, next) => {
   uploadFields(req, res, (err) => {
     if (err) return res.status(400).json({ error: err.message || 'Ошибка загрузки файла' });
@@ -131,24 +166,24 @@ router.post('/', (req, res, next) => {
   });
 }, async (req, res) => {
   try {
-    const imageFile = getUploaded(req, 'image');
+    const imageFiles = getUploadedMany(req, 'image');
     const videoFile = getUploaded(req, 'video');
-    const imageUrl = imageFile ? `/uploads/medical-images/${imageFile.filename}` : null;
+    const imageUrls = pathsFromImageFiles(imageFiles);
     const videoUrl = videoFile ? `/uploads/medical-videos/${videoFile.filename}` : null;
 
-    if (!imageUrl && !videoUrl) {
+    if (!imageUrls.length && !videoUrl) {
       return res.status(400).json({ error: 'Загрузите фото или видео с устройства' });
     }
 
     const kwArray = parseKeywords(req.body.keywords);
     if (!kwArray.length) {
-      unlinkUpload(imageUrl);
+      unlinkImageUrls(imageUrls);
       unlinkUpload(videoUrl);
       return res.status(400).json({ error: 'Укажите хотя бы одно ключевое слово' });
     }
 
     const img = await MedicalImage.create({
-      imageUrl,
+      imageUrl: stringifyImageUrls(imageUrls),
       videoUrl,
       title: req.body.title || null,
       description: req.body.description || null,
@@ -171,22 +206,38 @@ router.put('/:id', (req, res, next) => {
     const img = await MedicalImage.findByPk(req.params.id);
     if (!img) return res.status(404).json({ error: 'Не найдено' });
 
-    const imageFile = getUploaded(req, 'image');
+    const imageFiles = getUploadedMany(req, 'image');
     const videoFile = getUploaded(req, 'video');
+    let imageUrls = getImageUrls(img);
 
-    if (imageFile) {
-      unlinkUpload(img.imageUrl);
-      img.imageUrl = `/uploads/medical-images/${imageFile.filename}`;
+    if (req.body.clearImage === '1' || req.body.clearImage === 'true') {
+      unlinkImageUrls(imageUrls);
+      imageUrls = [];
+    } else if (req.body.existingImageUrls !== undefined) {
+      const keep = parseExistingImageUrls(req.body.existingImageUrls) || [];
+      const keepSet = new Set(keep);
+      for (const url of imageUrls) {
+        if (!keepSet.has(url)) unlinkUpload(url);
+      }
+      imageUrls = keep.filter((url) => parseImageUrls(img.imageUrl).includes(url));
     }
+
+    if (imageFiles.length) {
+      imageUrls = [...imageUrls, ...pathsFromImageFiles(imageFiles)];
+      if (imageUrls.length > MAX_IMAGES_PER_ENTRY) {
+        const overflow = imageUrls.slice(MAX_IMAGES_PER_ENTRY);
+        unlinkImageUrls(overflow);
+        imageUrls = imageUrls.slice(0, MAX_IMAGES_PER_ENTRY);
+      }
+    }
+
+    img.imageUrl = stringifyImageUrls(imageUrls);
+
     if (videoFile) {
       unlinkUpload(img.videoUrl);
       img.videoUrl = `/uploads/medical-videos/${videoFile.filename}`;
     }
 
-    if (req.body.clearImage === '1' || req.body.clearImage === 'true') {
-      unlinkUpload(img.imageUrl);
-      img.imageUrl = null;
-    }
     if (req.body.clearVideo === '1' || req.body.clearVideo === 'true') {
       unlinkUpload(img.videoUrl);
       img.videoUrl = null;
@@ -202,7 +253,7 @@ router.put('/:id', (req, res, next) => {
       img.keywords = kwArray;
     }
 
-    if (!img.imageUrl && !img.videoUrl) {
+    if (!firstImageUrl(img.imageUrl) && !img.videoUrl) {
       return res.status(400).json({ error: 'Нужно фото или видео' });
     }
 
@@ -219,7 +270,7 @@ router.delete('/:id', async (req, res) => {
     const img = await MedicalImage.findByPk(req.params.id);
     if (!img) return res.status(404).json({ error: 'Не найдено' });
 
-    unlinkUpload(img.imageUrl);
+    unlinkImageUrls(img.imageUrl);
     unlinkUpload(img.videoUrl);
     await img.destroy();
     res.json({ ok: true });

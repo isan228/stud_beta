@@ -8,9 +8,9 @@ const MedicalImage = sequelize.define('MedicalImage', {
     autoIncrement: true
   },
   imageUrl: {
-    type: DataTypes.STRING(512),
+    type: DataTypes.TEXT,
     allowNull: true,
-    comment: 'Путь к изображению /uploads/medical-images/... или null если только видео'
+    comment: 'Одно фото или JSON-массив путей /uploads/medical-images/... (как Question.imageUrl)'
   },
   videoUrl: {
     type: DataTypes.STRING(1024),
