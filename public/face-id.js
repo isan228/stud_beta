@@ -74,8 +74,11 @@
             </div>`;
         root.querySelector('.faceid-title').textContent = title;
         document.body.appendChild(root);
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
         return {
             root,
+            restoreScroll: () => { document.body.style.overflow = prevOverflow; },
             video: root.querySelector('.faceid-video'),
             frame: root.querySelector('.faceid-frame'),
             bar: root.querySelector('.faceid-progress-bar'),
@@ -103,6 +106,7 @@
                 cancelled = true;
                 if (stream) stream.getTracks().forEach((t) => t.stop());
                 ui.root.remove();
+                ui.restoreScroll();
                 document.removeEventListener('keydown', onKey);
             }
 
@@ -131,7 +135,7 @@
                     setStatus('Запуск камеры…');
                     try {
                         stream = await navigator.mediaDevices.getUserMedia({
-                            video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+                            video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
                             audio: false
                         });
                     } catch (camErr) {
