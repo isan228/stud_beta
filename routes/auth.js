@@ -4,7 +4,14 @@ const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { Op } = require('sequelize');
-const { User, UserStats, UserDeviceAlert, UserBroadcastNotification, BroadcastMessage, University, Faculty } = require('../models');
+const { User, UserStats, UserDeviceAlert, UserBroadcastNotification, BroadcastMessage, University, Faculty, FaceProfile } = require('../models');
+const {
+  DUPLICATE_THRESHOLD,
+  normalizeDescriptor,
+  normalizeEnrollDescriptors,
+  rankProfiles,
+  isConfidentLoginMatch
+} = require('../utils/faceMatch');
 const { ALLOWED_COURSES, ensureLechfakForUniversity } = require('../utils/ensureFaculties');
 const { fetchKgmaMeta, listKgmaGroups } = require('../utils/kgmaSchedule');
 const { isSubscriptionActive } = require('../utils/subscriptionPlans');
@@ -96,6 +103,14 @@ router.post('/login', [
       return res.status(401).json({ error: 'Неверный email/никнейм или пароль' });
     }
 
+    return completeLogin(req, res, user, 'password');
+  } catch (error) {
+    console.error('Ошибка входа:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+async function completeLogin(req, res, user, method) {
     // Проверка статуса пользователя (только для отклоненных)
     if (user.status === 'rejected') {
       console.log('[auth/login] rejected', { userId: user.id, email: user.email, status: user.status });
@@ -156,9 +171,9 @@ router.post('/login', [
 
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 
-    console.log('[auth/login] ok', { userId: user.id, email: user.email, status: user.status });
+    console.log('[auth/login] ok', { userId: user.id, email: user.email, status: user.status, method });
 
-    res.json({
+    return res.json({
       message: 'Вход выполнен успешно',
       token,
       user: {
@@ -168,8 +183,94 @@ router.post('/login', [
         isUgc: !!user.isUgc
       }
     });
+}
+
+// ───────────── Face ID ─────────────
+
+const faceRateBuckets = new Map();
+
+function faceRateLimited(req, key, limit, windowMs) {
+  const bucketKey = `${key}:${getClientIp(req) || 'unknown'}`;
+  const now = Date.now();
+  const hits = (faceRateBuckets.get(bucketKey) || []).filter((t) => now - t < windowMs);
+  hits.push(now);
+  faceRateBuckets.set(bucketKey, hits);
+  if (faceRateBuckets.size > 5000) {
+    for (const [k, v] of faceRateBuckets) {
+      if (!v.some((t) => now - t < windowMs)) faceRateBuckets.delete(k);
+    }
+  }
+  return hits.length > limit;
+}
+
+const FACE_PENDING_TTL_MS = 24 * 60 * 60 * 1000;
+
+async function loadLinkedFaceProfiles() {
+  const rows = await FaceProfile.findAll({
+    where: { userId: { [Op.ne]: null } },
+    attributes: ['id', 'userId', 'descriptors']
+  });
+  return rows.map((r) => ({ id: r.id, userId: r.userId, descriptors: r.descriptors }));
+}
+
+// Лицо снимается на шаге регистрации до оплаты; к аккаунту привязывается в webhook оплаты по enrollToken
+router.post('/face/enroll-pending', async (req, res) => {
+  try {
+    if (faceRateLimited(req, 'face-enroll', 10, 10 * 60 * 1000)) {
+      return res.status(429).json({ error: 'Слишком много попыток. Подождите несколько минут.' });
+    }
+    const descriptors = normalizeEnrollDescriptors(req.body?.descriptors);
+    if (!descriptors) {
+      return res.status(400).json({ error: 'Не удалось считать лицо. Попробуйте ещё раз.' });
+    }
+
+    const { best, bestDistance } = rankProfiles(descriptors, await loadLinkedFaceProfiles());
+    if (best && bestDistance < DUPLICATE_THRESHOLD) {
+      return res.status(409).json({
+        error: 'Это лицо уже привязано к другому аккаунту. Войдите по лицу на странице входа.',
+        code: 'FACE_ALREADY_REGISTERED'
+      });
+    }
+
+    await FaceProfile.destroy({
+      where: { userId: null, createdAt: { [Op.lt]: new Date(Date.now() - FACE_PENDING_TTL_MS) } }
+    });
+
+    const enrollToken = crypto.randomBytes(24).toString('hex');
+    await FaceProfile.create({ userId: null, enrollToken, descriptors });
+    res.json({ enrollToken });
   } catch (error) {
-    console.error('Ошибка входа:', error);
+    console.error('Ошибка face/enroll-pending:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.post('/face/login', async (req, res) => {
+  try {
+    if (faceRateLimited(req, 'face-login', 10, 60 * 1000)) {
+      return res.status(429).json({ error: 'Слишком много попыток. Подождите минуту.' });
+    }
+    const raw = Array.isArray(req.body?.descriptors) ? req.body.descriptors.slice(0, 3) : [req.body?.descriptor];
+    const probes = raw.map(normalizeDescriptor).filter(Boolean);
+    if (!probes.length) {
+      return res.status(400).json({ error: 'Не удалось считать лицо. Попробуйте ещё раз.' });
+    }
+
+    const ranking = rankProfiles(probes, await loadLinkedFaceProfiles());
+    if (!isConfidentLoginMatch(ranking)) {
+      console.log('[auth/face-login] no_match', {
+        bestDistance: Number.isFinite(ranking.bestDistance) ? ranking.bestDistance.toFixed(3) : null
+      });
+      return res.status(401).json({ error: 'Лицо не распознано. Попробуйте при хорошем освещении или войдите по паролю.' });
+    }
+
+    const user = await User.findByPk(ranking.best.userId);
+    if (!user) {
+      return res.status(401).json({ error: 'Лицо не распознано' });
+    }
+    return completeLogin(req, res, user, 'face');
+  } catch (error) {
+    console.error('Ошибка face/login:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

@@ -822,6 +822,17 @@
                         </div>
                     </div>
 
+                    <div class="auth-field" id="regFaceField">
+                        <label>Лицо для входа</label>
+                        <button type="button" class="faceid-enroll-btn" id="regFaceBtn">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 9.5v1M15 9.5v1M12 9.5v3.5h-1M9.5 15.5c1.4 1 3.6 1 5 0"/></svg>
+                            <span id="regFaceBtnText">Отсканировать лицо</span>
+                        </button>
+                        <small id="regFaceHint">После оплаты вы будете входить на сайт по лицу — без пароля.</small>
+                        <button type="button" class="auth-optional-toggle" id="regFaceSkipBtn" style="display:none;">Продолжить без Face ID</button>
+                        <span class="field-error-msg" id="err-face"></span>
+                    </div>
+
                     <label class="auth-check">
                         <input type="checkbox" id="dataConsent" name="dataConsent" value="true" required>
                         <span class="auth-check-body">
@@ -859,6 +870,7 @@
 
 <div id="notification" class="notification"></div>
 <script src="app.js"></script>
+<script src="face-id.js"></script>
 <script>
     let referralCode = null;
     let currentStep = 1;
@@ -1180,6 +1192,7 @@
         if (ok) {
             setStep(3);
             loadRegistrationPlans();
+            if (window.StudFaceId && StudFaceId.isSupported()) StudFaceId.preload();
         }
     });
 
@@ -1187,6 +1200,59 @@
 
     document.getElementById('regUniversity')?.addEventListener('change', () => {
         if (currentStep === 3) loadRegistrationPlans();
+    });
+
+    /* ──────────────── Face ID ──────────────── */
+
+    let faceEnrollToken = null;
+    let faceSkipped = false;
+
+    function allowFaceSkip(reason) {
+        const hint = document.getElementById('regFaceHint');
+        if (hint && reason) hint.textContent = reason;
+        const skip = document.getElementById('regFaceSkipBtn');
+        if (skip) skip.style.display = '';
+    }
+
+    function setFaceEnrolled(token) {
+        faceEnrollToken = token;
+        const btn = document.getElementById('regFaceBtn');
+        const text = document.getElementById('regFaceBtnText');
+        btn?.classList.toggle('is-done', !!token);
+        if (text) text.textContent = token ? 'Лицо сохранено ✓ (переснять)' : 'Отсканировать лицо';
+        if (token) {
+            faceSkipped = false;
+            showFieldError('err-face', '');
+        }
+    }
+
+    document.getElementById('regFaceBtn').addEventListener('click', async () => {
+        if (!window.StudFaceId || !StudFaceId.isSupported()) {
+            allowFaceSkip('Ваш браузер не даёт доступ к камере. Можно продолжить без Face ID и входить по паролю.');
+            return;
+        }
+        const btn = document.getElementById('regFaceBtn');
+        btn.disabled = true;
+        try {
+            setFaceEnrolled(await StudFaceId.enrollForRegistration());
+            if (typeof showNotification === 'function') showNotification('Лицо сохранено', 'success');
+        } catch (err) {
+            if (err.message === 'cancelled') return;
+            showFieldError('err-face', err.message || 'Не удалось сохранить лицо');
+            if (err.code !== 'FACE_ALREADY_REGISTERED') {
+                allowFaceSkip('Если камера не работает, можно продолжить без Face ID и входить по паролю.');
+            }
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+    document.getElementById('regFaceSkipBtn').addEventListener('click', () => {
+        faceSkipped = true;
+        showFieldError('err-face', '');
+        document.getElementById('regFaceSkipBtn').style.display = 'none';
+        const hint = document.getElementById('regFaceHint');
+        if (hint) hint.textContent = 'Face ID пропущен — входите по email/никнейму и паролю.';
     });
 
     /* ──────────────── form submit ──────────────── */
@@ -1205,6 +1271,13 @@
         if (!selectedRegPlan || !selectedRegPlan.months) {
             showFieldError('err-plan', 'Выберите тариф подписки');
             if (typeof showNotification === 'function') showNotification('Выберите тариф подписки', 'error');
+            return;
+        }
+
+        if (!faceEnrollToken && !faceSkipped) {
+            showFieldError('err-face', 'Отсканируйте лицо — по нему вы будете входить на сайт');
+            if (typeof showNotification === 'function') showNotification('Отсканируйте лицо для входа', 'error');
+            document.getElementById('regFaceField')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             return;
         }
 
@@ -1237,7 +1310,8 @@
                     universityId: parseInt(universityId, 10),
                     programType: selectedRegProgram,
                     referralCode: referralCode || referralFromInput || undefined,
-                    subscription: { type: String(selectedRegPlan.months) }
+                    subscription: { type: String(selectedRegPlan.months) },
+                    faceEnrollToken: faceEnrollToken || undefined
                 }
             };
             if (discountPromo) payload.promoCode = discountPromo;
@@ -1249,6 +1323,7 @@
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok) {
+                if (data.code === 'FACE_ENROLL_EXPIRED') setFaceEnrolled(null);
                 const msg = data.error || data.errors?.[0]?.msg || 'Ошибка создания оплаты';
                 if (typeof showNotification === 'function') showNotification(msg, 'error');
                 const errPromo = document.getElementById('err-promo');

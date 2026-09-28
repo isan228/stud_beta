@@ -32,6 +32,7 @@ const ScheduleEntry = require('./ScheduleEntry');
 const Flashcard = require('./Flashcard');
 const FlashcardTagMap = require('./FlashcardTagMap');
 const FlashcardTopic = require('./FlashcardTopic');
+const FaceProfile = require('./FaceProfile');
 
 // Определение связей
 User.hasMany(TestResult, { foreignKey: 'userId', as: 'TestResults' });
@@ -204,6 +205,7 @@ module.exports = {
   ScheduleEntry,
   Flashcard,
   FlashcardTagMap,
-  FlashcardTopic
+  FlashcardTopic,
+  FaceProfile
 };
 

@@ -9414,3 +9414,126 @@ svg {
         transform: none !important;
     }
 }
+
+/* ───────────── Face ID ───────────── */
+.faceid-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(15, 23, 42, 0.72);
+}
+.faceid-card {
+    position: relative;
+    width: min(420px, 100%);
+    background: var(--bg-primary, #fff);
+    color: var(--text-primary, #0f172a);
+    border-radius: 18px;
+    padding: 1.25rem;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+    text-align: center;
+}
+.faceid-close {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.6rem;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font-size: 1.6rem;
+    line-height: 1;
+    cursor: pointer;
+}
+.faceid-title {
+    margin: 0 0 0.85rem;
+    font-size: 1.15rem;
+}
+.faceid-video-wrap {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #000;
+}
+.faceid-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+}
+.faceid-frame {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 52%;
+    aspect-ratio: 3 / 4;
+    transform: translate(-50%, -50%);
+    border: 3px dashed rgba(255, 255, 255, 0.7);
+    border-radius: 50%;
+    pointer-events: none;
+    transition: border-color 0.2s;
+}
+.faceid-frame--ok {
+    border-style: solid;
+    border-color: #4ade80;
+}
+.faceid-progress {
+    height: 6px;
+    margin-top: 0.85rem;
+    border-radius: 999px;
+    background: var(--bg-secondary, #e2e8f0);
+    overflow: hidden;
+}
+.faceid-progress-bar {
+    width: 0;
+    height: 100%;
+    background: var(--primary-color, #2563eb);
+    transition: width 0.25s;
+}
+.faceid-status {
+    margin: 0.75rem 0 0;
+    font-size: 0.95rem;
+    color: var(--text-secondary, #475569);
+}
+.faceid-status[data-kind="ok"] {
+    color: #16a34a;
+    font-weight: 600;
+}
+.faceid-login-btn,
+.faceid-enroll-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.8rem 1rem;
+    border-radius: 12px;
+    border: 1.5px solid var(--primary-color, #2563eb);
+    background: transparent;
+    color: var(--primary-color, #2563eb);
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+}
+.faceid-enroll-btn.is-done {
+    border-color: #16a34a;
+    color: #16a34a;
+}
+.faceid-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 1rem 0;
+    color: var(--text-muted, #94a3b8);
+    font-size: 0.85rem;
+}
+.faceid-divider::before,
+.faceid-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-color, #e2e8f0);
+}

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
-const { Transaction, User, PromoCode, University } = require('../models');
+const { Transaction, User, PromoCode, University, FaceProfile } = require('../models');
 const { validateFinikSignature } = require('../utils/finikValidator');
 const { createPayment } = require('../utils/finikClient');
 const { getPlansForUniversity, getPlanPrice, getPlansForUsmle, getUsmlePlanPrice } = require('../utils/subscriptionPlans');
@@ -406,6 +406,20 @@ router.post('/webhook', async (req, res) => {
               });
 
               console.log(`✅ User account created: ID ${newUser.id}, email: ${newUser.email}`);
+
+              if (registrationData.faceEnrollToken) {
+                try {
+                  const [linked] = await FaceProfile.update(
+                    { userId: newUser.id, enrollToken: null },
+                    { where: { enrollToken: String(registrationData.faceEnrollToken), userId: null } }
+                  );
+                  console.log(linked
+                    ? `✅ Face ID linked to user ${newUser.id}`
+                    : `⚠️  Face ID enroll token not found for user ${newUser.id}`);
+                } catch (faceErr) {
+                  console.error('❌ Face ID link error:', faceErr);
+                }
+              }
 
               // Создаем статистику для пользователя
               await require('../models').UserStats.create({ userId: newUser.id });
@@ -1496,9 +1510,22 @@ router.post('/create-registration', [
       ? 'usmle_subscription'
       : (paymentType || 'registration');
 
+    let faceEnrollToken = null;
+    if (registrationData.faceEnrollToken) {
+      const pendingFace = await FaceProfile.findOne({
+        where: { enrollToken: String(registrationData.faceEnrollToken), userId: null },
+        attributes: ['id']
+      });
+      if (!pendingFace) {
+        return res.status(400).json({ error: 'Снимок лица устарел. Отсканируйте лицо ещё раз.', code: 'FACE_ENROLL_EXPIRED' });
+      }
+      faceEnrollToken = String(registrationData.faceEnrollToken);
+    }
+
     // Сохраняем registrationData в fields для обработки в webhook
     const registrationDataForFields = {
       ...registrationData,
+      faceEnrollToken,
       universityId: university.id,
       programType,
       subscription: { type: String(months) },
