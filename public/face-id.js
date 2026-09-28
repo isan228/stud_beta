@@ -53,6 +53,45 @@
 
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+    /* resizeMode 'none' — без обрезки кадра браузером (иначе картинка выглядит приближенной);
+       пропорции просим под экран, чтобы на вертикальном телефоне не терять бока кадра. */
+    async function openCamera() {
+        const portrait = window.innerHeight > window.innerWidth;
+        const base = { facingMode: 'user' };
+        const attempts = [
+            {
+                ...base,
+                resizeMode: { ideal: 'none' },
+                width: { ideal: portrait ? 720 : 1280 },
+                height: { ideal: portrait ? 1280 : 720 },
+                aspectRatio: { ideal: window.innerWidth / window.innerHeight }
+            },
+            base
+        ];
+        let lastErr;
+        for (const video of attempts) {
+            try {
+                return await navigator.mediaDevices.getUserMedia({ video, audio: false });
+            } catch (err) {
+                lastErr = err;
+                if (err && (err.name === 'NotAllowedError' || err.name === 'SecurityError')) break;
+            }
+        }
+        throw lastErr;
+    }
+
+    /** Некоторые телефоны открывают фронталку с цифровым зумом — сбрасываем на минимальный. */
+    async function resetCameraZoom(stream) {
+        const track = stream.getVideoTracks()[0];
+        if (!track || typeof track.getCapabilities !== 'function') return;
+        try {
+            const caps = track.getCapabilities();
+            if (caps.zoom && typeof caps.zoom.min === 'number') {
+                await track.applyConstraints({ advanced: [{ zoom: caps.zoom.min }] });
+            }
+        } catch (_) { /* не поддерживается — оставляем как есть */ }
+    }
+
     function buildModal(title) {
         const root = document.createElement('div');
         root.className = 'faceid-modal';
@@ -243,14 +282,12 @@
 
                     setStatus('Запуск камеры…');
                     try {
-                        stream = await navigator.mediaDevices.getUserMedia({
-                            video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-                            audio: false
-                        });
+                        stream = await openCamera();
                     } catch (_) {
                         throw new Error('Нет доступа к камере. Разрешите доступ к камере в настройках браузера.');
                     }
                     if (finished) { stream.getTracks().forEach((t) => t.stop()); return; }
+                    await resetCameraZoom(stream);
                     ui.video.srcObject = stream;
                     ui.video.play().catch(() => {});
                     await new Promise((r) => {
