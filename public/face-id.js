@@ -7,14 +7,13 @@
     const MEDIAPIPE_WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm';
     const MEDIAPIPE_MODEL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
 
-    const ENROLL_SAMPLES = 5;
+    const ENROLL_SAMPLES = 3;
     const LOGIN_SAMPLES = 2;
     const LIVENESS_TIMEOUT_MS = 20000;
-    const CAPTURE_MAX_ATTEMPTS = 40;
+    const CAPTURE_MAX_ATTEMPTS = 30;
     /* Живость: сначала нейтральное лицо, затем улыбка — статичное фото этот переход не пройдёт. */
     const SMILE_NEUTRAL = 0.25;
-    const SMILE_ON = 0.6;
-    const SMILE_HOLD_MS = 350;
+    const SMILE_ON = 0.5;
 
     let enginesPromise = null;
 
@@ -43,7 +42,7 @@
                     faceapi.nets.faceLandmark68Net.loadFromUri(FACEAPI_MODELS),
                     faceapi.nets.faceRecognitionNet.loadFromUri(FACEAPI_MODELS)
                 ]);
-                return { faceapi, vision, landmarker, backend: tf.getBackend() };
+                return { faceapi, vision, landmarker };
             })().catch((err) => {
                 enginesPromise = null;
                 throw new Error('Не удалось загрузить модуль распознавания. Проверьте интернет и обновите страницу.');
@@ -72,7 +71,6 @@
                     <div class="faceid-indicators">
                         <span class="faceid-chip" data-chip="face">Лицо: —</span>
                         <span class="faceid-chip" data-chip="smile">Улыбка: —</span>
-                        <span class="faceid-chip" data-chip="backend">TF.js: —</span>
                     </div>
                     <div class="faceid-progress"><div class="faceid-progress-bar"></div></div>
                     <p class="faceid-status">Загрузка…</p>
@@ -182,9 +180,7 @@
                 loop();
             }
 
-            async function waitForSmile() {
-                let sawNeutral = false;
-                let smileSince = 0;
+            async function waitForSmile(sawNeutral) {
                 const start = Date.now();
                 while (!finished) {
                     if (Date.now() - start > LIVENESS_TIMEOUT_MS) {
@@ -192,30 +188,34 @@
                     }
                     if (!track.faceVisible) {
                         setStatus('Лицо не видно — посмотрите в камеру');
-                        smileSince = 0;
                     } else if (!sawNeutral) {
                         setStatus('Смотрите в камеру с нейтральным лицом…');
                         if (track.smile < SMILE_NEUTRAL) sawNeutral = true;
                     } else if (track.smile > SMILE_ON) {
-                        setStatus('Отлично, держите улыбку…');
-                        if (!smileSince) smileSince = Date.now();
-                        if (Date.now() - smileSince >= SMILE_HOLD_MS) return;
+                        return;
                     } else {
-                        setStatus('Улыбнитесь, чтобы подтвердить, что это вы 🙂');
-                        smileSince = 0;
+                        setStatus('Теперь улыбнитесь');
                     }
-                    await sleep(60);
+                    await sleep(30);
                 }
             }
 
+            /* Кадры снимаются, пока человек просто смотрит в камеру; заодно фиксируем нейтральное лицо. */
             async function captureDescriptors(faceapi) {
-                const opts = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.6 });
+                const opts = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
                 const descriptors = [];
+                let sawNeutral = false;
                 let attempts = 0;
+                setStatus('Смотрите в камеру…');
                 while (descriptors.length < samples && attempts < CAPTURE_MAX_ATTEMPTS) {
                     if (finished) return null;
                     attempts++;
-                    setStatus(`Съёмка лица… ${descriptors.length}/${samples}`);
+                    if (!track.faceVisible) {
+                        setStatus('Лицо не видно — посмотрите в камеру');
+                        await sleep(60);
+                        continue;
+                    }
+                    if (track.smile < SMILE_NEUTRAL) sawNeutral = true;
                     const det = await faceapi
                         .detectSingleFace(ui.video, opts)
                         .withFaceLandmarks()
@@ -223,13 +223,13 @@
                     if (det?.descriptor) {
                         descriptors.push(Array.from(det.descriptor));
                         ui.bar.style.width = `${(descriptors.length / samples) * 100}%`;
+                        setStatus('Смотрите в камеру…');
                     }
-                    await sleep(samples > 2 ? 300 : 150);
                 }
                 if (descriptors.length < samples) {
                     throw new Error('Не удалось захватить лицо. Проверьте освещение.');
                 }
-                return descriptors;
+                return { descriptors, sawNeutral };
             }
 
             (async () => {
@@ -237,10 +237,9 @@
                     if (!navigator.mediaDevices?.getUserMedia) {
                         throw new Error('Браузер не поддерживает камеру. Откройте сайт в Chrome или Safari по HTTPS.');
                     }
-                    setStatus('Загрузка TensorFlow.js, face-api.js и MediaPipe…');
+                    setStatus('Загрузка распознавания лица…');
                     const engines = await loadEngines();
                     if (finished) return;
-                    ui.setChip('backend', `TF.js: ${engines.backend}`, true);
 
                     setStatus('Запуск камеры…');
                     try {
@@ -261,17 +260,18 @@
                     ui.overlay.height = ui.video.videoHeight;
                     startTracking(engines);
 
-                    await waitForSmile();
+                    const captured = await captureDescriptors(engines.faceapi);
+                    if (!captured) return;
+                    await waitForSmile(captured.sawNeutral);
                     if (finished) return;
-                    const descriptors = await captureDescriptors(engines.faceapi);
-                    if (!descriptors) return;
+                    const { descriptors } = captured;
 
                     setStatus('Проверка…');
                     const result = await submit(descriptors);
                     if (finished) return;
                     setStatus('Готово', 'ok');
                     showWelcome(result.welcome || 'Готово', true);
-                    await sleep(1200);
+                    await sleep(700);
                     cleanup();
                     resolve(result);
                 } catch (err) {
