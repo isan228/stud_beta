@@ -4,10 +4,8 @@ const MAX_ENROLL_SAMPLES = 10;
 
 /** Строже, чем 0.6 по умолчанию в face-api: ищем среди всех пользователей, а не сверяем с одним. */
 const LOGIN_MATCH_THRESHOLD = 0.45;
-/** Если второй кандидат почти так же близко — не угадываем, а отказываем. */
-const LOGIN_AMBIGUITY_MARGIN = 0.06;
-/** Лицо считается уже зарегистрированным, если оно ближе этого к чьему-то профилю. */
-const DUPLICATE_THRESHOLD = 0.45;
+/** Одно лицо может быть на нескольких аккаунтах — показываем не больше стольких вариантов. */
+const MAX_LOGIN_CANDIDATES = 5;
 
 function normalizeDescriptor(raw) {
   if (!Array.isArray(raw) || raw.length !== DESCRIPTOR_LENGTH) return null;
@@ -47,39 +45,26 @@ function minDistance(probe, descriptors) {
 }
 
 /**
+ * Все профили, похожие на лицо, от самого близкого.
  * @param {number[][]} probes
  * @param {{ id: number, userId: number|null, descriptors: number[][] }[]} profiles
- * @returns {{ best: object|null, bestDistance: number, secondDistance: number }}
+ * @returns {{ profile: object, distance: number }[]}
  */
-function rankProfiles(probes, profiles) {
-  let best = null;
-  let bestDistance = Infinity;
-  let secondDistance = Infinity;
+function findLoginCandidates(probes, profiles) {
+  const matches = [];
   for (const profile of profiles) {
     let dist = Infinity;
     for (const probe of probes) {
       dist = Math.min(dist, minDistance(probe, profile.descriptors));
     }
-    if (dist < bestDistance) {
-      secondDistance = bestDistance;
-      bestDistance = dist;
-      best = profile;
-    } else if (dist < secondDistance) {
-      secondDistance = dist;
-    }
+    if (dist < LOGIN_MATCH_THRESHOLD) matches.push({ profile, distance: dist });
   }
-  return { best, bestDistance, secondDistance };
-}
-
-function isConfidentLoginMatch({ best, bestDistance, secondDistance }) {
-  if (!best || bestDistance >= LOGIN_MATCH_THRESHOLD) return false;
-  return secondDistance - bestDistance >= LOGIN_AMBIGUITY_MARGIN;
+  matches.sort((a, b) => a.distance - b.distance);
+  return matches.slice(0, MAX_LOGIN_CANDIDATES);
 }
 
 module.exports = {
-  DUPLICATE_THRESHOLD,
   normalizeDescriptor,
   normalizeEnrollDescriptors,
-  rankProfiles,
-  isConfidentLoginMatch
+  findLoginCandidates
 };

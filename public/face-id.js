@@ -113,7 +113,22 @@
                     </div>
                     <div class="faceid-progress"><div class="faceid-progress-bar"></div></div>
                     <p class="faceid-status">Загрузка…</p>
+                    <button type="button" class="faceid-report-link">Сообщить об ошибке</button>
                 </div>
+                <div class="faceid-panel faceid-accounts hidden">
+                    <h4 class="faceid-panel-title">В какой аккаунт войти?</h4>
+                    <div class="faceid-accounts-list"></div>
+                </div>
+                <form class="faceid-panel faceid-report hidden" novalidate>
+                    <h4 class="faceid-panel-title">Сообщить об ошибке</h4>
+                    <textarea class="faceid-report-text" rows="4" maxlength="3000" placeholder="Что пошло не так? Например: камера не включается, лицо не распознаётся…"></textarea>
+                    <input type="text" class="faceid-report-contact hidden" maxlength="100" placeholder="Email или никнейм для связи">
+                    <p class="faceid-report-msg"></p>
+                    <div class="faceid-panel-btns">
+                        <button type="button" class="faceid-panel-cancel">Отмена</button>
+                        <button type="submit" class="faceid-panel-submit">Отправить</button>
+                    </div>
+                </form>
             </div>`;
         root.querySelector('.faceid-title').textContent = title;
         document.body.appendChild(root);
@@ -129,6 +144,9 @@
             status: root.querySelector('.faceid-status'),
             welcome: root.querySelector('.faceid-welcome'),
             close: root.querySelector('.faceid-close'),
+            reportLink: root.querySelector('.faceid-report-link'),
+            reportForm: root.querySelector('.faceid-report'),
+            accounts: root.querySelector('.faceid-accounts'),
             setChip(name, text, on) {
                 const el = chip(name);
                 el.textContent = text;
@@ -173,14 +191,41 @@
                 if (e.key === 'Escape') cancel();
             }
 
+            let failedError = null;
+
             function cancel() {
                 if (finished) return;
                 cleanup();
-                reject(new Error('cancelled'));
+                reject(failedError || new Error('cancelled'));
             }
 
             ui.close.addEventListener('click', cancel);
             document.addEventListener('keydown', onKey);
+            bindReportForm(ui, () => [
+                title,
+                ui.status.textContent,
+                failedError ? `Ошибка: ${failedError.message}` : ''
+            ].filter(Boolean).join(' · '));
+
+            function pickAccount(accounts) {
+                return new Promise((resolvePick) => {
+                    const list = ui.accounts.querySelector('.faceid-accounts-list');
+                    list.innerHTML = '';
+                    accounts.forEach((acc) => {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'faceid-account-btn';
+                        btn.textContent = acc.username;
+                        btn.addEventListener('click', () => {
+                            ui.accounts.classList.add('hidden');
+                            resolvePick(acc.id);
+                        });
+                        list.appendChild(btn);
+                    });
+                    setStatus('Лицо подходит к нескольким аккаунтам');
+                    ui.accounts.classList.remove('hidden');
+                });
+            }
 
             function startTracking({ vision, landmarker }) {
                 const drawing = new vision.DrawingUtils(ctx);
@@ -309,7 +354,7 @@
                     const { descriptors } = captured;
 
                     setStatus('Проверка…');
-                    const result = await submit(descriptors);
+                    const result = await submit(descriptors, { pickAccount });
                     if (finished) return;
                     setStatus('Готово', 'ok');
                     showWelcome(result.welcome || 'Готово', true);
@@ -318,14 +363,63 @@
                     resolve(result);
                 } catch (err) {
                     if (finished) return;
+                    /* Окно не закрываем сами — чтобы можно было сообщить об ошибке; закрытие через ✕ вернёт эту ошибку. */
+                    failedError = err;
+                    cancelAnimationFrame(rafId);
+                    if (stream) stream.getTracks().forEach((t) => t.stop());
                     setStatus(err.message || 'Ошибка', 'fail');
                     showWelcome(err.status === 401 ? 'Лицо не распознано' : 'Не получилось', false);
-                    await sleep(1800);
-                    if (finished) return;
-                    cleanup();
-                    reject(err);
+                    ui.reportLink.classList.add('is-prominent');
                 }
             })();
+        });
+    }
+
+    function currentAuthToken() {
+        try { return localStorage.getItem('token') || ''; } catch (_) { return ''; }
+    }
+
+    function bindReportForm(ui, getContext) {
+        const form = ui.reportForm;
+        const text = form.querySelector('.faceid-report-text');
+        const contact = form.querySelector('.faceid-report-contact');
+        const msg = form.querySelector('.faceid-report-msg');
+        const submitBtn = form.querySelector('.faceid-panel-submit');
+
+        ui.reportLink.addEventListener('click', () => {
+            contact.classList.toggle('hidden', !!currentAuthToken());
+            msg.textContent = '';
+            msg.dataset.kind = '';
+            form.classList.remove('hidden');
+            text.focus();
+        });
+        form.querySelector('.faceid-panel-cancel').addEventListener('click', () => form.classList.add('hidden'));
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = text.value.trim();
+            if (message.length < 3) {
+                msg.textContent = 'Опишите проблему хотя бы в нескольких словах';
+                msg.dataset.kind = 'fail';
+                return;
+            }
+            submitBtn.disabled = true;
+            try {
+                await postJson('/api/auth/face/error-report', {
+                    message,
+                    contact: contact.value.trim() || undefined,
+                    context: getContext().slice(0, 1000)
+                }, currentAuthToken());
+                text.value = '';
+                msg.textContent = 'Спасибо! Сообщение отправлено администратору.';
+                msg.dataset.kind = 'ok';
+                setTimeout(() => form.classList.add('hidden'), 1500);
+            } catch (err) {
+                msg.textContent = err.message || 'Не удалось отправить';
+                msg.dataset.kind = 'fail';
+            } finally {
+                submitBtn.disabled = false;
+            }
         });
     }
 
@@ -377,8 +471,12 @@
         return runFaceSession({
             title: 'Вход по лицу',
             samples: LOGIN_SAMPLES,
-            submit: async (descriptors) => {
-                const data = await postJson('/api/auth/face/login', { descriptors });
+            submit: async (descriptors, { pickAccount }) => {
+                let data = await postJson('/api/auth/face/login', { descriptors });
+                if (data.chooseAccount) {
+                    const userId = await pickAccount(data.accounts);
+                    data = await postJson('/api/auth/face/login/select', { selectToken: data.selectToken, userId });
+                }
                 return { ...data, welcome: `Привет, ${data.user?.username || ''}!` };
             }
         });

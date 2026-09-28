@@ -4,13 +4,11 @@ const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { Op } = require('sequelize');
-const { User, UserStats, UserDeviceAlert, UserBroadcastNotification, BroadcastMessage, University, Faculty, FaceProfile } = require('../models');
+const { User, UserStats, UserDeviceAlert, UserBroadcastNotification, BroadcastMessage, University, Faculty, FaceProfile, ContactMessage } = require('../models');
 const {
-  DUPLICATE_THRESHOLD,
   normalizeDescriptor,
   normalizeEnrollDescriptors,
-  rankProfiles,
-  isConfidentLoginMatch
+  findLoginCandidates
 } = require('../utils/faceMatch');
 const { ALLOWED_COURSES, ensureLechfakForUniversity } = require('../utils/ensureFaculties');
 const { fetchKgmaMeta, listKgmaGroups } = require('../utils/kgmaSchedule');
@@ -224,14 +222,6 @@ router.post('/face/enroll-pending', async (req, res) => {
       return res.status(400).json({ error: 'Не удалось считать лицо. Попробуйте ещё раз.' });
     }
 
-    const { best, bestDistance } = rankProfiles(descriptors, await loadLinkedFaceProfiles());
-    if (best && bestDistance < DUPLICATE_THRESHOLD) {
-      return res.status(409).json({
-        error: 'Это лицо уже привязано к другому аккаунту. Войдите по лицу на странице входа.',
-        code: 'FACE_ALREADY_REGISTERED'
-      });
-    }
-
     await FaceProfile.destroy({
       where: { userId: null, createdAt: { [Op.lt]: new Date(Date.now() - FACE_PENDING_TTL_MS) } }
     });
@@ -254,15 +244,6 @@ router.post('/face/enroll', require('../middleware/auth'), async (req, res) => {
     const descriptors = normalizeEnrollDescriptors(req.body?.descriptors);
     if (!descriptors) {
       return res.status(400).json({ error: 'Не удалось считать лицо. Попробуйте ещё раз.' });
-    }
-
-    const others = (await loadLinkedFaceProfiles()).filter((p) => p.userId !== req.user.id);
-    const { best, bestDistance } = rankProfiles(descriptors, others);
-    if (best && bestDistance < DUPLICATE_THRESHOLD) {
-      return res.status(409).json({
-        error: 'Это лицо уже привязано к другому аккаунту.',
-        code: 'FACE_ALREADY_REGISTERED'
-      });
     }
 
     const existing = await FaceProfile.findOne({ where: { userId: req.user.id } });
@@ -290,21 +271,111 @@ router.post('/face/login', async (req, res) => {
       return res.status(400).json({ error: 'Не удалось считать лицо. Попробуйте ещё раз.' });
     }
 
-    const ranking = rankProfiles(probes, await loadLinkedFaceProfiles());
-    if (!isConfidentLoginMatch(ranking)) {
-      console.log('[auth/face-login] no_match', {
-        bestDistance: Number.isFinite(ranking.bestDistance) ? ranking.bestDistance.toFixed(3) : null
-      });
+    const candidates = findLoginCandidates(probes, await loadLinkedFaceProfiles());
+    const users = candidates.length
+      ? await User.findAll({
+        where: { id: candidates.map((c) => c.profile.userId), status: { [Op.ne]: 'rejected' } },
+        attributes: ['id', 'username']
+      })
+      : [];
+    if (!users.length) {
+      console.log('[auth/face-login] no_match');
       return res.status(401).json({ error: 'Лицо не распознано. Попробуйте при хорошем освещении или войдите по паролю.' });
     }
 
-    const user = await User.findByPk(ranking.best.userId);
-    if (!user) {
-      return res.status(401).json({ error: 'Лицо не распознано' });
+    if (users.length === 1) {
+      const user = await User.findByPk(users[0].id);
+      return completeLogin(req, res, user, 'face');
     }
-    return completeLogin(req, res, user, 'face');
+
+    // Одно лицо на нескольких аккаунтах — пользователь выбирает, куда войти
+    const order = new Map(candidates.map((c, i) => [c.profile.userId, i]));
+    users.sort((a, b) => order.get(a.id) - order.get(b.id));
+    const selectToken = jwt.sign(
+      { faceSelect: users.map((u) => u.id) },
+      process.env.JWT_SECRET,
+      { expiresIn: '3m' }
+    );
+    return res.json({
+      chooseAccount: true,
+      selectToken,
+      accounts: users.map((u) => ({ id: u.id, username: u.username }))
+    });
   } catch (error) {
     console.error('Ошибка face/login:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.post('/face/login/select', async (req, res) => {
+  try {
+    let payload;
+    try {
+      payload = jwt.verify(String(req.body?.selectToken || ''), process.env.JWT_SECRET);
+    } catch (_) {
+      return res.status(401).json({ error: 'Время выбора истекло. Отсканируйте лицо ещё раз.' });
+    }
+    const userId = parseInt(req.body?.userId, 10);
+    if (!Array.isArray(payload.faceSelect) || !payload.faceSelect.includes(userId)) {
+      return res.status(403).json({ error: 'Этот аккаунт недоступен для входа по лицу' });
+    }
+    const user = await User.findByPk(userId);
+    if (!user) return res.status(404).json({ error: 'Аккаунт не найден' });
+    return completeLogin(req, res, user, 'face');
+  } catch (error) {
+    console.error('Ошибка face/login/select:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.post('/face/error-report', [
+  body('message').trim().isLength({ min: 3, max: 3000 }).withMessage('Опишите проблему (от 3 до 3000 символов)'),
+  body('contact').optional().isString().isLength({ max: 100 }),
+  body('context').optional().isString().isLength({ max: 1000 })
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: errors.array()[0].msg });
+    }
+    if (faceRateLimited(req, 'face-report', 5, 10 * 60 * 1000)) {
+      return res.status(429).json({ error: 'Слишком много сообщений. Попробуйте позже.' });
+    }
+
+    let user = null;
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    if (token) {
+      try {
+        user = await User.findByPk(jwt.verify(token, process.env.JWT_SECRET).userId);
+      } catch (_) { /* гость */ }
+    }
+
+    const contact = String(req.body.contact || '').trim();
+    const senderName = user?.username || contact || 'Гость';
+    const senderEmail = user?.email || (/^\S+@\S+\.\S+$/.test(contact) ? contact : 'guest@stud.kg');
+    const lines = [
+      'Ошибка Face ID',
+      '',
+      `Пользователь: ${senderName}${user ? ` (ID: ${user.id})` : ''}`,
+      `Email: ${senderEmail}`,
+      contact && !user ? `Контакт: ${contact}` : null,
+      `Устройство: ${req.headers['user-agent'] || 'неизвестно'}`,
+      req.body.context ? `Что происходило: ${String(req.body.context).trim()}` : null,
+      '',
+      'Описание проблемы:',
+      String(req.body.message).trim()
+    ].filter((l) => l !== null);
+
+    await ContactMessage.create({
+      name: senderName.slice(0, 100),
+      email: senderEmail.slice(0, 100),
+      subject: 'bug',
+      message: lines.join('\n'),
+      status: 'new'
+    });
+    res.status(201).json({ message: 'Спасибо! Сообщение отправлено администратору.' });
+  } catch (error) {
+    console.error('Ошибка face/error-report:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

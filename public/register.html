@@ -1241,9 +1241,7 @@
         } catch (err) {
             if (err.message === 'cancelled') return;
             showFieldError('err-face', err.message || 'Не удалось сохранить лицо');
-            if (err.code !== 'FACE_ALREADY_REGISTERED') {
-                allowFaceSkip('Если камера не работает, можно продолжить без Face ID и входить по паролю.');
-            }
+            allowFaceSkip('Если камера не работает, можно продолжить без Face ID и входить по паролю.');
         } finally {
             btn.disabled = false;
         }

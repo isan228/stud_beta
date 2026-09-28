@@ -83,6 +83,9 @@ function getMessageSubjectLabel(message) {
     if (isTestErrorMessage(message)) {
         return 'Ошибка в вопросе теста';
     }
+    if (message?.subject === 'bug' && String(message.message || '').startsWith('Ошибка Face ID')) {
+        return 'Ошибка Face ID';
+    }
     const subjectLabels = {
         question: 'Вопрос',
         suggestion: 'Предложение',
