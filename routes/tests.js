@@ -529,6 +529,9 @@ router.get('/subjects', async (req, res) => {
       ? await requestHasUniversitySubscription(req)
       : await requestHasUsmleSubscription(req);
     const isFreeOnly = wantsFree || !hasPaid;
+    // Гости на «Тестах» видят весь каталог; бесплатные помечаются и идут первыми
+    const showAllForGuest = programType === 'university' && !wantsFree && !tryGetUserIdFromRequest(req);
+    let freeSubjectIds = null;
 
     if (isFreeOnly) {
       const freeTestWhere = { isFree: true, programType };
@@ -561,7 +564,17 @@ router.get('/subjects', async (req, res) => {
         ...freeTests.map((t) => t.subjectId).filter(Boolean),
         ...freeQSubjectIds
       ]);
-      subjects = subjects.filter((s) => subjectIds.has(s.id));
+      freeSubjectIds = subjectIds;
+      if (showAllForGuest) {
+        subjects.sort((a, b) => {
+          const fa = subjectIds.has(a.id) ? 0 : 1;
+          const fb = subjectIds.has(b.id) ? 0 : 1;
+          if (fa !== fb) return fa - fb;
+          return String(a.name || '').localeCompare(String(b.name || ''), 'ru');
+        });
+      } else {
+        subjects = subjects.filter((s) => subjectIds.has(s.id));
+      }
     }
 
     const ids = subjects.map((s) => s.id);
@@ -609,6 +622,7 @@ router.get('/subjects', async (req, res) => {
       json.testCount = testCountMap.get(s.id) || 0;
       json.questionCount = questionCountMap.get(s.id) || 0;
       json.isFavorite = favoriteSubjectIds.has(s.id);
+      json.hasFree = freeSubjectIds ? freeSubjectIds.has(s.id) : false;
       return json;
     }));
   } catch (error) {
@@ -1772,14 +1786,19 @@ router.get('/subjects/:subjectId/tests', async (req, res) => {
     const subject = access.subject || await Subject.findByPk(req.params.subjectId);
     const programType = subject?.programType || 'university';
     const where = { subjectId: req.params.subjectId, programType };
+    const isGuest = !tryGetUserIdFromRequest(req);
+    let freeQIdSet = null;
 
     if (programType === 'university') {
       const universityId = await resolveUserUniversityId(req);
       if (universityId) where.universityId = universityId;
       const wantsFree = req.query.free === 'true';
       const hasPaid = await requestHasUniversitySubscription(req);
-      if (wantsFree || !hasPaid) {
+      if (isGuest && !wantsFree) {
+        freeQIdSet = new Set((await findTestIdsWithFreeQuestions()).map(Number));
+      } else if (wantsFree || !hasPaid) {
         const freeQIds = await findTestIdsWithFreeQuestions();
+        freeQIdSet = new Set(freeQIds.map(Number));
         where[Op.or] = [
           { isFree: true },
           ...(freeQIds.length ? [{ id: { [Op.in]: freeQIds } }] : [])
@@ -1831,6 +1850,22 @@ router.get('/subjects/:subjectId/tests', async (req, res) => {
       });
       const allowedTestIds = new Set(taggedQuestions.map((q) => q.testId));
       tests = tests.filter((t) => allowedTestIds.has(t.id));
+    }
+
+    if (freeQIdSet) {
+      const out = tests.map((t) => {
+        const json = t.toJSON();
+        json.hasFreeQuestions = !json.isFree && freeQIdSet.has(Number(json.id));
+        return json;
+      });
+      if (isGuest) {
+        out.sort((a, b) => {
+          const fa = a.isFree || a.hasFreeQuestions ? 0 : 1;
+          const fb = b.isFree || b.hasFreeQuestions ? 0 : 1;
+          return fa - fb;
+        });
+      }
+      return res.json(out);
     }
 
     res.json(tests);

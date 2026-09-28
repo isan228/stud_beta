@@ -2215,7 +2215,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     function canAccessTest(test) {
         if (!test) return false;
-        if (test.isFree) return true;
+        if (test.isFree || test.hasFreeQuestions) return true;
         if ((test.programType || 'university') === 'usmle') {
             return hasActiveUsmleSubscription();
         }
@@ -2232,6 +2232,15 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         const uniTag = test.University?.shortName
             ? `<span style="background: var(--bg-secondary); color: var(--text-secondary); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">${test.University.shortName}</span>`
             : '';
+        const badgeStyle = 'color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;';
+        let freeBadge = '';
+        if (isFree) {
+            freeBadge = `<span style="background: #10b981; ${badgeStyle}">БЕСПЛАТНО</span>`;
+        } else if (test.hasFreeQuestions) {
+            freeBadge = `<span style="background: #10b981; ${badgeStyle}">ЕСТЬ БЕСПЛАТНЫЕ ВОПРОСЫ</span>`;
+        } else if (!canAccessTest(test)) {
+            freeBadge = `<span style="background: #6b7280; ${badgeStyle}" title="Нужна подписка">🔒 ПО ПОДПИСКЕ</span>`;
+        }
         const cardClass = 'test-card card-animate';
         const isFav = !!test.isFavorite;
         const starBtn = currentToken
@@ -2242,7 +2251,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 onclick="handleTestCardClick(${test.id})"
                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();handleTestCardClick(${test.id});}">
                 ${starBtn}
-                <h3>${test.name} ${isFree ? '<span style="background: #10b981; color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">БЕСПЛАТНО</span>' : ''}${uniTag}</h3>
+                <h3>${test.name} ${freeBadge}${uniTag}</h3>
                 <p><strong>Вопросов:</strong> ${qCount}</p>
                 ${test.description ? `<p style="margin-top: 0.5rem; font-size: 0.9rem;">${test.description}</p>` : ''}
             </div>
@@ -2317,7 +2326,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             }
             if (getProgramType() === 'usmle') {
                 if (!hasActiveUsmleSubscription()) params.push('free=true');
-            } else if (!hasActiveSubscription()) {
+            } else if (currentToken && !hasActiveSubscription()) {
                 params.push('free=true');
             }
             if (params.length) url += `?${params.join('&')}`;

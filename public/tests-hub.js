@@ -103,7 +103,7 @@
       <div class="tests-subject-card ${showStar && token() ? 'has-star' : ''}" data-href="${subjectHref(subject)}" role="link" tabindex="0">
         ${starBtn}
         <div class="tests-subject-card-body">
-          <h3 class="tests-subject-card-title">${escapeHtml(subject.name)}</h3>
+          <h3 class="tests-subject-card-title">${escapeHtml(subject.name)}${subject.hasFree ? ' <span class="tests-subject-free-badge">Бесплатно</span>' : ''}</h3>
           <p class="tests-subject-card-meta">${tests} ${testsWord(tests)} · ${questions} ${questionsWord(questions)}</p>
         </div>
         ${CHEVRON}
