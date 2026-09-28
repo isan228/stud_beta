@@ -12,6 +12,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <meta name="theme-color" content="#2563eb">
     <title>Регистрация — stud.kg</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://storage.googleapis.com" crossorigin>
     <link rel="stylesheet" href="styles.css">
     <style>
         /* ─── Auth page layout ─── */
@@ -1357,6 +1359,11 @@
         if (typeof initTheme === 'function') initTheme();
         loadUniversitiesForRegister();
         applyReferralLock();
+        if (window.StudFaceId && StudFaceId.isSupported()) {
+            const warmUp = () => StudFaceId.preload();
+            if ('requestIdleCallback' in window) requestIdleCallback(warmUp, { timeout: 2000 });
+            else setTimeout(warmUp, 500);
+        }
         document.getElementById('regProgramUniversity')?.addEventListener('click', () => setRegProgram('university'));
         document.getElementById('regProgramUsmle')?.addEventListener('click', () => setRegProgram('usmle'));
 

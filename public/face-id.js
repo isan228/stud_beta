@@ -237,9 +237,9 @@
                     if (!navigator.mediaDevices?.getUserMedia) {
                         throw new Error('Браузер не поддерживает камеру. Откройте сайт в Chrome или Safari по HTTPS.');
                     }
-                    setStatus('Загрузка распознавания лица…');
-                    const engines = await loadEngines();
-                    if (finished) return;
+                    /* Камера и модели грузятся параллельно: видео появляется сразу, не дожидаясь моделей. */
+                    const enginesPromise = loadEngines();
+                    enginesPromise.catch(() => {});
 
                     setStatus('Запуск камеры…');
                     try {
@@ -252,12 +252,17 @@
                     }
                     if (finished) { stream.getTracks().forEach((t) => t.stop()); return; }
                     ui.video.srcObject = stream;
+                    ui.video.play().catch(() => {});
                     await new Promise((r) => {
                         if (ui.video.readyState >= 2) r();
                         else ui.video.onloadeddata = () => r();
                     });
                     ui.overlay.width = ui.video.videoWidth;
                     ui.overlay.height = ui.video.videoHeight;
+
+                    setStatus('Загрузка распознавания лица…');
+                    const engines = await enginesPromise;
+                    if (finished) return;
                     startTracking(engines);
 
                     const captured = await captureDescriptors(engines.faceapi);
