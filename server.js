@@ -291,6 +291,12 @@ sequelize.authenticate()
     } catch (e) {
       console.warn('ensureQuestionsSchema:', e.message);
     }
+    try {
+      const { ensureFaceProfilesSchema } = require('./utils/ensureFaceProfilesSchema');
+      await ensureFaceProfilesSchema();
+    } catch (e) {
+      console.warn('ensureFaceProfilesSchema:', e.message);
+    }
     const { ensureUniversities } = require('./utils/ensureUniversities');
     await ensureUniversities();
     try {
