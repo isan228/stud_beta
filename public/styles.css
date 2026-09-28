@@ -9636,8 +9636,7 @@ svg {
     display: flex;
     gap: 0.5rem;
 }
-.faceid-panel-btns button,
-.faceid-account-btn {
+.faceid-panel-btns button {
     flex: 1;
     padding: 0.7rem;
     border-radius: 8px;
@@ -9656,18 +9655,6 @@ svg {
     color: #fff;
 }
 .faceid-panel-submit:disabled { opacity: 0.6; }
-.faceid-accounts-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-.faceid-account-btn {
-    border: 1px solid #334155;
-    background: #0b1220;
-    color: #e2e8f0;
-    text-align: left;
-}
-.faceid-account-btn:hover { border-color: #2563eb; }
 .faceid-prompt {
     position: fixed;
     inset: 0;

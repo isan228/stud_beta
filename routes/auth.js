@@ -6,10 +6,19 @@ const crypto = require('crypto');
 const { Op } = require('sequelize');
 const { User, UserStats, UserDeviceAlert, UserBroadcastNotification, BroadcastMessage, University, Faculty, FaceProfile, ContactMessage } = require('../models');
 const {
-  normalizeDescriptor,
   normalizeEnrollDescriptors,
-  findLoginCandidates
+  normalizeProbeDescriptors,
+  rankProfiles,
+  isConfidentLoginMatch,
+  isDuplicateFace,
+  matchesProfile
 } = require('../utils/faceMatch');
+const {
+  applyFaceVerification,
+  markFaceVerified,
+  getFaceCheckReason,
+  signUserSession
+} = require('../utils/faceSession');
 const { ALLOWED_COURSES, ensureLechfakForUniversity } = require('../utils/ensureFaculties');
 const { fetchKgmaMeta, listKgmaGroups } = require('../utils/kgmaSchedule');
 const { isSubscriptionActive } = require('../utils/subscriptionPlans');
@@ -101,6 +110,22 @@ router.post('/login', [
       return res.status(401).json({ error: 'Неверный email/никнейм или пароль' });
     }
 
+    if (user.status !== 'rejected') {
+      const faceReason = await getFaceCheckReason(user.id, req);
+      if (faceReason) {
+        console.log('[auth/login] face_required', { userId: user.id, reason: faceReason });
+        const challengeToken = jwt.sign({ faceChallenge: user.id }, process.env.JWT_SECRET, { expiresIn: '5m' });
+        return res.json({
+          faceRequired: true,
+          reason: faceReason,
+          challengeToken,
+          message: faceReason === 'expired'
+            ? 'Раз в 4 дня нужно подтверждать вход лицом'
+            : 'Вход с нового устройства или сети — подтвердите лицо'
+        });
+      }
+    }
+
     return completeLogin(req, res, user, 'password');
   } catch (error) {
     console.error('Ошибка входа:', error);
@@ -167,7 +192,8 @@ async function completeLogin(req, res, user, method) {
       await existingDeviceAlert.save();
     }
 
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+    if (method === 'face') await markFaceVerified(user.id, req);
+    const token = await signUserSession(user.id);
 
     console.log('[auth/login] ok', { userId: user.id, email: user.email, status: user.status, method });
 
@@ -222,12 +248,21 @@ router.post('/face/enroll-pending', async (req, res) => {
       return res.status(400).json({ error: 'Не удалось считать лицо. Попробуйте ещё раз.' });
     }
 
+    if (isDuplicateFace(descriptors, await loadLinkedFaceProfiles())) {
+      return res.status(409).json({
+        error: 'Это лицо уже привязано к другому аккаунту. Войдите по лицу на странице входа.',
+        code: 'FACE_ALREADY_REGISTERED'
+      });
+    }
+
     await FaceProfile.destroy({
       where: { userId: null, createdAt: { [Op.lt]: new Date(Date.now() - FACE_PENDING_TTL_MS) } }
     });
 
     const enrollToken = crypto.randomBytes(24).toString('hex');
-    await FaceProfile.create({ userId: null, enrollToken, descriptors });
+    const profile = FaceProfile.build({ userId: null, enrollToken, descriptors });
+    applyFaceVerification(profile, req);
+    await profile.save();
     res.json({ enrollToken });
   } catch (error) {
     console.error('Ошибка face/enroll-pending:', error);
@@ -246,14 +281,20 @@ router.post('/face/enroll', require('../middleware/auth'), async (req, res) => {
       return res.status(400).json({ error: 'Не удалось считать лицо. Попробуйте ещё раз.' });
     }
 
-    const existing = await FaceProfile.findOne({ where: { userId: req.user.id } });
-    if (existing) {
-      existing.descriptors = descriptors;
-      await existing.save();
-    } else {
-      await FaceProfile.create({ userId: req.user.id, enrollToken: null, descriptors });
+    const others = (await loadLinkedFaceProfiles()).filter((p) => p.userId !== req.user.id);
+    if (isDuplicateFace(descriptors, others)) {
+      return res.status(409).json({
+        error: 'Это лицо уже привязано к другому аккаунту.',
+        code: 'FACE_ALREADY_REGISTERED'
+      });
     }
-    res.json({ ok: true });
+
+    const profile = (await FaceProfile.findOne({ where: { userId: req.user.id } }))
+      || FaceProfile.build({ userId: req.user.id, enrollToken: null });
+    profile.descriptors = descriptors;
+    applyFaceVerification(profile, req);
+    await profile.save();
+    res.json({ ok: true, token: await signUserSession(req.user.id) });
   } catch (error) {
     console.error('Ошибка face/enroll:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
@@ -265,65 +306,62 @@ router.post('/face/login', async (req, res) => {
     if (faceRateLimited(req, 'face-login', 10, 60 * 1000)) {
       return res.status(429).json({ error: 'Слишком много попыток. Подождите минуту.' });
     }
-    const raw = Array.isArray(req.body?.descriptors) ? req.body.descriptors.slice(0, 3) : [req.body?.descriptor];
-    const probes = raw.map(normalizeDescriptor).filter(Boolean);
+    const probes = normalizeProbeDescriptors(req.body);
     if (!probes.length) {
       return res.status(400).json({ error: 'Не удалось считать лицо. Попробуйте ещё раз.' });
     }
 
-    const candidates = findLoginCandidates(probes, await loadLinkedFaceProfiles());
-    const users = candidates.length
-      ? await User.findAll({
-        where: { id: candidates.map((c) => c.profile.userId), status: { [Op.ne]: 'rejected' } },
-        attributes: ['id', 'username']
-      })
-      : [];
-    if (!users.length) {
-      console.log('[auth/face-login] no_match');
+    const ranking = rankProfiles(probes, await loadLinkedFaceProfiles());
+    if (!isConfidentLoginMatch(ranking)) {
+      console.log('[auth/face-login] no_match', {
+        bestDistance: Number.isFinite(ranking.bestDistance) ? ranking.bestDistance.toFixed(3) : null
+      });
       return res.status(401).json({ error: 'Лицо не распознано. Попробуйте при хорошем освещении или войдите по паролю.' });
     }
 
-    if (users.length === 1) {
-      const user = await User.findByPk(users[0].id);
-      return completeLogin(req, res, user, 'face');
+    const user = await User.findByPk(ranking.best.userId);
+    if (!user) {
+      return res.status(401).json({ error: 'Лицо не распознано' });
     }
-
-    // Одно лицо на нескольких аккаунтах — пользователь выбирает, куда войти
-    const order = new Map(candidates.map((c, i) => [c.profile.userId, i]));
-    users.sort((a, b) => order.get(a.id) - order.get(b.id));
-    const selectToken = jwt.sign(
-      { faceSelect: users.map((u) => u.id) },
-      process.env.JWT_SECRET,
-      { expiresIn: '3m' }
-    );
-    return res.json({
-      chooseAccount: true,
-      selectToken,
-      accounts: users.map((u) => ({ id: u.id, username: u.username }))
-    });
+    return completeLogin(req, res, user, 'face');
   } catch (error) {
     console.error('Ошибка face/login:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
-router.post('/face/login/select', async (req, res) => {
+// Второй шаг входа по паролю: подтверждение лица этого же аккаунта (новое устройство/IP или прошло 4 дня)
+router.post('/face/verify', async (req, res) => {
   try {
+    if (faceRateLimited(req, 'face-verify', 10, 60 * 1000)) {
+      return res.status(429).json({ error: 'Слишком много попыток. Подождите минуту.' });
+    }
     let payload;
     try {
-      payload = jwt.verify(String(req.body?.selectToken || ''), process.env.JWT_SECRET);
+      payload = jwt.verify(String(req.body?.challengeToken || ''), process.env.JWT_SECRET);
     } catch (_) {
-      return res.status(401).json({ error: 'Время выбора истекло. Отсканируйте лицо ещё раз.' });
+      return res.status(401).json({ error: 'Время подтверждения истекло. Войдите по паролю ещё раз.', code: 'FACE_CHALLENGE_EXPIRED' });
     }
-    const userId = parseInt(req.body?.userId, 10);
-    if (!Array.isArray(payload.faceSelect) || !payload.faceSelect.includes(userId)) {
-      return res.status(403).json({ error: 'Этот аккаунт недоступен для входа по лицу' });
+    const userId = Number(payload.faceChallenge);
+    if (!userId) {
+      return res.status(401).json({ error: 'Некорректный запрос подтверждения', code: 'FACE_CHALLENGE_EXPIRED' });
     }
+
+    const probes = normalizeProbeDescriptors(req.body);
+    if (!probes.length) {
+      return res.status(400).json({ error: 'Не удалось считать лицо. Попробуйте ещё раз.' });
+    }
+    const profile = await FaceProfile.findOne({ where: { userId }, attributes: ['id', 'descriptors'] });
+    if (!profile || !matchesProfile(probes, profile.descriptors)) {
+      console.log('[auth/face-verify] mismatch', { userId });
+      return res.status(401).json({ error: 'Лицо не совпадает с владельцем аккаунта.' });
+    }
+
     const user = await User.findByPk(userId);
-    if (!user) return res.status(404).json({ error: 'Аккаунт не найден' });
+    if (!user) return res.status(401).json({ error: 'Аккаунт не найден' });
     return completeLogin(req, res, user, 'face');
   } catch (error) {
-    console.error('Ошибка face/login/select:', error);
+    console.error('Ошибка face/verify:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

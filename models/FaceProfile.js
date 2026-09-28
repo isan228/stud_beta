@@ -30,6 +30,31 @@ const FaceProfile = sequelize.define('FaceProfile', {
     set(val) {
       this.setDataValue('descriptors', JSON.stringify(Array.isArray(val) ? val : []));
     }
+  },
+  lastVerifiedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'Последнее подтверждение лицом (регистрация лица, вход по лицу)'
+  },
+  trustedDevices: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    comment: 'JSON { sigs: [...], ips: [...] } — устройства и IP, подтверждённые лицом',
+    get() {
+      const raw = this.getDataValue('trustedDevices');
+      try {
+        const parsed = JSON.parse(raw || '{}');
+        return {
+          sigs: Array.isArray(parsed.sigs) ? parsed.sigs : [],
+          ips: Array.isArray(parsed.ips) ? parsed.ips : []
+        };
+      } catch {
+        return { sigs: [], ips: [] };
+      }
+    },
+    set(val) {
+      this.setDataValue('trustedDevices', JSON.stringify(val || { sigs: [], ips: [] }));
+    }
   }
 }, {
   tableName: 'FaceProfiles',

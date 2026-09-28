@@ -1722,8 +1722,8 @@ router.get('/session-by-payment-id', async (req, res) => {
     };
     await transaction.save();
 
-    const jwt = require('jsonwebtoken');
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+    const { signUserSession } = require('../utils/faceSession');
+    const token = await signUserSession(user.id);
 
     return res.json({
       ready: true,

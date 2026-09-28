@@ -115,10 +115,6 @@
                     <p class="faceid-status">Загрузка…</p>
                     <button type="button" class="faceid-report-link">Сообщить об ошибке</button>
                 </div>
-                <div class="faceid-panel faceid-accounts hidden">
-                    <h4 class="faceid-panel-title">В какой аккаунт войти?</h4>
-                    <div class="faceid-accounts-list"></div>
-                </div>
                 <form class="faceid-panel faceid-report hidden" novalidate>
                     <h4 class="faceid-panel-title">Сообщить об ошибке</h4>
                     <textarea class="faceid-report-text" rows="4" maxlength="3000" placeholder="Что пошло не так? Например: камера не включается, лицо не распознаётся…"></textarea>
@@ -146,7 +142,6 @@
             close: root.querySelector('.faceid-close'),
             reportLink: root.querySelector('.faceid-report-link'),
             reportForm: root.querySelector('.faceid-report'),
-            accounts: root.querySelector('.faceid-accounts'),
             setChip(name, text, on) {
                 const el = chip(name);
                 el.textContent = text;
@@ -206,26 +201,6 @@
                 ui.status.textContent,
                 failedError ? `Ошибка: ${failedError.message}` : ''
             ].filter(Boolean).join(' · '));
-
-            function pickAccount(accounts) {
-                return new Promise((resolvePick) => {
-                    const list = ui.accounts.querySelector('.faceid-accounts-list');
-                    list.innerHTML = '';
-                    accounts.forEach((acc) => {
-                        const btn = document.createElement('button');
-                        btn.type = 'button';
-                        btn.className = 'faceid-account-btn';
-                        btn.textContent = acc.username;
-                        btn.addEventListener('click', () => {
-                            ui.accounts.classList.add('hidden');
-                            resolvePick(acc.id);
-                        });
-                        list.appendChild(btn);
-                    });
-                    setStatus('Лицо подходит к нескольким аккаунтам');
-                    ui.accounts.classList.remove('hidden');
-                });
-            }
 
             function startTracking({ vision, landmarker }) {
                 const drawing = new vision.DrawingUtils(ctx);
@@ -354,7 +329,7 @@
                     const { descriptors } = captured;
 
                     setStatus('Проверка…');
-                    const result = await submit(descriptors, { pickAccount });
+                    const result = await submit(descriptors);
                     if (finished) return;
                     setStatus('Готово', 'ok');
                     showWelcome(result.welcome || 'Готово', true);
@@ -456,14 +431,15 @@
 
     /** Привязка лица к аккаунту, в который пользователь уже вошёл. */
     async function enrollForAccount(token) {
-        await runFaceSession({
+        const result = await runFaceSession({
             title: 'Регистрация лица',
             samples: ENROLL_SAMPLES,
             submit: async (descriptors) => {
-                await postJson('/api/auth/face/enroll', { descriptors }, token);
-                return { welcome: 'Лицо сохранено' };
+                const data = await postJson('/api/auth/face/enroll', { descriptors }, token);
+                return { token: data.token, welcome: 'Лицо сохранено' };
             }
         });
+        return result.token;
     }
 
     /** Вход: возвращает { token, user } от /api/auth/face/login. */
@@ -471,12 +447,20 @@
         return runFaceSession({
             title: 'Вход по лицу',
             samples: LOGIN_SAMPLES,
-            submit: async (descriptors, { pickAccount }) => {
-                let data = await postJson('/api/auth/face/login', { descriptors });
-                if (data.chooseAccount) {
-                    const userId = await pickAccount(data.accounts);
-                    data = await postJson('/api/auth/face/login/select', { selectToken: data.selectToken, userId });
-                }
+            submit: async (descriptors) => {
+                const data = await postJson('/api/auth/face/login', { descriptors });
+                return { ...data, welcome: `Привет, ${data.user?.username || ''}!` };
+            }
+        });
+    }
+
+    /** Второй шаг входа по паролю: подтверждение лица владельца аккаунта. Возвращает { token, user }. */
+    function verifyLogin(challengeToken) {
+        return runFaceSession({
+            title: 'Подтвердите, что это вы',
+            samples: LOGIN_SAMPLES,
+            submit: async (descriptors) => {
+                const data = await postJson('/api/auth/face/verify', { challengeToken, descriptors });
                 return { ...data, welcome: `Привет, ${data.user?.username || ''}!` };
             }
         });
@@ -487,6 +471,7 @@
         preload: () => loadEngines().catch(() => {}),
         enrollForRegistration,
         enrollForAccount,
+        verifyLogin,
         login
     };
 })();

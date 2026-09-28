@@ -580,7 +580,11 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
             errorEl.textContent = '';
             try {
                 const faceId = await loadFaceIdScript();
-                await faceId.enrollForAccount(currentToken);
+                const newToken = await faceId.enrollForAccount(currentToken);
+                if (newToken) {
+                    currentToken = newToken;
+                    localStorage.setItem('token', newToken);
+                }
                 currentUser.hasFaceId = true;
                 close();
                 showNotification('Лицо зарегистрировано. Теперь можно входить по лицу.', 'success');
@@ -616,6 +620,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                     currentUser = null;
                     currentToken = null;
                     localStorage.removeItem('token');
+                    showNotification('Сессия истекла. Войдите снова — по лицу или по паролю.', 'error');
                 }
                 updateUI();
                 return false;
@@ -2090,7 +2095,20 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 body: JSON.stringify(loginData)
             });
 
-            const result = await parseApiJsonResponse(response);
+            let result = await parseApiJsonResponse(response);
+
+            if (response.ok && result.faceRequired) {
+                showNotification(result.message || 'Подтвердите вход лицом', 'success');
+                try {
+                    const faceId = await loadFaceIdScript();
+                    result = await faceId.verifyLogin(result.challengeToken);
+                } catch (faceErr) {
+                    if (faceErr.message !== 'cancelled') {
+                        showNotification(faceErr.message || 'Не удалось подтвердить лицо', 'error');
+                    }
+                    return;
+                }
+            }
 
             if (response.ok) {
                 currentToken = result.token;
