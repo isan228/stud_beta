@@ -9462,62 +9462,93 @@ svg {
     overflow: hidden;
     background: #000;
 }
-.faceid-video {
+.faceid-video,
+.faceid-overlay {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
     transform: scaleX(-1);
 }
-.faceid-frame {
+.faceid-welcome {
     position: absolute;
     left: 50%;
-    top: 46%;
-    width: min(62vw, 46vh);
-    aspect-ratio: 3 / 4;
+    top: 42%;
+    z-index: 2;
     transform: translate(-50%, -50%);
-    border: 4px dashed rgba(255, 255, 255, 0.75);
-    border-radius: 50%;
-    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.35);
-    pointer-events: none;
-    transition: border-color 0.2s;
+    padding: 14px 28px;
+    border-radius: 12px;
+    font-size: 22px;
+    font-weight: 600;
+    color: #fff;
+    backdrop-filter: blur(6px);
+    white-space: nowrap;
+    max-width: calc(100vw - 2rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
-.faceid-frame--ok {
-    border-style: solid;
-    border-color: #4ade80;
+.faceid-welcome.ok { background: rgba(34, 197, 94, 0.85); }
+.faceid-welcome.fail { background: rgba(239, 68, 68, 0.85); }
+.faceid-welcome.hidden { display: none; }
+.faceid-bottom {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 2.5rem 1rem max(1.25rem, env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(to top, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0));
+}
+.faceid-indicators {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+}
+.faceid-chip {
+    background: rgba(30, 41, 59, 0.85);
+    border: 1px solid #334155;
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 13px;
+    color: #e2e8f0;
+}
+.faceid-chip.on {
+    border-color: #22c55e;
+    color: #86efac;
 }
 .faceid-progress {
-    position: absolute;
-    left: 50%;
-    bottom: calc(max(1.5rem, env(safe-area-inset-bottom, 0px)) + 3.5rem);
-    z-index: 2;
-    width: min(320px, 70vw);
+    width: min(360px, 80vw);
     height: 6px;
-    transform: translateX(-50%);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.25);
+    border-radius: 4px;
+    background: #1f2937;
     overflow: hidden;
 }
 .faceid-progress-bar {
     width: 0;
     height: 100%;
-    background: #4ade80;
-    transition: width 0.25s;
+    background: #22c55e;
+    transition: width 0.2s;
 }
 .faceid-status {
-    position: absolute;
-    left: 1rem;
-    right: 1rem;
-    bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
-    z-index: 2;
     margin: 0;
-    font-size: 1.05rem;
+    min-height: 1.4em;
+    font-size: 1rem;
     font-weight: 500;
-    color: #fff;
+    color: #fbbf24;
     text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
 }
 .faceid-status[data-kind="ok"] {
     color: #4ade80;
     font-weight: 600;
+}
+.faceid-status[data-kind="fail"] {
+    color: #f87171;
 }
 .faceid-login-btn,
 .faceid-enroll-btn {
