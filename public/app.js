@@ -505,6 +505,94 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         return currentUser !== null;
     }
 
+    const FACE_PROMPT_SNOOZE_KEY = 'faceEnrollSnoozed';
+
+    function loadFaceIdScript() {
+        if (window.StudFaceId) return Promise.resolve(window.StudFaceId);
+        return new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = '/face-id.js';
+            s.onload = () => (window.StudFaceId ? resolve(window.StudFaceId) : reject(new Error('Face ID недоступен')));
+            s.onerror = () => reject(new Error('Не удалось загрузить Face ID'));
+            document.head.appendChild(s);
+        });
+    }
+
+    /** Обязательное окно для пользователей без привязанного лица. Закрыть можно, только если камера недоступна. */
+    function maybePromptFaceEnroll() {
+        if (!currentUser || currentUser.hasFaceId !== false) return;
+        if (/^\/(login|register|admin|redact|payment)/.test(window.location.pathname)) return;
+        if (document.getElementById('faceEnrollPrompt')) return;
+        try {
+            if (sessionStorage.getItem(FACE_PROMPT_SNOOZE_KEY) === '1') return;
+        } catch (_) { /* ignore */ }
+
+        const cameraSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+        const root = document.createElement('div');
+        root.id = 'faceEnrollPrompt';
+        root.className = 'faceid-prompt';
+        root.setAttribute('role', 'dialog');
+        root.setAttribute('aria-modal', 'true');
+        root.innerHTML = `
+            <div class="faceid-prompt-card">
+                <div class="faceid-prompt-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 9.5v1M15 9.5v1M12 9.5v3.5h-1M9.5 15.5c1.4 1 3.6 1 5 0"/></svg>
+                </div>
+                <h3 class="faceid-prompt-title">Зарегистрируйте лицо</h3>
+                <p class="faceid-prompt-text">Вход на stud.kg теперь по лицу. Отсканируйте лицо — это займёт несколько секунд, и дальше вы будете входить без пароля.</p>
+                <button type="button" class="faceid-enroll-btn faceid-prompt-btn" id="faceEnrollPromptBtn">Зарегистрировать лицо</button>
+                <p class="faceid-prompt-error" id="faceEnrollPromptError"></p>
+                <button type="button" class="faceid-prompt-later" id="faceEnrollPromptLater" style="display:none;">Напомнить позже</button>
+            </div>`;
+        document.body.appendChild(root);
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        const btn = root.querySelector('#faceEnrollPromptBtn');
+        const errorEl = root.querySelector('#faceEnrollPromptError');
+        const laterBtn = root.querySelector('#faceEnrollPromptLater');
+
+        function close() {
+            root.remove();
+            document.body.style.overflow = prevOverflow;
+        }
+
+        function allowLater(message) {
+            errorEl.textContent = message;
+            laterBtn.style.display = '';
+        }
+
+        laterBtn.addEventListener('click', () => {
+            try { sessionStorage.setItem(FACE_PROMPT_SNOOZE_KEY, '1'); } catch (_) { /* ignore */ }
+            close();
+        });
+
+        if (!cameraSupported) {
+            btn.disabled = true;
+            allowLater('Этот браузер не даёт доступ к камере. Откройте сайт в Chrome или Safari, чтобы зарегистрировать лицо.');
+            return;
+        }
+
+        loadFaceIdScript().then((faceId) => faceId.preload()).catch(() => {});
+
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            errorEl.textContent = '';
+            try {
+                const faceId = await loadFaceIdScript();
+                await faceId.enrollForAccount(currentToken);
+                currentUser.hasFaceId = true;
+                close();
+                showNotification('Лицо зарегистрировано. Теперь можно входить по лицу.', 'success');
+            } catch (err) {
+                if (err.message === 'cancelled') return;
+                allowLater(err.message || 'Не удалось зарегистрировать лицо. Попробуйте ещё раз.');
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    }
+
     async function fetchUser() {
         try {
             const response = await fetch(`${API_URL}/auth/me`, {
@@ -517,6 +605,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 currentUser = data.user;
                 await refreshAccountSecurityAlerts();
                 updateUI();
+                maybePromptFaceEnroll();
                 console.log('Пользователь загружен:', currentUser);
                 return true; // Успешная загрузка
             } else {

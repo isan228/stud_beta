@@ -292,10 +292,12 @@
         });
     }
 
-    async function postJson(url, body) {
+    async function postJson(url, body, token) {
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers.Authorization = `Bearer ${token}`;
         const resp = await fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify(body)
         });
         const data = await resp.json().catch(() => ({}));
@@ -321,6 +323,18 @@
         return result.enrollToken;
     }
 
+    /** Привязка лица к аккаунту, в который пользователь уже вошёл. */
+    async function enrollForAccount(token) {
+        await runFaceSession({
+            title: 'Регистрация лица',
+            samples: ENROLL_SAMPLES,
+            submit: async (descriptors) => {
+                await postJson('/api/auth/face/enroll', { descriptors }, token);
+                return { welcome: 'Лицо сохранено' };
+            }
+        });
+    }
+
     /** Вход: возвращает { token, user } от /api/auth/face/login. */
     function login() {
         return runFaceSession({
@@ -337,6 +351,7 @@
         isSupported: () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
         preload: () => loadEngines().catch(() => {}),
         enrollForRegistration,
+        enrollForAccount,
         login
     };
 })();

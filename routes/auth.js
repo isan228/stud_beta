@@ -245,6 +245,40 @@ router.post('/face/enroll-pending', async (req, res) => {
   }
 });
 
+// Привязка лица к уже существующему аккаунту (пользователи, зарегистрированные до Face ID)
+router.post('/face/enroll', require('../middleware/auth'), async (req, res) => {
+  try {
+    if (faceRateLimited(req, 'face-enroll-user', 10, 10 * 60 * 1000)) {
+      return res.status(429).json({ error: 'Слишком много попыток. Подождите несколько минут.' });
+    }
+    const descriptors = normalizeEnrollDescriptors(req.body?.descriptors);
+    if (!descriptors) {
+      return res.status(400).json({ error: 'Не удалось считать лицо. Попробуйте ещё раз.' });
+    }
+
+    const others = (await loadLinkedFaceProfiles()).filter((p) => p.userId !== req.user.id);
+    const { best, bestDistance } = rankProfiles(descriptors, others);
+    if (best && bestDistance < DUPLICATE_THRESHOLD) {
+      return res.status(409).json({
+        error: 'Это лицо уже привязано к другому аккаунту.',
+        code: 'FACE_ALREADY_REGISTERED'
+      });
+    }
+
+    const existing = await FaceProfile.findOne({ where: { userId: req.user.id } });
+    if (existing) {
+      existing.descriptors = descriptors;
+      await existing.save();
+    } else {
+      await FaceProfile.create({ userId: req.user.id, enrollToken: null, descriptors });
+    }
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Ошибка face/enroll:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 router.post('/face/login', async (req, res) => {
   try {
     if (faceRateLimited(req, 'face-login', 10, 60 * 1000)) {
@@ -475,6 +509,7 @@ router.get('/me', require('../middleware/auth'), async (req, res) => {
     // Для UGC (и любого пользователя с рефералами) — количество приглашённых
     const referralCount = await User.count({ where: { referredBy: user.id } });
     payload.referralCount = referralCount;
+    payload.hasFaceId = (await FaceProfile.count({ where: { userId: user.id } })) > 0;
 
     res.json({ user: payload });
   } catch (error) {
