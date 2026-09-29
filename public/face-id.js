@@ -17,6 +17,15 @@
 
     let enginesPromise = null;
 
+    /* В Safari (и во всех браузерах на iOS — там тоже WebKit) GPU-делегат MediaPipe
+       падает на первом кадре с «GLctx.activeTexture», поэтому там сразу CPU. */
+    function isWebKitBrowser() {
+        const ua = navigator.userAgent || '';
+        const iOS = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+        const desktopSafari = /Safari/.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|Edg|OPR|Android/.test(ua);
+        return iOS || desktopSafari;
+    }
+
     function loadEngines() {
         if (!enginesPromise) {
             enginesPromise = (async () => {
@@ -30,19 +39,32 @@
                 await tf.ready();
 
                 const fileset = await vision.FilesetResolver.forVisionTasks(MEDIAPIPE_WASM);
+                const webkit = isWebKitBrowser();
+                /* Safari до 17 не умеет WebGL в OffscreenCanvas, который MediaPipe берёт по умолчанию. */
                 const createLandmarker = (delegate) => vision.FaceLandmarker.createFromOptions(fileset, {
                     baseOptions: { modelAssetPath: MEDIAPIPE_MODEL, delegate },
                     runningMode: 'VIDEO',
                     numFaces: 1,
-                    outputFaceBlendshapes: true
+                    outputFaceBlendshapes: true,
+                    ...(webkit ? { canvas: document.createElement('canvas') } : {})
                 });
+                const firstDelegate = webkit ? 'CPU' : 'GPU';
                 const [landmarker] = await Promise.all([
-                    createLandmarker('GPU').catch(() => createLandmarker('CPU')),
+                    createLandmarker(firstDelegate).catch(() => createLandmarker('CPU')),
                     faceapi.nets.ssdMobilenetv1.loadFromUri(FACEAPI_MODELS),
                     faceapi.nets.faceLandmark68Net.loadFromUri(FACEAPI_MODELS),
                     faceapi.nets.faceRecognitionNet.loadFromUri(FACEAPI_MODELS)
                 ]);
-                return { faceapi, vision, landmarker };
+                const engines = { faceapi, vision, landmarker, delegate: firstDelegate };
+                /** GPU упал уже во время работы — пересоздаём на CPU (один раз). */
+                engines.fallbackToCpu = async () => {
+                    if (engines.delegate === 'CPU') return false;
+                    try { engines.landmarker.close(); } catch (_) { /* ignore */ }
+                    engines.landmarker = await createLandmarker('CPU');
+                    engines.delegate = 'CPU';
+                    return true;
+                };
+                return engines;
             })().catch((err) => {
                 enginesPromise = null;
                 throw new Error('Не удалось загрузить модуль распознавания. Проверьте интернет и обновите страницу.');
@@ -202,7 +224,8 @@
                 failedError ? `Ошибка: ${failedError.message}` : ''
             ].filter(Boolean).join(' · '));
 
-            function startTracking({ vision, landmarker }) {
+            function startTracking(engines) {
+                const { vision } = engines;
                 const drawing = new vision.DrawingUtils(ctx);
                 const { FaceLandmarker } = vision;
                 let lastVideoTime = -1;
@@ -210,7 +233,21 @@
                     if (finished) return;
                     if (ui.video.readyState >= 2 && ui.video.currentTime !== lastVideoTime) {
                         lastVideoTime = ui.video.currentTime;
-                        const res = landmarker.detectForVideo(ui.video, performance.now());
+                        let res;
+                        try {
+                            res = engines.landmarker.detectForVideo(ui.video, performance.now());
+                        } catch (err) {
+                            console.warn('Face ID: MediaPipe error, switching to CPU', err);
+                            engines.fallbackToCpu()
+                                .then((switched) => {
+                                    if (!switched) throw err;
+                                    if (!finished) rafId = requestAnimationFrame(loop);
+                                })
+                                .catch(() => {
+                                    track.error = new Error('Камера не поддерживается этим браузером. Попробуйте Chrome или обновите Safari.');
+                                });
+                            return;
+                        }
                         ctx.clearRect(0, 0, ui.overlay.width, ui.overlay.height);
                         track.faceVisible = res.faceLandmarks.length > 0;
                         ui.setChip('face', track.faceVisible ? 'Лицо: есть' : 'Лицо: нет', track.faceVisible);
@@ -242,6 +279,7 @@
             async function waitForSmile(sawNeutral) {
                 const start = Date.now();
                 while (!finished) {
+                    if (track.error) throw track.error;
                     if (Date.now() - start > LIVENESS_TIMEOUT_MS) {
                         throw new Error('Улыбка не обнаружена. Посмотрите в камеру и улыбнитесь.');
                     }
@@ -268,6 +306,7 @@
                 setStatus('Смотрите в камеру…');
                 while (descriptors.length < samples && attempts < CAPTURE_MAX_ATTEMPTS) {
                     if (finished) return null;
+                    if (track.error) throw track.error;
                     attempts++;
                     if (!track.faceVisible) {
                         setStatus('Лицо не видно — посмотрите в камеру');
