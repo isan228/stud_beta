@@ -9760,6 +9760,14 @@ svg {
     opacity: 0.6;
     cursor: default;
 }
+.tg-prompt-icon {
+    background: rgba(34, 158, 217, 0.12);
+    color: #229ed9;
+}
+.faceid-prompt-btn.tg-prompt-btn {
+    border-color: #229ed9;
+    background: #229ed9;
+}
 .tg-profile-actions {
     display: flex;
     flex-wrap: wrap;

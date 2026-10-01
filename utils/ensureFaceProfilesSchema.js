@@ -31,6 +31,7 @@ async function ensureFaceProfilesSchema() {
   `);
   await sequelize.query(`CREATE UNIQUE INDEX IF NOT EXISTS "telegram_links_user_id_unique" ON "TelegramLinks" ("userId")`);
   await sequelize.query(`CREATE UNIQUE INDEX IF NOT EXISTS "telegram_links_chat_id_unique" ON "TelegramLinks" ("chatId")`);
+  await sequelize.query(`ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "telegramOptOut" BOOLEAN NOT NULL DEFAULT false`);
 }
 
 module.exports = { ensureFaceProfilesSchema };

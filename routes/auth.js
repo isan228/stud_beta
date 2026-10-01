@@ -28,7 +28,8 @@ const { isAdminLinkedUser, isUgcAccount } = require('../utils/adminUserAccess');
 const USER_PROFILE_ATTRIBUTES = [
   'id', 'username', 'email', 'createdAt', 'referralCode', 'coins', 'isUgc',
   'subscriptionEndDate', 'usmleSubscriptionEndDate',
-  'universityId', 'facultyId', 'course', 'groupName', 'kgmaGroupId', 'scheduleRemindersEnabled'
+  'universityId', 'facultyId', 'course', 'groupName', 'kgmaGroupId', 'scheduleRemindersEnabled',
+  'telegramOptOut'
 ];
 
 function userProfileIncludes() {
@@ -391,16 +392,30 @@ router.post('/telegram/link', require('../middleware/auth'), async (req, res) =>
   if (!telegramBot.isEnabled()) {
     return res.status(503).json({ error: 'Вход через Telegram пока не настроен' });
   }
-  const url = telegramBot.createLinkUrl(req.user.id);
+  const returnPath = typeof req.body?.returnPath === 'string' ? req.body.returnPath.slice(0, 300) : '/';
+  const url = telegramBot.createLinkUrl(req.user.id, returnPath);
   if (!url) {
     return res.status(503).json({ error: 'Бот ещё запускается. Попробуйте через минуту.' });
   }
   res.json({ url });
 });
 
+router.post('/telegram/opt-out', require('../middleware/auth'), async (req, res) => {
+  try {
+    req.user.telegramOptOut = true;
+    await req.user.save();
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Ошибка telegram/opt-out:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 router.post('/telegram/unlink', require('../middleware/auth'), async (req, res) => {
   try {
     await TelegramLink.destroy({ where: { userId: req.user.id } });
+    req.user.telegramOptOut = true;
+    await req.user.save();
     res.json({ ok: true });
   } catch (error) {
     console.error('Ошибка telegram/unlink:', error);
@@ -746,6 +761,10 @@ router.get('/me', require('../middleware/auth'), async (req, res) => {
     const referralCount = await User.count({ where: { referredBy: user.id } });
     payload.referralCount = referralCount;
     payload.hasFaceId = (await FaceProfile.count({ where: { userId: user.id } })) > 0;
+    payload.telegramEnabled = telegramBot.isEnabled();
+    payload.telegramLinked = payload.telegramEnabled
+      ? (await TelegramLink.count({ where: { userId: user.id } })) > 0
+      : false;
 
     res.json({ user: payload });
   } catch (error) {

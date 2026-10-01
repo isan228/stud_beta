@@ -507,12 +507,18 @@
             render(await loadStatus());
 
             linkBtn.addEventListener('click', async () => {
+                const tab = window.open('', '_blank');
                 linkBtn.disabled = true;
                 try {
-                    const resp = await fetch('/api/auth/telegram/link', { method: 'POST', headers: authHeaders() });
+                    const resp = await fetch('/api/auth/telegram/link', {
+                        method: 'POST',
+                        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ returnPath: '/profile' })
+                    });
                     const data = await resp.json().catch(() => ({}));
                     if (!resp.ok) throw new Error(data.error || 'Не удалось получить ссылку');
-                    window.open(data.url, '_blank', 'noopener');
+                    if (tab) tab.location.href = data.url;
+                    else window.location.href = data.url;
                     statusText.textContent = 'Откройте бота в Telegram и нажмите «Старт». Страница обновится сама.';
                     clearInterval(pollTimer);
                     const startedAt = Date.now();
@@ -525,6 +531,7 @@
                         }
                     }, 3000);
                 } catch (err) {
+                    if (tab) tab.close();
                     showNotification(err.message, 'error');
                 } finally {
                     linkBtn.disabled = false;

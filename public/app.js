@@ -555,6 +555,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         function close() {
             root.remove();
             document.body.style.overflow = prevOverflow;
+            maybePromptTelegramLink();
         }
 
         function allowLater(message) {
@@ -597,6 +598,105 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
         });
     }
 
+    /**
+     * Окно «Привяжите Telegram» для всех, у кого он не привязан.
+     * Скрывается навсегда после привязки или кнопки «У меня нет Telegram».
+     */
+    function maybePromptTelegramLink() {
+        if (!currentUser || !currentUser.telegramEnabled) return;
+        if (currentUser.telegramLinked || currentUser.telegramOptOut) return;
+        if (/^\/(login|register|admin|redact|payment)/.test(window.location.pathname)) return;
+        if (document.getElementById('faceEnrollPrompt') || document.getElementById('telegramLinkPrompt')) return;
+
+        const root = document.createElement('div');
+        root.id = 'telegramLinkPrompt';
+        root.className = 'faceid-prompt';
+        root.setAttribute('role', 'dialog');
+        root.setAttribute('aria-modal', 'true');
+        root.innerHTML = `
+            <div class="faceid-prompt-card">
+                <div class="faceid-prompt-icon tg-prompt-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="40" height="40" fill="currentColor"><path d="M21.94 4.3a1 1 0 0 0-1.37-1.1L2.6 10.3a1 1 0 0 0 .07 1.88l4.38 1.4 1.7 5.35a1 1 0 0 0 1.66.4l2.44-2.36 4.33 3.18a1 1 0 0 0 1.57-.6l3.2-15.25ZM9.9 14.03l-.6 3.04-1.08-3.4 9.5-6.07-7.82 6.43Z"/></svg>
+                </div>
+                <h3 class="faceid-prompt-title">Привяжите Telegram</h3>
+                <p class="faceid-prompt-text">Чтобы входить на stud.kg по 4-значному коду от нашего бота — без пароля и камеры. Это займёт 10 секунд.</p>
+                <button type="button" class="faceid-enroll-btn faceid-prompt-btn tg-prompt-btn" id="tgPromptLinkBtn">Привязать Telegram</button>
+                <p class="faceid-prompt-error" id="tgPromptStatus"></p>
+                <button type="button" class="faceid-prompt-later" id="tgPromptNoBtn">У меня нет Telegram</button>
+            </div>`;
+        document.body.appendChild(root);
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        const linkBtn = root.querySelector('#tgPromptLinkBtn');
+        const statusEl = root.querySelector('#tgPromptStatus');
+        const noBtn = root.querySelector('#tgPromptNoBtn');
+        let pollTimer = null;
+        const authHeaders = () => ({ 'Authorization': `Bearer ${currentToken}`, 'Content-Type': 'application/json' });
+
+        function close() {
+            clearInterval(pollTimer);
+            root.remove();
+            document.body.style.overflow = prevOverflow;
+        }
+
+        function waitForLink() {
+            clearInterval(pollTimer);
+            const startedAt = Date.now();
+            pollTimer = setInterval(async () => {
+                if (Date.now() - startedAt > 15 * 60 * 1000) {
+                    clearInterval(pollTimer);
+                    return;
+                }
+                try {
+                    const resp = await fetch(`${API_URL}/auth/telegram/status`, { headers: authHeaders() });
+                    const status = resp.ok ? await resp.json() : null;
+                    if (status?.linked) {
+                        currentUser.telegramLinked = true;
+                        close();
+                        showNotification('Telegram привязан. Теперь можно входить по коду из бота.', 'success');
+                    }
+                } catch (_) { /* повторим */ }
+            }, 3000);
+        }
+
+        linkBtn.addEventListener('click', async () => {
+            // Вкладку открываем сразу по клику — иначе Safari заблокирует её как всплывающее окно
+            const tab = window.open('', '_blank');
+            linkBtn.disabled = true;
+            try {
+                const resp = await fetch(`${API_URL}/auth/telegram/link`, {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify({ returnPath: window.location.pathname + window.location.search })
+                });
+                const data = await resp.json().catch(() => ({}));
+                if (!resp.ok) throw new Error(data.error || 'Не удалось получить ссылку на бота');
+                if (tab) tab.location.href = data.url;
+                else window.location.href = data.url;
+                statusEl.style.color = 'var(--text-secondary, #475569)';
+                statusEl.textContent = 'Нажмите «Старт» в боте — окно закроется само.';
+                linkBtn.textContent = 'Открыть бота ещё раз';
+                waitForLink();
+            } catch (err) {
+                if (tab) tab.close();
+                statusEl.style.color = '';
+                statusEl.textContent = err.message;
+            } finally {
+                linkBtn.disabled = false;
+            }
+        });
+
+        noBtn.addEventListener('click', async () => {
+            noBtn.disabled = true;
+            try {
+                await fetch(`${API_URL}/auth/telegram/opt-out`, { method: 'POST', headers: authHeaders() });
+                currentUser.telegramOptOut = true;
+            } catch (_) { /* не критично — просто покажется ещё раз */ }
+            close();
+        });
+    }
+
     async function fetchUser() {
         try {
             const response = await fetch(`${API_URL}/auth/me`, {
@@ -610,6 +710,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
                 await refreshAccountSecurityAlerts();
                 updateUI();
                 maybePromptFaceEnroll();
+                maybePromptTelegramLink();
                 console.log('Пользователь загружен:', currentUser);
                 return true; // Успешная загрузка
             } else {

@@ -100,6 +100,12 @@ const User = sequelize.define('User', {
     defaultValue: true,
     comment: 'Напоминание о завтрашних парах (ежедневно ~17:00)'
   },
+  telegramOptOut: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+    comment: 'Нажал «У меня нет Telegram» — не показывать окно привязки Telegram'
+  },
   subscriptionEndDate: {
     type: DataTypes.DATE,
     allowNull: true,

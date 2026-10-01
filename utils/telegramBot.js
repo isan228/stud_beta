@@ -36,8 +36,18 @@ async function api(method, params = {}) {
   return data.result;
 }
 
-function sendMessage(chatId, text) {
-  return api('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML' });
+function sendMessage(chatId, text, extra = {}) {
+  return api('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML', ...extra });
+}
+
+function siteUrl(path = '/') {
+  const base = (process.env.SITE_URL || 'https://stud.kg').replace(/\/+$/, '');
+  const safePath = typeof path === 'string' && path.startsWith('/') && !path.startsWith('//') ? path : '/';
+  return base + safePath;
+}
+
+function backToSiteButton(path) {
+  return { reply_markup: { inline_keyboard: [[{ text: '↩️ Вернуться на сайт', url: siteUrl(path) }]] } };
 }
 
 function purgeExpired(map) {
@@ -52,10 +62,10 @@ function hashCode(userId, code) {
 }
 
 /** Ссылка t.me/<бот>?start=<токен>: открыв её, пользователь привязывает свой Telegram к аккаунту. */
-function createLinkUrl(userId) {
+function createLinkUrl(userId, returnPath) {
   purgeExpired(linkTokens);
   const token = crypto.randomBytes(16).toString('hex');
-  linkTokens.set(token, { userId, expiresAt: Date.now() + LINK_TOKEN_TTL_MS });
+  linkTokens.set(token, { userId, returnPath, expiresAt: Date.now() + LINK_TOKEN_TTL_MS });
   return botUsername ? `https://t.me/${botUsername}?start=${token}` : null;
 }
 
@@ -66,20 +76,21 @@ async function handleStart(message, token) {
   if (!token) {
     await sendMessage(chatId,
       'Здравствуйте! Это бот stud.kg для входа по коду.\n\n'
-      + 'Чтобы привязать Telegram, откройте сайт → <b>Профиль</b> → «Вход через Telegram» → «Привязать Telegram».');
+      + 'Чтобы привязать Telegram, откройте сайт → <b>Профиль</b> → «Вход через Telegram» → «Привязать Telegram».',
+      backToSiteButton('/profile'));
     return;
   }
 
   const entry = linkTokens.get(token);
   if (!entry || entry.expiresAt <= Date.now()) {
-    await sendMessage(chatId, 'Ссылка устарела. Откройте профиль на stud.kg и нажмите «Привязать Telegram» ещё раз.');
+    await sendMessage(chatId, 'Ссылка устарела. Вернитесь на stud.kg и нажмите «Привязать Telegram» ещё раз.', backToSiteButton('/profile'));
     return;
   }
   linkTokens.delete(token);
 
   const taken = await TelegramLink.findOne({ where: { chatId } });
   if (taken && taken.userId !== entry.userId) {
-    await sendMessage(chatId, 'Этот Telegram уже привязан к другому аккаунту stud.kg. Один Telegram — один аккаунт.');
+    await sendMessage(chatId, 'Этот Telegram уже привязан к другому аккаунту stud.kg. Один Telegram — один аккаунт.', backToSiteButton(entry.returnPath));
     return;
   }
 
@@ -91,8 +102,10 @@ async function handleStart(message, token) {
 
   const user = await User.findByPk(entry.userId, { attributes: ['username'] });
   await sendMessage(chatId,
-    `✅ Telegram привязан к аккаунту <b>${escapeHtml(user?.username || '')}</b>.\n\n`
-    + 'Теперь на странице входа можно выбрать «Войти по коду из Telegram» — код придёт сюда.');
+    `✅ <b>Telegram успешно привязан</b> к аккаунту <b>${escapeHtml(user?.username || '')}</b>.\n\n`
+    + 'Теперь на странице входа можно выбрать «Войти по коду из Telegram» — код придёт сюда.\n\n'
+    + 'Нажмите кнопку ниже, чтобы вернуться на сайт.',
+    backToSiteButton(entry.returnPath));
 }
 
 function escapeHtml(s) {
