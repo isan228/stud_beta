@@ -33,6 +33,7 @@ const Flashcard = require('./Flashcard');
 const FlashcardTagMap = require('./FlashcardTagMap');
 const FlashcardTopic = require('./FlashcardTopic');
 const FaceProfile = require('./FaceProfile');
+const TelegramLink = require('./TelegramLink');
 
 // Определение связей
 User.hasMany(TestResult, { foreignKey: 'userId', as: 'TestResults' });
@@ -206,6 +207,7 @@ module.exports = {
   Flashcard,
   FlashcardTagMap,
   FlashcardTopic,
-  FaceProfile
+  FaceProfile,
+  TelegramLink
 };
 

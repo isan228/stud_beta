@@ -353,6 +353,7 @@ sequelize.authenticate()
     } else {
       app.listen(PORT, onListen);
     }
+    require('./utils/telegramBot').startPolling();
   })
   .catch(err => {
     console.error('Ошибка подключения к базе данных:', err);

@@ -423,7 +423,32 @@
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 9.5v1M15 9.5v1M12 9.5v3.5h-1M9.5 15.5c1.4 1 3.6 1 5 0"/></svg>
                 Войти по лицу
             </button>
-            <div class="faceid-divider">или по паролю</div>
+            <button type="button" class="tg-login-btn" id="tgLoginBtn">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M21.94 4.3a1 1 0 0 0-1.37-1.1L2.6 10.3a1 1 0 0 0 .07 1.88l4.38 1.4 1.7 5.35a1 1 0 0 0 1.66.4l2.44-2.36 4.33 3.18a1 1 0 0 0 1.57-.6l3.2-15.25ZM9.9 14.03l-.6 3.04-1.08-3.4 9.5-6.07-7.82 6.43Z"/></svg>
+                Войти по коду из Telegram
+            </button>
+
+            <form id="tgLoginForm" class="tg-login-form" novalidate hidden>
+                <div class="auth-field" id="tgStepIdentifier">
+                    <label for="tgIdentifier">Email или никнейм</label>
+                    <div class="auth-field-input">
+                        <input type="text" id="tgIdentifier" autocomplete="username" placeholder="Введите email или никнейм">
+                    </div>
+                    <small>Код придёт в Telegram, привязанный к аккаунту в профиле</small>
+                </div>
+                <div class="auth-field" id="tgStepCode" hidden>
+                    <label for="tgCode">Код из Telegram</label>
+                    <div class="auth-field-input">
+                        <input type="text" id="tgCode" inputmode="numeric" autocomplete="one-time-code" maxlength="4" pattern="\d{4}" placeholder="••••" class="tg-code-input">
+                    </div>
+                    <small id="tgCodeHint">Мы отправили 4-значный код в Telegram</small>
+                </div>
+                <button type="submit" class="auth-submit" id="tgSubmitBtn">Получить код</button>
+                <button type="button" class="tg-link-btn" id="tgResendBtn" hidden>Отправить код ещё раз</button>
+                <button type="button" class="tg-link-btn" id="tgBackBtn">← Войти по паролю</button>
+            </form>
+
+            <div class="faceid-divider" id="passwordDivider">или по паролю</div>
 
             <form id="loginForm" novalidate>
 
@@ -474,9 +499,151 @@
 <script src="app.js"></script>
 <script src="face-id.js"></script>
 <script>
+    function setupTelegramLogin() {
+        const tgBtn = document.getElementById('tgLoginBtn');
+        const form = document.getElementById('tgLoginForm');
+        const passwordForm = document.getElementById('loginForm');
+        const divider = document.getElementById('passwordDivider');
+        const stepId = document.getElementById('tgStepIdentifier');
+        const stepCode = document.getElementById('tgStepCode');
+        const identifierInput = document.getElementById('tgIdentifier');
+        const codeInput = document.getElementById('tgCode');
+        const submitBtn = document.getElementById('tgSubmitBtn');
+        const resendBtn = document.getElementById('tgResendBtn');
+        let loginToken = null;
+        let resendTimer = null;
+
+        tgBtn.hidden = true;
+        fetch('/api/auth/telegram/enabled')
+            .then((r) => r.json())
+            .then((d) => { tgBtn.hidden = !d.enabled; })
+            .catch(() => {});
+
+        function showTelegram(on) {
+            form.hidden = !on;
+            tgBtn.hidden = on;
+            passwordForm.hidden = on;
+            divider.hidden = on;
+            if (on) identifierInput.focus();
+        }
+
+        function setStep(code) {
+            stepId.hidden = code;
+            stepCode.hidden = !code;
+            resendBtn.hidden = !code;
+            submitBtn.textContent = code ? 'Войти' : 'Получить код';
+            if (code) {
+                codeInput.value = '';
+                codeInput.focus();
+            }
+        }
+
+        function startResendCountdown(seconds) {
+            clearInterval(resendTimer);
+            let left = seconds;
+            resendBtn.disabled = true;
+            resendBtn.textContent = `Отправить код ещё раз (${left} с)`;
+            resendTimer = setInterval(() => {
+                left -= 1;
+                if (left <= 0) {
+                    clearInterval(resendTimer);
+                    resendBtn.disabled = false;
+                    resendBtn.textContent = 'Отправить код ещё раз';
+                } else {
+                    resendBtn.textContent = `Отправить код ещё раз (${left} с)`;
+                }
+            }, 1000);
+        }
+
+        async function post(url, body) {
+            const resp = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok) {
+                const err = new Error(data.error || 'Ошибка сервера');
+                err.code = data.code;
+                err.retryAfter = data.retryAfter;
+                throw err;
+            }
+            return data;
+        }
+
+        async function requestCode() {
+            const identifier = identifierInput.value.trim();
+            if (!identifier) {
+                showNotification('Введите email или никнейм', 'error');
+                return;
+            }
+            submitBtn.disabled = true;
+            try {
+                const data = await post('/api/auth/telegram/request-code', { identifier });
+                loginToken = data.loginToken;
+                setStep(true);
+                startResendCountdown(60);
+                showNotification('Код отправлен в Telegram', 'success');
+            } catch (err) {
+                showNotification(err.message, 'error');
+                if (err.retryAfter && loginToken) startResendCountdown(err.retryAfter);
+            } finally {
+                submitBtn.disabled = false;
+            }
+        }
+
+        async function verifyCode() {
+            const code = codeInput.value.trim();
+            if (!/^\d{4}$/.test(code)) {
+                showNotification('Введите 4 цифры из Telegram', 'error');
+                return;
+            }
+            submitBtn.disabled = true;
+            try {
+                const data = await post('/api/auth/telegram/verify-code', { loginToken, code });
+                localStorage.setItem('token', data.token);
+                showNotification('Вход выполнен успешно!', 'success');
+                const next = new URLSearchParams(window.location.search).get('next');
+                window.location.href = next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
+            } catch (err) {
+                showNotification(err.message, 'error');
+                if (err.code === 'TELEGRAM_CODE_EXPIRED') {
+                    loginToken = null;
+                    setStep(false);
+                    clearInterval(resendTimer);
+                } else {
+                    codeInput.select();
+                }
+            } finally {
+                submitBtn.disabled = false;
+            }
+        }
+
+        tgBtn.addEventListener('click', () => showTelegram(true));
+        document.getElementById('tgBackBtn').addEventListener('click', () => {
+            showTelegram(false);
+            setStep(false);
+            loginToken = null;
+            clearInterval(resendTimer);
+        });
+        resendBtn.addEventListener('click', requestCode);
+        codeInput.addEventListener('input', () => {
+            codeInput.value = codeInput.value.replace(/\D/g, '').slice(0, 4);
+            if (codeInput.value.length === 4) verifyCode();
+        });
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (loginToken && !stepCode.hidden) verifyCode();
+            else requestCode();
+        });
+    }
+</script>
+<script>
     document.addEventListener('DOMContentLoaded', () => {
         if (typeof initTheme === 'function') initTheme();
         if (typeof setupEventListeners === 'function') setupEventListeners();
+
+        setupTelegramLogin();
 
         const faceBtn = document.getElementById('faceLoginBtn');
         if (!window.StudFaceId || !StudFaceId.isSupported()) {

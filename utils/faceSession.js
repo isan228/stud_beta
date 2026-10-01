@@ -58,11 +58,16 @@ async function getFaceCheckReason(userId, req) {
   return null;
 }
 
-/** Сессия пользователя с лицом живёт до истечения 4 дней с последнего подтверждения лицом. */
-async function signUserSession(userId) {
+/**
+ * Сессия пользователя с лицом живёт до истечения 4 дней с последнего подтверждения лицом.
+ * fresh — пользователь только что подтвердил личность другим способом (код из Telegram): полные 4 дня.
+ */
+async function signUserSession(userId, { fresh = false } = {}) {
   const profile = await FaceProfile.findOne({ where: { userId }, attributes: ['lastVerifiedAt'] });
   let expiresIn = '30d';
-  if (profile && profile.lastVerifiedAt) {
+  if (profile && fresh) {
+    expiresIn = Math.floor(FACE_REVERIFY_MS / 1000);
+  } else if (profile && profile.lastVerifiedAt) {
     const left = Math.floor((new Date(profile.lastVerifiedAt).getTime() + FACE_REVERIFY_MS - Date.now()) / 1000);
     expiresIn = Math.max(MIN_SESSION_SECONDS, left);
   }

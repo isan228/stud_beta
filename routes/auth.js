@@ -4,7 +4,8 @@ const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { Op } = require('sequelize');
-const { User, UserStats, UserDeviceAlert, UserBroadcastNotification, BroadcastMessage, University, Faculty, FaceProfile, ContactMessage } = require('../models');
+const { User, UserStats, UserDeviceAlert, UserBroadcastNotification, BroadcastMessage, University, Faculty, FaceProfile, ContactMessage, TelegramLink } = require('../models');
+const telegramBot = require('../utils/telegramBot');
 const {
   normalizeEnrollDescriptors,
   normalizeProbeDescriptors,
@@ -193,7 +194,7 @@ async function completeLogin(req, res, user, method) {
     }
 
     if (method === 'face') await markFaceVerified(user.id, req);
-    const token = await signUserSession(user.id);
+    const token = await signUserSession(user.id, { fresh: method === 'telegram' });
 
     console.log('[auth/login] ok', { userId: user.id, email: user.email, status: user.status, method });
 
@@ -362,6 +363,132 @@ router.post('/face/verify', async (req, res) => {
     return completeLogin(req, res, user, 'face');
   } catch (error) {
     console.error('Ошибка face/verify:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// ───────────── Вход по коду из Telegram ─────────────
+
+router.get('/telegram/enabled', (req, res) => {
+  res.json({ enabled: telegramBot.isEnabled() });
+});
+
+router.get('/telegram/status', require('../middleware/auth'), async (req, res) => {
+  try {
+    const link = telegramBot.isEnabled() ? await telegramBot.getLink(req.user.id) : null;
+    res.json({
+      enabled: telegramBot.isEnabled(),
+      linked: !!link,
+      tgUsername: link?.tgUsername || null
+    });
+  } catch (error) {
+    console.error('Ошибка telegram/status:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.post('/telegram/link', require('../middleware/auth'), async (req, res) => {
+  if (!telegramBot.isEnabled()) {
+    return res.status(503).json({ error: 'Вход через Telegram пока не настроен' });
+  }
+  const url = telegramBot.createLinkUrl(req.user.id);
+  if (!url) {
+    return res.status(503).json({ error: 'Бот ещё запускается. Попробуйте через минуту.' });
+  }
+  res.json({ url });
+});
+
+router.post('/telegram/unlink', require('../middleware/auth'), async (req, res) => {
+  try {
+    await TelegramLink.destroy({ where: { userId: req.user.id } });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Ошибка telegram/unlink:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.post('/telegram/request-code', [
+  body('identifier').trim().notEmpty().withMessage('Введите email или никнейм')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: errors.array()[0].msg });
+    }
+    if (!telegramBot.isEnabled()) {
+      return res.status(503).json({ error: 'Вход через Telegram пока не настроен' });
+    }
+    if (faceRateLimited(req, 'tg-code', 5, 10 * 60 * 1000)) {
+      return res.status(429).json({ error: 'Слишком много запросов кода. Подождите несколько минут.' });
+    }
+
+    const identifier = String(req.body.identifier).trim();
+    const user = await User.findOne({
+      where: identifier.includes('@') ? { email: identifier } : { username: identifier },
+      attributes: ['id', 'status']
+    });
+    if (!user || user.status === 'rejected') {
+      return res.status(404).json({ error: 'Аккаунт не найден' });
+    }
+
+    const result = await telegramBot.sendLoginCode(user.id);
+    if (!result.ok) {
+      if (result.reason === 'not_linked') {
+        return res.status(400).json({
+          error: 'К этому аккаунту не привязан Telegram. Войдите по лицу или паролю и привяжите Telegram в профиле.',
+          code: 'TELEGRAM_NOT_LINKED'
+        });
+      }
+      if (result.reason === 'cooldown') {
+        return res.status(429).json({ error: `Код уже отправлен. Повторно можно через ${result.retryAfter} с.`, retryAfter: result.retryAfter });
+      }
+      return res.status(502).json({ error: 'Не удалось отправить код. Проверьте, что вы не заблокировали бота.' });
+    }
+
+    const loginToken = jwt.sign({ tgLogin: user.id }, process.env.JWT_SECRET, { expiresIn: '5m' });
+    res.json({ ok: true, loginToken });
+  } catch (error) {
+    console.error('Ошибка telegram/request-code:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.post('/telegram/verify-code', [
+  body('code').trim().matches(/^\d{4}$/).withMessage('Введите 4 цифры из Telegram')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: errors.array()[0].msg });
+    }
+    let payload;
+    try {
+      payload = jwt.verify(String(req.body.loginToken || ''), process.env.JWT_SECRET);
+    } catch (_) {
+      return res.status(401).json({ error: 'Код устарел. Запросите новый.', code: 'TELEGRAM_CODE_EXPIRED' });
+    }
+    const userId = Number(payload.tgLogin);
+    if (!userId) {
+      return res.status(401).json({ error: 'Код устарел. Запросите новый.', code: 'TELEGRAM_CODE_EXPIRED' });
+    }
+
+    const result = telegramBot.verifyLoginCode(userId, req.body.code);
+    if (result === 'expired') {
+      return res.status(401).json({ error: 'Код устарел. Запросите новый.', code: 'TELEGRAM_CODE_EXPIRED' });
+    }
+    if (result === 'too_many') {
+      return res.status(429).json({ error: 'Слишком много неверных попыток. Запросите новый код.', code: 'TELEGRAM_CODE_EXPIRED' });
+    }
+    if (result !== 'ok') {
+      return res.status(401).json({ error: 'Неверный код' });
+    }
+
+    const user = await User.findByPk(userId);
+    if (!user) return res.status(401).json({ error: 'Аккаунт не найден' });
+    return completeLogin(req, res, user, 'telegram');
+  } catch (error) {
+    console.error('Ошибка telegram/verify-code:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
