@@ -4408,6 +4408,8 @@ function setupAdminEventListeners() {
 }
 
 const PRIMARY_LOGIN_METHODS = ['password', 'face', 'telegram'];
+const LOGIN_METHOD_LABELS = { password: 'Пароль', face: 'Face ID', telegram: 'Telegram' };
+let savedLoginMethods = null;
 
 function readLoginMethodsForm() {
     const methods = {};
@@ -4425,14 +4427,35 @@ function syncLoginMethodsForm() {
         if (!methods.face) stepUp.checked = false;
         stepUp.closest('.login-method-item')?.classList.toggle('is-disabled', !methods.face);
     }
+    document.querySelectorAll('[data-login-method]').forEach((input) => {
+        const item = input.closest('.login-method-item');
+        if (!item) return;
+        item.classList.toggle('is-on', input.checked);
+        const status = item.querySelector('.login-method-status');
+        if (status) status.textContent = input.checked ? 'Включён' : 'Выключен';
+    });
+
+    const active = PRIMARY_LOGIN_METHODS.filter((key) => methods[key]);
+    const countEl = document.getElementById('loginMethodsCount');
+    if (countEl) countEl.textContent = `${active.length} из ${PRIMARY_LOGIN_METHODS.length}`;
+    const chipsEl = document.getElementById('loginMethodsChips');
+    if (chipsEl) {
+        chipsEl.innerHTML = PRIMARY_LOGIN_METHODS.map((key) =>
+            `<span class="login-methods-chip${methods[key] ? ' is-on' : ''}">${LOGIN_METHOD_LABELS[key]}</span>`
+        ).join('');
+    }
+
     const errorEl = document.getElementById('loginMethodsError');
     const saveBtn = document.getElementById('saveLoginMethodsBtn');
-    const noneLeft = !PRIMARY_LOGIN_METHODS.some((key) => methods[key]);
+    const noneLeft = active.length === 0;
     if (errorEl) {
         errorEl.hidden = !noneLeft;
         errorEl.textContent = noneLeft ? 'Оставьте включённым хотя бы один способ входа' : '';
     }
-    if (saveBtn) saveBtn.disabled = noneLeft;
+    const dirty = !!savedLoginMethods && Object.keys(methods).some((key) => methods[key] !== savedLoginMethods[key]);
+    const dirtyEl = document.getElementById('loginMethodsDirty');
+    if (dirtyEl) dirtyEl.hidden = !dirty || noneLeft;
+    if (saveBtn) saveBtn.disabled = noneLeft || !dirty;
 }
 
 async function loadLoginMethodsSettings() {
@@ -4448,6 +4471,7 @@ async function loadLoginMethodsSettings() {
         });
         const tgWarn = document.getElementById('loginMethodTelegramWarn');
         if (tgWarn) tgWarn.hidden = !!data.telegramBotConfigured;
+        savedLoginMethods = readLoginMethodsForm();
         syncLoginMethodsForm();
     } catch (error) {
         console.error('Ошибка загрузки способов входа:', error);
@@ -4473,6 +4497,7 @@ async function saveLoginMethodsSettings() {
         });
         const result = await response.json().catch(() => ({}));
         if (response.ok) {
+            savedLoginMethods = { ...methods, ...(result.methods || {}) };
             showNotification(result.message || 'Сохранено', 'success');
         } else {
             showNotification(result.error || 'Ошибка сохранения', 'error');

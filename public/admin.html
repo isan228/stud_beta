@@ -753,39 +753,96 @@
                         <h2>Способы входа</h2>
                         <p class="page-description" style="margin-top: 0.5rem;">Отметьте, какими способами пользователи могут входить на сайт. Выключенный способ пропадает со страниц входа и регистрации и блокируется на сервере. Вход в админку не затрагивается.</p>
                     </div>
-                    <div class="login-methods-list" id="loginMethodsList">
-                        <label class="login-method-item">
-                            <input type="checkbox" data-login-method="password">
-                            <span class="login-method-body">
-                                <span class="login-method-title">Пароль</span>
-                                <span class="login-method-desc">Вход по email или никнейму и паролю</span>
-                            </span>
-                        </label>
-                        <label class="login-method-item">
-                            <input type="checkbox" data-login-method="face">
-                            <span class="login-method-body">
-                                <span class="login-method-title">Face ID</span>
-                                <span class="login-method-desc">Вход по лицу, сканирование лица при регистрации и напоминание привязать лицо</span>
-                            </span>
-                        </label>
-                        <label class="login-method-item is-sub">
-                            <input type="checkbox" data-login-method="faceStepUp">
-                            <span class="login-method-body">
-                                <span class="login-method-title">Обязательное подтверждение лицом</span>
-                                <span class="login-method-desc">Раз в 4 дня и при входе с нового устройства или IP пользователь с привязанным лицом подтверждает вход лицом</span>
-                            </span>
-                        </label>
-                        <label class="login-method-item">
-                            <input type="checkbox" data-login-method="telegram">
-                            <span class="login-method-body">
-                                <span class="login-method-title">Код из Telegram</span>
-                                <span class="login-method-desc">Вход по 4-значному коду от бота и напоминание привязать Telegram</span>
-                                <span class="login-method-warn" id="loginMethodTelegramWarn" hidden>Бот не настроен на сервере (нет TELEGRAM_BOT_TOKEN) — способ не появится на сайте, пока бот не запущен.</span>
-                            </span>
-                        </label>
+                    <div class="login-methods-panel">
+                        <div class="login-methods-summary">
+                            <div class="login-methods-summary-text">
+                                <span class="login-methods-summary-label">Активные способы</span>
+                                <span class="login-methods-summary-count" id="loginMethodsCount">—</span>
+                            </div>
+                            <div class="login-methods-chips" id="loginMethodsChips"></div>
+                        </div>
+
+                        <div class="login-methods-list" id="loginMethodsList">
+                            <label class="login-method-item" data-accent="password">
+                                <span class="login-method-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3M12 15v2"/></svg>
+                                </span>
+                                <span class="login-method-body">
+                                    <span class="login-method-head">
+                                        <span class="login-method-title">Пароль</span>
+                                        <span class="login-method-status"></span>
+                                    </span>
+                                    <span class="login-method-desc">Вход по email или никнейму и паролю</span>
+                                </span>
+                                <span class="login-method-switch">
+                                    <input type="checkbox" data-login-method="password">
+                                    <span class="login-method-slider" aria-hidden="true"></span>
+                                </span>
+                            </label>
+
+                            <div class="login-method-group">
+                                <label class="login-method-item" data-accent="face">
+                                    <span class="login-method-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 9.5v1M15 9.5v1M12 9.5v3.5h-1M9.5 15.5c1.4 1 3.6 1 5 0"/></svg>
+                                    </span>
+                                    <span class="login-method-body">
+                                        <span class="login-method-head">
+                                            <span class="login-method-title">Face ID</span>
+                                            <span class="login-method-status"></span>
+                                        </span>
+                                        <span class="login-method-desc">Вход по лицу, сканирование лица при регистрации и напоминание привязать лицо</span>
+                                    </span>
+                                    <span class="login-method-switch">
+                                        <input type="checkbox" data-login-method="face">
+                                        <span class="login-method-slider" aria-hidden="true"></span>
+                                    </span>
+                                </label>
+                                <label class="login-method-item is-sub" data-accent="face">
+                                    <span class="login-method-icon is-small" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg>
+                                    </span>
+                                    <span class="login-method-body">
+                                        <span class="login-method-head">
+                                            <span class="login-method-title">Обязательное подтверждение лицом</span>
+                                            <span class="login-method-status"></span>
+                                        </span>
+                                        <span class="login-method-desc">Раз в 4 дня и при входе с нового устройства или IP пользователь с привязанным лицом подтверждает вход лицом</span>
+                                    </span>
+                                    <span class="login-method-switch">
+                                        <input type="checkbox" data-login-method="faceStepUp">
+                                        <span class="login-method-slider" aria-hidden="true"></span>
+                                    </span>
+                                </label>
+                            </div>
+
+                            <label class="login-method-item" data-accent="telegram">
+                                <span class="login-method-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M21.94 4.3a1 1 0 0 0-1.37-1.1L2.6 10.3a1 1 0 0 0 .07 1.88l4.38 1.4 1.7 5.35a1 1 0 0 0 1.66.4l2.44-2.36 4.33 3.18a1 1 0 0 0 1.57-.6l3.2-15.25ZM9.9 14.03l-.6 3.04-1.08-3.4 9.5-6.07-7.82 6.43Z"/></svg>
+                                </span>
+                                <span class="login-method-body">
+                                    <span class="login-method-head">
+                                        <span class="login-method-title">Код из Telegram</span>
+                                        <span class="login-method-status"></span>
+                                    </span>
+                                    <span class="login-method-desc">Вход по 4-значному коду от бота и напоминание привязать Telegram</span>
+                                    <span class="login-method-warn" id="loginMethodTelegramWarn" hidden>
+                                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4M12 17h.01"/></svg>
+                                        Бот не настроен на сервере (нет TELEGRAM_BOT_TOKEN) — способ не появится на сайте, пока бот не запущен.
+                                    </span>
+                                </span>
+                                <span class="login-method-switch">
+                                    <input type="checkbox" data-login-method="telegram">
+                                    <span class="login-method-slider" aria-hidden="true"></span>
+                                </span>
+                            </label>
+                        </div>
+
+                        <div class="login-methods-footer">
+                            <p class="login-methods-error" id="loginMethodsError" hidden></p>
+                            <span class="login-methods-dirty" id="loginMethodsDirty" hidden>Есть несохранённые изменения</span>
+                            <button type="button" class="btn btn-primary" id="saveLoginMethodsBtn">Сохранить</button>
+                        </div>
                     </div>
-                    <p class="login-methods-error" id="loginMethodsError" hidden></p>
-                    <button type="button" class="btn btn-primary" id="saveLoginMethodsBtn" style="margin-top: 1rem;">Сохранить</button>
                 </div>
 
                 <div id="promoTab" class="admin-tab-content">
