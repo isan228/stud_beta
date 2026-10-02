@@ -94,6 +94,10 @@
                                 <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M11 17h2" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg></span>
                                 <span class="admin-tab-label">Устройства</span>
                             </button>
+                            <button type="button" class="admin-tab" data-tab="loginMethods" data-title="Способы входа">
+                                <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/><path d="M8 11V8a4 4 0 0 1 8 0v3M12 15v2" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg></span>
+                                <span class="admin-tab-label">Способы входа</span>
+                            </button>
                             <button type="button" class="admin-tab" data-tab="analytics" data-title="Аналитика">
                                 <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 19V10M12 19V5M19 19v-7" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg></span>
                                 <span class="admin-tab-label">Аналитика</span>
@@ -742,6 +746,46 @@
                         </div>
                         <button type="button" class="btn btn-primary" id="saveDocsBtn">Сохранить ссылки</button>
                     </div>
+                </div>
+
+                <div id="loginMethodsTab" class="admin-tab-content">
+                    <div class="admin-section-header">
+                        <h2>Способы входа</h2>
+                        <p class="page-description" style="margin-top: 0.5rem;">Отметьте, какими способами пользователи могут входить на сайт. Выключенный способ пропадает со страниц входа и регистрации и блокируется на сервере. Вход в админку не затрагивается.</p>
+                    </div>
+                    <div class="login-methods-list" id="loginMethodsList">
+                        <label class="login-method-item">
+                            <input type="checkbox" data-login-method="password">
+                            <span class="login-method-body">
+                                <span class="login-method-title">Пароль</span>
+                                <span class="login-method-desc">Вход по email или никнейму и паролю</span>
+                            </span>
+                        </label>
+                        <label class="login-method-item">
+                            <input type="checkbox" data-login-method="face">
+                            <span class="login-method-body">
+                                <span class="login-method-title">Face ID</span>
+                                <span class="login-method-desc">Вход по лицу, сканирование лица при регистрации и напоминание привязать лицо</span>
+                            </span>
+                        </label>
+                        <label class="login-method-item is-sub">
+                            <input type="checkbox" data-login-method="faceStepUp">
+                            <span class="login-method-body">
+                                <span class="login-method-title">Обязательное подтверждение лицом</span>
+                                <span class="login-method-desc">Раз в 4 дня и при входе с нового устройства или IP пользователь с привязанным лицом подтверждает вход лицом</span>
+                            </span>
+                        </label>
+                        <label class="login-method-item">
+                            <input type="checkbox" data-login-method="telegram">
+                            <span class="login-method-body">
+                                <span class="login-method-title">Код из Telegram</span>
+                                <span class="login-method-desc">Вход по 4-значному коду от бота и напоминание привязать Telegram</span>
+                                <span class="login-method-warn" id="loginMethodTelegramWarn" hidden>Бот не настроен на сервере (нет TELEGRAM_BOT_TOKEN) — способ не появится на сайте, пока бот не запущен.</span>
+                            </span>
+                        </label>
+                    </div>
+                    <p class="login-methods-error" id="loginMethodsError" hidden></p>
+                    <button type="button" class="btn btn-primary" id="saveLoginMethodsBtn" style="margin-top: 1rem;">Сохранить</button>
                 </div>
 
                 <div id="promoTab" class="admin-tab-content">

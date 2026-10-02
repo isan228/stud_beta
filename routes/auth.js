@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const { Op } = require('sequelize');
 const { User, UserStats, UserDeviceAlert, UserBroadcastNotification, BroadcastMessage, University, Faculty, FaceProfile, ContactMessage, TelegramLink } = require('../models');
 const telegramBot = require('../utils/telegramBot');
+const { getLoginMethods } = require('../utils/loginMethods');
 const {
   normalizeEnrollDescriptors,
   normalizeProbeDescriptors,
@@ -55,6 +56,39 @@ function getClientIp(req) {
   return req.headers['x-real-ip'] || req.ip || null;
 }
 
+async function getPublicLoginMethods() {
+  const methods = await getLoginMethods();
+  return {
+    password: methods.password,
+    face: methods.face,
+    faceStepUp: methods.faceStepUp,
+    telegram: methods.telegram && telegramBot.isEnabled()
+  };
+}
+
+const METHOD_DISABLED_MESSAGES = {
+  password: 'Вход по паролю отключён. Войдите по лицу или по коду из Telegram.',
+  face: 'Face ID отключён администратором.',
+  telegram: 'Вход через Telegram отключён.'
+};
+
+/** Отвечает 403 и возвращает true, если способ входа выключен в админке. */
+async function rejectDisabledMethod(res, method) {
+  const methods = await getPublicLoginMethods();
+  if (methods[method]) return false;
+  res.status(403).json({ error: METHOD_DISABLED_MESSAGES[method], code: 'LOGIN_METHOD_DISABLED' });
+  return true;
+}
+
+router.get('/login-methods', async (req, res) => {
+  try {
+    res.json(await getPublicLoginMethods());
+  } catch (error) {
+    console.error('Ошибка получения способов входа:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 // Регистрация
 router.post('/register', [
   body('username').trim().isLength({ min: 3, max: 50 }).withMessage('Никнейм должен быть от 3 до 50 символов'),
@@ -88,6 +122,7 @@ router.post('/login', [
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
+    if (await rejectDisabledMethod(res, 'password')) return;
 
     const { identifier, password } = req.body;
 
@@ -242,6 +277,7 @@ async function loadLinkedFaceProfiles() {
 // Лицо снимается на шаге регистрации до оплаты; к аккаунту привязывается в webhook оплаты по enrollToken
 router.post('/face/enroll-pending', async (req, res) => {
   try {
+    if (await rejectDisabledMethod(res, 'face')) return;
     if (faceRateLimited(req, 'face-enroll', 10, 10 * 60 * 1000)) {
       return res.status(429).json({ error: 'Слишком много попыток. Подождите несколько минут.' });
     }
@@ -275,6 +311,7 @@ router.post('/face/enroll-pending', async (req, res) => {
 // Привязка лица к уже существующему аккаунту (пользователи, зарегистрированные до Face ID)
 router.post('/face/enroll', require('../middleware/auth'), async (req, res) => {
   try {
+    if (await rejectDisabledMethod(res, 'face')) return;
     if (faceRateLimited(req, 'face-enroll-user', 10, 10 * 60 * 1000)) {
       return res.status(429).json({ error: 'Слишком много попыток. Подождите несколько минут.' });
     }
@@ -305,6 +342,7 @@ router.post('/face/enroll', require('../middleware/auth'), async (req, res) => {
 
 router.post('/face/login', async (req, res) => {
   try {
+    if (await rejectDisabledMethod(res, 'face')) return;
     if (faceRateLimited(req, 'face-login', 10, 60 * 1000)) {
       return res.status(429).json({ error: 'Слишком много попыток. Подождите минуту.' });
     }
@@ -335,6 +373,7 @@ router.post('/face/login', async (req, res) => {
 // Второй шаг входа по паролю: подтверждение лица этого же аккаунта (новое устройство/IP или прошло 4 дня)
 router.post('/face/verify', async (req, res) => {
   try {
+    if (await rejectDisabledMethod(res, 'face')) return;
     if (faceRateLimited(req, 'face-verify', 10, 60 * 1000)) {
       return res.status(429).json({ error: 'Слишком много попыток. Подождите минуту.' });
     }
@@ -370,15 +409,20 @@ router.post('/face/verify', async (req, res) => {
 
 // ───────────── Вход по коду из Telegram ─────────────
 
-router.get('/telegram/enabled', (req, res) => {
-  res.json({ enabled: telegramBot.isEnabled() });
+router.get('/telegram/enabled', async (req, res) => {
+  try {
+    res.json({ enabled: (await getPublicLoginMethods()).telegram });
+  } catch (error) {
+    res.json({ enabled: false });
+  }
 });
 
 router.get('/telegram/status', require('../middleware/auth'), async (req, res) => {
   try {
-    const link = telegramBot.isEnabled() ? await telegramBot.getLink(req.user.id) : null;
+    const enabled = (await getPublicLoginMethods()).telegram;
+    const link = enabled ? await telegramBot.getLink(req.user.id) : null;
     res.json({
-      enabled: telegramBot.isEnabled(),
+      enabled,
       linked: !!link,
       tgUsername: link?.tgUsername || null
     });
@@ -392,6 +436,7 @@ router.post('/telegram/link', require('../middleware/auth'), async (req, res) =>
   if (!telegramBot.isEnabled()) {
     return res.status(503).json({ error: 'Вход через Telegram пока не настроен' });
   }
+  if (await rejectDisabledMethod(res, 'telegram')) return;
   const returnPath = typeof req.body?.returnPath === 'string' ? req.body.returnPath.slice(0, 300) : '/';
   const url = telegramBot.createLinkUrl(req.user.id, returnPath);
   if (!url) {
@@ -434,6 +479,7 @@ router.post('/telegram/request-code', [
     if (!telegramBot.isEnabled()) {
       return res.status(503).json({ error: 'Вход через Telegram пока не настроен' });
     }
+    if (await rejectDisabledMethod(res, 'telegram')) return;
     if (faceRateLimited(req, 'tg-code', 5, 10 * 60 * 1000)) {
       return res.status(429).json({ error: 'Слишком много запросов кода. Подождите несколько минут.' });
     }
@@ -477,6 +523,7 @@ router.post('/telegram/verify-code', [
     if (!errors.isEmpty()) {
       return res.status(400).json({ error: errors.array()[0].msg });
     }
+    if (await rejectDisabledMethod(res, 'telegram')) return;
     let payload;
     try {
       payload = jwt.verify(String(req.body.loginToken || ''), process.env.JWT_SECRET);
@@ -760,8 +807,10 @@ router.get('/me', require('../middleware/auth'), async (req, res) => {
     // Для UGC (и любого пользователя с рефералами) — количество приглашённых
     const referralCount = await User.count({ where: { referredBy: user.id } });
     payload.referralCount = referralCount;
+    const loginMethods = await getPublicLoginMethods();
+    payload.faceEnabled = loginMethods.face;
     payload.hasFaceId = (await FaceProfile.count({ where: { userId: user.id } })) > 0;
-    payload.telegramEnabled = telegramBot.isEnabled();
+    payload.telegramEnabled = loginMethods.telegram;
     payload.telegramLinked = payload.telegramEnabled
       ? (await TelegramLink.count({ where: { userId: user.id } })) > 0
       : false;

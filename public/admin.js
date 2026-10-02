@@ -172,7 +172,7 @@ function applyActorUiRestrictions() {
 
     // users + ugc: создание/управление аккаунтами (в т.ч. UGC) — только полный админ
     const fullAdminOnlyTabs = new Set([
-        'dashboard', 'devices', 'analytics', 'audit', 'documents', 'schedule',
+        'dashboard', 'devices', 'loginMethods', 'analytics', 'audit', 'documents', 'schedule',
         'users', 'ugc', 'subscriptions', 'promo', 'editors', 'news', 'messages', 'chats'
     ]);
     document.querySelectorAll('.admin-tab[data-tab]').forEach((btn) => {
@@ -4294,6 +4294,14 @@ function setupAdminEventListeners() {
         saveDocsBtn.addEventListener('click', saveDocumentsSettings);
     }
 
+    const saveLoginMethodsBtn = document.getElementById('saveLoginMethodsBtn');
+    if (saveLoginMethodsBtn) {
+        saveLoginMethodsBtn.addEventListener('click', saveLoginMethodsSettings);
+    }
+    document.querySelectorAll('[data-login-method]').forEach((input) => {
+        input.addEventListener('change', syncLoginMethodsForm);
+    });
+
     const resetPasswordForm = document.getElementById('resetPasswordForm');
     if (resetPasswordForm) {
         resetPasswordForm.addEventListener('submit', handleResetPassword);
@@ -4396,6 +4404,84 @@ function setupAdminEventListeners() {
                 docPrivacyPolicyFile.value = '';
             }
         });
+    }
+}
+
+const PRIMARY_LOGIN_METHODS = ['password', 'face', 'telegram'];
+
+function readLoginMethodsForm() {
+    const methods = {};
+    document.querySelectorAll('[data-login-method]').forEach((input) => {
+        methods[input.dataset.loginMethod] = input.checked;
+    });
+    return methods;
+}
+
+function syncLoginMethodsForm() {
+    const methods = readLoginMethodsForm();
+    const stepUp = document.querySelector('[data-login-method="faceStepUp"]');
+    if (stepUp) {
+        stepUp.disabled = !methods.face;
+        if (!methods.face) stepUp.checked = false;
+        stepUp.closest('.login-method-item')?.classList.toggle('is-disabled', !methods.face);
+    }
+    const errorEl = document.getElementById('loginMethodsError');
+    const saveBtn = document.getElementById('saveLoginMethodsBtn');
+    const noneLeft = !PRIMARY_LOGIN_METHODS.some((key) => methods[key]);
+    if (errorEl) {
+        errorEl.hidden = !noneLeft;
+        errorEl.textContent = noneLeft ? 'Оставьте включённым хотя бы один способ входа' : '';
+    }
+    if (saveBtn) saveBtn.disabled = noneLeft;
+}
+
+async function loadLoginMethodsSettings() {
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/settings/login-methods`, {
+            headers: { 'Authorization': `Bearer ${currentAdminToken}` }
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        const methods = data.methods || {};
+        document.querySelectorAll('[data-login-method]').forEach((input) => {
+            input.checked = !!methods[input.dataset.loginMethod];
+        });
+        const tgWarn = document.getElementById('loginMethodTelegramWarn');
+        if (tgWarn) tgWarn.hidden = !!data.telegramBotConfigured;
+        syncLoginMethodsForm();
+    } catch (error) {
+        console.error('Ошибка загрузки способов входа:', error);
+    }
+}
+
+async function saveLoginMethodsSettings() {
+    const methods = readLoginMethodsForm();
+    if (!PRIMARY_LOGIN_METHODS.some((key) => methods[key])) {
+        syncLoginMethodsForm();
+        return;
+    }
+    const saveBtn = document.getElementById('saveLoginMethodsBtn');
+    if (saveBtn) saveBtn.disabled = true;
+    try {
+        const response = await fetch(`${ADMIN_API_URL}/settings/login-methods`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${currentAdminToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ methods })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (response.ok) {
+            showNotification(result.message || 'Сохранено', 'success');
+        } else {
+            showNotification(result.error || 'Ошибка сохранения', 'error');
+        }
+    } catch (error) {
+        console.error('Ошибка сохранения способов входа:', error);
+        showNotification('Ошибка соединения с сервером', 'error');
+    } finally {
+        syncLoginMethodsForm();
     }
 }
 
@@ -8246,6 +8332,9 @@ function switchTab(tabName, usmleSection) {
             break;
         case 'documents':
             loadDocumentsSettings();
+            break;
+        case 'loginMethods':
+            loadLoginMethodsSettings();
             break;
         case 'promo':
             loadPromoCodes();

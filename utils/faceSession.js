@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { FaceProfile } = require('../models');
+const { getLoginMethods } = require('./loginMethods');
 
 /** Пользователь с привязанным лицом обязан подтверждать его не реже этого срока. */
 const FACE_REVERIFY_MS = 4 * 24 * 60 * 60 * 1000;
@@ -49,6 +50,7 @@ async function markFaceVerified(userId, req) {
  * @returns {Promise<null|'expired'|'new_device'>} null — лицо не привязано или всё в порядке
  */
 async function getFaceCheckReason(userId, req) {
+  if (!(await getLoginMethods()).faceStepUp) return null;
   const profile = await FaceProfile.findOne({ where: { userId } });
   if (!profile) return null;
   const last = profile.lastVerifiedAt ? new Date(profile.lastVerifiedAt).getTime() : 0;
@@ -63,8 +65,11 @@ async function getFaceCheckReason(userId, req) {
  * fresh — пользователь только что подтвердил личность другим способом (код из Telegram): полные 4 дня.
  */
 async function signUserSession(userId, { fresh = false } = {}) {
-  const profile = await FaceProfile.findOne({ where: { userId }, attributes: ['lastVerifiedAt'] });
   let expiresIn = '30d';
+  if (!(await getLoginMethods()).faceStepUp) {
+    return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn });
+  }
+  const profile = await FaceProfile.findOne({ where: { userId }, attributes: ['lastVerifiedAt'] });
   if (profile && fresh) {
     expiresIn = Math.floor(FACE_REVERIFY_MS / 1000);
   } else if (profile && profile.lastVerifiedAt) {

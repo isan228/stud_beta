@@ -21,6 +21,8 @@ const {
 } = require('../utils/editorScope');
 const { User, Subject, Test, Question, Answer, TestResult, UserStats, Admin, Editor, EditorAuditLog, ContactMessage, Setting, UserDeviceAlert, News, ChatMessage, PromoCode, BroadcastMessage, UserBroadcastNotification, Transaction, University, Faculty, SubjectFaculty, SubjectCourse, SubscriptionPlan, QuestionTag, QuestionTagMap, ScheduleEntry, Flashcard, FlashcardTagMap, FlashcardTopic, sequelize } = require('../models');
 const { snapshotFromQuestion, logQuestionAudit } = require('../utils/questionAuditLog');
+const { getLoginMethods, saveLoginMethods } = require('../utils/loginMethods');
+const telegramBot = require('../utils/telegramBot');
 const { ensurePlansForUniversity, getPlansForUniversity, ensurePlansForUsmle, getPlansForUsmle, ALLOWED_MONTHS, planTitle, uniPlanScope, USMLE_PLAN_SCOPE } = require('../utils/subscriptionPlans');
 const {
   ALLOWED_COURSES,
@@ -4661,6 +4663,28 @@ router.put('/settings/docs', adminAuth, requireFullAdmin, [
     res.json({ message: 'Ссылки на документы сохранены', publicOfferUrl, privacyPolicyUrl });
   } catch (error) {
     console.error('Ошибка сохранения настроек документов:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Способы входа пользователей (галочки в админке)
+router.get('/settings/login-methods', adminAuth, requireFullAdmin, async (req, res) => {
+  try {
+    const methods = await getLoginMethods();
+    res.json({ methods, telegramBotConfigured: telegramBot.isEnabled() });
+  } catch (error) {
+    console.error('Ошибка получения способов входа:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.put('/settings/login-methods', adminAuth, requireFullAdmin, async (req, res) => {
+  try {
+    const result = await saveLoginMethods(req.body?.methods);
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    res.json({ message: 'Способы входа сохранены', methods: result.methods });
+  } catch (error) {
+    console.error('Ошибка сохранения способов входа:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

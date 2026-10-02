@@ -520,7 +520,7 @@ if (window.location.pathname.includes('/admin') || document.getElementById('admi
 
     /** Обязательное окно для пользователей без привязанного лица. Закрыть можно, только если камера недоступна. */
     function maybePromptFaceEnroll() {
-        if (!currentUser || currentUser.hasFaceId !== false) return;
+        if (!currentUser || currentUser.hasFaceId !== false || currentUser.faceEnabled === false) return;
         if (/^\/(login|register|admin|redact|payment)/.test(window.location.pathname)) return;
         if (document.getElementById('faceEnrollPrompt')) return;
         try {

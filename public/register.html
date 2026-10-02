@@ -1194,7 +1194,7 @@
         if (ok) {
             setStep(3);
             loadRegistrationPlans();
-            if (window.StudFaceId && StudFaceId.isSupported()) StudFaceId.preload();
+            if (faceRegistrationEnabled && window.StudFaceId && StudFaceId.isSupported()) StudFaceId.preload();
         }
     });
 
@@ -1208,6 +1208,22 @@
 
     let faceEnrollToken = null;
     let faceSkipped = false;
+    let faceRegistrationEnabled = true;
+
+    async function applyFaceRegistrationSetting() {
+        try {
+            const resp = await fetch('/api/auth/login-methods');
+            if (!resp.ok) return;
+            faceRegistrationEnabled = (await resp.json()).face !== false;
+        } catch (_) {
+            return;
+        }
+        if (faceRegistrationEnabled) return;
+        faceSkipped = true;
+        faceEnrollToken = null;
+        const field = document.getElementById('regFaceField');
+        if (field) field.style.display = 'none';
+    }
 
     function allowFaceSkip(reason) {
         const hint = document.getElementById('regFaceHint');
@@ -1359,8 +1375,9 @@
         if (typeof initTheme === 'function') initTheme();
         loadUniversitiesForRegister();
         applyReferralLock();
+        applyFaceRegistrationSetting();
         if (window.StudFaceId && StudFaceId.isSupported()) {
-            const warmUp = () => StudFaceId.preload();
+            const warmUp = () => faceRegistrationEnabled && StudFaceId.preload();
             if ('requestIdleCallback' in window) requestIdleCallback(warmUp, { timeout: 2000 });
             else setTimeout(warmUp, 500);
         }
