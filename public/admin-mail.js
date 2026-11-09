@@ -97,10 +97,10 @@ function renderMailAccounts() {
     box.innerHTML = mailState.accounts.map((a) => {
         const s = mailState.summary[a.id];
         const unseen = s && s.unseen ? `<span class="mail-account-badge">${s.unseen}</span>` : '';
-        const err = !a.configured ? 'Пароль не задан в .env' : (s && s.error ? s.error : '');
+        const err = !a.configured ? 'Пароль не задан — нажмите, чтобы указать' : (s && s.error ? s.error : '');
         return `
-            <button type="button" class="mail-account ${a.id === mailState.account ? 'active' : ''} ${err ? 'has-error' : ''}"
-                data-mail-account="${escapeHtml(a.id)}" ${a.configured ? '' : 'disabled'} title="${escapeHtml(err || a.email)}">
+            <button type="button" class="mail-account ${a.id === mailState.account ? 'active' : ''} ${err ? 'has-error' : ''} ${a.configured ? '' : 'is-unconfigured'}"
+                data-mail-account="${escapeHtml(a.id)}" title="${escapeHtml(err || a.email)}">
                 <span class="mail-account-label">${escapeHtml(a.label)}${unseen}</span>
                 <span class="mail-account-email">${escapeHtml(a.email)}</span>
             </button>`;
@@ -572,6 +572,169 @@ async function submitMailCompose(e) {
     }
 }
 
+// ---------- Настройки ящиков ----------
+
+function mailPasswordStatus(a) {
+    if (a.passwordSource === 'admin') return '<span class="mail-settings-status ok">Пароль задан</span>';
+    if (a.passwordSource === 'env') return '<span class="mail-settings-status ok">Пароль из .env</span>';
+    return '<span class="mail-settings-status missing">Пароль не задан</span>';
+}
+
+function renderMailSettings() {
+    const box = document.getElementById('mailSettingsList');
+    if (!box) return;
+    if (!mailState.accounts.length) {
+        box.innerHTML = '<div class="mail-empty">Ящиков нет — добавьте первый ниже</div>';
+        return;
+    }
+    box.innerHTML = mailState.accounts.map((a) => `
+        <form class="mail-settings-item" data-mail-settings-id="${escapeHtml(a.id)}">
+            <div class="mail-settings-item-head">
+                <b>${escapeHtml(a.email)}</b>
+                ${mailPasswordStatus(a)}
+            </div>
+            <div class="mail-settings-grid">
+                <label>Название
+                    <input type="text" name="label" value="${escapeHtml(a.label)}" maxlength="60">
+                </label>
+                <label>Имя отправителя
+                    <input type="text" name="fromName" value="${escapeHtml(a.customFromName || '')}" placeholder="${escapeHtml(a.fromName || 'stud.kg')}" maxlength="100">
+                </label>
+                <label>${a.configured ? 'Новый пароль' : 'Пароль'}
+                    <input type="password" name="password" placeholder="${a.configured ? 'Оставьте пустым, чтобы не менять' : 'Пароль ящика'}" autocomplete="new-password">
+                </label>
+            </div>
+            <div class="mail-settings-actions">
+                <button type="submit" class="btn btn-primary btn-sm">Сохранить</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-mail-settings-act="test" ${a.configured ? '' : 'disabled'}>Проверить вход</button>
+                ${a.passwordSource === 'admin' ? '<button type="button" class="btn btn-secondary btn-sm" data-mail-settings-act="clear">Удалить пароль</button>' : ''}
+                <button type="button" class="btn btn-danger btn-sm" data-mail-settings-act="remove">Убрать ящик</button>
+                <span class="mail-settings-result"></span>
+            </div>
+        </form>`).join('');
+}
+
+async function reloadMailAccounts() {
+    const data = await mailApi('/accounts');
+    mailState.accounts = data.accounts || [];
+    const current = mailState.accounts.find((a) => a.id === mailState.account);
+    if (!current || !current.configured) {
+        mailState.account = null;
+        mailState.folder = 'INBOX';
+        mailState.page = 1;
+        mailState.current = null;
+    }
+    renderMailSettings();
+    await openAdminMail();
+}
+
+async function openMailSettings() {
+    const modal = document.getElementById('mailSettingsModal');
+    if (!modal) return;
+    renderMailSettings();
+    modal.style.display = 'block';
+    try {
+        const data = await mailApi('/accounts');
+        mailState.accounts = data.accounts || [];
+        renderMailSettings();
+    } catch (e) {
+        showNotification(e.message, 'error');
+    }
+}
+
+function setMailSettingsResult(form, text, ok) {
+    const el = form.querySelector('.mail-settings-result');
+    if (!el) return;
+    el.textContent = text;
+    el.className = `mail-settings-result ${ok === true ? 'ok' : ok === false ? 'fail' : ''}`;
+}
+
+async function submitMailAccountSettings(e) {
+    const form = e.target.closest('[data-mail-settings-id]');
+    if (!form) return;
+    e.preventDefault();
+    const id = form.dataset.mailSettingsId;
+    const payload = {
+        label: form.elements.label.value,
+        fromName: form.elements.fromName.value
+    };
+    const password = form.elements.password.value;
+    if (password) payload.password = password;
+
+    setMailSettingsResult(form, 'Сохранение...');
+    try {
+        await mailApi(`/accounts/${encodeURIComponent(id)}`, { method: 'PUT', json: payload });
+        showNotification('Настройки ящика сохранены', 'success');
+        await reloadMailAccounts();
+        if (password) {
+            const fresh = document.querySelector(`.mail-settings-item[data-mail-settings-id="${CSS.escape(id)}"]`);
+            if (fresh) await testMailAccountFromSettings(fresh, id);
+        }
+    } catch (err) {
+        setMailSettingsResult(form, err.message, false);
+    }
+}
+
+async function testMailAccountFromSettings(form, id) {
+    setMailSettingsResult(form, 'Проверяем вход...');
+    try {
+        const r = await mailApi(`/accounts/${encodeURIComponent(id)}/test`, { method: 'POST' });
+        if (r.imap && r.smtp) {
+            setMailSettingsResult(form, '✓ Вход работает (чтение и отправка)', true);
+        } else {
+            setMailSettingsResult(form, `✗ ${(r.errors || []).join('; ') || 'Не удалось войти'}`, false);
+        }
+    } catch (err) {
+        setMailSettingsResult(form, `✗ ${err.message}`, false);
+    }
+}
+
+async function handleMailSettingsClick(e) {
+    const btn = e.target.closest('[data-mail-settings-act]');
+    if (!btn) return;
+    const form = btn.closest('[data-mail-settings-id]');
+    const id = form?.dataset.mailSettingsId;
+    if (!id) return;
+    const act = btn.dataset.mailSettingsAct;
+
+    try {
+        if (act === 'test') {
+            await testMailAccountFromSettings(form, id);
+        } else if (act === 'clear') {
+            if (!confirm('Удалить сохранённый пароль этого ящика?')) return;
+            await mailApi(`/accounts/${encodeURIComponent(id)}`, { method: 'PUT', json: { clearPassword: true } });
+            showNotification('Пароль удалён', 'success');
+            await reloadMailAccounts();
+        } else if (act === 'remove') {
+            if (!confirm('Убрать ящик из админки? Сами письма на сервере не удалятся.')) return;
+            await mailApi(`/accounts/${encodeURIComponent(id)}`, { method: 'DELETE' });
+            showNotification('Ящик убран из админки', 'success');
+            await reloadMailAccounts();
+        }
+    } catch (err) {
+        setMailSettingsResult(form, err.message, false);
+    }
+}
+
+async function submitMailAddAccount(e) {
+    e.preventDefault();
+    const email = document.getElementById('mailAddEmail').value.trim();
+    const label = document.getElementById('mailAddLabel').value.trim();
+    const password = document.getElementById('mailAddPassword').value;
+    try {
+        const data = await mailApi('/accounts', { method: 'POST', json: { email, label, password: password || undefined } });
+        e.target.reset();
+        showNotification('Ящик добавлен', 'success');
+        await reloadMailAccounts();
+        if (password && data.account) {
+            const fresh = document.querySelector(`.mail-settings-item[data-mail-settings-id="${CSS.escape(data.account.id)}"]`);
+            if (fresh) await testMailAccountFromSettings(fresh, data.account.id);
+        }
+    } catch (err) {
+        showNotification(err.message, 'error');
+    }
+}
+
 // ---------- Инициализация ----------
 
 function initAdminMailEvents() {
@@ -580,13 +743,23 @@ function initAdminMailEvents() {
 
     document.getElementById('mailAccounts')?.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-mail-account]');
-        if (btn && !btn.disabled) selectMailAccount(btn.dataset.mailAccount);
+        if (!btn) return;
+        const account = mailState.accounts.find((a) => a.id === btn.dataset.mailAccount);
+        if (account && !account.configured) {
+            openMailSettings();
+            return;
+        }
+        selectMailAccount(btn.dataset.mailAccount);
     });
     document.getElementById('mailFolders')?.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-mail-folder]');
         if (btn) selectMailFolder(btn.dataset.mailFolder);
     });
     document.getElementById('mailList')?.addEventListener('click', (e) => {
+        if (e.target.closest('[data-mail-open-settings]')) {
+            openMailSettings();
+            return;
+        }
         const btn = e.target.closest('[data-mail-uid]');
         if (btn) openMailMessage(Number(btn.dataset.mailUid));
     });
@@ -626,6 +799,10 @@ function initAdminMailEvents() {
         refreshMailSummary();
     });
     document.getElementById('mailComposeBtn')?.addEventListener('click', () => openMailCompose('new'));
+    document.getElementById('mailSettingsBtn')?.addEventListener('click', openMailSettings);
+    document.getElementById('mailSettingsList')?.addEventListener('submit', submitMailAccountSettings);
+    document.getElementById('mailSettingsList')?.addEventListener('click', handleMailSettingsClick);
+    document.getElementById('mailAddAccountForm')?.addEventListener('submit', submitMailAddAccount);
     document.getElementById('mailComposeForm')?.addEventListener('submit', submitMailCompose);
     document.getElementById('mailComposeShowCc')?.addEventListener('click', () => setMailComposeRow('mailComposeCcRow', true));
     document.getElementById('mailComposeShowBcc')?.addEventListener('click', () => setMailComposeRow('mailComposeBccRow', true));
@@ -651,7 +828,13 @@ async function openAdminMail() {
 
     if (!mailState.account) {
         document.getElementById('mailFolders').innerHTML = '';
-        document.getElementById('mailList').innerHTML = '<div class="mail-error">Ни для одного ящика не задан пароль. Добавьте MAIL_PASS_SUPPORT, MAIL_PASS_INFO и т.д. в .env на сервере и перезапустите pm2.</div>';
+        document.getElementById('mailPagination').innerHTML = '';
+        renderMailViewEmpty();
+        document.getElementById('mailList').innerHTML = `
+            <div class="mail-empty">
+                Ни для одного ящика не задан пароль.<br><br>
+                <button type="button" class="btn btn-primary btn-sm" data-mail-open-settings>Указать пароли</button>
+            </div>`;
         return;
     }
 

@@ -48,37 +48,200 @@ function mailConfig() {
   };
 }
 
-function listAccounts() {
-  const { domain, fromName } = mailConfig();
+// ---------- Хранение ящиков (таблица Settings, пароли зашифрованы) ----------
+
+const SETTINGS_KEY = 'mailAccounts';
+let accountsCache = null;
+
+function cipherKey() {
+  const secret = process.env.MAIL_SECRET || process.env.JWT_SECRET;
+  if (!secret) throw httpError(500, 'Не задан JWT_SECRET — нечем шифровать пароли почты');
+  return crypto.createHash('sha256').update(`stud-mail:${secret}`).digest();
+}
+
+function encryptPassword(plain) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', cipherKey(), iv);
+  const enc = Buffer.concat([cipher.update(String(plain), 'utf8'), cipher.final()]);
+  return ['v1', iv.toString('base64'), cipher.getAuthTag().toString('base64'), enc.toString('base64')].join(':');
+}
+
+function decryptPassword(stored) {
+  if (!stored) return '';
+  try {
+    const [version, iv, tag, data] = String(stored).split(':');
+    if (version !== 'v1') return '';
+    const decipher = crypto.createDecipheriv('aes-256-gcm', cipherKey(), Buffer.from(iv, 'base64'));
+    decipher.setAuthTag(Buffer.from(tag, 'base64'));
+    return Buffer.concat([decipher.update(Buffer.from(data, 'base64')), decipher.final()]).toString('utf8');
+  } catch (error) {
+    console.error('Почта: не удалось расшифровать пароль (сменился JWT_SECRET?)');
+    return '';
+  }
+}
+
+function defaultStoredAccounts() {
+  const { domain } = mailConfig();
   return String(process.env.MAIL_ACCOUNTS || DEFAULT_ACCOUNTS)
     .split(',')
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean)
-    .map((id) => {
-      const key = envKey(id);
-      const pass = process.env[`MAIL_PASS_${key}`] || '';
-      return {
-        id,
-        email: process.env[`MAIL_USER_${key}`] || `${id}@${domain}`,
-        label: process.env[`MAIL_LABEL_${key}`] || ACCOUNT_LABELS[id] || id,
-        fromName: process.env[`MAIL_FROM_NAME_${key}`] || fromName,
-        configured: !!pass,
-        pass
-      };
-    });
+    .map((id) => ({
+      id,
+      email: process.env[`MAIL_USER_${envKey(id)}`] || `${id}@${domain}`,
+      label: process.env[`MAIL_LABEL_${envKey(id)}`] || ACCOUNT_LABELS[id] || id,
+      fromName: process.env[`MAIL_FROM_NAME_${envKey(id)}`] || '',
+      passEnc: ''
+    }));
+}
+
+async function readStoredAccounts() {
+  if (accountsCache) return accountsCache;
+  const { Setting } = require('../models');
+  const row = await Setting.findOne({ where: { key: SETTINGS_KEY } });
+  let list = null;
+  if (row && row.value) {
+    try {
+      const parsed = JSON.parse(row.value);
+      if (Array.isArray(parsed)) list = parsed;
+    } catch (_) { /* битый JSON — берём значения по умолчанию */ }
+  }
+  accountsCache = list || defaultStoredAccounts();
+  return accountsCache;
+}
+
+async function writeStoredAccounts(list) {
+  const { Setting } = require('../models');
+  const value = JSON.stringify(list);
+  const row = await Setting.findOne({ where: { key: SETTINGS_KEY } });
+  if (row) {
+    row.value = value;
+    row.updatedAt = new Date();
+    await row.save();
+  } else {
+    await Setting.create({ key: SETTINGS_KEY, value });
+  }
+  accountsCache = list;
+}
+
+async function listAccounts() {
+  const { fromName } = mailConfig();
+  const stored = await readStoredAccounts();
+  return stored.map((s) => {
+    const dbPass = decryptPassword(s.passEnc);
+    const envPass = process.env[`MAIL_PASS_${envKey(s.id)}`] || '';
+    const pass = dbPass || envPass;
+    return {
+      id: s.id,
+      email: s.email,
+      label: s.label || ACCOUNT_LABELS[s.id] || s.id,
+      fromName: s.fromName || fromName,
+      customFromName: s.fromName || '',
+      configured: !!pass,
+      passwordSource: dbPass ? 'admin' : (envPass ? 'env' : null),
+      pass
+    };
+  });
 }
 
 function publicAccount(a) {
-  return { id: a.id, email: a.email, label: a.label, fromName: a.fromName, configured: a.configured };
+  return {
+    id: a.id,
+    email: a.email,
+    label: a.label,
+    fromName: a.fromName,
+    customFromName: a.customFromName || '',
+    configured: a.configured,
+    passwordSource: a.passwordSource || null
+  };
 }
 
-function getAccount(id) {
-  const account = listAccounts().find((a) => a.id === String(id || '').toLowerCase());
+async function findAccount(id) {
+  const accounts = await listAccounts();
+  const account = accounts.find((a) => a.id === String(id || '').toLowerCase());
   if (!account) throw httpError(404, 'Почтовый ящик не найден');
+  return account;
+}
+
+async function getAccount(id) {
+  const account = await findAccount(id);
   if (!account.configured) {
-    throw httpError(400, `Пароль для ${account.email} не задан (MAIL_PASS_${envKey(account.id)} в .env)`);
+    throw httpError(400, `Пароль для ${account.email} не задан — укажите его в «Настройках ящиков»`);
   }
   return account;
+}
+
+function accountIdFromEmail(email) {
+  return String(email).split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '_');
+}
+
+async function saveAccount({ id, email, label, fromName, password, clearPassword } = {}) {
+  const stored = [...(await readStoredAccounts())];
+  let entry;
+
+  if (id) {
+    const idx = stored.findIndex((s) => s.id === String(id).toLowerCase());
+    if (idx === -1) throw httpError(404, 'Почтовый ящик не найден');
+    entry = { ...stored[idx] };
+    stored[idx] = entry;
+  } else {
+    const addr = String(email || '').trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)) throw httpError(400, 'Укажите корректный email ящика');
+    if (stored.some((s) => s.email.toLowerCase() === addr)) throw httpError(400, 'Такой ящик уже добавлен');
+    let newId = accountIdFromEmail(addr);
+    while (stored.some((s) => s.id === newId)) newId += '_';
+    entry = { id: newId, email: addr, label: '', fromName: '', passEnc: '' };
+    stored.push(entry);
+  }
+
+  if (label !== undefined) entry.label = String(label || '').trim().slice(0, 60);
+  if (fromName !== undefined) entry.fromName = String(fromName || '').trim().slice(0, 100);
+  if (clearPassword) entry.passEnc = '';
+  if (password) entry.passEnc = encryptPassword(password);
+
+  await writeStoredAccounts(stored);
+  return publicAccount((await listAccounts()).find((a) => a.id === entry.id));
+}
+
+async function removeAccount(id) {
+  const stored = await readStoredAccounts();
+  const next = stored.filter((s) => s.id !== String(id || '').toLowerCase());
+  if (next.length === stored.length) throw httpError(404, 'Почтовый ящик не найден');
+  await writeStoredAccounts(next);
+  return { ok: true };
+}
+
+async function testAccount(id) {
+  const account = await getAccount(id);
+  const cfg = mailConfig();
+  const result = { imap: false, smtp: false, errors: [] };
+
+  try {
+    await withImap(account, async () => true);
+    result.imap = true;
+  } catch (error) {
+    result.errors.push(`IMAP: ${error.message}`);
+  }
+
+  const transport = nodemailer.createTransport({
+    host: cfg.smtpHost,
+    port: cfg.smtpPort,
+    secure: cfg.smtpPort === 465,
+    requireTLS: cfg.smtpPort !== 465,
+    auth: { user: account.email, pass: account.pass },
+    tls: { rejectUnauthorized: cfg.rejectUnauthorized, servername: cfg.tlsServername },
+    connectionTimeout: 20000
+  });
+  try {
+    await transport.verify();
+    result.smtp = true;
+  } catch (error) {
+    result.errors.push(`SMTP: ${describeMailError(error, account).message}`);
+  } finally {
+    transport.close();
+  }
+
+  return result;
 }
 
 function describeMailError(error, account) {
@@ -150,7 +313,7 @@ async function findSpecialFolder(client, use, create = false) {
 }
 
 async function listFolders(accountId) {
-  const account = getAccount(accountId);
+  const account = await getAccount(accountId);
   return withImap(account, async (client) => {
     const list = await client.list({ statusQuery: { messages: true, unseen: true } });
     return list
@@ -186,7 +349,7 @@ function mapAddresses(list) {
 }
 
 async function listMessages(accountId, { folder = 'INBOX', page = 1, limit = 30, search = '', unseenOnly = false } = {}) {
-  const account = getAccount(accountId);
+  const account = await getAccount(accountId);
   const safeLimit = Math.min(Math.max(Number(limit) || 30, 5), 100);
   const safePage = Math.max(Number(page) || 1, 1);
   const q = String(search || '').trim();
@@ -273,7 +436,7 @@ function addressList(field) {
 }
 
 async function getMessage(accountId, folder, uid, { markSeen = true } = {}) {
-  const account = getAccount(accountId);
+  const account = await getAccount(accountId);
   return withImap(account, async (client) => {
     const lock = await client.getMailboxLock(folder || 'INBOX');
     try {
@@ -320,7 +483,7 @@ async function getMessage(accountId, folder, uid, { markSeen = true } = {}) {
 }
 
 async function getAttachment(accountId, folder, uid, index) {
-  const account = getAccount(accountId);
+  const account = await getAccount(accountId);
   return withImap(account, async (client) => {
     const lock = await client.getMailboxLock(folder || 'INBOX', { readOnly: true });
     try {
@@ -339,7 +502,7 @@ async function getAttachment(accountId, folder, uid, index) {
 }
 
 async function updateFlags(accountId, folder, uid, { seen, flagged } = {}) {
-  const account = getAccount(accountId);
+  const account = await getAccount(accountId);
   return withImap(account, async (client) => {
     const lock = await client.getMailboxLock(folder || 'INBOX');
     try {
@@ -356,7 +519,7 @@ async function updateFlags(accountId, folder, uid, { seen, flagged } = {}) {
 }
 
 async function deleteMessage(accountId, folder, uid) {
-  const account = getAccount(accountId);
+  const account = await getAccount(accountId);
   return withImap(account, async (client) => {
     const source = folder || 'INBOX';
     const trash = await findSpecialFolder(client, '\\Trash', true);
@@ -390,7 +553,7 @@ function textToHtml(text) {
 }
 
 async function sendMail(accountId, { to, cc, bcc, subject, text, inReplyTo, references, attachments = [], replyToUid, replyFolder }) {
-  const account = getAccount(accountId);
+  const account = await getAccount(accountId);
   const cfg = mailConfig();
   if (!String(to || '').trim()) throw httpError(400, 'Укажите получателя');
 
@@ -459,7 +622,7 @@ async function sendMail(accountId, { to, cc, bcc, subject, text, inReplyTo, refe
 }
 
 async function unreadSummary() {
-  const accounts = listAccounts();
+  const accounts = await listAccounts();
   return Promise.all(accounts.map(async (a) => {
     if (!a.configured) return { ...publicAccount(a), unseen: null, error: 'Пароль не задан' };
     try {
@@ -474,6 +637,9 @@ async function unreadSummary() {
 module.exports = {
   listAccounts,
   publicAccount,
+  saveAccount,
+  removeAccount,
+  testAccount,
   listFolders,
   listMessages,
   getMessage,

@@ -2530,9 +2530,9 @@ html.admin-html .modal .btn {
     background: var(--bg-secondary);
 }
 
-.mail-account:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+.mail-account.is-unconfigured {
+    opacity: 0.6;
+    border-style: dashed;
 }
 
 .mail-account.has-error .mail-account-email {
@@ -2857,6 +2857,120 @@ html.admin-html .modal .btn {
 
 .mail-compose-modal {
     max-width: 720px;
+}
+
+.mail-settings-modal {
+    max-width: 860px;
+}
+
+.mail-settings-hint {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin: 0 0 1rem;
+}
+
+.mail-settings-list {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.mail-settings-item,
+.mail-settings-add {
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: 0.85rem 1rem;
+    background: var(--bg-secondary);
+}
+
+.mail-settings-add {
+    margin-top: 1rem;
+}
+
+.mail-settings-add h3 {
+    margin: 0 0 0.6rem;
+    font-size: 0.95rem;
+}
+
+.mail-settings-item-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.6rem;
+}
+
+.mail-settings-status {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+}
+
+.mail-settings-status.ok {
+    background: rgba(16, 185, 129, 0.15);
+    color: #059669;
+}
+
+.mail-settings-status.missing {
+    background: rgba(220, 38, 38, 0.12);
+    color: #dc2626;
+}
+
+.mail-settings-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.6rem;
+    align-items: end;
+}
+
+.mail-settings-add .mail-settings-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+}
+
+.mail-settings-grid label {
+    display: grid;
+    gap: 0.25rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.mail-settings-grid input {
+    width: 100%;
+    padding: 0.5rem 0.6rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    background: var(--card-bg);
+    color: var(--text-color);
+    font-size: 0.88rem;
+}
+
+.mail-settings-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+    margin-top: 0.7rem;
+}
+
+.mail-settings-result {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
+.mail-settings-result.ok {
+    color: #059669;
+}
+
+.mail-settings-result.fail {
+    color: #dc2626;
+}
+
+@media (max-width: 760px) {
+    .mail-settings-grid,
+    .mail-settings-add .mail-settings-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 
 .mail-compose-modal input[type="text"],

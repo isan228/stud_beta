@@ -729,6 +729,7 @@
                     <div class="mail-topbar">
                         <div class="mail-accounts" id="mailAccounts"></div>
                         <div class="mail-topbar-actions">
+                            <button type="button" class="btn btn-secondary btn-sm" id="mailSettingsBtn">Настройки ящиков</button>
                             <button type="button" class="btn btn-secondary btn-sm" id="mailRefreshBtn">Обновить</button>
                             <button type="button" class="btn btn-primary btn-sm" id="mailComposeBtn">Написать</button>
                         </div>
@@ -2044,6 +2045,24 @@
                 </div>
                 <button type="submit" class="btn btn-primary">Загрузить</button>
                 <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="mailSettingsModal" class="modal" style="display: none;">
+        <div class="modal-content mail-settings-modal">
+            <span class="modal-close">&times;</span>
+            <h2>Настройки ящиков</h2>
+            <p class="mail-settings-hint">Пароль — тот же, что для входа в ящик в Thunderbird или на телефоне. Он хранится в базе в зашифрованном виде и не показывается после сохранения.</p>
+            <div id="mailSettingsList" class="mail-settings-list"></div>
+            <form id="mailAddAccountForm" class="mail-settings-add">
+                <h3>Добавить ящик</h3>
+                <div class="mail-settings-grid">
+                    <input type="email" id="mailAddEmail" placeholder="name@stud.kg" required>
+                    <input type="text" id="mailAddLabel" placeholder="Название (например, Бухгалтерия)">
+                    <input type="password" id="mailAddPassword" placeholder="Пароль ящика" autocomplete="new-password">
+                    <button type="submit" class="btn btn-primary btn-sm">Добавить</button>
+                </div>
             </form>
         </div>
     </div>

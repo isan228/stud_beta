@@ -31,8 +31,55 @@ function parseUid(value) {
   return Number.isFinite(uid) && uid > 0 ? uid : null;
 }
 
-router.get('/accounts', (req, res) => {
-  res.json({ accounts: mailbox.listAccounts().map(mailbox.publicAccount) });
+router.get('/accounts', async (req, res) => {
+  try {
+    const accounts = await mailbox.listAccounts();
+    res.json({ accounts: accounts.map(mailbox.publicAccount) });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+router.post('/accounts', async (req, res) => {
+  try {
+    const { email, label, fromName, password } = req.body || {};
+    res.json({ account: await mailbox.saveAccount({ email, label, fromName, password }) });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+router.put('/accounts/:id', async (req, res) => {
+  try {
+    const { label, fromName, password, clearPassword } = req.body || {};
+    res.json({
+      account: await mailbox.saveAccount({
+        id: req.params.id,
+        label,
+        fromName,
+        password,
+        clearPassword: clearPassword === true
+      })
+    });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+router.delete('/accounts/:id', async (req, res) => {
+  try {
+    res.json(await mailbox.removeAccount(req.params.id));
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+router.post('/accounts/:id/test', async (req, res) => {
+  try {
+    res.json(await mailbox.testAccount(req.params.id));
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
 router.get('/summary', async (req, res) => {
