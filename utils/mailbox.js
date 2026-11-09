@@ -1,5 +1,11 @@
 const crypto = require('crypto');
 const net = require('net');
+
+// imapflow обращается к globalThis.crypto, которого нет в Node.js < 19
+if (!globalThis.crypto && crypto.webcrypto) {
+  globalThis.crypto = crypto.webcrypto;
+}
+
 const { ImapFlow } = require('imapflow');
 const nodemailer = require('nodemailer');
 const MailComposer = require('nodemailer/lib/mail-composer');
@@ -260,18 +266,19 @@ function describeMailError(error, account) {
 
 async function withImap(account, fn) {
   const cfg = mailConfig();
-  const client = new ImapFlow({
-    host: cfg.imapHost,
-    port: cfg.imapPort,
-    secure: cfg.imapPort === 993,
-    auth: { user: account.email, pass: account.pass },
-    logger: false,
-    tls: { rejectUnauthorized: cfg.rejectUnauthorized, servername: cfg.tlsServername },
-    socketTimeout: 60000
-  });
-  // Без обработчика необработанное 'error' уронит процесс
-  client.on('error', (err) => console.error(`IMAP ${account.email}:`, err.message));
+  let client;
   try {
+    client = new ImapFlow({
+      host: cfg.imapHost,
+      port: cfg.imapPort,
+      secure: cfg.imapPort === 993,
+      auth: { user: account.email, pass: account.pass },
+      logger: false,
+      tls: { rejectUnauthorized: cfg.rejectUnauthorized, servername: cfg.tlsServername },
+      socketTimeout: 60000
+    });
+    // Без обработчика необработанное 'error' уронит процесс
+    client.on('error', (err) => console.error(`IMAP ${account.email}:`, err.message));
     await client.connect();
   } catch (error) {
     throw describeMailError(error, account);
