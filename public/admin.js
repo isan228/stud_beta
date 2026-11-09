@@ -173,7 +173,7 @@ function applyActorUiRestrictions() {
     // users + ugc: создание/управление аккаунтами (в т.ч. UGC) — только полный админ
     const fullAdminOnlyTabs = new Set([
         'dashboard', 'devices', 'loginMethods', 'analytics', 'audit', 'documents', 'schedule',
-        'users', 'ugc', 'subscriptions', 'promo', 'editors', 'news', 'messages', 'chats'
+        'users', 'ugc', 'subscriptions', 'promo', 'editors', 'news', 'messages', 'chats', 'mail'
     ]);
     document.querySelectorAll('.admin-tab[data-tab]').forEach((btn) => {
         const tab = btn.getAttribute('data-tab');
@@ -8299,6 +8299,9 @@ function switchTab(tabName, usmleSection) {
         stopAdminChatsPolling();
         stopAdminChatMessagesPolling();
     }
+    if (tabName !== 'mail' && typeof stopAdminMailPolling === 'function') {
+        stopAdminMailPolling();
+    }
 
     switch(tabName) {
         case 'dashboard':
@@ -8354,6 +8357,9 @@ function switchTab(tabName, usmleSection) {
             loadAdminBroadcastHistory();
             loadAdminChats();
             startAdminChatsPolling();
+            break;
+        case 'mail':
+            if (typeof openAdminMail === 'function') openAdminMail();
             break;
         case 'documents':
             loadDocumentsSettings();

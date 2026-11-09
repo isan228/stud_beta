@@ -206,6 +206,11 @@
                                 <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 6h10a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H9l-4 3V8a2 2 0 0 1 2-2Z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/><path d="M15 10h3a2 2 0 0 1 2 2v5l-2.5-1.8H15a2 2 0 0 1-2-2v-.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg></span>
                                 <span class="admin-tab-label">Чаты</span>
                             </button>
+                            <button type="button" class="admin-tab" data-tab="mail" data-title="Корпоративная почта">
+                                <span class="admin-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="m4 7 8 6 8-6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                                <span class="admin-tab-label">Почта</span>
+                                <span class="admin-mail-nav-badge" id="mailNavBadge" hidden></span>
+                            </button>
                         </div>
                     </nav>
 
@@ -716,6 +721,31 @@
                                 <button type="submit" class="btn btn-primary">Отправить</button>
                             </form>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Корпоративная почта -->
+                <div id="mailTab" class="admin-tab-content">
+                    <div class="mail-topbar">
+                        <div class="mail-accounts" id="mailAccounts"></div>
+                        <div class="mail-topbar-actions">
+                            <button type="button" class="btn btn-secondary btn-sm" id="mailRefreshBtn">Обновить</button>
+                            <button type="button" class="btn btn-primary btn-sm" id="mailComposeBtn">Написать</button>
+                        </div>
+                    </div>
+                    <div class="mail-layout" id="mailLayout">
+                        <aside class="mail-folders" id="mailFolders"></aside>
+                        <section class="mail-list-col">
+                            <div class="mail-list-toolbar">
+                                <input type="search" id="mailSearch" class="form-group input" placeholder="Поиск по теме, отправителю, тексту...">
+                                <label class="mail-unread-toggle"><input type="checkbox" id="mailUnreadOnly"> Непрочитанные</label>
+                            </div>
+                            <div id="mailList" class="mail-list"></div>
+                            <div id="mailPagination" class="mail-pagination"></div>
+                        </section>
+                        <section class="mail-view" id="mailView">
+                            <div class="mail-empty">Выберите письмо</div>
+                        </section>
                     </div>
                 </div>
 
@@ -2018,6 +2048,55 @@
         </div>
     </div>
 
+    <div id="mailComposeModal" class="modal" style="display: none;">
+        <div class="modal-content mail-compose-modal">
+            <span class="modal-close">&times;</span>
+            <h2 id="mailComposeTitle">Новое письмо</h2>
+            <form id="mailComposeForm">
+                <input type="hidden" id="mailComposeInReplyTo">
+                <input type="hidden" id="mailComposeReferences">
+                <input type="hidden" id="mailComposeReplyUid">
+                <input type="hidden" id="mailComposeReplyFolder">
+                <div class="form-group">
+                    <label for="mailComposeFrom">От кого</label>
+                    <select id="mailComposeFrom"></select>
+                </div>
+                <div class="form-group">
+                    <label for="mailComposeTo">Кому</label>
+                    <input type="text" id="mailComposeTo" placeholder="email@example.com, второй@example.com" required>
+                    <div class="mail-compose-extra-links">
+                        <button type="button" class="mail-link-btn" id="mailComposeShowCc">Копия</button>
+                        <button type="button" class="mail-link-btn" id="mailComposeShowBcc">Скрытая копия</button>
+                    </div>
+                </div>
+                <div class="form-group" id="mailComposeCcRow" hidden>
+                    <label for="mailComposeCc">Копия</label>
+                    <input type="text" id="mailComposeCc">
+                </div>
+                <div class="form-group" id="mailComposeBccRow" hidden>
+                    <label for="mailComposeBcc">Скрытая копия</label>
+                    <input type="text" id="mailComposeBcc">
+                </div>
+                <div class="form-group">
+                    <label for="mailComposeSubject">Тема</label>
+                    <input type="text" id="mailComposeSubject">
+                </div>
+                <div class="form-group">
+                    <label for="mailComposeBody">Сообщение</label>
+                    <textarea id="mailComposeBody" rows="12"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="mailComposeFiles">Вложения (до 10 файлов, по 20 МБ)</label>
+                    <input type="file" id="mailComposeFiles" multiple>
+                </div>
+                <div class="mail-compose-actions">
+                    <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
+                    <button type="submit" class="btn btn-primary" id="mailComposeSendBtn">Отправить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="uploadPreviewModal" class="modal" style="display: none;">
         <div class="modal-content upload-preview-modal">
             <span class="modal-close">&times;</span>
@@ -2609,6 +2688,7 @@
     <div id="notification" class="notification"></div>
     <script src="question-image-form.js"></script>
     <script src="admin.js"></script>
+    <script src="admin-mail.js"></script>
     <!-- app.js не нужен на странице админки, чтобы избежать конфликтов -->
 </body>
 </html>

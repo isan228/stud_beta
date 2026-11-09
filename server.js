@@ -82,6 +82,7 @@ app.use('/api', require('./routes/favorites'));
 app.use('/api', require('./routes/stats'));
 app.use('/api', require('./routes/contact'));
 app.use('/api/settings', require('./routes/settings'));
+app.use('/api/admin/mail', require('./routes/adminMail'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/redact', require('./routes/redact'));
 const createQuestionImageRouter = require('./routes/questionImageUpload');
