@@ -19,6 +19,7 @@
     <title>Админ-панель - stud.kg</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="admin-styles.css">
+    <link rel="stylesheet" href="admin-mail.css">
 </head>
 <body>
     <nav class="navbar admin-login-nav" id="adminTopNav">
@@ -726,28 +727,44 @@
 
                 <!-- Корпоративная почта -->
                 <div id="mailTab" class="admin-tab-content">
-                    <div class="mail-topbar">
-                        <div class="mail-accounts" id="mailAccounts"></div>
-                        <div class="mail-topbar-actions">
-                            <button type="button" class="btn btn-secondary btn-sm" id="mailSettingsBtn">Настройки ящиков</button>
-                            <button type="button" class="btn btn-secondary btn-sm" id="mailRefreshBtn">Обновить</button>
-                            <button type="button" class="btn btn-primary btn-sm" id="mailComposeBtn">Написать</button>
-                        </div>
-                    </div>
-                    <div class="mail-layout" id="mailLayout">
-                        <aside class="mail-folders" id="mailFolders"></aside>
+                    <div class="mail-app" id="mailLayout">
+                        <aside class="mail-sidebar">
+                            <button type="button" class="mail-compose-btn" id="mailComposeBtn" title="Написать (C)">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="m13.5 6.5 4 4" fill="none" stroke="currentColor" stroke-width="1.9"/></svg>
+                                <span>Написать</span>
+                            </button>
+                            <div class="mail-side-title">Ящики</div>
+                            <div class="mail-accounts" id="mailAccounts"></div>
+                            <div class="mail-side-title">Папки</div>
+                            <div class="mail-folders" id="mailFolders"></div>
+                            <button type="button" class="mail-side-link" id="mailSettingsBtn">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+                                <span>Настройки ящиков</span>
+                            </button>
+                        </aside>
                         <section class="mail-list-col">
                             <div class="mail-list-toolbar">
-                                <input type="search" id="mailSearch" class="form-group input" placeholder="Поиск по теме, отправителю, тексту...">
-                                <label class="mail-unread-toggle"><input type="checkbox" id="mailUnreadOnly"> Непрочитанные</label>
+                                <label class="mail-search">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
+                                    <input type="search" id="mailSearch" placeholder="Поиск в почте" autocomplete="off">
+                                </label>
+                                <button type="button" class="mail-icon-btn" id="mailRefreshBtn" title="Обновить">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                </button>
+                            </div>
+                            <div class="mail-list-filters">
+                                <button type="button" class="mail-chip active" data-mail-filter="all">Все</button>
+                                <button type="button" class="mail-chip" data-mail-filter="unread">Непрочитанные</button>
+                                <span class="mail-list-count" id="mailListCount"></span>
                             </div>
                             <div id="mailList" class="mail-list"></div>
                             <div id="mailPagination" class="mail-pagination"></div>
                         </section>
-                        <section class="mail-view" id="mailView">
-                            <div class="mail-empty">Выберите письмо</div>
-                        </section>
+                        <section class="mail-view" id="mailView"></section>
                     </div>
+                    <button type="button" class="mail-fab" id="mailFabCompose" aria-label="Написать письмо">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+                    </button>
                 </div>
 
                 <!-- Документы (оферта, политика конфиденциальности) -->
@@ -2069,48 +2086,51 @@
 
     <div id="mailComposeModal" class="modal" style="display: none;">
         <div class="modal-content mail-compose-modal">
-            <span class="modal-close">&times;</span>
-            <h2 id="mailComposeTitle">Новое письмо</h2>
+            <div class="mail-compose-head">
+                <h2 id="mailComposeTitle">Новое письмо</h2>
+                <span class="modal-close" title="Закрыть">&times;</span>
+            </div>
             <form id="mailComposeForm">
                 <input type="hidden" id="mailComposeInReplyTo">
                 <input type="hidden" id="mailComposeReferences">
                 <input type="hidden" id="mailComposeReplyUid">
                 <input type="hidden" id="mailComposeReplyFolder">
-                <div class="form-group">
-                    <label for="mailComposeFrom">От кого</label>
+                <div class="mail-compose-field">
+                    <label for="mailComposeFrom">От</label>
                     <select id="mailComposeFrom"></select>
                 </div>
-                <div class="form-group">
+                <div class="mail-compose-field">
                     <label for="mailComposeTo">Кому</label>
-                    <input type="text" id="mailComposeTo" placeholder="email@example.com, второй@example.com" required>
-                    <div class="mail-compose-extra-links">
+                    <input type="text" id="mailComposeTo" placeholder="email@example.com, через запятую" required autocomplete="off">
+                    <span class="mail-compose-toggles">
                         <button type="button" class="mail-link-btn" id="mailComposeShowCc">Копия</button>
-                        <button type="button" class="mail-link-btn" id="mailComposeShowBcc">Скрытая копия</button>
-                    </div>
+                        <button type="button" class="mail-link-btn" id="mailComposeShowBcc">Скрытая</button>
+                    </span>
                 </div>
-                <div class="form-group" id="mailComposeCcRow" hidden>
+                <div class="mail-compose-field" id="mailComposeCcRow" hidden>
                     <label for="mailComposeCc">Копия</label>
-                    <input type="text" id="mailComposeCc">
+                    <input type="text" id="mailComposeCc" autocomplete="off">
                 </div>
-                <div class="form-group" id="mailComposeBccRow" hidden>
-                    <label for="mailComposeBcc">Скрытая копия</label>
-                    <input type="text" id="mailComposeBcc">
+                <div class="mail-compose-field" id="mailComposeBccRow" hidden>
+                    <label for="mailComposeBcc">Скрытая</label>
+                    <input type="text" id="mailComposeBcc" autocomplete="off">
                 </div>
-                <div class="form-group">
+                <div class="mail-compose-field">
                     <label for="mailComposeSubject">Тема</label>
-                    <input type="text" id="mailComposeSubject">
+                    <input type="text" id="mailComposeSubject" autocomplete="off">
                 </div>
-                <div class="form-group">
-                    <label for="mailComposeBody">Сообщение</label>
-                    <textarea id="mailComposeBody" rows="12"></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="mailComposeFiles">Вложения (до 10 файлов, по 20 МБ)</label>
-                    <input type="file" id="mailComposeFiles" multiple>
-                </div>
-                <div class="mail-compose-actions">
-                    <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
-                    <button type="submit" class="btn btn-primary" id="mailComposeSendBtn">Отправить</button>
+                <textarea id="mailComposeBody" class="mail-compose-body" rows="14" placeholder="Текст письма"></textarea>
+                <div class="mail-compose-files" id="mailComposeFileList"></div>
+                <div class="mail-compose-footer">
+                    <button type="submit" class="btn btn-primary mail-send-btn" id="mailComposeSendBtn">Отправить</button>
+                    <label class="mail-icon-btn" title="Прикрепить файлы (до 10 по 20 МБ)">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20 11.5-7.8 7.8a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <input type="file" id="mailComposeFiles" multiple hidden>
+                    </label>
+                    <span class="mail-compose-hint">Ctrl + Enter — отправить</span>
+                    <button type="button" class="mail-icon-btn modal-cancel" title="Отменить">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
                 </div>
             </form>
         </div>
